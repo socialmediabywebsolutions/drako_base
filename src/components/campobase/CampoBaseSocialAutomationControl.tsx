@@ -128,6 +128,13 @@ function postStatusLabel(status: string): string {
   return POST_STATUS_LABELS[status] ?? status;
 }
 
+function countActiveAgents(agents: AgentControlCenterAgent[]): number {
+  return agents.filter((agent) => {
+    const variant = agentStatusBadge(agent);
+    return variant === "ok" || variant === "warn";
+  }).length;
+}
+
 export default function CampoBaseSocialAutomationControl() {
   const [status, setStatus] = useState<CampoBaseSocialAutomationStatusOutput | null>(null);
   const [selectedScope, setSelectedScope] = useState<{ tenantId: string; saasId: string } | null>(null);
@@ -140,6 +147,7 @@ export default function CampoBaseSocialAutomationControl() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [openAgentKey, setOpenAgentKey] = useState<string | null>(null);
 
   const loadObservability = useCallback(async (scope: { tenantId: string; saasId: string }) => {
     setSelectedScope(scope);
@@ -299,37 +307,6 @@ export default function CampoBaseSocialAutomationControl() {
 
   return (
     <div className="space-y-6 p-6">
-      <Card
-        tone="glass"
-        title="Operator Social Automation"
-        subtitle="Control de automatización social por SaaS"
-        right={status ? `${status.total} saas registrados` : "Control interno"}
-        actions={(
-          <Button
-            variant="brand"
-            loading={busyKey === "run_all"}
-            onClick={() => void runAction("run_all")}
-          >
-            Run All
-          </Button>
-        )}
-      >
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Total</p>
-            <p className="mt-2 text-3xl font-semibold text-slate-900">{status?.total ?? 0}</p>
-          </div>
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-emerald-700">Activos</p>
-            <p className="mt-2 text-3xl font-semibold text-emerald-900">{status?.enabled ?? 0}</p>
-          </div>
-          <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-rose-700">Inactivos</p>
-            <p className="mt-2 text-3xl font-semibold text-rose-900">{status?.disabled ?? 0}</p>
-          </div>
-        </div>
-      </Card>
-
       {message ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           {message}
@@ -341,175 +318,6 @@ export default function CampoBaseSocialAutomationControl() {
           {error}
         </div>
       ) : null}
-
-      <Card tone="default" title="SaaS registrados" subtitle="Estado actual y configuración base">
-        {loading ? (
-          <p className="text-sm text-slate-500">Cargando control...</p>
-        ) : !status || status.items.length === 0 ? (
-          <EmptyState
-            title="Sin SaaS registrados"
-            subtitle="El registro de automatización social todavía no tiene elementos disponibles."
-          />
-        ) : (
-          <TableWrap>
-            <Table>
-              <THead>
-                <tr>
-                  <TH className="px-4 py-3 text-left">Tenant</TH>
-                  <TH className="px-4 py-3 text-left">SaaS</TH>
-                  <TH className="px-4 py-3 text-left">Estado</TH>
-                  <TH className="px-4 py-3 text-left">Niche</TH>
-                  <TH className="px-4 py-3 text-left">Tone</TH>
-                  <TH className="px-4 py-3 text-left">Freq/Week</TH>
-                  <TH className="px-4 py-3 text-left">Updated</TH>
-                  <TH className="px-4 py-3 text-left">Acciones</TH>
-                </tr>
-              </THead>
-              <TBody>
-                {status.items.map((item) => (
-                  <tr key={`${item.tenantId}:${item.saasId}`} className="border-b border-slate-100 last:border-b-0">
-                    <TD className="px-4 py-3 text-sm text-slate-700">{item.tenantId}</TD>
-                    <TD className="px-4 py-3 text-sm font-semibold text-slate-900">{item.saasId}</TD>
-                    <TD className="px-4 py-3">
-                      <Badge variant={item.enabled ? "ok" : "err"}>
-                        {item.enabled ? "Activo" : "Inactivo"}
-                      </Badge>
-                    </TD>
-                    <TD className="px-4 py-3 text-sm text-slate-700">{item.niche}</TD>
-                    <TD className="px-4 py-3 text-sm text-slate-700">{item.tone}</TD>
-                    <TD className="px-4 py-3 text-sm text-slate-700">{item.frequencyPerWeek}</TD>
-                    <TD className="px-4 py-3 text-sm text-slate-700">{formatDate(item.updatedAt)}</TD>
-                    <TD className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          loading={observabilityLoading && selectedScope?.tenantId === item.tenantId && selectedScope.saasId === item.saasId}
-                          onClick={() => void loadObservability({ tenantId: item.tenantId, saasId: item.saasId })}
-                        >
-                          Ver salud
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          loading={busyKey === `enable:${item.tenantId}:${item.saasId}`}
-                          disabled={item.enabled}
-                          onClick={() => void runAction("enable", { tenantId: item.tenantId, saasId: item.saasId })}
-                        >
-                          Enable
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          loading={busyKey === `disable:${item.tenantId}:${item.saasId}`}
-                          disabled={!item.enabled}
-                          onClick={() => void runAction("disable", { tenantId: item.tenantId, saasId: item.saasId })}
-                        >
-                          Disable
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          loading={busyKey === `run_one:${item.tenantId}:${item.saasId}`}
-                          disabled={!item.enabled}
-                          onClick={() => void runAction("run_one", { tenantId: item.tenantId, saasId: item.saasId })}
-                        >
-                          Run
-                        </Button>
-                      </div>
-                    </TD>
-                  </tr>
-                ))}
-              </TBody>
-            </Table>
-          </TableWrap>
-        )}
-      </Card>
-
-      <Card
-        tone="default"
-        title="Nivel 3 — Cerebro Socialcors"
-        subtitle="Tendencias disparadas por el conector (socialcors_trend_triggers)"
-        right={`${trendTriggers.length} registro(s)`}
-      >
-        <div className="mb-6 grid gap-4 md:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Señal {trendTriggerHealth?.niche ?? "marketing"}</p>
-            <p className="mt-2 text-xl font-semibold text-slate-900">{formatAgeHours(trendTriggerHealth?.trendSignalAgeHours ?? null)}</p>
-            <div className="mt-3">
-              <Badge variant={trendSignalFreshnessBadge(trendTriggerHealth?.trendSignalAgeHours ?? null)}>
-                {trendTriggerHealth?.trendLastFetchedAt ? "trendSignals" : "sin datos"}
-              </Badge>
-            </div>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Atascados en TRIGGERED</p>
-            <p className="mt-2 text-3xl font-semibold text-slate-900">{trendTriggerHealth?.stuckTriggeredCount ?? 0}</p>
-            <div className="mt-3">
-              <Badge variant={(trendTriggerHealth?.stuckTriggeredCount ?? 0) > 0 ? "err" : "ok"}>
-                {(trendTriggerHealth?.stuckTriggeredCount ?? 0) > 0 ? "requiere revisión" : "ok"}
-              </Badge>
-            </div>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">En cola delante</p>
-            <p className="mt-2 text-3xl font-semibold text-slate-900">{trendTriggerHealth?.nichesAheadInQueue ?? "—"}</p>
-            <p className="mt-3 text-xs text-slate-500">nichos con turno anterior en TrendKeywordAgent</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Último score calculado</p>
-            <p className="mt-2 text-3xl font-semibold text-slate-400">—</p>
-            <p className="mt-3 text-xs text-slate-500">disponible tras el primer disparo</p>
-          </div>
-        </div>
-
-        {trendTriggers.length === 0 ? (
-          <EmptyState
-            title="Sin tendencias disparadas todavía"
-            subtitle="El conector sigue esperando que una tendencia supere el umbral de score configurado."
-          />
-        ) : (
-          <TableWrap>
-            <Table>
-              <THead>
-                <tr>
-                  <TH className="px-4 py-3 text-left">Tendencia (niche)</TH>
-                  <TH className="px-4 py-3 text-left">Score</TH>
-                  <TH className="px-4 py-3 text-left">Estado</TH>
-                  <TH className="px-4 py-3 text-left">Detectado</TH>
-                  <TH className="px-4 py-3 text-left">Post generado</TH>
-                </tr>
-              </THead>
-              <TBody>
-                {trendTriggers.map((trigger) => (
-                  <tr key={trigger.id} className="border-b border-slate-100 last:border-b-0">
-                    <TD className="px-4 py-3 text-sm font-semibold text-slate-900">{trigger.niche}</TD>
-                    <TD className="px-4 py-3 text-sm text-slate-700">{trigger.score}</TD>
-                    <TD className="px-4 py-3">
-                      <Badge variant={trendTriggerBadge(trigger.status)}>{trigger.status}</Badge>
-                    </TD>
-                    <TD className="px-4 py-3 text-sm text-slate-700">{formatDate(trigger.createdAt)}</TD>
-                    <TD className="px-4 py-3 text-sm text-slate-700">
-                      {trigger.post ? (
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium text-slate-900">{trigger.post.title}</span>
-                          <span className="flex items-center gap-2 text-xs text-slate-500">
-                            <Badge variant={healthBadge(trigger.post.status)}>{postStatusLabel(trigger.post.status)}</Badge>
-                            {trigger.post.provider}
-                            {trigger.post.postedAt ? ` · publicado ${formatDate(trigger.post.postedAt)}` : ""}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400">Sin post asociado</span>
-                      )}
-                    </TD>
-                  </tr>
-                ))}
-              </TBody>
-            </Table>
-          </TableWrap>
-        )}
-      </Card>
 
       <Card
         tone="default"
@@ -525,10 +333,22 @@ export default function CampoBaseSocialAutomationControl() {
           <div className="space-y-8">
             {agentControlCenter.map((group) => (
               <div key={group.key}>
-                <h3 className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-slate-400">{group.titleEs}</h3>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{group.titleEs}</h3>
+                  <span className="text-xs font-semibold text-slate-500">
+                    {countActiveAgents(group.agents)} de {group.agents.length} activos
+                  </span>
+                </div>
                 <div className="grid gap-3 lg:grid-cols-2">
                   {group.agents.map((agent) => (
-                    <AgentControlCard key={agent.key} agent={agent} />
+                    <AgentControlAccordionItem
+                      key={agent.key}
+                      agent={agent}
+                      isOpen={openAgentKey === agent.key}
+                      onToggle={() =>
+                        setOpenAgentKey((prev) => (prev === agent.key ? null : agent.key))
+                      }
+                    />
                   ))}
                 </div>
               </div>
@@ -540,51 +360,75 @@ export default function CampoBaseSocialAutomationControl() {
   );
 }
 
-function AgentControlCard({ agent }: { agent: AgentControlCenterAgent }) {
+function AgentControlAccordionItem({
+  agent,
+  isOpen,
+  onToggle,
+}: {
+  agent: AgentControlCenterAgent;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/80 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">{agent.nameEs}</p>
-          <p className="text-[10px] uppercase tracking-wider text-slate-400">{agent.key}</p>
-        </div>
-        <Badge variant={agentStatusBadge(agent)}>{agentStatusLabel(agent)}</Badge>
-      </div>
-
-      <p className="mt-3 text-xs text-slate-500">
-        <span className="font-semibold text-slate-600">Flujo: </span>
-        {agent.flow}
-      </p>
-
-      <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
-        <p className="text-[10px] uppercase tracking-wider text-slate-400">Contenido real</p>
-        <p className="mt-1 text-sm text-slate-800">{agent.contentSummary}</p>
-        {agent.contentAt ? (
-          <p className="mt-1 text-xs text-slate-500">
-            {formatDate(agent.contentAt)}
-            {agent.contentTenantId ? ` · tenant ${agent.contentTenantId}` : ""}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span className="text-slate-500">Última ejecución (agent_execution_log)</span>
-        {agent.lastRun ? (
-          <span className="flex items-center gap-2">
-            <Badge variant={runStatusBadge(agent.lastRun.status)}>{runStatusLabel(agent.lastRun.status)}</Badge>
-            <span className="text-slate-500">
-              {formatDate(agent.lastRun.startedAt)}
-              {agent.lastRun.rowsWritten !== null ? ` · ${agent.lastRun.rowsWritten} fila(s)` : ""}
-            </span>
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white/80">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className="flex w-full flex-wrap items-center justify-between gap-2 p-4 text-left"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span className={`text-slate-400 transition-transform ${isOpen ? "rotate-90" : ""}`}>›</span>
+          <span className="truncate text-sm font-semibold text-slate-900">{agent.nameEs}</span>
+        </span>
+        <span className="flex items-center gap-3 text-xs text-slate-500">
+          <Badge variant={agentStatusBadge(agent)}>{agentStatusLabel(agent)}</Badge>
+          <span>
+            {agent.lastRun ? formatDate(agent.lastRun.startedAt) : "Sin ejecuciones registradas"}
           </span>
-        ) : (
-          <span className="text-slate-400">Sin ejecuciones registradas</span>
-        )}
-      </div>
-      {agent.lastRun?.errorMessage ? (
-        <p className="mt-2 text-xs text-rose-700">{agent.lastRun.errorMessage}</p>
+        </span>
+      </button>
+
+      {isOpen ? (
+        <div className="border-t border-slate-100 p-4 pt-3">
+          <p className="text-[10px] uppercase tracking-wider text-slate-400">{agent.key}</p>
+
+          <p className="mt-3 text-xs text-slate-500">
+            <span className="font-semibold text-slate-600">Flujo: </span>
+            {agent.flow}
+          </p>
+
+          <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-slate-400">Contenido real</p>
+            <p className="mt-1 text-sm text-slate-800">{agent.contentSummary}</p>
+            {agent.contentAt ? (
+              <p className="mt-1 text-xs text-slate-500">
+                {formatDate(agent.contentAt)}
+                {agent.contentTenantId ? ` · tenant ${agent.contentTenantId}` : ""}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="text-slate-500">Última ejecución (agent_execution_log)</span>
+            {agent.lastRun ? (
+              <span className="flex items-center gap-2">
+                <Badge variant={runStatusBadge(agent.lastRun.status)}>{runStatusLabel(agent.lastRun.status)}</Badge>
+                <span className="text-slate-500">
+                  {formatDate(agent.lastRun.startedAt)}
+                  {agent.lastRun.rowsWritten !== null ? ` · ${agent.lastRun.rowsWritten} fila(s)` : ""}
+                </span>
+              </span>
+            ) : (
+              <span className="text-slate-400">Sin ejecuciones registradas</span>
+            )}
+          </div>
+          {agent.lastRun?.errorMessage ? (
+            <p className="mt-2 text-xs text-rose-700">{agent.lastRun.errorMessage}</p>
+          ) : null}
+          {agent.note ? <p className="mt-2 text-xs text-slate-400">{agent.note}</p> : null}
+        </div>
       ) : null}
-      {agent.note ? <p className="mt-2 text-xs text-slate-400">{agent.note}</p> : null}
     </div>
   );
 }
