@@ -65,6 +65,19 @@ type ActionCard = {
   message: string;
 };
 
+// Misma forma que ViralThemeCard en /api/socialflow/ai/chat/route.ts — las 3
+// tarjetas de tema viral del nuevo flujo "¿Qué creo hoy?" (PASO 2), cada una con un
+// formatoRecomendado distinto.
+type ViralThemeFormat = "post" | "carrusel" | "reel" | "historia";
+
+type ViralThemeCard = {
+  tema: string;
+  porqueViral: string;
+  formatoRecomendado: ViralThemeFormat;
+  piezas: number;
+  hashtags: string[];
+};
+
 type Message = {
   id: string;
   role: "user" | "bot";
@@ -367,6 +380,83 @@ function BrainInsightsPanel({ insights }: { insights: BrainInsights }) {
           <p className="mt-1 text-sm leading-relaxed text-white/80">{insights.strategicPlan}</p>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ViralThemeCards — PASO 3 del nuevo flujo "¿Qué creo hoy?": las 3 tarjetas de tema
+// viral se muestran antes que cualquier otra cosa en el chat, reemplazando los
+// botones fijos de antes.
+// ---------------------------------------------------------------------------
+
+const VIRAL_FORMAT_LABEL: Record<ViralThemeFormat, string> = {
+  post: "POST",
+  carrusel: "CARRUSEL",
+  reel: "REEL",
+  historia: "HISTORIA",
+};
+
+function ViralThemeCards({
+  themes,
+  loading,
+  onCreate,
+}: {
+  themes: ViralThemeCard[];
+  loading: boolean;
+  onCreate: (theme: ViralThemeCard) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="px-4 pb-8 md:px-8">
+        <div className="flex items-center gap-1.5 pt-1">
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:0ms]" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:150ms]" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:300ms]" />
+        </div>
+      </div>
+    );
+  }
+
+  if (themes.length === 0) return null;
+
+  return (
+    <div className="px-4 pb-8 md:px-8">
+      <p className="mb-3 text-sm font-medium text-white/50">🔥 Temas virales de tu nicho ahora mismo</p>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        {themes.map((theme, i) => (
+          <div
+            key={`${i}-${theme.tema}`}
+            className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/5 p-4"
+          >
+            <div>
+              <span className="inline-block rounded-full bg-violet-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-300">
+                {VIRAL_FORMAT_LABEL[theme.formatoRecomendado]}
+              </span>
+              <p className="mt-2 text-base font-semibold leading-snug text-white">{theme.tema}</p>
+              <p className="mt-2 text-xs leading-relaxed text-white/60">
+                Por qué es viral ahora: {theme.porqueViral}
+              </p>
+              {theme.hashtags.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {theme.hashtags.map((h, hi) => (
+                    <span key={`${hi}-${h}`} className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/70">
+                      {h}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => onCreate(theme)}
+              className="mt-4 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+            >
+              Crear este contenido
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -845,29 +935,20 @@ function PostModal({
 // Main page
 // ---------------------------------------------------------------------------
 
-const WELCOME_CARDS: ActionCard[] = [
-  { icon: "🔥", label: "Ver qué está viral en mi nicho ahora", message: "Ver qué está viral en mi nicho ahora" },
-  { icon: "💡", label: "Dame 3 ideas para crear hoy", message: "Dame 3 ideas para crear hoy" },
-  // El texto que se envía (no el label visible) evita a propósito las palabras de
-  // GENERATE_KEYWORDS_ES ("crea"/"crear") — si no, estas dos tarjetas disparaban una
-  // campaña semanal completa en vez de la intención "ideas" (una sola pieza puntual).
-  { icon: "🎬", label: "Crear un vídeo con guion incluido", message: "dame ideas para un vídeo viral hoy" },
-  { icon: "📸", label: "Crear una imagen con texto", message: "dame ideas para una imagen con texto hoy" },
-];
-
 export default function SocialFlowAIPage() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "bot",
-      content: "Hola, soy tu asistente creativo. He cargado tu Knowledge Base y perfil de marca.\n\n¿Qué creamos hoy?",
-      actionCards: WELCOME_CARDS,
+      content: "Hola, soy tu asistente creativo. He cargado tu Knowledge Base y perfil de marca.",
     },
   ]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [lastIdeas, setLastIdeas] = useState<IdeaSuggestion[] | null>(null);
+  const [viralThemes, setViralThemes] = useState<ViralThemeCard[]>([]);
+  const [viralThemesLoading, setViralThemesLoading] = useState(true);
   const [regenLoading, setRegenLoading] = useState<Set<string>>(new Set());
   const [publishingMsgId, setPublishingMsgId] = useState<string | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
@@ -878,6 +959,47 @@ export default function SocialFlowAIPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+
+  // PASO 1 del nuevo flujo "¿Qué creo hoy?" — al cargar el chat, pide al backend las
+  // 3 tarjetas de tema viral (temas + formato recomendado) construidas con los datos
+  // reales del Cerebro para este tenant. Reemplaza los botones fijos de antes.
+  useEffect(() => {
+    async function loadViralThemes() {
+      try {
+        const res = await fetch("/api/socialflow/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ saasId: "socialflow", viralThemes: true }),
+        });
+        const json = (await res.json().catch(() => null)) as { ok: boolean; themes?: ViralThemeCard[] } | null;
+        setViralThemes(json?.ok ? (json.themes ?? []) : []);
+      } catch {
+        setViralThemes([]);
+      } finally {
+        setViralThemesLoading(false);
+      }
+    }
+    void loadViralThemes();
+  }, []);
+
+  // PASO 4 — "Crear este contenido" lleva al flujo existente de creación para el
+  // formato recomendado, con el tema (y piezas, para carrusel) precargados.
+  function handleCreateFromTheme(theme: ViralThemeCard) {
+    const topic = encodeURIComponent(theme.tema);
+    if (theme.formatoRecomendado === "carrusel") {
+      router.push(`/socialflow/carrusel/subir?topic=${topic}&piezas=${theme.piezas}`);
+      return;
+    }
+    if (theme.formatoRecomendado === "reel") {
+      router.push(`/socialflow/publicar/reel?topic=${topic}`);
+      return;
+    }
+    if (theme.formatoRecomendado === "historia") {
+      router.push(`/socialflow/publicar/historia?topic=${topic}`);
+      return;
+    }
+    router.push(`/socialflow/publicar/post?topic=${topic}`);
+  }
 
   // Load last ACTIVE or GENERATING campaign on mount
   useEffect(() => {
@@ -1443,6 +1565,7 @@ export default function SocialFlowAIPage() {
       {/* Messages — scrollable */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="py-8">
+          <ViralThemeCards themes={viralThemes} loading={viralThemesLoading} onCreate={handleCreateFromTheme} />
           {messages.map((msg) => {
             const approvedPosts = msg.posts?.filter((p) => p.status === "APPROVED") ?? [];
             const canPublish = approvedPosts.length > 0 && msg.generatingStatus === "done";

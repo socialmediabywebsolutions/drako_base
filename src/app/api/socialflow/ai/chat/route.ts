@@ -49,6 +49,22 @@ type IdeaSuggestion = {
   trendingKeywords?: string[];
 };
 
+// Nuevo flujo "¿Qué creo hoy?" (ver PASO 1-4): tarjetas de tema viral con formato
+// recomendado, generadas al cargar el chat — reemplaza la UI de botones fijos por
+// contenido real del Cerebro. "historia" es un formato válido aquí aunque no exista
+// en IdeaFormat (ese tipo es del flujo de ideas anterior, que se deja intacto).
+type ViralThemeFormat = "post" | "carrusel" | "reel" | "historia";
+
+const VIRAL_THEME_FORMATS: readonly ViralThemeFormat[] = ["post", "carrusel", "reel", "historia"];
+
+type ViralThemeCard = {
+  tema: string;
+  porqueViral: string;
+  formatoRecomendado: ViralThemeFormat;
+  piezas: number;
+  hashtags: string[];
+};
+
 type DateRange = {
   startDate: string;
   endDate: string;
@@ -808,6 +824,134 @@ Cada "whyViral" debe citar un dato real de arriba (una cifra de engagement, cuá
   return { reply: formatIdeasReply(fallbackIdeas), ideas: fallbackIdeas, brainInsights };
 }
 
+// Fallback determinista para PASO 2 — mismos datos reales que ya carga
+// loadNicheDataForIdeas (nunca inventa temas): momentos virales primero (ya vienen con
+// ángulo sugerido real), luego hooks/temas sonando ahora, luego hooks con engagement
+// medido. 3 formatos distintos fijos para no repetir formato sin depender del LLM.
+const FALLBACK_VIRAL_FORMATS: readonly ViralThemeFormat[] = ["reel", "carrusel", "post"];
+
+function buildFallbackViralThemes(data: NicheDataForIdeas, niche: string): ViralThemeCard[] {
+  const candidateTopics = [
+    ...data.viralMoments.map((m) => ({ tema: m.topic, porqueViral: m.suggestedAngle })),
+    ...data.trendHooks.map((hook) => ({ tema: hook, porqueViral: `Está sonando ahora mismo en el nicho "${niche}", según las señales de tendencia reales.` })),
+    ...data.topEngagementHooks.map((h) => ({
+      tema: h.hook,
+      porqueViral: `Engagement medio de ${h.avgEngagement} en tu nicho, reportado por ${h.tenantsReporting} cuentas reales.`,
+    })),
+  ];
+
+  const seenTemas = new Set<string>();
+  const uniqueTopics = candidateTopics.filter(({ tema }) => {
+    if (seenTemas.has(tema)) return false;
+    seenTemas.add(tema);
+    return true;
+  }).slice(0, 3);
+
+  const hashtags = data.hashtags.slice(0, 5);
+
+  return uniqueTopics.map(({ tema, porqueViral }, i) => {
+    const formatoRecomendado = FALLBACK_VIRAL_FORMATS[i] ?? "post";
+    return {
+      tema,
+      porqueViral,
+      formatoRecomendado,
+      piezas: formatoRecomendado === "carrusel" ? 3 : 1,
+      hashtags,
+    };
+  });
+}
+
+// PASO 1-2 del nuevo flujo "¿Qué creo hoy?" — reutiliza el mismo snapshot del Cerebro
+// que loadNicheDataForIdeas ya carga (trendSignals, viral_moments, hashtag_intelligence,
+// strategic_plan) y le pide al LLM exactamente 3 tarjetas de tema viral con formato
+// recomendado, sin repetir formato entre las 3.
+async function buildViralThemes(
+  niche: string,
+  dracoEnv: ReturnType<typeof env>,
+  tenantId: string,
+  saasId: string,
+  accountType: "influencer" | "empresa",
+): Promise<ViralThemeCard[]> {
+  const data = await loadNicheDataForIdeas(niche, dracoEnv, tenantId, saasId, accountType).catch(() => null);
+  if (!data) return [];
+
+  if (dracoEnv?.AI) {
+    try {
+      const dataBlock = formatNicheDataForPrompt(data);
+      const hashtagsLine = data.hashtags.length ? `Hashtags reales de este nicho: ${data.hashtags.join(" ")}` : "";
+      const viralMomentsLine = data.viralMoments.length
+        ? `Momentos virales detectados ahora mismo en el nicho:\n${data.viralMoments.map((m) => `- "${m.topic}" (${m.suggestedAngle})`).join("\n")}`
+        : "";
+      const strategicLine = data.strategicPlan?.keyOpportunity ? `Oportunidad clave del plan estratégico del mes: ${data.strategicPlan.keyOpportunity}` : "";
+
+      const prompt = `Eres un estratega de contenido viral. Con estos datos REALES del nicho y la cuenta (nunca inventes datos que no estén aquí):
+
+${dataBlock}
+${hashtagsLine}
+${viralMomentsLine ? `\n${viralMomentsLine}\n` : ""}${strategicLine}
+
+Propón exactamente 3 temas virales concretos para hoy. Cada uno debe llevar un "formatoRecomendado" DISTINTO a los otros dos — nunca repitas formato — elegido entre "post", "carrusel", "reel", "historia" (usa 3 de estos 4, el que mejor encaje con cada tema).
+
+Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
+{"temas": [{"tema": "...", "porqueViral": "...", "formatoRecomendado": "post"|"carrusel"|"reel"|"historia", "piezas": <entero>, "hashtags": ["...", "..."]}]}
+
+Reglas:
+- "piezas" es el número de piezas del carrusel (entre 2 y 8) SOLO cuando formatoRecomendado es "carrusel" — para cualquier otro formato, piezas debe ser 1.
+- "hashtags": entre 3 y 5 hashtags reales tomados de los datos de arriba, específicos para ese tema — nunca inventados.
+- "porqueViral" debe citar un dato real de arriba (un momento viral, un hook sonando ahora, o una cifra de engagement). Responde todo en español.`;
+
+      const result = (await dracoEnv.AI.run("@cf/meta/llama-3.1-70b-instruct", {
+        messages: [{ role: "user", content: prompt }],
+      })) as { response?: string };
+
+      const raw = result?.response?.trim() ?? "";
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]) as { temas?: unknown };
+        if (Array.isArray(parsed.temas)) {
+          const seenFormats = new Set<ViralThemeFormat>();
+          const themes: ViralThemeCard[] = [];
+          for (const rawTema of parsed.temas) {
+            if (!rawTema || typeof rawTema !== "object") continue;
+            const t = rawTema as Record<string, unknown>;
+            const formatoRecomendado = t.formatoRecomendado;
+            if (
+              typeof t.tema !== "string" ||
+              typeof t.porqueViral !== "string" ||
+              typeof formatoRecomendado !== "string" ||
+              !VIRAL_THEME_FORMATS.includes(formatoRecomendado as ViralThemeFormat) ||
+              seenFormats.has(formatoRecomendado as ViralThemeFormat)
+            ) {
+              continue;
+            }
+            seenFormats.add(formatoRecomendado as ViralThemeFormat);
+            const hashtags = Array.isArray(t.hashtags)
+              ? t.hashtags.filter((h): h is string => typeof h === "string").slice(0, 5)
+              : [];
+            const piezas =
+              formatoRecomendado === "carrusel" && typeof t.piezas === "number" && t.piezas >= 2
+                ? Math.min(Math.round(t.piezas), 8)
+                : 1;
+            themes.push({
+              tema: t.tema,
+              porqueViral: t.porqueViral,
+              formatoRecomendado: formatoRecomendado as ViralThemeFormat,
+              piezas,
+              hashtags,
+            });
+            if (themes.length === 3) break;
+          }
+          if (themes.length === 3) return themes;
+        }
+      }
+    } catch {
+      // cae al fallback determinista de abajo — nunca deja al usuario sin tarjetas
+    }
+  }
+
+  return buildFallbackViralThemes(data, niche);
+}
+
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
@@ -833,13 +977,24 @@ export async function POST(request: Request) {
       imageConversation?: { role: "user" | "assistant"; content: string }[];
       publishAction?: "now" | "schedule";
       pendingPost?: { title?: string; body?: string; imageHint?: string; contentType?: string; hashtags?: string[] };
+      viralThemes?: boolean;
     } | null;
+
+    const saasId = body?.saasId ?? "socialflow";
+
+    // PASO 1 del nuevo flujo "¿Qué creo hoy?" — el cliente llama esto al cargar el
+    // chat (ver page.tsx), sin `message`: no es una intención a parsear, es una carga
+    // directa de las 3 tarjetas de tema viral del Cerebro para este tenant.
+    if (body?.viralThemes) {
+      const themeProfile = await getChannelProfile(session.tenantId, saasId).catch(() => null);
+      const themeNiche = themeProfile?.niche || themeProfile?.brandName || saasId;
+      const themes = await buildViralThemes(themeNiche, env(), session.tenantId, saasId, session.accountType ?? "influencer");
+      return NextResponse.json({ ok: true, action: "viral_themes", themes });
+    }
 
     if (!body?.message?.trim()) {
       return NextResponse.json({ ok: false, error: "message is required" }, { status: 400 });
     }
-
-    const saasId = body.saasId ?? "socialflow";
     const userMessage = body.message.trim();
 
     // Publicación directa desde el chat — se evalúa ANTES que cualquier otra rama:
