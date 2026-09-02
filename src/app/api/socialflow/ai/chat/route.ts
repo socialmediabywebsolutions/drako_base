@@ -9,20 +9,20 @@ import { publishSocialPostLive } from "@/lib/socialflow/live-publishing";
 import { BestTimeToPostAgent } from "@/lib/socialflow/ai/agents/BestTimeToPostAgent";
 import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
 import { getChannelProfile } from "@/lib/socialflow/profile/repository";
-import { getNicheIntelligence, getStyleHistory, safeParseObject } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
+import { getNicheIntelligence, getStyleHistory, safeParseObject, type NicheOptimalHour } from "@/lib/socialflow/intelligence/NicheIntelligenceService";
 import { extractTrendSignals } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
 import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
 import { ContentFatigueAgent, type ContentFatigueResult } from "@/lib/socialflow/ai/agents/ContentFatigueAgent";
 import { calculateViralScore, mapContentTypeToViralFormat } from "@/lib/socialflow/intelligence/ViralScoreAgent";
 import { getLatestPerformanceSnapshot } from "@/lib/socialflow/ai/agents/ContentPerformanceAgent";
 import { getInfluencerBenchmark } from "@/lib/socialflow/intelligence/InfluencerBenchmarkAgent";
-import { getLatestHashtagIntelligence } from "@/lib/socialflow/ai/agents/HashtagIntelligenceAgent";
+import { getLatestHashtagIntelligence, type HashtagIntelligenceResult } from "@/lib/socialflow/ai/agents/HashtagIntelligenceAgent";
 import { getLatestAudienceGrowth } from "@/lib/socialflow/ai/agents/AudienceGrowthAgent";
 import { getLatestOptimalPostingSchedule } from "@/lib/socialflow/ai/agents/OptimalPostingScheduleAgent";
-import { getLatestViralMoments } from "@/lib/socialflow/ai/agents/ViralMomentAgent";
-import { getLatestContentSeries } from "@/lib/socialflow/ai/agents/ContentSeriesAgent";
+import { getLatestViralMoments, type ViralMoment } from "@/lib/socialflow/ai/agents/ViralMomentAgent";
+import { getLatestContentSeries, type SeriesOpportunity } from "@/lib/socialflow/ai/agents/ContentSeriesAgent";
 import { getLatestSeasonalOpportunities } from "@/lib/socialflow/ai/agents/SeasonalOpportunityAgent";
-import { getLatestStrategicPlan } from "@/lib/socialflow/ai/agents/StrategicPlanningAgent";
+import { getLatestStrategicPlan, type StrategicPlanResult } from "@/lib/socialflow/ai/agents/StrategicPlanningAgent";
 import { getLatestContentDiversity } from "@/lib/socialflow/ai/agents/ContentDiversityAgent";
 import { getLatestRevenueOpportunity } from "@/lib/socialflow/ai/agents/RevenueOpportunityAgent";
 import { getLatestBestPractices } from "@/lib/socialflow/ai/agents/BestPracticesAgent";
@@ -46,6 +46,7 @@ type IdeaSuggestion = {
   hook: string;
   format: IdeaFormat;
   whyViral: string;
+  trendingKeywords?: string[];
 };
 
 type DateRange = {
@@ -286,6 +287,23 @@ type NicheDataForIdeas = {
   trendHooks: string[];
   topEngagementHooks: { hook: string; avgEngagement: number; tenantsReporting: number }[];
   topEngagementFormats: { format: string; avgEngagement: number; tenantsReporting: number }[];
+  // Todo lo demás que ya devuelve getNicheIntelligence/los snapshots de otros agentes —
+  // antes se cargaba y se usaba solo para el prompt del LLM, nunca llegaba al cliente
+  // (ver auditoría 2026-09-02). Ahora vive aquí para que buildBrainInsights() lo pueda
+  // exponer en el response sin repetir las llamadas a SOCIAL_DB.
+  nicheSummary: string;
+  hashtags: string[];
+  formats: string[];
+  hooks: string[];
+  optimalHours: NicheOptimalHour[];
+  fatigueSignals: string[];
+  youtubeHooks: string[];
+  redditTopics: string[];
+  globalTrends: string[];
+  hashtagIntel: HashtagIntelligenceResult | null;
+  viralMoments: ViralMoment[];
+  strategicPlan: StrategicPlanResult | null;
+  contentSeries: SeriesOpportunity[];
 };
 
 async function loadNicheDataForIdeas(
@@ -303,6 +321,20 @@ async function loadNicheDataForIdeas(
   const engagementPatterns = extractEngagementPatterns(intel.analysis);
   if (!trendSignals && !engagementPatterns) return null;
 
+  // Mismas tablas por tenant_id que ya leen loadHashtagIntelligenceBlock/
+  // loadViralMomentBlock/loadStrategicPlanBlock/loadContentSeriesBlock más abajo para
+  // el prompt del LLM — se cargan también aquí, en paralelo, para que el response al
+  // cliente (brainInsights) tenga la misma inteligencia real sin duplicar el fetch en
+  // el camino feliz de "ideas".
+  const [hashtagIntel, viralMomentSnapshot, strategicPlan, contentSeriesSnapshot] = await Promise.all([
+    getLatestHashtagIntelligence(tenantId, saasId, dracoEnv).catch(() => null),
+    getLatestViralMoments(tenantId, saasId, dracoEnv).catch(() => null),
+    getLatestStrategicPlan(tenantId, saasId, dracoEnv).catch(() => null),
+    getLatestContentSeries(tenantId, saasId, dracoEnv).catch(() => null),
+  ]);
+
+  const nicheSummaryRaw = intel.analysis?.summary;
+
   return {
     trendHooks: [
       ...(trendSignals?.youtubeHooks ?? []),
@@ -311,6 +343,68 @@ async function loadNicheDataForIdeas(
     ].slice(0, 10),
     topEngagementHooks: (engagementPatterns?.hooksQueFuncionanRealmente ?? []).slice(0, 5),
     topEngagementFormats: (engagementPatterns?.formatosGanadoresReales ?? []).slice(0, 5),
+    nicheSummary: typeof nicheSummaryRaw === "string" ? nicheSummaryRaw.trim() : "",
+    hashtags: intel.hashtags ?? [],
+    formats: intel.formats ?? [],
+    hooks: intel.hooks ?? [],
+    optimalHours: intel.optimalHours ?? [],
+    fatigueSignals: intel.fatigueSignals ?? [],
+    youtubeHooks: trendSignals?.youtubeHooks ?? [],
+    redditTopics: trendSignals?.redditTopics ?? [],
+    globalTrends: trendSignals?.globalTrends ?? [],
+    hashtagIntel,
+    viralMoments: viralMomentSnapshot?.viralMoments ?? [],
+    strategicPlan,
+    contentSeries: contentSeriesSnapshot?.seriesOpportunities ?? [],
+  };
+}
+
+// Traduce el snapshot crudo del Cerebro (niche_intelligence + hashtag_intelligence +
+// viral_moments + strategic_plan + content_series) a la forma que ve el cliente en el
+// chat de ideas — mismos datos que ya se le pasaban solo al LLM, ahora también en el
+// JSON de respuesta (ver auditoría 2026-09-02: se leían pero nunca se mostraban).
+type BrainInsights = {
+  nicheAnalysis: string;
+  trendingKeywords: string[];
+  youtubeHooks: string[];
+  redditTopics: string[];
+  bestFormats: string[];
+  bestHours: string[];
+  fatigueAlerts: string[];
+  strategicPlan: string;
+  contentSuggestions: string[];
+};
+
+function formatOptimalHour(entry: NicheOptimalHour): string {
+  const day = entry.day ? entry.day.charAt(0).toUpperCase() + entry.day.slice(1) : "";
+  const hour = `${String(entry.hour).padStart(2, "0")}:00h`;
+  return day ? `${day} ${hour}` : hour;
+}
+
+function buildBrainInsights(data: NicheDataForIdeas): BrainInsights {
+  // Hashtags reales del nicho primero (la fuente que el cliente pedía ver), luego el
+  // mix de tendencia calculado por HashtagIntelligenceAgent para este tenant concreto,
+  // luego los temas de ViralMomentAgent — deduplicados, tope 15.
+  const trendingKeywords = Array.from(
+    new Set([
+      ...data.hashtags,
+      ...(data.hashtagIntel?.recommendedMix.trending ?? []),
+      ...data.viralMoments.map((m) => m.topic),
+    ]),
+  ).slice(0, 15);
+
+  return {
+    nicheAnalysis: data.nicheSummary,
+    trendingKeywords,
+    youtubeHooks: data.youtubeHooks.slice(0, 10),
+    redditTopics: data.redditTopics.slice(0, 10),
+    bestFormats: data.formats,
+    bestHours: data.optimalHours.map(formatOptimalHour),
+    fatigueAlerts: data.fatigueSignals,
+    strategicPlan: data.strategicPlan?.executiveSummary ?? "",
+    contentSuggestions: data.contentSeries.flatMap((s) =>
+      s.suggestedFollowups.map((f) => `${f.hook} (${f.format})`),
+    ),
   };
 }
 
@@ -609,7 +703,7 @@ async function buildIdeasReply(
   tenantId: string,
   saasId: string,
   accountType: "influencer" | "empresa",
-): Promise<{ reply: string; ideas: IdeaSuggestion[] }> {
+): Promise<{ reply: string; ideas: IdeaSuggestion[]; brainInsights: BrainInsights | null }> {
   const data = await loadNicheDataForIdeas(niche, dracoEnv, tenantId, saasId, accountType).catch(() => null);
 
   if (!data) {
@@ -617,8 +711,11 @@ async function buildIdeasReply(
       reply:
         "Todavía no tengo suficientes datos de tendencias para tu nicho — el Cerebro necesita que corra al menos una vez el análisis semanal. Mientras tanto, puedo generarte una campaña con lo que ya sé de tu marca si querés.",
       ideas: [],
+      brainInsights: null,
     };
   }
+
+  const brainInsights = buildBrainInsights(data);
 
   if (dracoEnv?.AI) {
     try {
@@ -688,7 +785,7 @@ Cada "whyViral" debe citar un dato real de arriba (una cifra de engagement, cuá
             )
             .slice(0, 3);
           if (ideas.length) {
-            return { reply: formatIdeasReply(ideas), ideas };
+            return { reply: formatIdeasReply(ideas), ideas, brainInsights };
           }
         }
       }
@@ -705,9 +802,10 @@ Cada "whyViral" debe citar un dato real de arriba (una cifra de engagement, cuá
     return {
       reply: "Todavía no tengo suficientes datos de engagement real en tu nicho para sugerir ideas con números concretos.",
       ideas: [],
+      brainInsights,
     };
   }
-  return { reply: formatIdeasReply(fallbackIdeas), ideas: fallbackIdeas };
+  return { reply: formatIdeasReply(fallbackIdeas), ideas: fallbackIdeas, brainInsights };
 }
 
 // ---------------------------------------------------------------------------
@@ -996,8 +1094,8 @@ Tu tarea: proponer o ajustar el TEXTO/CAPTION de esta pieza concreta, adaptado a
     // Ideas — respuesta síncrona con datos reales del nicho, no encola nada (a
     // diferencia de generate/modify, no hay contenido que crear todavía).
     if (intent.action === "ideas") {
-      const { reply, ideas } = await buildIdeasReply(defaultNiche, env(), session.tenantId, saasId, session.accountType ?? "influencer");
-      return NextResponse.json({ ok: true, action: "ideas", reply, ideas });
+      const { reply, ideas, brainInsights } = await buildIdeasReply(defaultNiche, env(), session.tenantId, saasId, session.accountType ?? "influencer");
+      return NextResponse.json({ ok: true, action: "ideas", reply, ideas, brainInsights });
     }
 
     // Generation or modify — enqueue campaign

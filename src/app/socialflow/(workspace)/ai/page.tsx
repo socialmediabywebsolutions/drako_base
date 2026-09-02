@@ -44,6 +44,21 @@ type IdeaSuggestion = {
   whyViral: string;
 };
 
+// Misma forma que BrainInsights en /api/socialflow/ai/chat/route.ts — toda la
+// inteligencia del Cerebro que antes se leía solo para el prompt del LLM y nunca
+// llegaba al cliente (ver auditoría 2026-09-02).
+type BrainInsights = {
+  nicheAnalysis: string;
+  trendingKeywords: string[];
+  youtubeHooks: string[];
+  redditTopics: string[];
+  bestFormats: string[];
+  bestHours: string[];
+  fatigueAlerts: string[];
+  strategicPlan: string;
+  contentSuggestions: string[];
+};
+
 type ActionCard = {
   icon: string;
   label: string;
@@ -63,6 +78,7 @@ type Message = {
   publishOptions?: { title: string; body: string; imageHint: string; contentType: "FEED" | "REEL" | "STORY"; hashtags: string[] };
   publishState?: "idle" | "working" | "error";
   publishResult?: { action: "published" | "scheduled"; reply: string };
+  brainInsights?: BrainInsights | null;
 };
 
 // Conversación activa sobre UNA imagen/vídeo subido desde el chat — se mantiene en
@@ -257,6 +273,100 @@ function GeneratingProgress({ params }: { params?: CampaignParams }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BrainInsightsPanel — toda la inteligencia real del Cerebro para este tenant
+// (niche_intelligence + hashtag_intelligence + viral_moments + strategic_plan),
+// mostrada debajo de las ideas generadas. Aplica igual a influencer y empresa — los
+// datos ya vienen filtrados por nicho/accountType desde el backend. Solo renderiza
+// las subsecciones que traen datos.
+// ---------------------------------------------------------------------------
+
+function BrainInsightsPanel({ insights }: { insights: BrainInsights }) {
+  const hasAny =
+    Boolean(insights.nicheAnalysis) ||
+    insights.trendingKeywords.length > 0 ||
+    insights.youtubeHooks.length > 0 ||
+    insights.redditTopics.length > 0 ||
+    insights.bestHours.length > 0 ||
+    insights.fatigueAlerts.length > 0 ||
+    Boolean(insights.strategicPlan);
+
+  if (!hasAny) return null;
+
+  return (
+    <div className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-violet-300">🧠 Tu cerebro</p>
+
+      {insights.nicheAnalysis && (
+        <div>
+          <p className="text-xs font-semibold text-white/50">Análisis de tu nicho</p>
+          <p className="mt-1 text-sm leading-relaxed text-white/80">{insights.nicheAnalysis}</p>
+        </div>
+      )}
+
+      {insights.trendingKeywords.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-white/50">Tendencias ahora</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {insights.trendingKeywords.map((kw, i) => (
+              <span key={`${i}-${kw}`} className="rounded-full bg-violet-500/15 px-2.5 py-1 text-xs text-violet-200">
+                {kw}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {insights.youtubeHooks.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-white/50">Hooks que funcionan</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-white/80">
+            {insights.youtubeHooks.map((hook, i) => (
+              <li key={`${i}-${hook}`}>{hook}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {insights.redditTopics.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-white/50">Temas en Reddit</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-white/80">
+            {insights.redditTopics.map((topic, i) => (
+              <li key={`${i}-${topic}`}>{topic}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {insights.bestHours.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-white/50">Mejores horarios</p>
+          <p className="mt-1 text-sm text-white/80">{insights.bestHours.join(" · ")}</p>
+        </div>
+      )}
+
+      {insights.fatigueAlerts.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-white/50">Formatos saturados</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-amber-200/90">
+            {insights.fatigueAlerts.map((alert, i) => (
+              <li key={`${i}-${alert}`}>{alert}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {insights.strategicPlan && (
+        <div>
+          <p className="text-xs font-semibold text-white/50">Plan estratégico</p>
+          <p className="mt-1 text-sm leading-relaxed text-white/80">{insights.strategicPlan}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -1085,6 +1195,7 @@ export default function SocialFlowAIPage() {
         message?: string;
         params?: CampaignParams;
         ideas?: IdeaSuggestion[];
+        brainInsights?: BrainInsights | null;
         handoff?: { href: string };
       };
       if (!json.ok) {
@@ -1120,7 +1231,11 @@ export default function SocialFlowAIPage() {
         startPoll(json.campaignId, botMsgId);
       } else if (json.action === "ideas") {
         setLastIdeas(json.ideas ?? null);
-        updateMessage(botMsgId, { content: json.reply ?? "¿En qué más puedo ayudarte?", generatingStatus: "done" });
+        updateMessage(botMsgId, {
+          content: json.reply ?? "¿En qué más puedo ayudarte?",
+          generatingStatus: "done",
+          brainInsights: json.brainInsights ?? null,
+        });
       } else if (json.action === "handoff_carousel" && json.handoff?.href) {
         setLastIdeas(null);
         updateMessage(botMsgId, { content: json.reply ?? "Te llevo a Crear Carrusel…", generatingStatus: "done" });
@@ -1373,6 +1488,7 @@ export default function SocialFlowAIPage() {
                     {msg.content !== "…" && (
                       <div className="text-sm leading-relaxed text-white/80">{renderLiteMarkdown(msg.content)}</div>
                     )}
+                    {msg.brainInsights && <BrainInsightsPanel insights={msg.brainInsights} />}
                     {msg.actionCards && (
                       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {msg.actionCards.map((card) => (
