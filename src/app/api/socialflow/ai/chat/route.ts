@@ -894,6 +894,8 @@ Propón exactamente 3 temas virales concretos para hoy. Cada uno debe llevar un 
 
 IMPORTANTE: Solo propón temas que sean relevantes para audiencias hispanohablantes (España y Latinoamérica). Descarta cualquier tendencia en inglés, hindi, o de otras regiones que no sea el mercado en español. Los temas deben resonar culturalmente con una audiencia de habla hispana.
 
+IMPORTANTE: El campo porqueViral de cada tarjeta debe estar escrito SIEMPRE en español, sin excepción. Si la fuente de la tendencia está en inglés, tradúcela y explícala en español para una audiencia hispanohablante. Nunca escribas porqueViral en inglés, hindi, o cualquier otro idioma que no sea español.
+
 Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
 {"temas": [{"tema": "...", "porqueViral": "...", "formatoRecomendado": "post"|"carrusel"|"reel"|"historia", "piezas": <entero>, "hashtags": ["...", "..."]}]}
 
