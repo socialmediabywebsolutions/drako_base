@@ -312,12 +312,12 @@ jobs:
         run: npx tsx scripts/alerts-check.ts
 
   purge-old-runs:
-    name: 🗑️ Purgar runs antiguos (mantener últimos 10)
+    name: 🗑️ Purgar runs antiguos (mantener últimos 100)
     runs-on: ubuntu-latest
     permissions:
       actions: write
     steps:
-      - name: Eliminar runs más allá del top 10
+      - name: Eliminar runs más allá del top 100
         uses: actions/github-script@v7
         with:
           script: |
@@ -335,7 +335,7 @@ jobs:
               if (data.workflow_runs.length < 100) break;
               page++;
             }
-            const toDelete = allRuns.slice(10);
+            const toDelete = allRuns.slice(100);
             console.log(`Total runs: ${allRuns.length} — eliminando ${toDelete.length}`);
             for (const run of toDelete) {
               await github.rest.actions.deleteWorkflowRun({
