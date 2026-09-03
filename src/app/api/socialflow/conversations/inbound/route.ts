@@ -12,6 +12,87 @@ import { createLead } from "@/lib/socialflow/leads/repository";
 
 export const dynamic = "force-dynamic";
 
+// Formato real de un evento de Instagram Messaging (Meta), anidado en
+// entry[].messaging[] — distinto del InboundBody plano que el resto de este archivo
+// espera. Antes de este cambio ningún evento real de Meta pasaba de aquí: JSON.parse
+// (rawBody) daba un objeto sin incoming_message/provider y caía en el 400
+// MISSING_REQUIRED_FIELDS sin crear ningún hilo (ver transformMetaWebhookBody abajo).
+type MetaMessagingEvent = {
+  sender?: { id?: string };
+  recipient?: { id?: string };
+  timestamp?: number;
+  message?: { mid?: string; text?: string };
+};
+
+type MetaWebhookEntry = {
+  id?: string;
+  messaging?: MetaMessagingEvent[];
+};
+
+type MetaWebhookBody = {
+  object?: string;
+  entry?: MetaWebhookEntry[];
+};
+
+function isMetaRealFormat(value: unknown): value is MetaWebhookBody {
+  if (!value || typeof value !== "object") return false;
+  const entry = (value as MetaWebhookBody).entry;
+  return Array.isArray(entry) && entry.length > 0 && Array.isArray(entry[0]?.messaging) && entry[0].messaging!.length > 0;
+}
+
+type ResolvedInstagramAccount = { tenant_id: string; saas_id: string };
+
+// Mismo patrón que meta/data-deletion/route.ts (única fuente de verdad hoy para
+// resolver tenant a partir de un igUserId de Meta): json_extract sobre auth_meta —
+// saas_social_accounts no tiene una columna ig_user_id propia, el id vive dentro del
+// JSON guardado al conectar la cuenta (ver instagram/oauth.ts).
+async function resolveInstagramAccountByIgUserId(db: D1Database, igUserId: string): Promise<ResolvedInstagramAccount | null> {
+  const row = await db
+    .prepare(
+      `SELECT tenant_id, saas_id FROM saas_social_accounts
+       WHERE provider = 'INSTAGRAM' AND json_extract(auth_meta, '$.igUserId') = ?
+       LIMIT 1`,
+    )
+    .bind(igUserId)
+    .first<ResolvedInstagramAccount>();
+  return row ?? null;
+}
+
+type NormalizedInboundEvent = {
+  tenantId: string | null;
+  saasId: string | null;
+  provider: string;
+  threadType: "DM";
+  incomingMessage: string;
+  platformThreadId: string;
+};
+
+// Transforma el payload real de Meta (entry[].messaging[]) al formato interno que ya
+// espera el resto del handler. Si el body no tiene esa forma, devuelve null — el
+// caller sigue con el parseo plano de siempre (llamadas internas/de prueba).
+async function transformMetaWebhookBody(body: MetaWebhookBody, db: D1Database | undefined): Promise<NormalizedInboundEvent | null> {
+  const entry = body.entry![0];
+  const messagingEvent = entry.messaging![0];
+
+  const incomingMessage = messagingEvent.message?.text?.trim() ?? "";
+  const platformThreadId = messagingEvent.sender?.id?.trim() ?? "";
+  const igUserId = entry.id?.trim() ?? "";
+
+  let resolved: ResolvedInstagramAccount | null = null;
+  if (db && igUserId) {
+    resolved = await resolveInstagramAccountByIgUserId(db, igUserId);
+  }
+
+  return {
+    tenantId: resolved?.tenant_id ?? null,
+    saasId: resolved?.saas_id ?? null,
+    provider: "INSTAGRAM",
+    threadType: "DM",
+    incomingMessage,
+    platformThreadId,
+  };
+}
+
 // Bug 2 fix: verify real Meta webhook POST events via HMAC-SHA256 (X-Hub-Signature-256).
 // crypto.subtle.verify is constant-time, preventing timing attacks.
 async function verifyMetaSignature(rawBody: string, request: Request): Promise<boolean> {
@@ -71,20 +152,13 @@ export async function POST(request: Request) {
       });
     }
 
-    // Bug 1 fix: tenantId comes from URL, not body.
+    // Bug 1 fix: para el formato plano (llamadas internas) tenantId viene del URL, no
+    // del body. Para el formato real de Meta no hay tenantId en la URL en absoluto —
+    // Meta llama a la URL genérica registrada en el panel de la app, no a una URL por
+    // tenant — así que en ese caso se resuelve más abajo por igUserId.
     const url = new URL(request.url);
-    const tenantId = url.searchParams.get("tenantId")?.trim();
+    const tenantIdFromUrl = url.searchParams.get("tenantId")?.trim();
 
-    // BACKLOG (2026-08-25, auditoría "bug botón Aprobar" — sin arreglar a propósito,
-    // fuera de alcance de ese fix): este InboundBody es un formato plano inventado por
-    // este proyecto, NO el payload real que Meta manda a un webhook de Instagram
-    // Messaging (que llega anidado como entry[].messaging[]/entry[].changes[]). No hay
-    // ningún transformador en el repo que convierta el payload real de Meta a esta forma
-    // plana. Con el webhook ya verificado en el panel de Meta (2026-08-25), el primer
-    // evento real que llegue pasará la verificación HMAC pero JSON.parse(rawBody) dará
-    // un objeto sin `incoming_message`/`provider` — cae en el 400 MISSING_REQUIRED_FIELDS
-    // de abajo, sin crear ningún hilo. Hace falta un parser del formato real de Meta
-    // antes de que este endpoint reciba tráfico genuino de forma útil.
     type InboundBody = {
       provider?: string;
       thread_type?: string;
@@ -95,17 +169,53 @@ export async function POST(request: Request) {
       context_post_id?: string;
       saasId?: string;
     };
-    let body: InboundBody | null = null;
+
+    let rawParsed: unknown = null;
     try {
-      body = rawBody ? (JSON.parse(rawBody) as InboundBody) : null;
+      rawParsed = rawBody ? JSON.parse(rawBody) : null;
     } catch {
       // leave null
     }
 
-    const saasId = body?.saasId?.trim() || "socialflow";
-    const provider = body?.provider?.trim();
-    const incomingMessage = body?.incoming_message?.trim();
-    const threadType = (body?.thread_type?.trim() || "DM") as ConversationThreadType;
+    let tenantId: string | undefined;
+    let saasId: string;
+    let provider: string | undefined;
+    let incomingMessage: string | undefined;
+    let threadType: ConversationThreadType;
+    let platformThreadId: string | null;
+    let senderName: string | null;
+    let senderHandle: string | null;
+    let contextPostId: string | null;
+
+    if (isMetaRealFormat(rawParsed)) {
+      // Formato real de Instagram Messaging (entry[].messaging[]) — se transforma al
+      // formato interno que el resto de este handler ya espera, en vez del InboundBody
+      // plano inventado por este proyecto. Hasta este cambio, JSON.parse(rawBody) daba
+      // un objeto sin incoming_message/provider y todo evento real caía en el 400
+      // MISSING_REQUIRED_FIELDS de abajo sin crear ningún hilo.
+      const normalized = await transformMetaWebhookBody(rawParsed, env()?.SOCIAL_DB);
+      tenantId = normalized?.tenantId ?? undefined;
+      saasId = normalized?.saasId ?? "socialflow";
+      provider = normalized?.provider;
+      incomingMessage = normalized?.incomingMessage;
+      threadType = normalized?.threadType ?? "DM";
+      platformThreadId = normalized?.platformThreadId?.trim() || null;
+      senderName = null;
+      senderHandle = null;
+      contextPostId = null;
+    } else {
+      // Formato plano (llamadas internas/de prueba) — se deja pasar sin transformar.
+      const body = rawParsed as InboundBody | null;
+      tenantId = tenantIdFromUrl;
+      saasId = body?.saasId?.trim() || "socialflow";
+      provider = body?.provider?.trim();
+      incomingMessage = body?.incoming_message?.trim();
+      threadType = (body?.thread_type?.trim() || "DM") as ConversationThreadType;
+      platformThreadId = body?.platform_thread_id ?? null;
+      senderName = body?.sender_name ?? null;
+      senderHandle = body?.sender_handle ?? null;
+      contextPostId = body?.context_post_id ?? null;
+    }
 
     if (!tenantId || !provider || !incomingMessage) {
       return new Response(JSON.stringify({ error: "MISSING_REQUIRED_FIELDS" }), {
@@ -119,7 +229,7 @@ export async function POST(request: Request) {
     const { suggestedReply, aiMetadata } = await generateConversationalReply({
       incomingMessage,
       threadType,
-      senderName: body?.sender_name ?? null,
+      senderName,
       profile: knowledge.profile,
       knowledge,
     });
@@ -133,11 +243,11 @@ export async function POST(request: Request) {
     const thread = await ingestConversationThread(ctx, {
       provider,
       threadType,
-      platformThreadId: body?.platform_thread_id ?? null,
-      senderName: body?.sender_name ?? null,
-      senderHandle: body?.sender_handle ?? null,
+      platformThreadId,
+      senderName,
+      senderHandle,
       incomingMessage,
-      contextPostId: body?.context_post_id ?? null,
+      contextPostId,
       suggestedReply,
       status,
       aiMetadata,
@@ -151,8 +261,8 @@ export async function POST(request: Request) {
         const lead = await createLead(ctx, {
           threadId: thread.id,
           provider,
-          senderName: body?.sender_name ?? null,
-          senderHandle: body?.sender_handle ?? null,
+          senderName,
+          senderHandle,
           incomingMessage,
           intentScore: leadSignals.intentScore,
           temperature: leadSignals.temperature,
