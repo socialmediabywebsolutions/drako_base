@@ -19,6 +19,10 @@ export default function SocialFlowProfilePage() {
   const [profile, setProfile] = useState<any | null>(null);
   const [competitors, setCompetitors] = useState<any[]>([]);
   const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [accountType, setAccountType] = useState<"influencer" | "empresa" | null>(null);
+  const [physicalProfile, setPhysicalProfile] = useState<any>({});
+  const [physicalSaving, setPhysicalSaving] = useState(false);
+  const [physicalError, setPhysicalError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,9 +46,51 @@ export default function SocialFlowProfilePage() {
         if (!cancelled) setLoading(false);
       }
     }
+    async function loadAccountType() {
+      try {
+        const res = await fetch("/api/socialflow/onboarding");
+        const json: any = await res.json();
+        if (!cancelled && json.ok) setAccountType(json.accountType ?? null);
+      } catch {
+        // best-effort — la sección de perfil físico simplemente no se mostrará
+      }
+    }
+    async function loadPhysicalProfile() {
+      try {
+        const res = await fetch("/api/socialflow/profile/physical");
+        const json: any = await res.json();
+        if (!cancelled && json.ok && json.profile) setPhysicalProfile(json.profile);
+      } catch {
+        // best-effort
+      }
+    }
     void load();
+    void loadAccountType();
+    void loadPhysicalProfile();
     return () => { cancelled = true; };
   }, []);
+
+  async function onSavePhysicalProfile() {
+    setPhysicalSaving(true);
+    setPhysicalError(null);
+    try {
+      const res = await fetch("/api/socialflow/profile/physical", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(physicalProfile),
+      });
+      const json: any = await res.json();
+      if (!json.ok) {
+        setPhysicalError(json.error || "No se pudo guardar el perfil físico");
+      } else {
+        setPhysicalProfile(json.profile || physicalProfile);
+      }
+    } catch (e: any) {
+      setPhysicalError(e?.message || "Error inesperado");
+    } finally {
+      setPhysicalSaving(false);
+    }
+  }
 
   async function onSaveProfile(overrideProfile?: any) {
     const toSave = overrideProfile ?? profile;
@@ -250,6 +296,105 @@ export default function SocialFlowProfilePage() {
           />
         </div>
       </section>
+
+      {/* Physical profile — only for influencer accounts, feeds the AI image generator */}
+      {accountType === "influencer" && (
+        <section className={sectionCls}>
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white/90">Perfil físico</h2>
+            <span className="text-xs text-white/30">Guía a la IA para generar imágenes que se parezcan a ti.</span>
+          </div>
+          <div className="grid gap-4 text-sm md:grid-cols-3">
+            <SelectField
+              label="Complexión"
+              value={physicalProfile.bodyType}
+              onChange={(v) => setPhysicalProfile({ ...physicalProfile, bodyType: v })}
+              options={[
+                { value: "atletica", label: "Atlética" },
+                { value: "fibrada", label: "Fibrada" },
+                { value: "normal", label: "Normal" },
+                { value: "curvilinea", label: "Curvilínea" },
+                { value: "musculosa", label: "Musculosa" },
+              ]}
+            />
+            <Field
+              label="Altura (cm)"
+              value={physicalProfile.heightCm ?? ""}
+              onChange={(v) => setPhysicalProfile({ ...physicalProfile, heightCm: v ? Number(v) : null })}
+            />
+            <Field
+              label="Peso (kg)"
+              value={physicalProfile.weightKg ?? ""}
+              onChange={(v) => setPhysicalProfile({ ...physicalProfile, weightKg: v ? Number(v) : null })}
+            />
+          </div>
+          <div className="grid gap-4 text-sm md:grid-cols-3">
+            <Field
+              label="Pecho (cm)"
+              value={physicalProfile.chestCm ?? ""}
+              onChange={(v) => setPhysicalProfile({ ...physicalProfile, chestCm: v ? Number(v) : null })}
+            />
+            <Field
+              label="Cintura (cm)"
+              value={physicalProfile.waistCm ?? ""}
+              onChange={(v) => setPhysicalProfile({ ...physicalProfile, waistCm: v ? Number(v) : null })}
+            />
+            <Field
+              label="Cadera (cm)"
+              value={physicalProfile.hipsCm ?? ""}
+              onChange={(v) => setPhysicalProfile({ ...physicalProfile, hipsCm: v ? Number(v) : null })}
+            />
+          </div>
+          <div className="grid gap-4 text-sm md:grid-cols-3">
+            <SelectField
+              label="Estilo fitness"
+              value={physicalProfile.fitnessStyle}
+              onChange={(v) => setPhysicalProfile({ ...physicalProfile, fitnessStyle: v })}
+              options={[
+                { value: "competicion", label: "Competición" },
+                { value: "funcional", label: "Funcional" },
+                { value: "crossfit", label: "Crossfit" },
+                { value: "yoga", label: "Yoga" },
+                { value: "pilates", label: "Pilates" },
+                { value: "lifestyle", label: "Lifestyle" },
+                { value: "running", label: "Running" },
+              ]}
+            />
+            <Field
+              label="Color de piel"
+              value={physicalProfile.skinTone}
+              onChange={(v) => setPhysicalProfile({ ...physicalProfile, skinTone: v })}
+            />
+            <Field
+              label="Color de cabello"
+              value={physicalProfile.hairColor}
+              onChange={(v) => setPhysicalProfile({ ...physicalProfile, hairColor: v })}
+            />
+          </div>
+          <div className="grid gap-4 text-sm md:grid-cols-3">
+            <SelectField
+              label="Largo de cabello"
+              value={physicalProfile.hairLength}
+              onChange={(v) => setPhysicalProfile({ ...physicalProfile, hairLength: v })}
+              options={[
+                { value: "corto", label: "Corto" },
+                { value: "medio", label: "Medio" },
+                { value: "largo", label: "Largo" },
+              ]}
+            />
+          </div>
+          {physicalError && <p className="text-sm text-red-300">{physicalError}</p>}
+          <button
+            type="button"
+            onClick={() => onSavePhysicalProfile()}
+            disabled={physicalSaving}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {physicalSaving && <span className="h-2 w-2 animate-pulse rounded-full bg-white" />}
+            {physicalSaving ? "Guardando..." : "Guardar perfil físico"}
+          </button>
+        </section>
+      )}
 
       {/* Niche & topics */}
       <section className={sectionCls}>

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getUploadBatchLimit } from "@/lib/socialflow/billing/enforce";
 import PublishReel from "@/components/socialflow/publish-reel";
@@ -22,7 +23,9 @@ export default async function SocialFlowPublicarReelPage() {
       >
         <span aria-hidden>←</span> Volver
       </Link>
-      <PublishReel saasId={SAAS_ID} maxImages={maxImages} />
+      <Suspense fallback={null}>
+        <PublishReel saasId={SAAS_ID} maxImages={maxImages} />
+      </Suspense>
     </div>
   );
 }

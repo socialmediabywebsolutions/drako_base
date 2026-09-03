@@ -308,7 +308,7 @@ export class SocialFlowOrchestrator {
         const postId = `ai_post_${campaign.id}_${item.id}`;
         const body = optimized?.improvedText ? cleanOpening(optimized.improvedText) : item.angle;
         const imagePrompt = buildImagePrompt({ theme: item.theme, angle: item.angle, body }, profile);
-        const imageHint = await generatePostImage(imagePrompt, postId);
+        const imageHint = await generatePostImage(imagePrompt, postId, input.tenantId);
         const postProvider = input.provider ?? "INSTAGRAM";
         const hashtags = (optimized?.hashtags ?? []).slice(0, 15);
         const contentType: SaasSocialContentType = STRATEGY_FORMAT_TO_CONTENT_TYPE[item.format] ?? "FEED";

@@ -68,7 +68,7 @@ export async function POST(
       "no text no watermarks no logos",
     ].join(", ");
 
-    const imageUrl = await generatePostImage(imagePrompt, postId);
+    const imageUrl = await generatePostImage(imagePrompt, postId, session.tenantId);
     if (!imageUrl) {
       return NextResponse.json(
         { ok: false, error: "IMAGE_GENERATION_UNAVAILABLE", message: "AI o almacenamiento no disponible" },

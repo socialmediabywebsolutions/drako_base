@@ -1,4 +1,5 @@
 import { env } from "@/lib/cf";
+import { getPhysicalProfile } from "@/lib/socialflow/profile/physical-repository";
 
 const MODEL = "@cf/stabilityai/stable-diffusion-xl-base-1.0";
 const R2_PUBLIC_BASE = "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev";
@@ -26,20 +27,51 @@ async function readStream(stream: ReadableStream<Uint8Array>): Promise<ArrayBuff
   return merged.buffer as ArrayBuffer;
 }
 
-export async function generatePostImage(prompt: string, postId: string): Promise<string | null> {
+function describePhysicalProfile(profile: Awaited<ReturnType<typeof getPhysicalProfile>>): string | null {
+  if (!profile) return null;
+  const parts: string[] = [];
+  if (profile.bodyType) parts.push(`complexión ${profile.bodyType}`);
+  if (profile.heightCm) parts.push(`${profile.heightCm}cm`);
+  if (profile.hairLength || profile.hairColor) {
+    parts.push(`cabello ${[profile.hairLength, profile.hairColor].filter(Boolean).join(" ")}`);
+  }
+  if (profile.fitnessStyle) parts.push(`estilo fitness ${profile.fitnessStyle}`);
+  if (!parts.length) return null;
+  return `Mujer de ${parts.join(", ")}`;
+}
+
+export async function generatePostImage(prompt: string, postId: string, tenantId?: string | null): Promise<string | null> {
   const e = env();
   if (!e?.AI || !e?.SOCIAL_MEDIA_BUCKET) {
     console.warn("IMAGE_GEN_SKIPPED: AI or SOCIAL_MEDIA_BUCKET binding not available");
     return null;
   }
 
+  const physicalProfile = tenantId ? await getPhysicalProfile(tenantId).catch(() => null) : null;
+  const physicalDescription = describePhysicalProfile(physicalProfile);
+  const finalPrompt = physicalDescription ? `${prompt}, ${physicalDescription}` : prompt;
+
+  let referenceImage: number[] | null = null;
+  if (physicalProfile?.referenceImageUrl) {
+    try {
+      const refResponse = await fetch(physicalProfile.referenceImageUrl);
+      if (refResponse.ok) {
+        const refBuffer = await refResponse.arrayBuffer();
+        referenceImage = Array.from(new Uint8Array(refBuffer));
+      }
+    } catch (err) {
+      console.warn("IMAGE_GEN_REFERENCE_IMAGE_FETCH_FAILED", { postId, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
   try {
     const response = await e.AI.run(MODEL, {
-      prompt,
+      prompt: finalPrompt,
       negative_prompt: NEGATIVE_PROMPT,
       num_steps: 20,
       width: 1024,
       height: 1024,
+      ...(referenceImage ? { image: referenceImage, strength: 0.35 } : {}),
     });
 
     let imageBuffer: ArrayBuffer;

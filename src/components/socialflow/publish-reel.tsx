@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import ReelsCreator, { fetchCaption } from "./reels-creator";
 import { ReelsEngine, type ReelsConfig } from "@/lib/socialflow/reels/ReelsEngine";
 import { CanvasRenderer } from "@/lib/socialflow/reels/CanvasRenderer";
@@ -566,6 +566,7 @@ function ReelPreviewModal({
 // aprueba explícitamente.
 export default function PublishReel({ saasId, maxImages }: { saasId: string; maxImages: number }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -579,7 +580,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
   // Nota opcional del cliente, capturada ANTES de subir — mismo criterio que
   // UploadToPost: el flujo de subida es automático (sin botón "Generar" que pausar
   // por ítem), así que se pide una vez por tanda, no por foto/vídeo.
-  const [batchUserNote, setBatchUserNote] = useState("");
+  const [batchUserNote, setBatchUserNote] = useState(() => searchParams.get("topic")?.slice(0, 200) ?? "");
   const [selectedTheme, setSelectedTheme] = useState<ContentTheme>("auto");
 
   const readyCount = reelItems.filter((i) => i.step === "ready").length;

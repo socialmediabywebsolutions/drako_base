@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getUploadBatchLimit } from "@/lib/socialflow/billing/enforce";
 import { getEmployeesByTenant } from "@/lib/socialflow/employees/repository";
@@ -26,13 +27,15 @@ export default async function SocialFlowPublicarPostPage() {
       >
         <span aria-hidden>←</span> Volver
       </Link>
-      <UploadToPost
-        saasId={SAAS_ID}
-        maxImages={maxImages}
-        contentType="FEED"
-        accountType={session.accountType}
-        employees={employees}
-      />
+      <Suspense fallback={null}>
+        <UploadToPost
+          saasId={SAAS_ID}
+          maxImages={maxImages}
+          contentType="FEED"
+          accountType={session.accountType}
+          employees={employees}
+        />
+      </Suspense>
     </div>
   );
 }

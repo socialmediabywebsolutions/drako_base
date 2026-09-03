@@ -892,6 +892,8 @@ ${viralMomentsLine ? `\n${viralMomentsLine}\n` : ""}${strategicLine}
 
 Propón exactamente 3 temas virales concretos para hoy. Cada uno debe llevar un "formatoRecomendado" DISTINTO a los otros dos — nunca repitas formato — elegido entre "post", "carrusel", "reel", "historia" (usa 3 de estos 4, el que mejor encaje con cada tema).
 
+IMPORTANTE: Solo propón temas que sean relevantes para audiencias hispanohablantes (España y Latinoamérica). Descarta cualquier tendencia en inglés, hindi, o de otras regiones que no sea el mercado en español. Los temas deben resonar culturalmente con una audiencia de habla hispana.
+
 Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
 {"temas": [{"tema": "...", "porqueViral": "...", "formatoRecomendado": "post"|"carrusel"|"reel"|"historia", "piezas": <entero>, "hashtags": ["...", "..."]}]}
 

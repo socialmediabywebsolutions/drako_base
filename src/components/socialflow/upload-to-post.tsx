@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ImageAnalysis } from "@/lib/socialflow/ai/agents/ImageAnalysisAgent";
 import type { ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
 import { getImageDimensions, isHorizontalImage } from "@/lib/socialflow/media/image-dimensions";
@@ -875,6 +875,7 @@ export default function UploadToPost({
   employees?: EmpresaEmployee[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addMoreRef = useRef<HTMLInputElement>(null);
   // Orden de confirmación humana (empresa), no orden de subida — cada foto empresa toma
@@ -889,7 +890,7 @@ export default function UploadToPost({
   // que no hay forma de pedir esto por foto una vez arrancó el pipeline. Se aplica a
   // toda la tanda que se suba mientras el campo tenga este valor — no se limpia solo
   // entre tandas, el cliente lo controla manualmente.
-  const [batchUserNote, setBatchUserNote] = useState("");
+  const [batchUserNote, setBatchUserNote] = useState(() => searchParams.get("topic")?.slice(0, 200) ?? "");
   const [selectedTheme, setSelectedTheme] = useState<ContentTheme>("auto");
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
