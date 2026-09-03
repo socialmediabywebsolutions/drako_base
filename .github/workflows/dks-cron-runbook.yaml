@@ -576,7 +576,7 @@ jobs:
           fi
 
           # ── 6. POSTS ATASCADOS ───────────────────────────────────────────────────────
-          SQL_POSTS="SELECT COUNT(*) as atascados FROM saas_social_posts WHERE status='DRAFT' AND created_at < datetime('now', '-24 hours')"
+          SQL_POSTS="SELECT COUNT(*) as atascados FROM saas_social_posts WHERE status='DRAFT' AND created_at < datetime('now', '-24 hours') AND tenant_id NOT LIKE 'demo%' AND tenant_id NOT LIKE 'tenant_socialflow_canary%' AND tenant_id NOT LIKE 'smoke%' AND tenant_id NOT LIKE 'test%'"
           STUCK_POSTS=$(run_query "$SQL_POSTS" | jq -r '.[0].results[0].atascados // 0' || echo 0)
           POSTS_EMOJI="✅"
           if [ "$STUCK_POSTS" -gt 0 ]; then
