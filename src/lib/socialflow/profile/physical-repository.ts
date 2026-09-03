@@ -18,6 +18,7 @@ export type PhysicalProfile = {
   waistCm: number | null;
   hipsCm: number | null;
   fitnessStyle: FitnessStyle | null;
+  fitnessStyles: string[] | null;
   skinTone: string | null;
   hairColor: string | null;
   hairLength: HairLength | null;
@@ -37,6 +38,7 @@ type PhysicalProfileRow = {
   waist_cm: number | null;
   hips_cm: number | null;
   fitness_style: string | null;
+  fitness_styles_json: string | null;
   skin_tone: string | null;
   hair_color: string | null;
   hair_length: string | null;
@@ -54,6 +56,7 @@ export type PhysicalProfilePatch = {
   waistCm?: number | null;
   hipsCm?: number | null;
   fitnessStyle?: FitnessStyle | null;
+  fitnessStyles?: string[] | null;
   skinTone?: string | null;
   hairColor?: string | null;
   hairLength?: HairLength | null;
@@ -82,6 +85,16 @@ function normalizeNullableNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function parseFitnessStylesJson(value: string | null): string[] | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : null;
+  } catch {
+    return null;
+  }
+}
+
 function rowToProfile(row: PhysicalProfileRow): PhysicalProfile {
   return {
     id: row.id,
@@ -94,6 +107,7 @@ function rowToProfile(row: PhysicalProfileRow): PhysicalProfile {
     waistCm: row.waist_cm,
     hipsCm: row.hips_cm,
     fitnessStyle: (row.fitness_style as FitnessStyle | null) ?? null,
+    fitnessStyles: parseFitnessStylesJson(row.fitness_styles_json),
     skinTone: row.skin_tone,
     hairColor: row.hair_color,
     hairLength: (row.hair_length as HairLength | null) ?? null,
@@ -123,13 +137,18 @@ export async function upsertPhysicalProfile(
   const id = existing?.id ?? generateId();
   const updatedAt = nowIso();
 
+  // fitness_style (legacy, single-select) ya no lo escribe la UI — si el patch no lo
+  // trae explícito, se conserva el valor existente en vez de vaciarlo.
+  const fitnessStyle = patch.fitnessStyle !== undefined ? normalizeNullableString(patch.fitnessStyle) : existing?.fitnessStyle ?? null;
+  const fitnessStylesJson = patch.fitnessStyles !== undefined && patch.fitnessStyles !== null ? JSON.stringify(patch.fitnessStyles) : null;
+
   await context.socialDb
     .prepare(
       `INSERT INTO ${TABLE} (
         id, tenant_id, reference_image_url, height_cm, weight_kg, body_type,
-        chest_cm, waist_cm, hips_cm, fitness_style, skin_tone, hair_color, hair_length,
+        chest_cm, waist_cm, hips_cm, fitness_style, fitness_styles_json, skin_tone, hair_color, hair_length,
         extra_notes, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(tenant_id) DO UPDATE SET
         reference_image_url = excluded.reference_image_url,
         height_cm = excluded.height_cm,
@@ -139,6 +158,7 @@ export async function upsertPhysicalProfile(
         waist_cm = excluded.waist_cm,
         hips_cm = excluded.hips_cm,
         fitness_style = excluded.fitness_style,
+        fitness_styles_json = excluded.fitness_styles_json,
         skin_tone = excluded.skin_tone,
         hair_color = excluded.hair_color,
         hair_length = excluded.hair_length,
@@ -155,7 +175,8 @@ export async function upsertPhysicalProfile(
       normalizeNullableNumber(patch.chestCm),
       normalizeNullableNumber(patch.waistCm),
       normalizeNullableNumber(patch.hipsCm),
-      normalizeNullableString(patch.fitnessStyle),
+      fitnessStyle,
+      fitnessStylesJson,
       normalizeNullableString(patch.skinTone),
       normalizeNullableString(patch.hairColor),
       normalizeNullableString(patch.hairLength),

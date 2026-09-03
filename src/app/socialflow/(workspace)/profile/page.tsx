@@ -345,21 +345,45 @@ export default function SocialFlowProfilePage() {
               onChange={(v) => setPhysicalProfile({ ...physicalProfile, hipsCm: v ? Number(v) : null })}
             />
           </div>
-          <div className="grid gap-4 text-sm md:grid-cols-3">
-            <SelectField
-              label="Estilo fitness"
-              value={physicalProfile.fitnessStyle}
-              onChange={(v) => setPhysicalProfile({ ...physicalProfile, fitnessStyle: v })}
-              options={[
-                { value: "competicion", label: "Competición" },
-                { value: "funcional", label: "Funcional" },
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-white/45">Estilo fitness</span>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {[
+                { value: "fitness", label: "Fitness" },
+                { value: "lifestyle", label: "Lifestyle" },
+                { value: "gym", label: "Gym" },
+                { value: "fitness_model", label: "Fitness Model" },
                 { value: "crossfit", label: "Crossfit" },
                 { value: "yoga", label: "Yoga" },
                 { value: "pilates", label: "Pilates" },
-                { value: "lifestyle", label: "Lifestyle" },
                 { value: "running", label: "Running" },
-              ]}
-            />
+                { value: "nutricion", label: "Nutrición" },
+                { value: "wellness", label: "Wellness" },
+              ].map((opt) => {
+                const selected: string[] = physicalProfile.fitnessStyles ?? [];
+                const checked = selected.includes(opt.value);
+                return (
+                  <label key={opt.value} className="flex items-center gap-1.5 text-sm text-white/70">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) =>
+                        setPhysicalProfile({
+                          ...physicalProfile,
+                          fitnessStyles: e.target.checked
+                            ? [...selected, opt.value]
+                            : selected.filter((v) => v !== opt.value),
+                        })
+                      }
+                      className="h-4 w-4 rounded border-white/20 bg-white/5 text-violet-500 focus:ring-violet-500/40"
+                    />
+                    {opt.label}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          <div className="grid gap-4 text-sm md:grid-cols-3">
             <Field
               label="Color de piel"
               value={physicalProfile.skinTone}

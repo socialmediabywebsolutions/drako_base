@@ -35,7 +35,7 @@ function describePhysicalProfile(profile: Awaited<ReturnType<typeof getPhysicalP
   if (profile.hairLength || profile.hairColor) {
     parts.push(`cabello ${[profile.hairLength, profile.hairColor].filter(Boolean).join(" ")}`);
   }
-  if (profile.fitnessStyle) parts.push(`estilo fitness ${profile.fitnessStyle}`);
+  if (profile.fitnessStyles?.length) parts.push(`estilo fitness: ${profile.fitnessStyles.join(", ")}`);
   if (!parts.length) return null;
   return `Mujer de ${parts.join(", ")}`;
 }

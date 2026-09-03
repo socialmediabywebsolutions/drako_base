@@ -7,7 +7,6 @@ import {
   getPhysicalProfile,
   upsertPhysicalProfile,
   type BodyType,
-  type FitnessStyle,
   type HairLength,
   type PhysicalProfilePatch,
 } from "@/lib/socialflow/profile/physical-repository";
@@ -15,20 +14,33 @@ import {
 const DEFAULT_SAAS_ID = "socialflow";
 
 const BODY_TYPES: BodyType[] = ["atletica", "fibrada", "normal", "curvilinea", "musculosa"];
-const FITNESS_STYLES: FitnessStyle[] = ["competicion", "funcional", "crossfit", "yoga", "pilates", "lifestyle", "running"];
 const HAIR_LENGTHS: HairLength[] = ["corto", "medio", "largo"];
+const FITNESS_STYLE_VALUES = [
+  "fitness",
+  "lifestyle",
+  "gym",
+  "fitness_model",
+  "crossfit",
+  "yoga",
+  "pilates",
+  "running",
+  "nutricion",
+  "wellness",
+];
 
 function resolveSaasId(request: Request): string {
   const requestUrl = new URL(request.url);
   return requestUrl.searchParams.get("saasId")?.trim() || DEFAULT_SAAS_ID;
 }
 
+function parseFitnessStyles(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const styles = value.filter((v): v is string => typeof v === "string" && FITNESS_STYLE_VALUES.includes(v));
+  return styles.length ? styles : null;
+}
+
 function parsePatch(body: Record<string, unknown>): PhysicalProfilePatch {
   const bodyType = typeof body.bodyType === "string" && BODY_TYPES.includes(body.bodyType as BodyType) ? (body.bodyType as BodyType) : null;
-  const fitnessStyle =
-    typeof body.fitnessStyle === "string" && FITNESS_STYLES.includes(body.fitnessStyle as FitnessStyle)
-      ? (body.fitnessStyle as FitnessStyle)
-      : null;
   const hairLength =
     typeof body.hairLength === "string" && HAIR_LENGTHS.includes(body.hairLength as HairLength) ? (body.hairLength as HairLength) : null;
 
@@ -40,7 +52,7 @@ function parsePatch(body: Record<string, unknown>): PhysicalProfilePatch {
     chestCm: typeof body.chestCm === "number" ? body.chestCm : null,
     waistCm: typeof body.waistCm === "number" ? body.waistCm : null,
     hipsCm: typeof body.hipsCm === "number" ? body.hipsCm : null,
-    fitnessStyle,
+    fitnessStyles: parseFitnessStyles(body.fitnessStyles),
     skinTone: typeof body.skinTone === "string" ? body.skinTone : null,
     hairColor: typeof body.hairColor === "string" ? body.hairColor : null,
     hairLength,
