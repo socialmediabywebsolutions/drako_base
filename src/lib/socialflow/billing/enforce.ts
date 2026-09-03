@@ -57,14 +57,25 @@ const PLAN_STORIES_DAILY_CAP: Record<Exclude<SocialFlowPlanCode, "free">, number
 
 // Cuota de publicaciones de LinkedIn por SEMANA — ventana y carryover independientes
 // de Instagram, mismo mecanismo de acumulación de 1 semana. Simétrico influencer/
-// empresa. Fuente de verdad del copy en plans.ts, no al revés.
-const PLAN_LINKEDIN_WEEKLY_LIMIT: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
+// empresa. Diferenciada por tipo de cuenta LinkedIn conectada (linkedin_cm_enabled,
+// ver saas_social_accounts) — company page vs perfil personal. Fuente de verdad del
+// copy en plans.ts, no al revés.
+const PLAN_LINKEDIN_PERSONAL_WEEKLY_LIMIT: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
   influencer_starter: 2,
   influencer_basico: 3,
   influencer_pro: 5,
   empresa_starter: 2,
   empresa_basico: 3,
   empresa_pro: 5,
+};
+
+const PLAN_LINKEDIN_COMPANY_WEEKLY_LIMIT: Record<Exclude<SocialFlowPlanCode, "free">, number> = {
+  influencer_starter: 2,
+  influencer_basico: 3,
+  influencer_pro: 4,
+  empresa_starter: 2,
+  empresa_basico: 3,
+  empresa_pro: 4,
 };
 
 // Techo diario de publicaciones — protege el alcance orgánico (el algoritmo penaliza
@@ -231,9 +242,17 @@ export async function getWeeklyPublishStatus(tenantId: string, role?: string): P
   const igWeeklyBase = planCode === "free" ? 0 : PLAN_INSTAGRAM_WEEKLY_LIMIT[planCode];
   const igMonthlyLimit = igWeeklyBase * 4;
   const storiesCap = planCode === "free" ? 0 : PLAN_STORIES_DAILY_CAP[planCode];
-  const linkedinWeeklyBase = planCode === "free" ? 0 : PLAN_LINKEDIN_WEEKLY_LIMIT[planCode];
 
   const ctx = await resolveSocialContext({ tenantId, saasId: SOCIALFLOW_SAAS_ID });
+
+  // linkedin_cm_enabled en la cuenta LinkedIn conectada del tenant marca company page
+  // (scope w_organization_social); su ausencia/false es perfil personal.
+  const accounts = await listSaasSocialAccounts(ctx);
+  const linkedinAccount = accounts.find((a) => a.provider === "LINKEDIN");
+  const linkedinWeeklyTable = linkedinAccount?.linkedinCmEnabled
+    ? PLAN_LINKEDIN_COMPANY_WEEKLY_LIMIT
+    : PLAN_LINKEDIN_PERSONAL_WEEKLY_LIMIT;
+  const linkedinWeeklyBase = planCode === "free" ? 0 : linkedinWeeklyTable[planCode];
 
   const now = new Date();
   const dayStart = startOfUtcDay(now);
