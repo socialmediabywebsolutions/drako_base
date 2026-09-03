@@ -9,14 +9,27 @@ import {
   type BodyType,
   type HairLength,
   type HairTexture,
+  type Gender,
+  type CupSize,
+  type BodyConstitution,
+  type FaceShape,
+  type EyeColor,
+  type Beard,
   type PhysicalProfilePatch,
 } from "@/lib/socialflow/profile/physical-repository";
 
 const DEFAULT_SAAS_ID = "socialflow";
 
 const BODY_TYPES: BodyType[] = ["atletica", "fibrada", "normal", "curvilinea", "musculosa"];
-const HAIR_LENGTHS: HairLength[] = ["corto", "medio", "largo"];
+const HAIR_LENGTHS: HairLength[] = ["rapado", "muy_corto", "corto", "medio", "largo", "muy_largo"];
 const HAIR_TEXTURES: HairTexture[] = ["liso", "ondulado", "rizado", "muy_rizado", "con_mechas", "con_highlights"];
+const GENDERS: Gender[] = ["mujer", "hombre", "no_binario", "prefiero_no_decir"];
+const CUP_SIZES: CupSize[] = ["AA", "A", "B", "C", "D", "DD", "E", "F"];
+const BODY_CONSTITUTIONS: BodyConstitution[] = ["ectomorfo", "mesomorfo", "endomorfo", "mixto"];
+const FACE_SHAPES: FaceShape[] = ["ovalada", "redonda", "cuadrada", "corazon", "alargada"];
+const EYE_COLORS: EyeColor[] = ["marrones", "verdes", "azules", "grises", "miel", "negros", "heterocromia"];
+const BEARDS: Beard[] = ["sin_barba", "corta", "larga", "bigote"];
+
 const FITNESS_STYLE_VALUES = [
   "fitness",
   "lifestyle",
@@ -29,19 +42,45 @@ const FITNESS_STYLE_VALUES = [
   "nutricion",
   "wellness",
 ];
-const SKIN_TONE_VALUES = ["muy_clara", "clara", "medio_clara", "mediterranea", "morena", "oscura", "muy_oscura"];
-const HAIR_COLOR_VALUES = [
-  "rubio_platino",
-  "rubio",
-  "rubio_oscuro",
-  "castano_claro",
-  "castano",
-  "castano_oscuro",
+const SKIN_TONE_VALUES = ["muy_clara", "clara", "media", "olivacea", "morena", "oscura", "muy_oscura"];
+const HAIR_COLOR_BASE_VALUES = [
   "negro",
+  "castano_oscuro",
+  "castano",
+  "castano_claro",
+  "rubio_oscuro",
+  "rubio",
+  "rubio_platino",
   "pelirrojo",
-  "con_mechas_rubias",
-  "con_mechas_color",
+  "canoso",
+  "rapado_sin_cabello",
+];
+const HAIR_STYLE_VALUES = [
+  "sin_tratamiento",
+  "mechas_californianas",
+  "mechas_babylights",
+  "mechas_balayage",
+  "mechas_de_color",
+  "ombre",
+  "highlights",
   "tenido_fantasia",
+];
+const CONTENT_VISUAL_STYLE_VALUES = [
+  "minimalista",
+  "colorido_vibrante",
+  "oscuro_moody",
+  "natural_sin_filtros",
+  "glamuroso",
+  "deportivo_raw",
+  "profesional_limpio",
+];
+const TATTOOS_VALUES = [
+  "sin_tatuajes",
+  "pequenos_discretos",
+  "brazo",
+  "espalda",
+  "cuello_manos",
+  "muy_tatuado",
 ];
 
 function resolveSaasId(request: Request): string {
@@ -49,36 +88,39 @@ function resolveSaasId(request: Request): string {
   return requestUrl.searchParams.get("saasId")?.trim() || DEFAULT_SAAS_ID;
 }
 
-function parseFitnessStyles(value: unknown): string[] | null {
+function parseEnum<T extends string>(value: unknown, allowed: readonly T[]): T | null {
+  return typeof value === "string" && (allowed as readonly string[]).includes(value) ? (value as T) : null;
+}
+
+function parseStringArray(value: unknown, allowed: readonly string[]): string[] | null {
   if (!Array.isArray(value)) return null;
-  const styles = value.filter((v): v is string => typeof v === "string" && FITNESS_STYLE_VALUES.includes(v));
-  return styles.length ? styles : null;
+  const items = value.filter((v): v is string => typeof v === "string" && allowed.includes(v));
+  return items.length ? items : null;
 }
 
 function parsePatch(body: Record<string, unknown>): PhysicalProfilePatch {
-  const bodyType = typeof body.bodyType === "string" && BODY_TYPES.includes(body.bodyType as BodyType) ? (body.bodyType as BodyType) : null;
-  const hairLength =
-    typeof body.hairLength === "string" && HAIR_LENGTHS.includes(body.hairLength as HairLength) ? (body.hairLength as HairLength) : null;
-  const hairTexture =
-    typeof body.hairTexture === "string" && HAIR_TEXTURES.includes(body.hairTexture as HairTexture)
-      ? (body.hairTexture as HairTexture)
-      : null;
-  const skinTone = typeof body.skinTone === "string" && SKIN_TONE_VALUES.includes(body.skinTone) ? body.skinTone : null;
-  const hairColor = typeof body.hairColor === "string" && HAIR_COLOR_VALUES.includes(body.hairColor) ? body.hairColor : null;
-
   return {
     referenceImageUrl: typeof body.referenceImageUrl === "string" ? body.referenceImageUrl : null,
+    gender: parseEnum(body.gender, GENDERS),
     heightCm: typeof body.heightCm === "number" ? body.heightCm : null,
     weightKg: typeof body.weightKg === "number" ? body.weightKg : null,
-    bodyType,
+    bodyType: parseEnum(body.bodyType, BODY_TYPES),
+    bodyConstitution: parseEnum(body.bodyConstitution, BODY_CONSTITUTIONS),
     chestCm: typeof body.chestCm === "number" ? body.chestCm : null,
+    cupSize: parseEnum(body.cupSize, CUP_SIZES),
     waistCm: typeof body.waistCm === "number" ? body.waistCm : null,
     hipsCm: typeof body.hipsCm === "number" ? body.hipsCm : null,
-    fitnessStyles: parseFitnessStyles(body.fitnessStyles),
-    skinTone,
-    hairColor,
-    hairLength,
-    hairTexture,
+    fitnessStyles: parseStringArray(body.fitnessStyles, FITNESS_STYLE_VALUES),
+    skinTone: parseEnum(body.skinTone, SKIN_TONE_VALUES),
+    hairColorBase: parseEnum(body.hairColorBase, HAIR_COLOR_BASE_VALUES),
+    hairStyle: parseEnum(body.hairStyle, HAIR_STYLE_VALUES),
+    hairLength: parseEnum(body.hairLength, HAIR_LENGTHS),
+    hairTexture: parseEnum(body.hairTexture, HAIR_TEXTURES),
+    faceShape: parseEnum(body.faceShape, FACE_SHAPES),
+    eyeColor: parseEnum(body.eyeColor, EYE_COLORS),
+    contentVisualStyle: parseStringArray(body.contentVisualStyle, CONTENT_VISUAL_STYLE_VALUES),
+    tattoos: parseEnum(body.tattoos, TATTOOS_VALUES),
+    beard: parseEnum(body.beard, BEARDS),
     referenceFaceR2Key: typeof body.referenceFaceR2Key === "string" ? body.referenceFaceR2Key : null,
     extraNotes: typeof body.extraNotes === "string" ? body.extraNotes : null,
   };

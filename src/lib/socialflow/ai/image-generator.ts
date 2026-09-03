@@ -9,6 +9,119 @@ const R2_PUBLIC_BASE = "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev";
 const NEGATIVE_PROMPT =
   "deformed, extra limbs, twisted joints, bad anatomy, mutated hands, extra fingers, missing fingers, fused fingers, too many fingers, malformed limbs, missing arms, missing legs, extra arms, extra legs, mutated, ugly, blurry, low quality, watermark, text";
 
+const GENDER_LABELS: Record<string, string> = {
+  mujer: "mujer",
+  hombre: "hombre",
+  no_binario: "persona no binaria",
+};
+
+const BODY_TYPE_LABELS: Record<string, string> = {
+  atletica: "atlética",
+  fibrada: "fibrada",
+  normal: "normal",
+  curvilinea: "curvilínea",
+  musculosa: "musculosa",
+};
+
+const BODY_CONSTITUTION_LABELS: Record<"mujer" | "hombre" | "otro", Record<string, string>> = {
+  mujer: { ectomorfo: "ectomorfa", mesomorfo: "mesomorfa", endomorfo: "endomorfa", mixto: "mixta" },
+  hombre: { ectomorfo: "ectomorfo", mesomorfo: "mesomorfo", endomorfo: "endomorfo", mixto: "mixto" },
+  otro: { ectomorfo: "ectomorfo", mesomorfo: "mesomorfo", endomorfo: "endomorfo", mixto: "mixto" },
+};
+
+const SKIN_TONE_LABELS: Record<string, string> = {
+  muy_clara: "muy clara",
+  clara: "clara",
+  media: "media",
+  olivacea: "olivácea",
+  morena: "morena",
+  oscura: "oscura",
+  muy_oscura: "muy oscura",
+};
+
+const HAIR_COLOR_BASE_LABELS: Record<string, string> = {
+  negro: "negro",
+  castano_oscuro: "castaño oscuro",
+  castano: "castaño",
+  castano_claro: "castaño claro",
+  rubio_oscuro: "rubio oscuro",
+  rubio: "rubio",
+  rubio_platino: "rubio platino",
+  pelirrojo: "pelirrojo",
+  canoso: "canoso",
+  rapado_sin_cabello: "rapado/sin cabello",
+};
+
+const HAIR_STYLE_LABELS: Record<string, string> = {
+  mechas_californianas: "mechas californianas",
+  mechas_babylights: "mechas babylights",
+  mechas_balayage: "mechas balayage",
+  mechas_de_color: "mechas de color",
+  ombre: "ombré",
+  highlights: "highlights",
+  tenido_fantasia: "teñido fantasía",
+};
+
+const HAIR_LENGTH_LABELS: Record<string, string> = {
+  rapado: "rapado",
+  muy_corto: "muy corto",
+  corto: "corto",
+  medio: "medio",
+  largo: "largo",
+  muy_largo: "muy largo",
+};
+
+const HAIR_TEXTURE_LABELS: Record<string, string> = {
+  liso: "liso",
+  ondulado: "ondulado",
+  rizado: "rizado",
+  muy_rizado: "muy rizado/afro",
+  con_mechas: "con mechas",
+  con_highlights: "con highlights",
+};
+
+const FACE_SHAPE_LABELS: Record<string, string> = {
+  ovalada: "ovalada",
+  redonda: "redonda",
+  cuadrada: "cuadrada",
+  corazon: "corazón",
+  alargada: "alargada",
+};
+
+const EYE_COLOR_LABELS: Record<string, string> = {
+  marrones: "marrones",
+  verdes: "verdes",
+  azules: "azules",
+  grises: "grises",
+  miel: "miel",
+  negros: "negros",
+  heterocromia: "heterocromía",
+};
+
+const CONTENT_VISUAL_STYLE_LABELS: Record<string, string> = {
+  minimalista: "minimalista",
+  colorido_vibrante: "colorido y vibrante",
+  oscuro_moody: "oscuro y moody",
+  natural_sin_filtros: "natural sin filtros",
+  glamuroso: "glamuroso",
+  deportivo_raw: "deportivo raw",
+  profesional_limpio: "profesional y limpio",
+};
+
+const TATTOOS_LABELS: Record<string, string> = {
+  pequenos_discretos: "tatuajes pequeños discretos",
+  brazo: "tatuaje en brazo",
+  espalda: "tatuaje en espalda",
+  cuello_manos: "tatuajes en cuello/manos",
+  muy_tatuado: "muy tatuado/a",
+};
+
+const BEARD_LABELS: Record<string, string> = {
+  corta: "barba corta",
+  larga: "barba larga",
+  bigote: "bigote",
+};
+
 async function readStream(stream: ReadableStream<Uint8Array>): Promise<ArrayBuffer> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
@@ -27,23 +140,76 @@ async function readStream(stream: ReadableStream<Uint8Array>): Promise<ArrayBuff
   return merged.buffer as ArrayBuffer;
 }
 
-function humanize(value: string): string {
-  return value.replace(/_/g, " ");
+function joinNatural(items: string[]): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
+}
+
+function computeBmi(heightCm: number | null, weightKg: number | null): number | null {
+  if (!heightCm || !weightKg) return null;
+  const heightM = heightCm / 100;
+  if (heightM <= 0) return null;
+  return Math.round((weightKg / (heightM * heightM)) * 10) / 10;
 }
 
 function describePhysicalProfile(profile: Awaited<ReturnType<typeof getPhysicalProfile>>): string | null {
   if (!profile) return null;
   const parts: string[] = [];
-  if (profile.bodyType) parts.push(`complexión ${profile.bodyType}`);
+
+  const genderLabel = profile.gender ? GENDER_LABELS[profile.gender] : null;
+  if (genderLabel) parts.push(genderLabel);
+
+  const constitutionGroup = profile.gender === "hombre" ? "hombre" : profile.gender === "mujer" ? "mujer" : "otro";
+  if (profile.bodyConstitution) {
+    const label = BODY_CONSTITUTION_LABELS[constitutionGroup][profile.bodyConstitution];
+    if (label) parts.push(`constitución ${label}`);
+  }
+
+  const bmi = computeBmi(profile.heightCm, profile.weightKg);
+  const bodyTypeLabel = profile.bodyType ? BODY_TYPE_LABELS[profile.bodyType] : null;
+  if (bodyTypeLabel && bmi) {
+    parts.push(`figura ${bodyTypeLabel} (IMC ${bmi})`);
+  } else if (bodyTypeLabel) {
+    parts.push(`figura ${bodyTypeLabel}`);
+  } else if (bmi) {
+    parts.push(`IMC ${bmi}`);
+  }
+
   if (profile.heightCm) parts.push(`${profile.heightCm}cm`);
-  if (profile.skinTone) parts.push(`piel ${humanize(profile.skinTone)}`);
-  const hairBits = [profile.hairLength, profile.hairColor && humanize(profile.hairColor), profile.hairTexture && humanize(profile.hairTexture)].filter(
-    Boolean,
-  );
+
+  if (profile.skinTone) parts.push(`tono de piel ${SKIN_TONE_LABELS[profile.skinTone] ?? profile.skinTone}`);
+
+  const hairBits: string[] = [];
+  if (profile.hairColorBase) hairBits.push(HAIR_COLOR_BASE_LABELS[profile.hairColorBase] ?? profile.hairColorBase);
+  if (profile.hairStyle && profile.hairStyle !== "sin_tratamiento") {
+    hairBits.push(`con ${HAIR_STYLE_LABELS[profile.hairStyle] ?? profile.hairStyle}`);
+  }
+  if (profile.hairLength) hairBits.push(HAIR_LENGTH_LABELS[profile.hairLength] ?? profile.hairLength);
+  if (profile.hairTexture) hairBits.push(HAIR_TEXTURE_LABELS[profile.hairTexture] ?? profile.hairTexture);
   if (hairBits.length) parts.push(`cabello ${hairBits.join(" ")}`);
-  if (profile.fitnessStyles?.length) parts.push(`estilo fitness: ${profile.fitnessStyles.join(", ")}`);
+
+  if (profile.eyeColor) parts.push(`ojos ${EYE_COLOR_LABELS[profile.eyeColor] ?? profile.eyeColor}`);
+  if (profile.faceShape) parts.push(`cara ${FACE_SHAPE_LABELS[profile.faceShape] ?? profile.faceShape}`);
+
+  if (profile.contentVisualStyle?.length) {
+    const labels = profile.contentVisualStyle.map((v) => CONTENT_VISUAL_STYLE_LABELS[v] ?? v);
+    parts.push(`estilo visual ${joinNatural(labels)}`);
+  }
+
+  if (profile.tattoos && profile.tattoos !== "sin_tatuajes") {
+    const label = TATTOOS_LABELS[profile.tattoos];
+    if (label) parts.push(`con ${label}`);
+  }
+
+  if (profile.beard && profile.beard !== "sin_barba") {
+    const label = BEARD_LABELS[profile.beard];
+    if (label) parts.push(label);
+  }
+
+  if (profile.fitnessStyles?.length) parts.push(`estilo ${joinNatural(profile.fitnessStyles)}`);
+
   if (!parts.length) return null;
-  return `Mujer de ${parts.join(", ")}`;
+  return parts.join(", ");
 }
 
 export async function generatePostImage(prompt: string, postId: string, tenantId?: string | null): Promise<string | null> {

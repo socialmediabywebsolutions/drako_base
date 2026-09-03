@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Field, MiniList, SelectField, sectionCls, TagField, TextareaField } from "./ProfileFormFields";
 import ProfileAiChat from "./ProfileAiChat";
+import PhysicalProfileAiChat from "./PhysicalProfileAiChat";
 
 type ProfileResponse = {
   ok: boolean;
@@ -24,6 +25,7 @@ export default function SocialFlowProfilePage() {
   const [physicalSaving, setPhysicalSaving] = useState(false);
   const [physicalError, setPhysicalError] = useState<string | null>(null);
   const [faceUploading, setFaceUploading] = useState(false);
+  const [physicalChatOpen, setPhysicalChatOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +120,22 @@ export default function SocialFlowProfilePage() {
       setPhysicalError(e?.message || "Error inesperado al subir la foto");
     } finally {
       setFaceUploading(false);
+    }
+  }
+
+  async function onPhysicalFieldsExtracted(fields: Record<string, unknown>) {
+    const updated = { ...physicalProfile, ...fields };
+    setPhysicalProfile(updated);
+    try {
+      const res = await fetch("/api/socialflow/profile/physical", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      });
+      const json: any = await res.json();
+      if (json.ok) setPhysicalProfile(json.profile || updated);
+    } catch {
+      // best-effort — el chat sigue avanzando aunque un guardado puntual falle
     }
   }
 
@@ -327,188 +345,377 @@ export default function SocialFlowProfilePage() {
       </section>
 
       {/* Physical profile — only for influencer accounts, feeds the AI image generator */}
-      {accountType === "influencer" && (
-        <section className={sectionCls}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-white/90">Perfil físico</h2>
-            <span className="text-xs text-white/30">Guía a la IA para generar imágenes que se parezcan a ti.</span>
-          </div>
-          <div className="grid gap-4 text-sm md:grid-cols-3">
-            <SelectField
-              label="Complexión"
-              value={physicalProfile.bodyType}
-              onChange={(v) => setPhysicalProfile({ ...physicalProfile, bodyType: v })}
-              options={[
-                { value: "atletica", label: "Atlética" },
-                { value: "fibrada", label: "Fibrada" },
-                { value: "normal", label: "Normal" },
-                { value: "curvilinea", label: "Curvilínea" },
-                { value: "musculosa", label: "Musculosa" },
-              ]}
-            />
-            <Field
-              label="Altura (cm)"
-              value={physicalProfile.heightCm ?? ""}
-              onChange={(v) => setPhysicalProfile({ ...physicalProfile, heightCm: v ? Number(v) : null })}
-            />
-            <Field
-              label="Peso (kg)"
-              value={physicalProfile.weightKg ?? ""}
-              onChange={(v) => setPhysicalProfile({ ...physicalProfile, weightKg: v ? Number(v) : null })}
-            />
-          </div>
-          <div className="grid gap-4 text-sm md:grid-cols-3">
-            <Field
-              label="Pecho (cm)"
-              value={physicalProfile.chestCm ?? ""}
-              onChange={(v) => setPhysicalProfile({ ...physicalProfile, chestCm: v ? Number(v) : null })}
-            />
-            <Field
-              label="Cintura (cm)"
-              value={physicalProfile.waistCm ?? ""}
-              onChange={(v) => setPhysicalProfile({ ...physicalProfile, waistCm: v ? Number(v) : null })}
-            />
-            <Field
-              label="Cadera (cm)"
-              value={physicalProfile.hipsCm ?? ""}
-              onChange={(v) => setPhysicalProfile({ ...physicalProfile, hipsCm: v ? Number(v) : null })}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <span className="text-xs font-medium text-white/45">Estilo fitness</span>
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {[
-                { value: "fitness", label: "Fitness" },
-                { value: "lifestyle", label: "Lifestyle" },
-                { value: "gym", label: "Gym" },
-                { value: "fitness_model", label: "Fitness Model" },
-                { value: "crossfit", label: "Crossfit" },
-                { value: "yoga", label: "Yoga" },
-                { value: "pilates", label: "Pilates" },
-                { value: "running", label: "Running" },
-                { value: "nutricion", label: "Nutrición" },
-                { value: "wellness", label: "Wellness" },
-              ].map((opt) => {
-                const selected: string[] = physicalProfile.fitnessStyles ?? [];
-                const checked = selected.includes(opt.value);
-                return (
-                  <label key={opt.value} className="flex items-center gap-1.5 text-sm text-white/70">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) =>
-                        setPhysicalProfile({
-                          ...physicalProfile,
-                          fitnessStyles: e.target.checked
-                            ? [...selected, opt.value]
-                            : selected.filter((v) => v !== opt.value),
-                        })
-                      }
-                      className="h-4 w-4 rounded border-white/20 bg-white/5 text-violet-500 focus:ring-violet-500/40"
-                    />
-                    {opt.label}
-                  </label>
-                );
-              })}
+      {accountType === "influencer" && (() => {
+        const heightM = physicalProfile.heightCm ? physicalProfile.heightCm / 100 : null;
+        const bmi = heightM && physicalProfile.weightKg ? Math.round((physicalProfile.weightKg / (heightM * heightM)) * 10) / 10 : null;
+        const bmiCategory =
+          bmi == null ? null : bmi < 18.5 ? "Muy delgado" : bmi < 25 ? "Normal" : bmi < 30 ? "Con curvas" : "Voluminoso";
+        const showChestCup = physicalProfile.gender === "mujer" || physicalProfile.gender === "no_binario";
+        const showBeard = physicalProfile.gender === "hombre";
+        const visualStyles: string[] = physicalProfile.contentVisualStyle ?? [];
+        const fitnessStyles: string[] = physicalProfile.fitnessStyles ?? [];
+
+        return (
+          <section className={sectionCls}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-white/90">Perfil físico</h2>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-white/30">Guía a la IA para generar imágenes que se parezcan a ti.</span>
+                <button
+                  type="button"
+                  onClick={() => setPhysicalChatOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-200 transition hover:bg-violet-500/20"
+                >
+                  ✨ Rellenar con IA
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="grid gap-4 text-sm md:grid-cols-2">
-            <SelectField
-              label="Color de piel"
-              value={physicalProfile.skinTone}
-              onChange={(v) => setPhysicalProfile({ ...physicalProfile, skinTone: v })}
-              options={[
-                { value: "muy_clara", label: "Muy clara" },
-                { value: "clara", label: "Clara" },
-                { value: "medio_clara", label: "Medio-clara" },
-                { value: "mediterranea", label: "Mediterránea" },
-                { value: "morena", label: "Morena" },
-                { value: "oscura", label: "Oscura" },
-                { value: "muy_oscura", label: "Muy oscura" },
-              ]}
-            />
-            <SelectField
-              label="Color de cabello"
-              value={physicalProfile.hairColor}
-              onChange={(v) => setPhysicalProfile({ ...physicalProfile, hairColor: v })}
-              options={[
-                { value: "rubio_platino", label: "Rubio platino" },
-                { value: "rubio", label: "Rubio" },
-                { value: "rubio_oscuro", label: "Rubio oscuro" },
-                { value: "castano_claro", label: "Castaño claro" },
-                { value: "castano", label: "Castaño" },
-                { value: "castano_oscuro", label: "Castaño oscuro" },
-                { value: "negro", label: "Negro" },
-                { value: "pelirrojo", label: "Pelirrojo" },
-                { value: "con_mechas_rubias", label: "Con mechas rubias" },
-                { value: "con_mechas_color", label: "Con mechas de color" },
-                { value: "tenido_fantasia", label: "Teñido fantasía" },
-              ]}
-            />
-          </div>
-          <div className="grid gap-4 text-sm md:grid-cols-3">
-            <SelectField
-              label="Largo de cabello"
-              value={physicalProfile.hairLength}
-              onChange={(v) => setPhysicalProfile({ ...physicalProfile, hairLength: v })}
-              options={[
-                { value: "corto", label: "Corto" },
-                { value: "medio", label: "Medio" },
-                { value: "largo", label: "Largo" },
-              ]}
-            />
-            <SelectField
-              label="Textura del cabello"
-              value={physicalProfile.hairTexture}
-              onChange={(v) => setPhysicalProfile({ ...physicalProfile, hairTexture: v })}
-              options={[
-                { value: "liso", label: "Liso" },
-                { value: "ondulado", label: "Ondulado" },
-                { value: "rizado", label: "Rizado" },
-                { value: "muy_rizado", label: "Muy rizado" },
-                { value: "con_mechas", label: "Con mechas" },
-                { value: "con_highlights", label: "Con highlights" },
-              ]}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <span className="text-xs font-medium text-white/45">
-              Foto de rostro de referencia — la IA usará esta imagen para mantener consistencia facial en las imágenes generadas
-            </span>
-            <div className="flex items-center gap-3">
-              {physicalProfile.referenceImageUrl && (
-                <img
-                  src={physicalProfile.referenceImageUrl}
-                  alt="Foto de rostro de referencia"
-                  className="h-16 w-16 rounded-lg border border-white/10 object-cover"
+
+            {physicalChatOpen && (
+              <PhysicalProfileAiChat onClose={() => setPhysicalChatOpen(false)} onFieldsExtracted={onPhysicalFieldsExtracted} />
+            )}
+
+            {/* BLOQUE A — Identidad y género */}
+            <div className="grid gap-4 text-sm md:grid-cols-3">
+              <SelectField
+                label="Género"
+                value={physicalProfile.gender}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, gender: v })}
+                options={[
+                  { value: "mujer", label: "Mujer" },
+                  { value: "hombre", label: "Hombre" },
+                  { value: "no_binario", label: "No binario" },
+                  { value: "prefiero_no_decir", label: "Prefiero no decirlo" },
+                ]}
+              />
+            </div>
+
+            {/* BLOQUE B — Medidas corporales */}
+            <div className="grid gap-4 text-sm md:grid-cols-3">
+              <Field
+                label="Altura (cm)"
+                value={physicalProfile.heightCm ?? ""}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, heightCm: v ? Number(v) : null })}
+              />
+              <Field
+                label="Peso (kg)"
+                value={physicalProfile.weightKg ?? ""}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, weightKg: v ? Number(v) : null })}
+              />
+              <div className="flex flex-col gap-1 text-sm">
+                <span className="text-xs font-medium text-white/45">IMC (calculado)</span>
+                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70">
+                  {bmi != null ? `${bmi} — ${bmiCategory}` : "Introduce altura y peso"}
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-4 text-sm md:grid-cols-3">
+              <SelectField
+                label="Constitución corporal"
+                value={physicalProfile.bodyConstitution}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, bodyConstitution: v })}
+                options={[
+                  { value: "ectomorfo", label: "Ectomorfo (delgado natural)" },
+                  { value: "mesomorfo", label: "Mesomorfo (atlético natural)" },
+                  { value: "endomorfo", label: "Endomorfo (tendencia a ganar peso)" },
+                  { value: "mixto", label: "Mixto" },
+                ]}
+              />
+              <Field
+                label="Cintura (cm)"
+                value={physicalProfile.waistCm ?? ""}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, waistCm: v ? Number(v) : null })}
+              />
+              <Field
+                label="Caderas (cm)"
+                value={physicalProfile.hipsCm ?? ""}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, hipsCm: v ? Number(v) : null })}
+              />
+            </div>
+            {showChestCup && (
+              <div className="grid gap-4 text-sm md:grid-cols-3">
+                <Field
+                  label="Pecho (cm)"
+                  value={physicalProfile.chestCm ?? ""}
+                  onChange={(v) => setPhysicalProfile({ ...physicalProfile, chestCm: v ? Number(v) : null })}
+                />
+                <SelectField
+                  label="Copa"
+                  value={physicalProfile.cupSize}
+                  onChange={(v) => setPhysicalProfile({ ...physicalProfile, cupSize: v })}
+                  options={["AA", "A", "B", "C", "D", "DD", "E", "F"].map((v) => ({ value: v, label: v }))}
+                />
+              </div>
+            )}
+
+            {/* BLOQUE C — Complexión visual */}
+            <div className="grid gap-4 text-sm md:grid-cols-2">
+              <SelectField
+                label="Complexión"
+                value={physicalProfile.bodyType}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, bodyType: v })}
+                options={[
+                  { value: "atletica", label: "Atlética" },
+                  { value: "fibrada", label: "Fibrada" },
+                  { value: "normal", label: "Normal" },
+                  { value: "curvilinea", label: "Curvilínea" },
+                  { value: "musculosa", label: "Musculosa" },
+                ]}
+              />
+              <SelectField
+                label="Tono de piel"
+                value={physicalProfile.skinTone}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, skinTone: v })}
+                options={[
+                  { value: "muy_clara", label: "Muy clara" },
+                  { value: "clara", label: "Clara" },
+                  { value: "media", label: "Media" },
+                  { value: "olivacea", label: "Olivácea" },
+                  { value: "morena", label: "Morena" },
+                  { value: "oscura", label: "Oscura" },
+                  { value: "muy_oscura", label: "Muy oscura" },
+                ]}
+              />
+            </div>
+
+            {/* BLOQUE D — Cabello */}
+            <div className="grid gap-4 text-sm md:grid-cols-2">
+              <SelectField
+                label="Color base"
+                value={physicalProfile.hairColorBase}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, hairColorBase: v })}
+                options={[
+                  { value: "negro", label: "Negro" },
+                  { value: "castano_oscuro", label: "Castaño oscuro" },
+                  { value: "castano", label: "Castaño" },
+                  { value: "castano_claro", label: "Castaño claro" },
+                  { value: "rubio_oscuro", label: "Rubio oscuro" },
+                  { value: "rubio", label: "Rubio" },
+                  { value: "rubio_platino", label: "Rubio platino" },
+                  { value: "pelirrojo", label: "Pelirrojo" },
+                  { value: "canoso", label: "Canoso" },
+                  { value: "rapado_sin_cabello", label: "Rapado/Sin cabello" },
+                ]}
+              />
+              <SelectField
+                label="Estilo/tratamiento"
+                value={physicalProfile.hairStyle}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, hairStyle: v })}
+                options={[
+                  { value: "sin_tratamiento", label: "Sin tratamiento" },
+                  { value: "mechas_californianas", label: "Mechas californianas" },
+                  { value: "mechas_babylights", label: "Mechas babylights" },
+                  { value: "mechas_balayage", label: "Mechas balayage" },
+                  { value: "mechas_de_color", label: "Mechas de color" },
+                  { value: "ombre", label: "Ombré" },
+                  { value: "highlights", label: "Highlights" },
+                  { value: "tenido_fantasia", label: "Teñido fantasía" },
+                ]}
+              />
+            </div>
+            <div className="grid gap-4 text-sm md:grid-cols-2">
+              <SelectField
+                label="Largo"
+                value={physicalProfile.hairLength}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, hairLength: v })}
+                options={[
+                  { value: "rapado", label: "Rapado" },
+                  { value: "muy_corto", label: "Muy corto" },
+                  { value: "corto", label: "Corto" },
+                  { value: "medio", label: "Medio" },
+                  { value: "largo", label: "Largo" },
+                  { value: "muy_largo", label: "Muy largo" },
+                ]}
+              />
+              <SelectField
+                label="Textura"
+                value={physicalProfile.hairTexture}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, hairTexture: v })}
+                options={[
+                  { value: "liso", label: "Liso" },
+                  { value: "ondulado", label: "Ondulado" },
+                  { value: "rizado", label: "Rizado" },
+                  { value: "muy_rizado", label: "Muy rizado/Afro" },
+                ]}
+              />
+            </div>
+
+            {/* BLOQUE E — Rasgos faciales */}
+            <div className="grid gap-4 text-sm md:grid-cols-2">
+              <SelectField
+                label="Forma de cara"
+                value={physicalProfile.faceShape}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, faceShape: v })}
+                options={[
+                  { value: "ovalada", label: "Ovalada" },
+                  { value: "redonda", label: "Redonda" },
+                  { value: "cuadrada", label: "Cuadrada" },
+                  { value: "corazon", label: "Corazón" },
+                  { value: "alargada", label: "Alargada" },
+                ]}
+              />
+              <SelectField
+                label="Color de ojos"
+                value={physicalProfile.eyeColor}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, eyeColor: v })}
+                options={[
+                  { value: "marrones", label: "Marrones" },
+                  { value: "verdes", label: "Verdes" },
+                  { value: "azules", label: "Azules" },
+                  { value: "grises", label: "Grises" },
+                  { value: "miel", label: "Miel" },
+                  { value: "negros", label: "Negros" },
+                  { value: "heterocromia", label: "Heterocromía" },
+                ]}
+              />
+            </div>
+
+            {/* BLOQUE F — Estilo visual de contenido */}
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-white/45">Estilo visual de contenido</span>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                {[
+                  { value: "minimalista", label: "Minimalista" },
+                  { value: "colorido_vibrante", label: "Colorido/vibrante" },
+                  { value: "oscuro_moody", label: "Oscuro/moody" },
+                  { value: "natural_sin_filtros", label: "Natural/sin filtros" },
+                  { value: "glamuroso", label: "Glamuroso" },
+                  { value: "deportivo_raw", label: "Deportivo/raw" },
+                  { value: "profesional_limpio", label: "Profesional/limpio" },
+                ].map((opt) => {
+                  const checked = visualStyles.includes(opt.value);
+                  return (
+                    <label key={opt.value} className="flex items-center gap-1.5 text-sm text-white/70">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          setPhysicalProfile({
+                            ...physicalProfile,
+                            contentVisualStyle: e.target.checked
+                              ? [...visualStyles, opt.value]
+                              : visualStyles.filter((v) => v !== opt.value),
+                          })
+                        }
+                        className="h-4 w-4 rounded border-white/20 bg-white/5 text-violet-500 focus:ring-violet-500/40"
+                      />
+                      {opt.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* BLOQUE G — Detalles adicionales */}
+            <div className="grid gap-4 text-sm md:grid-cols-2">
+              <SelectField
+                label="Tatuajes"
+                value={physicalProfile.tattoos}
+                onChange={(v) => setPhysicalProfile({ ...physicalProfile, tattoos: v })}
+                options={[
+                  { value: "sin_tatuajes", label: "Sin tatuajes" },
+                  { value: "pequenos_discretos", label: "Tatuajes pequeños discretos" },
+                  { value: "brazo", label: "Tatuajes en brazo" },
+                  { value: "espalda", label: "Tatuajes en espalda" },
+                  { value: "cuello_manos", label: "Tatuajes en cuello/manos" },
+                  { value: "muy_tatuado", label: "Muy tatuado" },
+                ]}
+              />
+              {showBeard && (
+                <SelectField
+                  label="Barba"
+                  value={physicalProfile.beard}
+                  onChange={(v) => setPhysicalProfile({ ...physicalProfile, beard: v })}
+                  options={[
+                    { value: "sin_barba", label: "Sin barba" },
+                    { value: "corta", label: "Barba corta" },
+                    { value: "larga", label: "Barba larga" },
+                    { value: "bigote", label: "Bigote" },
+                  ]}
                 />
               )}
-              <input
-                type="file"
-                accept="image/jpeg,image/png"
-                disabled={faceUploading}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  e.target.value = "";
-                  if (file) void onUploadFacePhoto(file);
-                }}
-                className="text-xs text-white/50 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-500/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-violet-200 hover:file:bg-violet-500/30"
-              />
-              {faceUploading && <span className="text-xs text-white/40">Subiendo...</span>}
             </div>
-          </div>
-          {physicalError && <p className="text-sm text-red-300">{physicalError}</p>}
-          <button
-            type="button"
-            onClick={() => onSavePhysicalProfile()}
-            disabled={physicalSaving}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {physicalSaving && <span className="h-2 w-2 animate-pulse rounded-full bg-white" />}
-            {physicalSaving ? "Guardando..." : "Guardar perfil físico"}
-          </button>
-        </section>
-      )}
+
+            {/* BLOQUE H — Foto de rostro de referencia */}
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-white/45">
+                Foto de rostro de referencia — la IA usará esta imagen para mantener consistencia facial en las imágenes generadas
+              </span>
+              <div className="flex items-center gap-3">
+                {physicalProfile.referenceImageUrl && (
+                  <img
+                    src={physicalProfile.referenceImageUrl}
+                    alt="Foto de rostro de referencia"
+                    className="h-16 w-16 rounded-lg border border-white/10 object-cover"
+                  />
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  disabled={faceUploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) void onUploadFacePhoto(file);
+                  }}
+                  className="text-xs text-white/50 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-500/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-violet-200 hover:file:bg-violet-500/30"
+                />
+                {faceUploading && <span className="text-xs text-white/40">Subiendo...</span>}
+              </div>
+            </div>
+
+            {/* BLOQUE I — Estilos fitness */}
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-white/45">Estilo fitness</span>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                {[
+                  { value: "fitness", label: "Fitness" },
+                  { value: "lifestyle", label: "Lifestyle" },
+                  { value: "gym", label: "Gym" },
+                  { value: "fitness_model", label: "Fitness Model" },
+                  { value: "crossfit", label: "Crossfit" },
+                  { value: "yoga", label: "Yoga" },
+                  { value: "pilates", label: "Pilates" },
+                  { value: "running", label: "Running" },
+                  { value: "nutricion", label: "Nutrición" },
+                  { value: "wellness", label: "Wellness" },
+                ].map((opt) => {
+                  const checked = fitnessStyles.includes(opt.value);
+                  return (
+                    <label key={opt.value} className="flex items-center gap-1.5 text-sm text-white/70">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          setPhysicalProfile({
+                            ...physicalProfile,
+                            fitnessStyles: e.target.checked
+                              ? [...fitnessStyles, opt.value]
+                              : fitnessStyles.filter((v) => v !== opt.value),
+                          })
+                        }
+                        className="h-4 w-4 rounded border-white/20 bg-white/5 text-violet-500 focus:ring-violet-500/40"
+                      />
+                      {opt.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {physicalError && <p className="text-sm text-red-300">{physicalError}</p>}
+            <button
+              type="button"
+              onClick={() => onSavePhysicalProfile()}
+              disabled={physicalSaving}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {physicalSaving && <span className="h-2 w-2 animate-pulse rounded-full bg-white" />}
+              {physicalSaving ? "Guardando..." : "Guardar perfil físico"}
+            </button>
+          </section>
+        );
+      })()}
 
       {/* Niche & topics */}
       <section className={sectionCls}>
