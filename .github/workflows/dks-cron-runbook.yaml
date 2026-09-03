@@ -367,3 +367,261 @@ jobs:
           else
             echo "No purge script found. Skipping."
           fi
+
+  cerebro-health:
+    name: 🧠 Cerebro Socialcors — Health Check
+    runs-on: ubuntu-latest
+    # Corre después de los jobs de trabajo del runbook (needs + if: always() para que no
+    # se salte cuando alguno de ellos queda skipped por su propio gate de schedule — en
+    # cada disparo del workflow normalmente solo UNO de esos jobs corre de verdad).
+    needs:
+      - socialflow-publish-cron
+      - socialflow-process-comments
+      - socialflow-trend-keywords
+      - social-metrics-cron
+      - socialflow-style-learning
+      - socialflow-niche-intelligence
+      - alerts-check
+    if: always()
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 📦 Instalar Wrangler
+        run: npm install -g wrangler@4.69.0
+
+      - name: 🧠 Auditoría de salud del Cerebro (agentes, señales, plan, Nivel 3, tokens, posts, consumo IA)
+        run: |
+          set -uo pipefail
+
+          DB="SOCIAL_DB"
+          CFG="workers/socialflows/wrangler.workers.toml"
+          HAS_ERROR=0
+          HAS_WARN=0
+          NOW_EPOCH=$(date -u +%s)
+
+          run_query() {
+            wrangler d1 execute "$DB" --remote --config "$CFG" --command "$1" --json 2>/tmp/cerebro_stderr.log
+          }
+
+          # ── 1. AGENTES — última ejecución vs ventana esperada ──────────────────────
+          SQL_AGENTS="SELECT agent_name, MAX(started_at) as ultima, COUNT(*) as total_runs, SUM(CASE WHEN status='error' THEN 1 ELSE 0 END) as errores FROM agent_execution_log GROUP BY agent_name ORDER BY ultima DESC"
+          AGENTS_JSON=$(run_query "$SQL_AGENTS" | jq -c '.[0].results // []' || echo '[]')
+          if [ -z "$AGENTS_JSON" ] || [ "$AGENTS_JSON" = "null" ]; then
+            echo "❌ ERROR: no se pudo leer agent_execution_log ($(cat /tmp/cerebro_stderr.log))"
+            AGENTS_JSON="[]"
+            HAS_ERROR=1
+          fi
+
+          # Ventanas en minutos. 25min (TrendKeywordAgent/TrendTriggerConnector, cron
+          # */20), 300min=5h (ViralMomentAgent, cron 0*/4h), 1500min=25h (agentes del
+          # cron diario 0 3 * * * — StyleLearningAgent + los que corren dentro de su
+          # pipeline por tenant, ver src/app/api/cron/social/style-learning/route.ts —
+          # más SeasonalityAgent/AudienceInsightAgent/SeasonalOpportunityAgent/
+          # ChurnPredictionAgent, que comparten el mismo cron diario, ver
+          # scripts/patch-socialflow-cron-handler.mjs), 11520min=8d (agentes del cron
+          # semanal 0 3 * * 1, mismo script).
+          declare -A AGENT_WINDOW_MIN=(
+            ["TrendKeywordAgent"]=25
+            ["TrendTriggerConnector"]=25
+            ["ViralMomentAgent"]=300
+            ["StyleLearningAgent"]=1500
+            ["SeasonalityAgent"]=1500
+            ["AudienceInsightAgent"]=1500
+            ["SeasonalOpportunityAgent"]=1500
+            ["ChurnPredictionAgent"]=1500
+            ["VoiceExtractionAgent"]=1500
+            ["ContentFatigueAgent"]=1500
+            ["ContentPerformanceAgent"]=1500
+            ["HashtagIntelligenceAgent"]=1500
+            ["AudienceGrowthAgent"]=1500
+            ["OptimalPostingScheduleAgent"]=1500
+            ["SentimentTrendAgent"]=1500
+            ["ContentSeriesAgent"]=1500
+            ["BrandConsistencyAgent"]=1500
+            ["ContentDiversityAgent"]=1500
+            ["RevenueOpportunityAgent"]=1500
+            ["NicheIntelligenceCronAgent"]=11520
+            ["InfluencerBenchmarkAgent"]=11520
+            ["CrossTenantIntelligenceAgent"]=11520
+            ["ViralOpportunityAgent"]=11520
+            ["WeeklyBriefingAgent"]=11520
+            ["BestPracticesAgent"]=11520
+            ["StrategicPlanningAgent"]=11520
+          )
+          TOTAL_AGENTS=${#AGENT_WINDOW_MIN[@]}
+          OK_AGENTS=0
+          AGENTS_SECTION_ERROR=0
+          AGENTS_SECTION_WARN=0
+
+          for agent in "${!AGENT_WINDOW_MIN[@]}"; do
+            window=${AGENT_WINDOW_MIN[$agent]}
+            row=$(echo "$AGENTS_JSON" | jq -c --arg a "$agent" '[.[] | select(.agent_name==$a)][0] // empty')
+            if [ -z "$row" ]; then
+              echo "❌ ERROR: $agent nunca ha corrido (sin filas en agent_execution_log)"
+              AGENTS_SECTION_ERROR=1
+              HAS_ERROR=1
+              continue
+            fi
+            ultima=$(echo "$row" | jq -r '.ultima')
+            errores=$(echo "$row" | jq -r '.errores // 0')
+            ultima_epoch=$(date -u -d "$ultima" +%s 2>/dev/null || echo "")
+            if [ -z "$ultima_epoch" ]; then
+              echo "❌ ERROR: $agent tiene started_at ilegible ($ultima)"
+              AGENTS_SECTION_ERROR=1
+              HAS_ERROR=1
+              continue
+            fi
+            age_min=$(( (NOW_EPOCH - ultima_epoch) / 60 ))
+            if [ "$age_min" -gt "$window" ]; then
+              echo "⚠️ WARN: $agent lleva ${age_min}min sin correr (ventana esperada: ${window}min, errores recientes: $errores)"
+              AGENTS_SECTION_WARN=1
+              HAS_WARN=1
+            else
+              OK_AGENTS=$((OK_AGENTS + 1))
+            fi
+          done
+
+          # TrendAutoApproveCron — mencionado en el runbook con ventana de 20min, pero
+          # todavía no instrumentado con withAgentExecutionLog (ver
+          # src/lib/socialflow/intelligence/TrendAutoApproveCron.ts), así que su ausencia
+          # no cuenta como ERROR ni entra en el denominador de /26 — solo se avisa si
+          # aparece y está atascado.
+          ta_row=$(echo "$AGENTS_JSON" | jq -c '[.[] | select(.agent_name=="TrendAutoApproveCron")][0] // empty')
+          if [ -n "$ta_row" ]; then
+            ta_ultima=$(echo "$ta_row" | jq -r '.ultima')
+            ta_epoch=$(date -u -d "$ta_ultima" +%s 2>/dev/null || echo "")
+            if [ -n "$ta_epoch" ]; then
+              ta_age_min=$(( (NOW_EPOCH - ta_epoch) / 60 ))
+              if [ "$ta_age_min" -gt 20 ]; then
+                echo "⚠️ WARN: TrendAutoApproveCron lleva ${ta_age_min}min sin correr (ventana esperada: 20min)"
+                HAS_WARN=1
+              fi
+            fi
+          else
+            echo "ℹ️ TrendAutoApproveCron no tiene filas en agent_execution_log todavía (no instrumentado)"
+          fi
+
+          if [ "$AGENTS_SECTION_ERROR" = "1" ]; then AGENTS_EMOJI="❌"; elif [ "$AGENTS_SECTION_WARN" = "1" ]; then AGENTS_EMOJI="⚠️"; else AGENTS_EMOJI="✅"; fi
+
+          # ── 2. CALIDAD DE DATOS — trendSignals ──────────────────────────────────────
+          SQL_TRENDSIGNALS="SELECT niche, account_type, CASE WHEN trend_last_fetched IS NULL THEN 'SIN_SENALES' WHEN json_extract(analysis_json, '\$.trendSignals') IS NULL THEN 'SENALES_BORRADAS' ELSE 'OK' END as estado FROM socialcors_niche_intelligence ORDER BY niche"
+          TRENDSIGNALS_JSON=$(run_query "$SQL_TRENDSIGNALS" | jq -c '.[0].results // []' || echo '[]')
+          TOTAL_NICHES=$(echo "$TRENDSIGNALS_JSON" | jq 'length')
+          OK_NICHES=$(echo "$TRENDSIGNALS_JSON" | jq '[.[] | select(.estado=="OK")] | length')
+          BAD_NICHES=$(echo "$TRENDSIGNALS_JSON" | jq -r '[.[] | select(.estado!="OK")] | .[] | "\(.niche) (\(.account_type)): \(.estado)"')
+          TRENDSIGNALS_EMOJI="✅"
+          if [ -n "$BAD_NICHES" ]; then
+            TRENDSIGNALS_EMOJI="⚠️"
+            HAS_WARN=1
+            echo "⚠️ WARN: nichos con trendSignals incompletos:"
+            echo "$BAD_NICHES" | sed 's/^/    - /'
+          fi
+
+          # ── 3. PLAN ESTRATÉGICO — vigencia ──────────────────────────────────────────
+          SQL_PLAN="SELECT tenant_id, created_at FROM socialcors_strategic_plan ORDER BY created_at DESC LIMIT 1"
+          PLAN_JSON=$(run_query "$SQL_PLAN" | jq -c '.[0].results // []' || echo '[]')
+          PLAN_ROW=$(echo "$PLAN_JSON" | jq -c '.[0] // empty')
+          PLAN_EMOJI="✅"
+          if [ -z "$PLAN_ROW" ]; then
+            PLAN_DAYS="sin_datos"
+            PLAN_EMOJI="⚠️"
+            HAS_WARN=1
+            echo "⚠️ WARN: no hay ningún plan estratégico registrado en socialcors_strategic_plan"
+          else
+            plan_created=$(echo "$PLAN_ROW" | jq -r '.created_at')
+            plan_epoch=$(date -u -d "$plan_created" +%s 2>/dev/null || echo "")
+            if [ -z "$plan_epoch" ]; then
+              PLAN_DAYS="fecha_ilegible"
+              PLAN_EMOJI="⚠️"
+              HAS_WARN=1
+            else
+              PLAN_DAYS=$(( (NOW_EPOCH - plan_epoch) / 86400 ))
+              if [ "$PLAN_DAYS" -gt 8 ]; then
+                PLAN_EMOJI="⚠️"
+                HAS_WARN=1
+                echo "⚠️ WARN: el plan estratégico más reciente tiene $PLAN_DAYS días (tenant $(echo "$PLAN_ROW" | jq -r '.tenant_id'))"
+              fi
+            fi
+          fi
+
+          # ── 4. NIVEL 3 — triggers atascados ─────────────────────────────────────────
+          SQL_STUCK="SELECT COUNT(*) as atascados FROM socialcors_trend_triggers WHERE status='TRIGGERED' AND created_at < datetime('now', '-2 hours')"
+          STUCK_TRIGGERS=$(run_query "$SQL_STUCK" | jq -r '.[0].results[0].atascados // 0' || echo 0)
+          NIVEL3_EMOJI="✅"
+          if [ "$STUCK_TRIGGERS" -gt 0 ]; then
+            NIVEL3_EMOJI="❌"
+            HAS_ERROR=1
+            echo "❌ ERROR: $STUCK_TRIGGERS triggers de Nivel 3 atascados en TRIGGERED hace más de 2 horas"
+          fi
+
+          # ── 5. TOKENS SOCIALES — próximos a expirar ─────────────────────────────────
+          SQL_TOKENS="SELECT tenant_id, network, token_expires_at FROM saas_social_accounts WHERE token_expires_at IS NOT NULL AND token_expires_at < datetime('now', '+7 days') AND token_expires_at > datetime('now')"
+          TOKENS_JSON=$(run_query "$SQL_TOKENS" | jq -c '.[0].results // []' || echo '[]')
+          EXPIRING_TOKENS=$(echo "$TOKENS_JSON" | jq 'length')
+          TOKENS_EMOJI="✅"
+          if [ "$EXPIRING_TOKENS" -gt 0 ]; then
+            TOKENS_EMOJI="⚠️"
+            HAS_WARN=1
+            echo "⚠️ WARN: $EXPIRING_TOKENS tokens sociales expiran en menos de 7 días:"
+            echo "$TOKENS_JSON" | jq -r '.[] | "    - tenant \(.tenant_id) / \(.network): expira \(.token_expires_at)"'
+          fi
+
+          # ── 6. POSTS ATASCADOS ───────────────────────────────────────────────────────
+          SQL_POSTS="SELECT COUNT(*) as atascados FROM saas_social_posts WHERE status='DRAFT' AND created_at < datetime('now', '-24 hours')"
+          STUCK_POSTS=$(run_query "$SQL_POSTS" | jq -r '.[0].results[0].atascados // 0' || echo 0)
+          POSTS_EMOJI="✅"
+          if [ "$STUCK_POSTS" -gt 0 ]; then
+            POSTS_EMOJI="⚠️"
+            HAS_WARN=1
+            echo "⚠️ WARN: $STUCK_POSTS posts en DRAFT desde hace más de 24 horas"
+          fi
+
+          # ── 7. CONSUMO IA — anomalía ─────────────────────────────────────────────────
+          SQL_USAGE="SELECT DATE(created_at) as dia, COUNT(*) as llamadas, SUM(tokens_used) as tokens FROM socialflow_ai_usage_log WHERE created_at > datetime('now', '-8 days') GROUP BY dia ORDER BY dia DESC"
+          USAGE_JSON=$(run_query "$SQL_USAGE" | jq -c '.[0].results // []' || echo '[]')
+          USAGE_DAYS=$(echo "$USAGE_JSON" | jq 'length')
+          USAGE_EMOJI="✅"
+          USAGE_STATUS_TEXT="normal"
+          if [ "$USAGE_DAYS" -ge 2 ]; then
+            LATEST_TOKENS=$(echo "$USAGE_JSON" | jq '.[0].tokens // 0')
+            PREV_AVG=$(echo "$USAGE_JSON" | jq '[.[1:][] | .tokens // 0] | if length>0 then (add/length) else 0 end')
+            ANOMALY=$(awk -v a="$LATEST_TOKENS" -v b="$PREV_AVG" 'BEGIN{ if (b>0 && a>2*b) print "1"; else print "0" }')
+            if [ "$ANOMALY" = "1" ]; then
+              USAGE_EMOJI="⚠️"
+              USAGE_STATUS_TEXT="anomalía detectada"
+              HAS_WARN=1
+              echo "⚠️ WARN: consumo IA del día más reciente ($LATEST_TOKENS tokens) supera 2x la media de los 7 días anteriores ($PREV_AVG)"
+            fi
+          else
+            USAGE_STATUS_TEXT="datos insuficientes"
+          fi
+
+          # ── Resumen final ────────────────────────────────────────────────────────────
+          echo ""
+          echo "=== CEREBRO SOCIALCORS HEALTH ==="
+          echo "$AGENTS_EMOJI Agentes: $OK_AGENTS/$TOTAL_AGENTS operativos"
+          echo "$TRENDSIGNALS_EMOJI TrendSignals: $OK_NICHES/$TOTAL_NICHES nichos con datos"
+          echo "$PLAN_EMOJI Plan estratégico: último hace $PLAN_DAYS días"
+          echo "$NIVEL3_EMOJI Nivel 3: $STUCK_TRIGGERS triggers atascados"
+          echo "$TOKENS_EMOJI Tokens sociales: $EXPIRING_TOKENS próximos a expirar"
+          echo "$POSTS_EMOJI Posts atascados: $STUCK_POSTS"
+          echo "$USAGE_EMOJI Consumo IA: $USAGE_STATUS_TEXT"
+
+          if [ "$HAS_ERROR" = "1" ]; then
+            echo ""
+            echo "❌ Health check FAILED — hay al menos un ERROR arriba."
+            exit 1
+          fi
+          if [ "$HAS_WARN" = "1" ]; then
+            echo ""
+            echo "⚠️ Health check OK con warnings — revisa el log arriba."
+          fi
