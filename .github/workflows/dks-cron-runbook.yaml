@@ -408,8 +408,21 @@ jobs:
           HAS_WARN=0
           NOW_EPOCH=$(date -u +%s)
 
+          # wrangler d1 execute --json normally returns an ARRAY (one element per
+          # statement, e.g. [{"results":[...],"success":true}]) — but on a SQL error it
+          # returns a bare OBJECT instead ({"error":{...}}), which broke every downstream
+          # `.[0]...` access with jq's "Cannot index object with number". Normalizing the
+          # shape here (instead of guarding every call site) means callers can always
+          # safely do `.[0].results`.
           run_query() {
-            wrangler d1 execute "$DB" --remote --config "$CFG" --command "$1" --json 2>/tmp/cerebro_stderr.log
+            local raw
+            raw=$(wrangler d1 execute "$DB" --remote --config "$CFG" --command "$1" --json 2>/tmp/cerebro_stderr.log)
+            if echo "$raw" | jq -e 'type == "object" and has("error")' >/dev/null 2>&1; then
+              echo "⚠️ QUERY_FAILED: $(echo "$raw" | jq -r '.error.notes[0].text // .error.text // "error desconocido"')" >&2
+              echo '[{"results":[],"success":false}]'
+              return
+            fi
+            echo "$raw"
           }
 
           # ── 1. AGENTES — última ejecución vs ventana esperada ──────────────────────
@@ -425,17 +438,17 @@ jobs:
           # */20), 300min=5h (ViralMomentAgent, cron 0*/4h), 1500min=25h (agentes del
           # cron diario 0 3 * * * — StyleLearningAgent + los que corren dentro de su
           # pipeline por tenant, ver src/app/api/cron/social/style-learning/route.ts —
-          # más SeasonalityAgent/AudienceInsightAgent/SeasonalOpportunityAgent/
-          # ChurnPredictionAgent, que comparten el mismo cron diario, ver
-          # scripts/patch-socialflow-cron-handler.mjs), 11520min=8d (agentes del cron
-          # semanal 0 3 * * 1, mismo script).
+          # más SeasonalityAgent/SeasonalOpportunityAgent/ChurnPredictionAgent, que
+          # comparten el mismo cron diario, ver scripts/patch-socialflow-cron-handler.mjs),
+          # 11520min=8d (NicheIntelligenceCronAgent, único agente semanal que sigue
+          # verificándose por agent_execution_log — los otros 7 semanales bajan a
+          # WEEKLY_TABLE_CHECKS más abajo, ver ese bloque).
           declare -A AGENT_WINDOW_MIN=(
             ["TrendKeywordAgent"]=25
             ["TrendTriggerConnector"]=25
             ["ViralMomentAgent"]=300
             ["StyleLearningAgent"]=1500
             ["SeasonalityAgent"]=1500
-            ["AudienceInsightAgent"]=1500
             ["SeasonalOpportunityAgent"]=1500
             ["ChurnPredictionAgent"]=1500
             ["VoiceExtractionAgent"]=1500
@@ -450,14 +463,38 @@ jobs:
             ["ContentDiversityAgent"]=1500
             ["RevenueOpportunityAgent"]=1500
             ["NicheIntelligenceCronAgent"]=11520
-            ["InfluencerBenchmarkAgent"]=11520
-            ["CrossTenantIntelligenceAgent"]=11520
-            ["ViralOpportunityAgent"]=11520
-            ["WeeklyBriefingAgent"]=11520
-            ["BestPracticesAgent"]=11520
-            ["StrategicPlanningAgent"]=11520
           )
-          TOTAL_AGENTS=${#AGENT_WINDOW_MIN[@]}
+
+          # 7 agentes semanales que NO se pueden verificar de forma fiable en
+          # agent_execution_log (o al menos no como ERROR-si-ausente: son semanales, así
+          # que "ausente" en un chequeo que corre cada 5-20min es la norma, no una avería)
+          # — se verifican en su tabla propia de salida, WARN si no hay fila o si la más
+          # reciente tiene más de 8 días, nunca ERROR.
+          #
+          # StrategicPlanningAgent/InfluencerBenchmarkAgent/BestPracticesAgent escriben
+          # en su propia tabla con columna created_at (verificado contra el esquema real).
+          # CrossTenantIntelligenceAgent NO tiene tabla propia — fusiona
+          # analysis_json.engagementPatterns en la fila de socialcors_niche_intelligence
+          # que NicheIntelligenceCronAgent ya escribió esa semana (ver
+          # CrossTenantIntelligenceAgent.ts:152), así que se verifica ahí.
+          # ViralOpportunityAgent/AudienceInsightAgent tampoco tienen tabla propia —
+          # ambos escriben tarjetas en socialflow_intelligence_feed vía seedFeedItems(),
+          # etiquetadas con su `source` (ViralOpportunityAgent.ts:13-14,
+          # AudienceInsightAgent.ts:10) — se usa MAX(updated_at) porque seedFeedItems
+          # actualiza filas existentes en vez de solo insertar.
+          # WeeklyBriefingAgent usa `sent_at`, no `created_at` (única columna de fecha en
+          # socialcors_briefing_history).
+          declare -A WEEKLY_TABLE_CHECKS=(
+            ["StrategicPlanningAgent"]="SELECT MAX(created_at) as fecha FROM socialcors_strategic_plan"
+            ["InfluencerBenchmarkAgent"]="SELECT MAX(created_at) as fecha FROM socialcors_influencer_benchmarks"
+            ["BestPracticesAgent"]="SELECT MAX(created_at) as fecha FROM socialcors_best_practices"
+            ["CrossTenantIntelligenceAgent"]="SELECT MAX(updated_at) as fecha FROM socialcors_niche_intelligence WHERE json_extract(analysis_json, '\$.engagementPatterns') IS NOT NULL"
+            ["ViralOpportunityAgent"]="SELECT MAX(updated_at) as fecha FROM socialflow_intelligence_feed WHERE source LIKE 'viral_opportunity:%'"
+            ["WeeklyBriefingAgent"]="SELECT MAX(sent_at) as fecha FROM socialcors_briefing_history"
+            ["AudienceInsightAgent"]="SELECT MAX(updated_at) as fecha FROM socialflow_intelligence_feed WHERE source = 'audience-insight-agent'"
+          )
+
+          TOTAL_AGENTS=$(( ${#AGENT_WINDOW_MIN[@]} + ${#WEEKLY_TABLE_CHECKS[@]} ))
           OK_AGENTS=0
           AGENTS_SECTION_ERROR=0
           AGENTS_SECTION_WARN=0
@@ -483,6 +520,31 @@ jobs:
             age_min=$(( (NOW_EPOCH - ultima_epoch) / 60 ))
             if [ "$age_min" -gt "$window" ]; then
               echo "⚠️ WARN: $agent lleva ${age_min}min sin correr (ventana esperada: ${window}min, errores recientes: $errores)"
+              AGENTS_SECTION_WARN=1
+              HAS_WARN=1
+            else
+              OK_AGENTS=$((OK_AGENTS + 1))
+            fi
+          done
+
+          for agent in "${!WEEKLY_TABLE_CHECKS[@]}"; do
+            fecha=$(run_query "${WEEKLY_TABLE_CHECKS[$agent]}" | jq -r '.[0].results[0].fecha // empty')
+            if [ -z "$fecha" ] || [ "$fecha" = "null" ]; then
+              echo "⚠️ WARN: $agent sin registros en su tabla de salida todavía"
+              AGENTS_SECTION_WARN=1
+              HAS_WARN=1
+              continue
+            fi
+            fecha_epoch=$(date -u -d "$fecha" +%s 2>/dev/null || echo "")
+            if [ -z "$fecha_epoch" ]; then
+              echo "⚠️ WARN: $agent tiene fecha ilegible en su tabla de salida ($fecha)"
+              AGENTS_SECTION_WARN=1
+              HAS_WARN=1
+              continue
+            fi
+            age_days=$(( (NOW_EPOCH - fecha_epoch) / 86400 ))
+            if [ "$age_days" -gt 8 ]; then
+              echo "⚠️ WARN: $agent lleva ${age_days} días sin refrescar su tabla de salida (ventana esperada: 8 días)"
               AGENTS_SECTION_WARN=1
               HAS_WARN=1
             else
@@ -564,7 +626,14 @@ jobs:
           fi
 
           # ── 5. TOKENS SOCIALES — próximos a expirar ─────────────────────────────────
-          SQL_TOKENS="SELECT tenant_id, network, token_expires_at FROM saas_social_accounts WHERE token_expires_at IS NOT NULL AND token_expires_at < datetime('now', '+7 days') AND token_expires_at > datetime('now')"
+          # saas_social_accounts no tiene columnas `network` ni `token_expires_at` (eran
+          # las causantes de uno de los dos "Cannot index object with number" — la query
+          # fallaba con "no such column" y wrangler devolvía un objeto de error en vez del
+          # array esperado). La columna real es `provider`, y la fecha de expiración vive
+          # dentro del JSON de `auth_meta` como `expiresAt` (solo presente para cuentas
+          # tipo Instagram; LinkedIn guarda `expiresIn` relativo sin fecha absoluta, así
+          # que esas filas simplemente no matchean el filtro — no rompen la query).
+          SQL_TOKENS="SELECT tenant_id, provider, json_extract(auth_meta, '\$.expiresAt') as token_expires_at FROM saas_social_accounts WHERE json_extract(auth_meta, '\$.expiresAt') IS NOT NULL AND json_extract(auth_meta, '\$.expiresAt') < datetime('now', '+7 days') AND json_extract(auth_meta, '\$.expiresAt') > datetime('now')"
           TOKENS_JSON=$(run_query "$SQL_TOKENS" | jq -c '.[0].results // []' || echo '[]')
           EXPIRING_TOKENS=$(echo "$TOKENS_JSON" | jq 'length')
           TOKENS_EMOJI="✅"
@@ -572,7 +641,7 @@ jobs:
             TOKENS_EMOJI="⚠️"
             HAS_WARN=1
             echo "⚠️ WARN: $EXPIRING_TOKENS tokens sociales expiran en menos de 7 días:"
-            echo "$TOKENS_JSON" | jq -r '.[] | "    - tenant \(.tenant_id) / \(.network): expira \(.token_expires_at)"'
+            echo "$TOKENS_JSON" | jq -r '.[] | "    - tenant \(.tenant_id) / \(.provider): expira \(.token_expires_at)"'
           fi
 
           # ── 6. POSTS ATASCADOS ───────────────────────────────────────────────────────
@@ -586,7 +655,11 @@ jobs:
           fi
 
           # ── 7. CONSUMO IA — anomalía ─────────────────────────────────────────────────
-          SQL_USAGE="SELECT DATE(created_at) as dia, COUNT(*) as llamadas, SUM(tokens_used) as tokens FROM socialflow_ai_usage_log WHERE created_at > datetime('now', '-8 days') GROUP BY dia ORDER BY dia DESC"
+          # socialflow_ai_usage_log no tiene columna `tokens_used` (la otra causante del
+          # "Cannot index object with number" — mismo motivo que el check 5: "no such
+          # column" hacía que wrangler devolviera un objeto de error). Los tokens reales
+          # están separados en input_tokens/output_tokens.
+          SQL_USAGE="SELECT DATE(created_at) as dia, COUNT(*) as llamadas, SUM(COALESCE(input_tokens,0) + COALESCE(output_tokens,0)) as tokens FROM socialflow_ai_usage_log WHERE created_at > datetime('now', '-8 days') GROUP BY dia ORDER BY dia DESC"
           USAGE_JSON=$(run_query "$SQL_USAGE" | jq -c '.[0].results // []' || echo '[]')
           USAGE_DAYS=$(echo "$USAGE_JSON" | jq 'length')
           USAGE_EMOJI="✅"
