@@ -23,6 +23,7 @@ export default function SocialFlowProfilePage() {
   const [physicalProfile, setPhysicalProfile] = useState<any>({});
   const [physicalSaving, setPhysicalSaving] = useState(false);
   const [physicalError, setPhysicalError] = useState<string | null>(null);
+  const [faceUploading, setFaceUploading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +90,34 @@ export default function SocialFlowProfilePage() {
       setPhysicalError(e?.message || "Error inesperado");
     } finally {
       setPhysicalSaving(false);
+    }
+  }
+
+  async function onUploadFacePhoto(file: File) {
+    setFaceUploading(true);
+    setPhysicalError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/socialflow/profile/physical/face", { method: "POST", body: formData });
+      const json: any = await res.json();
+      if (!json.ok) {
+        setPhysicalError(json.message || json.error || "No se pudo subir la foto");
+        return;
+      }
+      const updated = { ...physicalProfile, referenceImageUrl: json.url, referenceFaceR2Key: json.key };
+      setPhysicalProfile(updated);
+      const saveRes = await fetch("/api/socialflow/profile/physical", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      });
+      const saveJson: any = await saveRes.json();
+      if (saveJson.ok) setPhysicalProfile(saveJson.profile || updated);
+    } catch (e: any) {
+      setPhysicalError(e?.message || "Error inesperado al subir la foto");
+    } finally {
+      setFaceUploading(false);
     }
   }
 
@@ -383,16 +412,38 @@ export default function SocialFlowProfilePage() {
               })}
             </div>
           </div>
-          <div className="grid gap-4 text-sm md:grid-cols-3">
-            <Field
+          <div className="grid gap-4 text-sm md:grid-cols-2">
+            <SelectField
               label="Color de piel"
               value={physicalProfile.skinTone}
               onChange={(v) => setPhysicalProfile({ ...physicalProfile, skinTone: v })}
+              options={[
+                { value: "muy_clara", label: "Muy clara" },
+                { value: "clara", label: "Clara" },
+                { value: "medio_clara", label: "Medio-clara" },
+                { value: "mediterranea", label: "Mediterránea" },
+                { value: "morena", label: "Morena" },
+                { value: "oscura", label: "Oscura" },
+                { value: "muy_oscura", label: "Muy oscura" },
+              ]}
             />
-            <Field
+            <SelectField
               label="Color de cabello"
               value={physicalProfile.hairColor}
               onChange={(v) => setPhysicalProfile({ ...physicalProfile, hairColor: v })}
+              options={[
+                { value: "rubio_platino", label: "Rubio platino" },
+                { value: "rubio", label: "Rubio" },
+                { value: "rubio_oscuro", label: "Rubio oscuro" },
+                { value: "castano_claro", label: "Castaño claro" },
+                { value: "castano", label: "Castaño" },
+                { value: "castano_oscuro", label: "Castaño oscuro" },
+                { value: "negro", label: "Negro" },
+                { value: "pelirrojo", label: "Pelirrojo" },
+                { value: "con_mechas_rubias", label: "Con mechas rubias" },
+                { value: "con_mechas_color", label: "Con mechas de color" },
+                { value: "tenido_fantasia", label: "Teñido fantasía" },
+              ]}
             />
           </div>
           <div className="grid gap-4 text-sm md:grid-cols-3">
@@ -406,6 +457,45 @@ export default function SocialFlowProfilePage() {
                 { value: "largo", label: "Largo" },
               ]}
             />
+            <SelectField
+              label="Textura del cabello"
+              value={physicalProfile.hairTexture}
+              onChange={(v) => setPhysicalProfile({ ...physicalProfile, hairTexture: v })}
+              options={[
+                { value: "liso", label: "Liso" },
+                { value: "ondulado", label: "Ondulado" },
+                { value: "rizado", label: "Rizado" },
+                { value: "muy_rizado", label: "Muy rizado" },
+                { value: "con_mechas", label: "Con mechas" },
+                { value: "con_highlights", label: "Con highlights" },
+              ]}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-white/45">
+              Foto de rostro de referencia — la IA usará esta imagen para mantener consistencia facial en las imágenes generadas
+            </span>
+            <div className="flex items-center gap-3">
+              {physicalProfile.referenceImageUrl && (
+                <img
+                  src={physicalProfile.referenceImageUrl}
+                  alt="Foto de rostro de referencia"
+                  className="h-16 w-16 rounded-lg border border-white/10 object-cover"
+                />
+              )}
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                disabled={faceUploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void onUploadFacePhoto(file);
+                }}
+                className="text-xs text-white/50 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-500/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-violet-200 hover:file:bg-violet-500/30"
+              />
+              {faceUploading && <span className="text-xs text-white/40">Subiendo...</span>}
+            </div>
           </div>
           {physicalError && <p className="text-sm text-red-300">{physicalError}</p>}
           <button

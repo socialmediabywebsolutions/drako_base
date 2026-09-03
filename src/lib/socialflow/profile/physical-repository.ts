@@ -6,6 +6,7 @@ const DEFAULT_SAAS_ID = "socialflow";
 export type BodyType = "atletica" | "fibrada" | "normal" | "curvilinea" | "musculosa";
 export type FitnessStyle = "competicion" | "funcional" | "crossfit" | "yoga" | "pilates" | "lifestyle" | "running";
 export type HairLength = "corto" | "medio" | "largo";
+export type HairTexture = "liso" | "ondulado" | "rizado" | "muy_rizado" | "con_mechas" | "con_highlights";
 
 export type PhysicalProfile = {
   id: string;
@@ -22,6 +23,8 @@ export type PhysicalProfile = {
   skinTone: string | null;
   hairColor: string | null;
   hairLength: HairLength | null;
+  hairTexture: HairTexture | null;
+  referenceFaceR2Key: string | null;
   extraNotes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -42,6 +45,8 @@ type PhysicalProfileRow = {
   skin_tone: string | null;
   hair_color: string | null;
   hair_length: string | null;
+  hair_texture: string | null;
+  reference_face_r2_key: string | null;
   extra_notes: string | null;
   created_at: string;
   updated_at: string;
@@ -60,6 +65,8 @@ export type PhysicalProfilePatch = {
   skinTone?: string | null;
   hairColor?: string | null;
   hairLength?: HairLength | null;
+  hairTexture?: HairTexture | null;
+  referenceFaceR2Key?: string | null;
   extraNotes?: string | null;
 };
 
@@ -111,6 +118,8 @@ function rowToProfile(row: PhysicalProfileRow): PhysicalProfile {
     skinTone: row.skin_tone,
     hairColor: row.hair_color,
     hairLength: (row.hair_length as HairLength | null) ?? null,
+    hairTexture: (row.hair_texture as HairTexture | null) ?? null,
+    referenceFaceR2Key: row.reference_face_r2_key,
     extraNotes: row.extra_notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -147,8 +156,8 @@ export async function upsertPhysicalProfile(
       `INSERT INTO ${TABLE} (
         id, tenant_id, reference_image_url, height_cm, weight_kg, body_type,
         chest_cm, waist_cm, hips_cm, fitness_style, fitness_styles_json, skin_tone, hair_color, hair_length,
-        extra_notes, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        hair_texture, reference_face_r2_key, extra_notes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(tenant_id) DO UPDATE SET
         reference_image_url = excluded.reference_image_url,
         height_cm = excluded.height_cm,
@@ -162,6 +171,8 @@ export async function upsertPhysicalProfile(
         skin_tone = excluded.skin_tone,
         hair_color = excluded.hair_color,
         hair_length = excluded.hair_length,
+        hair_texture = excluded.hair_texture,
+        reference_face_r2_key = excluded.reference_face_r2_key,
         extra_notes = excluded.extra_notes,
         updated_at = excluded.updated_at`,
     )
@@ -180,6 +191,8 @@ export async function upsertPhysicalProfile(
       normalizeNullableString(patch.skinTone),
       normalizeNullableString(patch.hairColor),
       normalizeNullableString(patch.hairLength),
+      normalizeNullableString(patch.hairTexture),
+      normalizeNullableString(patch.referenceFaceR2Key),
       normalizeNullableString(patch.extraNotes),
       existing?.createdAt ?? updatedAt,
       updatedAt,

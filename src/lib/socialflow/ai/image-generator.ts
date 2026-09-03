@@ -27,14 +27,20 @@ async function readStream(stream: ReadableStream<Uint8Array>): Promise<ArrayBuff
   return merged.buffer as ArrayBuffer;
 }
 
+function humanize(value: string): string {
+  return value.replace(/_/g, " ");
+}
+
 function describePhysicalProfile(profile: Awaited<ReturnType<typeof getPhysicalProfile>>): string | null {
   if (!profile) return null;
   const parts: string[] = [];
   if (profile.bodyType) parts.push(`complexión ${profile.bodyType}`);
   if (profile.heightCm) parts.push(`${profile.heightCm}cm`);
-  if (profile.hairLength || profile.hairColor) {
-    parts.push(`cabello ${[profile.hairLength, profile.hairColor].filter(Boolean).join(" ")}`);
-  }
+  if (profile.skinTone) parts.push(`piel ${humanize(profile.skinTone)}`);
+  const hairBits = [profile.hairLength, profile.hairColor && humanize(profile.hairColor), profile.hairTexture && humanize(profile.hairTexture)].filter(
+    Boolean,
+  );
+  if (hairBits.length) parts.push(`cabello ${hairBits.join(" ")}`);
   if (profile.fitnessStyles?.length) parts.push(`estilo fitness: ${profile.fitnessStyles.join(", ")}`);
   if (!parts.length) return null;
   return `Mujer de ${parts.join(", ")}`;

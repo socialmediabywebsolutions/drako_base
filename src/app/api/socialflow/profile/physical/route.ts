@@ -8,6 +8,7 @@ import {
   upsertPhysicalProfile,
   type BodyType,
   type HairLength,
+  type HairTexture,
   type PhysicalProfilePatch,
 } from "@/lib/socialflow/profile/physical-repository";
 
@@ -15,6 +16,7 @@ const DEFAULT_SAAS_ID = "socialflow";
 
 const BODY_TYPES: BodyType[] = ["atletica", "fibrada", "normal", "curvilinea", "musculosa"];
 const HAIR_LENGTHS: HairLength[] = ["corto", "medio", "largo"];
+const HAIR_TEXTURES: HairTexture[] = ["liso", "ondulado", "rizado", "muy_rizado", "con_mechas", "con_highlights"];
 const FITNESS_STYLE_VALUES = [
   "fitness",
   "lifestyle",
@@ -26,6 +28,20 @@ const FITNESS_STYLE_VALUES = [
   "running",
   "nutricion",
   "wellness",
+];
+const SKIN_TONE_VALUES = ["muy_clara", "clara", "medio_clara", "mediterranea", "morena", "oscura", "muy_oscura"];
+const HAIR_COLOR_VALUES = [
+  "rubio_platino",
+  "rubio",
+  "rubio_oscuro",
+  "castano_claro",
+  "castano",
+  "castano_oscuro",
+  "negro",
+  "pelirrojo",
+  "con_mechas_rubias",
+  "con_mechas_color",
+  "tenido_fantasia",
 ];
 
 function resolveSaasId(request: Request): string {
@@ -43,6 +59,12 @@ function parsePatch(body: Record<string, unknown>): PhysicalProfilePatch {
   const bodyType = typeof body.bodyType === "string" && BODY_TYPES.includes(body.bodyType as BodyType) ? (body.bodyType as BodyType) : null;
   const hairLength =
     typeof body.hairLength === "string" && HAIR_LENGTHS.includes(body.hairLength as HairLength) ? (body.hairLength as HairLength) : null;
+  const hairTexture =
+    typeof body.hairTexture === "string" && HAIR_TEXTURES.includes(body.hairTexture as HairTexture)
+      ? (body.hairTexture as HairTexture)
+      : null;
+  const skinTone = typeof body.skinTone === "string" && SKIN_TONE_VALUES.includes(body.skinTone) ? body.skinTone : null;
+  const hairColor = typeof body.hairColor === "string" && HAIR_COLOR_VALUES.includes(body.hairColor) ? body.hairColor : null;
 
   return {
     referenceImageUrl: typeof body.referenceImageUrl === "string" ? body.referenceImageUrl : null,
@@ -53,9 +75,11 @@ function parsePatch(body: Record<string, unknown>): PhysicalProfilePatch {
     waistCm: typeof body.waistCm === "number" ? body.waistCm : null,
     hipsCm: typeof body.hipsCm === "number" ? body.hipsCm : null,
     fitnessStyles: parseFitnessStyles(body.fitnessStyles),
-    skinTone: typeof body.skinTone === "string" ? body.skinTone : null,
-    hairColor: typeof body.hairColor === "string" ? body.hairColor : null,
+    skinTone,
+    hairColor,
     hairLength,
+    hairTexture,
+    referenceFaceR2Key: typeof body.referenceFaceR2Key === "string" ? body.referenceFaceR2Key : null,
     extraNotes: typeof body.extraNotes === "string" ? body.extraNotes : null,
   };
 }
