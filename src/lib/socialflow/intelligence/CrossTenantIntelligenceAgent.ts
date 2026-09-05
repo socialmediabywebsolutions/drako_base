@@ -7,6 +7,7 @@ import {
   type EngagementPatterns,
   type PostWithEngagement,
 } from "@/lib/socialflow/ai/agents/EngagementLearningAgent";
+import { insertAgentExecutionLog, updateAgentExecutionLog } from "@/lib/socialflow/intelligence/agent-execution-log";
 
 type NicheAccountType = "influencer" | "empresa";
 type NicheGroupKey = { niche: string; accountType: NicheAccountType };
@@ -197,6 +198,25 @@ export async function runCrossTenantIntelligenceCron(env: Env): Promise<CrossTen
   const db = env?.SOCIAL_DB;
   if (!db) return [];
 
+  // Log optimista: si el Worker muere a mitad de ejecución (límite de CPU/subrequests)
+  // antes de llegar al catch de withAgentExecutionLog (route.ts), esta fila 'started'
+  // se queda atascada para siempre en vez de no dejar ningún rastro — ver migración
+  // 0245 y agent-execution-log.ts.
+  const startedAt = new Date().toISOString();
+  const logId = await insertAgentExecutionLog(db, {
+    agentName: "CrossTenantIntelligenceAgent",
+    tenantId: null,
+    saasId: null,
+    startedAt,
+    finishedAt: startedAt,
+    status: "started",
+    rowsWritten: null,
+    errorMessage: null,
+  }).catch((err) => {
+    console.error("[CrossTenantIntelligenceAgent] optimistic 'started' log failed", err);
+    return null;
+  });
+
   const byNiche = await groupTenantsByNiche(db, env);
   const results: CrossTenantIntelligenceResult[] = [];
 
@@ -236,6 +256,14 @@ export async function runCrossTenantIntelligenceCron(env: Env): Promise<CrossTen
       console.error("[CrossTenantIntelligenceAgent] niche failed", niche, accountType, err instanceof Error ? err.message : String(err));
       results.push({ niche, accountType, ok: false, error: err instanceof Error ? err.message : String(err) });
     }
+  }
+
+  if (logId) {
+    await updateAgentExecutionLog(db, logId, {
+      status: "completed",
+      finishedAt: new Date().toISOString(),
+      rowsWritten: results.length,
+    });
   }
 
   return results;

@@ -1,6 +1,12 @@
-export type AgentExecutionStatus = "success" | "error" | "skipped";
+export type AgentExecutionStatus = "success" | "error" | "skipped" | "started" | "completed";
 
-async function insertAgentExecutionLog(db: D1Database, row: {
+// Exportada (además de usada internamente por withAgentExecutionLog) para que agentes
+// con riesgo de morir a mitad de ejecución (límite de CPU/subrequests del Worker,
+// nunca llegan al catch de withAgentExecutionLog) puedan insertar una fila 'started'
+// optimista al entrar — ver runCrossTenantIntelligenceCron/runViralOpportunityCron.
+// Devuelve el id insertado para que el caller pueda actualizarlo luego con
+// updateAgentExecutionLog.
+export async function insertAgentExecutionLog(db: D1Database, row: {
   agentName: string;
   tenantId: string | null;
   saasId: string | null;
@@ -9,12 +15,14 @@ async function insertAgentExecutionLog(db: D1Database, row: {
   status: AgentExecutionStatus;
   rowsWritten: number | null;
   errorMessage: string | null;
-}): Promise<void> {
+  id?: string;
+}): Promise<string> {
+  const id = row.id ?? crypto.randomUUID();
   await db.prepare(
     `INSERT INTO agent_execution_log (id, agent_name, tenant_id, saas_id, started_at, finished_at, status, rows_written, error_message)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
-    crypto.randomUUID(),
+    id,
     row.agentName,
     row.tenantId,
     row.saasId,
@@ -24,6 +32,36 @@ async function insertAgentExecutionLog(db: D1Database, row: {
     row.rowsWritten,
     row.errorMessage,
   ).run();
+  return id;
+}
+
+// Actualiza la fila 'started' de insertAgentExecutionLog a su estado final
+// ('completed' en el caso feliz). Mismo criterio que el resto de este archivo: un
+// fallo al escribir el log nunca debe tumbar la ejecución real del agente, así que
+// este update se traga sus propios errores.
+export async function updateAgentExecutionLog(
+  db: D1Database,
+  id: string,
+  update: {
+    status: AgentExecutionStatus;
+    finishedAt: string;
+    rowsWritten?: number | null;
+    errorMessage?: string | null;
+  },
+): Promise<void> {
+  try {
+    await db.prepare(
+      `UPDATE agent_execution_log SET status = ?, finished_at = ?, rows_written = ?, error_message = ? WHERE id = ?`,
+    ).bind(
+      update.status,
+      update.finishedAt,
+      update.rowsWritten ?? null,
+      update.errorMessage ?? null,
+      id,
+    ).run();
+  } catch (err) {
+    console.error("[agent-execution-log] update failed", err);
+  }
 }
 
 // Envuelve una llamada de agente ya existente sin tocar su lógica interna — éxito/error

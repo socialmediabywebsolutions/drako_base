@@ -6,6 +6,7 @@ import { classifyHook } from "@/lib/socialflow/ai/agents/contentHeuristics";
 import type { PostWithEngagement } from "@/lib/socialflow/ai/agents/EngagementLearningAgent";
 import { getNicheIntelligence, type Env } from "./NicheIntelligenceService";
 import { extractEngagementPatterns } from "./CrossTenantIntelligenceAgent";
+import { insertAgentExecutionLog, updateAgentExecutionLog } from "@/lib/socialflow/intelligence/agent-execution-log";
 
 const LOOKBACK_DAYS = 30;
 const MAX_HOOK_TITLE_LENGTH = 60;
@@ -165,6 +166,25 @@ export async function runViralOpportunityCron(env: Env): Promise<ViralOpportunit
   const db = env?.SOCIAL_DB;
   if (!db) return [];
 
+  // Log optimista: si el Worker muere a mitad de ejecución (límite de CPU/subrequests)
+  // antes de llegar al catch de withAgentExecutionLog (route.ts), esta fila 'started'
+  // se queda atascada para siempre en vez de no dejar ningún rastro — ver migración
+  // 0245 y agent-execution-log.ts.
+  const startedAt = new Date().toISOString();
+  const logId = await insertAgentExecutionLog(db, {
+    agentName: "ViralOpportunityAgent",
+    tenantId: null,
+    saasId: null,
+    startedAt,
+    finishedAt: startedAt,
+    status: "started",
+    rowsWritten: null,
+    errorMessage: null,
+  }).catch((err) => {
+    console.error("[ViralOpportunityAgent] optimistic 'started' log failed", err);
+    return null;
+  });
+
   const { results: tenantRows } = await db
     .prepare(`SELECT DISTINCT tenant_id, saas_id FROM socialflow_profiles`)
     .all<{ tenant_id: string; saas_id: string }>();
@@ -179,6 +199,14 @@ export async function runViralOpportunityCron(env: Env): Promise<ViralOpportunit
       console.error("[ViralOpportunityAgent] tenant failed", row.tenant_id, err instanceof Error ? err.message : String(err));
       results.push({ tenantId: row.tenant_id, saasId: row.saas_id, ok: false, error: err instanceof Error ? err.message : String(err) });
     }
+  }
+
+  if (logId) {
+    await updateAgentExecutionLog(db, logId, {
+      status: "completed",
+      finishedAt: new Date().toISOString(),
+      rowsWritten: results.length,
+    });
   }
 
   return results;
