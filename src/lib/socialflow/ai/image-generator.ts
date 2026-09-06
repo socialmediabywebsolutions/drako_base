@@ -1,5 +1,6 @@
 import { env } from "@/lib/cf";
 import { getPhysicalProfile } from "@/lib/socialflow/profile/physical-repository";
+import { listActiveEmployeeProfiles, describeEmployeeProfilesForPrompt } from "@/lib/socialflow/profile/employee-profiles-repository";
 
 const MODEL = "@cf/stabilityai/stable-diffusion-xl-base-1.0";
 const R2_PUBLIC_BASE = "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev";
@@ -221,7 +222,15 @@ export async function generatePostImage(prompt: string, postId: string, tenantId
 
   const physicalProfile = tenantId ? await getPhysicalProfile(tenantId).catch(() => null) : null;
   const physicalDescription = describePhysicalProfile(physicalProfile);
-  const finalPrompt = physicalDescription ? `${prompt}, ${physicalDescription}` : prompt;
+
+  // Cuentas empresa no tienen physical_profile (eso es solo influencer) — en su lugar,
+  // si hay empleados dados de alta, se les da contexto al modelo de quién puede
+  // aparecer en la foto (ver socialcors_employee_profiles / "Equipo" en Mi Perfil).
+  const employeeProfiles = tenantId ? await listActiveEmployeeProfiles(tenantId).catch(() => []) : [];
+  const employeeDescription = describeEmployeeProfilesForPrompt(employeeProfiles);
+
+  const promptWithPhysical = physicalDescription ? `${prompt}, ${physicalDescription}` : prompt;
+  const finalPrompt = employeeDescription ? `${promptWithPhysical}. ${employeeDescription}` : promptWithPhysical;
 
   let referenceImage: number[] | null = null;
   if (physicalProfile?.referenceImageUrl) {
