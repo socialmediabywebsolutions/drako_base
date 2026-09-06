@@ -76,10 +76,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId });
 
-    // FIX crítico: "Aprobar" en un comentario debe enviarlo de verdad a Instagram antes
-    // de marcar el hilo como APPROVED — antes de este cambio, el PATCH solo actualizaba
-    // la fila en D1 y el mensaje nunca salía. Los DM mantienen el comportamiento previo
-    // (marcar APPROVED sin enviar) porque no existe ninguna función de envío de DM.
+    // FIX crítico: "Aprobar" en un comentario o DM debe enviarlo de verdad a Instagram
+    // antes de marcar el hilo como APPROVED — antes de este cambio, el PATCH solo
+    // actualizaba la fila en D1 y el mensaje nunca salía.
     if (body?.status === "APPROVED") {
       const current = await getConversationThread(ctx, params.id);
       if (!current) {

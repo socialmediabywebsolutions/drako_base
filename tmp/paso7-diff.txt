@@ -1,0 +1,118 @@
+diff --git a/src/app/api/socialflow/posts/generate-from-image/route.ts b/src/app/api/socialflow/posts/generate-from-image/route.ts
+index d21849d..5c3267c 100644
+--- a/src/app/api/socialflow/posts/generate-from-image/route.ts
++++ b/src/app/api/socialflow/posts/generate-from-image/route.ts
+@@ -15,6 +15,7 @@ import { cleanOpening } from "@/lib/socialflow/ai/openers/cleanOpening";
+ import { OptimizationAgent } from "@/lib/socialflow/ai/agents/OptimizationAgent";
+ import { CarouselComposerAgent, CarouselGenerationFailedError } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
+ import { CAROUSEL_MIN_ITEMS, CAROUSEL_MAX_ITEMS } from "@/lib/socialflow/meta/publishing";
++import { getEmployeesByTenant } from "@/lib/socialflow/employees/repository";
+ import type { BrandProfile, KeywordEngineOutput, StrategyItem } from "@/lib/socialflow/ai/types";
+ import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
+ import { calculateViralScore, mapContentTypeToViralFormat, type ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
+@@ -231,6 +232,11 @@ export async function POST(request: Request) {
+       imageAnalysis?: ImageAnalysis; // result of a prior "analyze" call — reused here to skip a duplicate LLaVA call
+       forcedContentType?: "FEED" | "REEL" | "STORY" | "CAROUSEL"; // explicit format chosen in Publicar → Post/Reel/Historia/Carrusel; overrides the LLaVA heuristic below
+       userNote?: string; // texto libre opcional del cliente ("¿Qué estás haciendo en esta foto?") — prioridad máxima en ContentValueAgent sobre la inferencia visual. Solo lo envían upload-to-post.tsx/publish-reel.tsx hoy.
++      // Confirmado por el humano al subir la foto (paso 5, empresa) — nunca inferido por
++      // IA. employeeId es solo un id: se resuelve contra la DB del tenant más abajo,
++      // nunca se confía en un nombre que mandara el cliente directamente.
++      subjectType?: "employee" | "cliente" | "none";
++      employeeId?: string | null;
+     } | null;
+ 
+     const isCarousel = body?.forcedContentType === "CAROUSEL";
+@@ -635,6 +641,18 @@ export async function POST(request: Request) {
+       campaignHashtags: profile.priorityHashtags,
+     };
+ 
++    // Paso 7 — subjectType/employeeId confirmados por el humano (paso 5, empresa).
++    // employeeId es solo un id que llega del cliente: se resuelve el nombre contra
++    // getEmployeesByTenant (mismo tenant de la sesión) antes de meterlo en cualquier
++    // prompt — nunca se confía en un nombre que mandara el cliente directamente. Si el
++    // id no existe en este tenant (manipulado, empleado borrado entre medias, etc.),
++    // employeeName queda null y ContentGeneratorAgent degrada sin nombre confirmado.
++    let employeeName: string | null = null;
++    if (body.subjectType === "employee" && body.employeeId) {
++      const tenantEmployees = await getEmployeesByTenant(session.tenantId, body.saasId).catch(() => []);
++      employeeName = tenantEmployees.find((e) => e.id === body.employeeId)?.name ?? null;
++    }
++
+     // Step 5: Generate caption (Mistral via Workers AI)
+     const contentAgent = new ContentGeneratorAgent();
+     const openerCategory = pickOpenerCategory(imageAnalysis, strategyItem.theme);
+@@ -650,6 +668,8 @@ export async function POST(request: Request) {
+       momentType: imageAnalysis.momentType,
+       employeeDetected: imageAnalysis.employeeDetected,
+       serviceDetected: imageAnalysis.serviceDetected,
++      subjectType: body.subjectType ?? null,
++      employeeName,
+       geoContext,
+       tenantId: session.tenantId,
+       saasId: body.saasId,
+diff --git a/src/lib/socialflow/ai/agents/ContentGeneratorAgent.ts b/src/lib/socialflow/ai/agents/ContentGeneratorAgent.ts
+index 0909c2f..804b0a7 100644
+--- a/src/lib/socialflow/ai/agents/ContentGeneratorAgent.ts
++++ b/src/lib/socialflow/ai/agents/ContentGeneratorAgent.ts
+@@ -65,10 +65,15 @@ export class ContentGeneratorAgent {
+     llavaSuggestedFormat?: "FEED" | "REEL" | "STORY";
+     momentType?: "accion" | "intimo_personal" | "estatico_compuesto";
+     employeeDetected?: string | null;
+-    // Servicio del catálogo (saas_empresa_services) reconocido por ImageAnalysisAgent —
+-    // llega desde generate-from-image/route.ts, todavía no se usa en el prompt (paso 7
+-    // del plan "catálogo de servicios + selector humano de quién aparece").
++    // Servicio del catálogo (saas_empresa_services) reconocido por ImageAnalysisAgent.
+     serviceDetected?: string | null;
++    // Confirmado por el humano al subir la foto (paso 5, empresa) — nunca inferido por
++    // IA. Tiene prioridad sobre employeeDetected cuando ambos llegan (ver subjectBlock
++    // más abajo). Ausente para influencer y para cualquier caller viejo que no lo mande.
++    subjectType?: "employee" | "cliente" | "none" | null;
++    // Nombre YA resuelto server-side contra la DB del tenant (generate-from-image/route.ts)
++    // — nunca el id crudo. Solo relevante cuando subjectType === "employee".
++    employeeName?: string | null;
+     // Optional — enables the "Cerebro Socialcors" context (niche trends + content
+     // fatigue detection) below. Omitted by callers that don't have tenant context
+     // yet degrades gracefully to today's behavior, no prompt sections added.
+@@ -163,6 +168,33 @@ export class ContentGeneratorAgent {
+     ];
+     const hashtagSeed = Array.from(new Set(hashtagPool)).slice(0, 15).join(' ');
+ 
++    // Paso 7 — subjectType/employeeId (confirmados por el humano al subir la foto, paso
++    // 5) tienen prioridad sobre employeeDetected (inferido por IA, paso 6) cuando ambos
++    // llegan. employeeDetected queda intacto como fallback — no se retira todavía
++    // (decisión explícita, se revisa tras validar el flujo nuevo end-to-end).
++    const subjectBlock = (() => {
++      if (input.subjectType === "employee" && input.employeeName) {
++        return `\n⚠️ PERSONA CONFIRMADA — PRIORIDAD MÁXIMA: La imagen muestra a ${input.employeeName}, confirmado directamente por el negocio (no es una inferencia). El caption DEBE mencionar a ${input.employeeName} por su nombre propio (ej. "${input.employeeName} creando unas mechas increíbles" en vez de una referencia genérica como "nuestro equipo" o "nuestra estilista").\n`;
++      }
++      if (input.subjectType === "cliente") {
++        return `\n⚠️ CLIENTE EN LA IMAGEN: La imagen muestra a un cliente del negocio. Puedes mencionar que aparece un cliente (ej. "uno de nuestros clientes", "una clienta disfrutando de..."), pero NUNCA inventes ni asumas su nombre — por privacidad, el cliente permanece sin identificar.\n`;
++      }
++      if (input.subjectType === "none") {
++        return `\n⚠️ SIN PERSONA ESPECÍFICA: Esta imagen no muestra a ningún empleado ni cliente identificado — NO menciones a ninguna persona concreta en el caption, enfócalo en la marca, el servicio o el ambiente.\n`;
++      }
++      // Sin subjectType (flujo viejo o influencer, donde este campo nunca llega) —
++      // fallback exacto al comportamiento actual con employeeDetected.
++      return input.employeeDetected
++        ? `\n⚠️ EMPLEADO RECONOCIDO — PRIORIDAD ALTA: La imagen muestra a ${input.employeeDetected}. El caption DEBE mencionar a ${input.employeeDetected} por su nombre propio (ej. "${input.employeeDetected} creando unas mechas increíbles" en vez de una referencia genérica como "nuestro equipo" o "nuestra estilista").\n`
++        : "";
++    })();
++
++    // Independiente de subjectBlock — complementario, no excluyente (ej. puede ser a la
++    // vez "Elena Marín" + "corte de cabello").
++    const serviceBlock = input.serviceDetected
++      ? `\n⚠️ SERVICIO IDENTIFICADO: La imagen muestra el servicio "${input.serviceDetected}". Menciónalo de forma natural en el caption como parte de lo que ofrece ${profile.brandIdentity}.\n`
++      : "";
++
+     const prompt = `Escribe un post de redes sociales EN ESPAÑOL sobre el tema: "${profile.niche}".
+ 
+ ⚠️ REGLA ABSOLUTA: El post trata EXCLUSIVAMENTE sobre "${profile.niche}".
+@@ -175,7 +207,7 @@ ${isEmpresa
+ ${profile.voiceInstruction ? `${profile.voiceInstruction}\n` : ""}
+ Ángulo a desarrollar: ${strategyItem.angle}
+ Tipo de contenido: ${strategyItem.theme}
+-${input.specificContext ? `\n⚠️ DETALLE VISUAL CONCRETO — PRIORIDAD MÁXIMA: La imagen muestra exactamente esto: "${input.specificContext}". DEBES anclar la apertura y el cuerpo del post en este detalle real y concreto (el ejercicio, los ingredientes, el movimiento o el entorno específicos) en vez de frases genéricas de plantilla como "entrenando duro hoy" o "otro día más cuidándome". Si el detalle no incluye una cifra exacta (km, tiempo, peso), NO inventes una — usa el mismo nivel de aproximación que el detalle proporcionado.\n` : ""}${input.employeeDetected ? `\n⚠️ EMPLEADO RECONOCIDO — PRIORIDAD ALTA: La imagen muestra a ${input.employeeDetected}. El caption DEBE mencionar a ${input.employeeDetected} por su nombre propio (ej. "${input.employeeDetected} creando unas mechas increíbles" en vez de una referencia genérica como "nuestro equipo" o "nuestra estilista").\n` : ""}${extra ? `\n${extra}` : ""}
++${input.specificContext ? `\n⚠️ DETALLE VISUAL CONCRETO — PRIORIDAD MÁXIMA: La imagen muestra exactamente esto: "${input.specificContext}". DEBES anclar la apertura y el cuerpo del post en este detalle real y concreto (el ejercicio, los ingredientes, el movimiento o el entorno específicos) en vez de frases genéricas de plantilla como "entrenando duro hoy" o "otro día más cuidándome". Si el detalle no incluye una cifra exacta (km, tiempo, peso), NO inventes una — usa el mismo nivel de aproximación que el detalle proporcionado.\n` : ""}${subjectBlock}${serviceBlock}${extra ? `\n${extra}` : ""}
+ Identidad: ${profile.brandIdentity} · Tono: ${profile.toneOfVoice}.
+ ${(profile.ageRange || profile.gender) ? `Perfil del creador: ${[profile.ageRange ? `rango de edad ${profile.ageRange}` : "", profile.gender ? `género ${profile.gender}` : ""].filter(Boolean).join(", ")} — úsalo solo para calibrar referencias, ejemplos y estilo de voz; NUNCA lo menciones explícitamente en el post.` : ""}
+ ${cta ? `CTA: ${cta}` : ""}

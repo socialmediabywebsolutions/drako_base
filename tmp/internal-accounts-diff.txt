@@ -1,0 +1,361 @@
+diff --git a/migrations/0203_internal_accounts.sql b/migrations/0203_internal_accounts.sql
+new file mode 100644
+index 0000000..b78d94d
+--- /dev/null
++++ b/migrations/0203_internal_accounts.sql
+@@ -0,0 +1,11 @@
++-- Tabla central en DRACO_DB para marcar cuentas propias del founder ("internal
++-- accounts") como exentas de restricciones de facturación en cualquier SaaS del
++-- ecosistema. Solo tabla + lectura — sin endpoint, sin UI. Gestión 100% manual vía
++-- SQL directo (INSERT/DELETE) cuando Cristóbal decide marcar/desmarcar un tenant.
++CREATE TABLE internal_accounts (
++  tenant_id TEXT NOT NULL,
++  saas_slug TEXT NOT NULL,
++  label TEXT,
++  added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
++  PRIMARY KEY (tenant_id, saas_slug)
++);
+diff --git a/src/app/api/socialflow/sso-init/route.ts b/src/app/api/socialflow/sso-init/route.ts
+index cafa7f5..a143eda 100644
+--- a/src/app/api/socialflow/sso-init/route.ts
++++ b/src/app/api/socialflow/sso-init/route.ts
+@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
+ import { NextResponse } from "next/server";
+ import { requireSession } from "@/lib/auth/session";
+ import { run } from "@/lib/db";
+-import { getCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
++import { getCanonicalSubscriptionState, isInternalAccount } from "@/lib/billing/subscriptions";
+ 
+ const SOCIALFLOW_ORIGIN =
+   process.env.SOCIALFLOW_SSO_ORIGIN ?? "https://socialflows.drako.systems";
+@@ -40,7 +40,11 @@ export async function GET(request: Request) {
+     saasSlug: "socialflow",
+   });
+ 
+-  if (!subscription || !ENTITLED_STATUSES.has(subscription.status)) {
++  const entitled = Boolean(subscription && ENTITLED_STATUSES.has(subscription.status));
++  // getCanonicalSubscriptionState() devuelve null para cuentas internas (no tienen
++  // Stripe real que verificar) — solo se consulta internal_accounts cuando el check
++  // normal ya falló, para no añadir una query extra al camino feliz de cada tenant.
++  if (!entitled && !(await isInternalAccount(session.tenantId, "socialflow"))) {
+     return NextResponse.redirect(
+       `${SOCIALFLOW_ORIGIN}/socialflow/auth?error=NO_SUBSCRIPTION`,
+       { status: 302 },
+diff --git a/src/lib/billing/subscriptions-reader.test.ts b/src/lib/billing/subscriptions-reader.test.ts
+index ae7e7cf..79276f0 100644
+--- a/src/lib/billing/subscriptions-reader.test.ts
++++ b/src/lib/billing/subscriptions-reader.test.ts
+@@ -76,6 +76,7 @@ describe("getCanonicalBillingSnapshot", () => {
+       tenantId: "tenant_1",
+       saasSlug: "mentoria",
+       saasId: null,
++      isInternalAccount: false,
+       subscription: {
+         status: null,
+         planCode: null,
+diff --git a/src/lib/billing/subscriptions.ts b/src/lib/billing/subscriptions.ts
+index 6c9550f..4174635 100644
+--- a/src/lib/billing/subscriptions.ts
++++ b/src/lib/billing/subscriptions.ts
+@@ -113,6 +113,12 @@ export type CanonicalBillingSnapshot = {
+     features: string[];
+     usage: CanonicalBillingUsage;
+   };
++  // true si (tenantId, saasSlug) está en internal_accounts (DRACO_DB) — cuentas
++  // propias del founder, exentas de restricciones de facturación en cualquier SaaS
++  // del ecosistema. Cuando es true, subscription.status ya viene forzado a "active"
++  // arriba; cada producto decide su propio plan_code "top tier" a partir de este
++  // flag (ver resolveSocialFlowPlanCode en socialflow/billing/plans.ts).
++  isInternalAccount: boolean;
+ };
+ 
+ function hasDatabase(): boolean {
+@@ -366,60 +372,14 @@ export async function getCanonicalSubscriptionState(input: {
+   tenantId: string;
+   saasSlug: string;
+ }): Promise<CanonicalSubscriptionState | null> {
+-  let row: {
+-    tenant_id: string;
+-    saas_slug: string;
+-    stripe_customer_id: string | null;
+-    stripe_subscription_id: string | null;
+-    stripe_price_id?: string | null;
+-    plan_code: string | null;
+-    status: string;
+-    current_period_end: string | null;
+-    cancel_at_period_end?: number | null;
+-    updated_at: string;
+-  } | null = null;
+-  try {
+-    row = await queryOne<{
+-      tenant_id: string;
+-      saas_slug: string;
+-      stripe_customer_id: string | null;
+-      stripe_subscription_id: string | null;
+-      stripe_price_id?: string | null;
+-      plan_code: string | null;
+-      status: string;
+-      current_period_end: string | null;
+-      cancel_at_period_end?: number | null;
+-      updated_at: string;
+-    }>(
+-      `SELECT tenant_id, saas_slug, stripe_customer_id, stripe_subscription_id, stripe_price_id, plan_code, status, current_period_end, cancel_at_period_end, updated_at
+-       FROM saas_subscriptions
+-       WHERE tenant_id = ? AND saas_slug = ?
+-       LIMIT 1`,
+-      input.tenantId,
+-      input.saasSlug,
+-    );
+-  } catch (error) {
+-    if (!isMissingColumnError(error)) {
+-      throw error;
+-    }
+-    row = await queryOne<{
+-      tenant_id: string;
+-      saas_slug: string;
+-      stripe_customer_id: string | null;
+-      stripe_subscription_id: string | null;
+-      plan_code: string | null;
+-      status: string;
+-      current_period_end: string | null;
+-      updated_at: string;
+-    }>(
+-      `SELECT tenant_id, saas_slug, stripe_customer_id, stripe_subscription_id, plan_code, status, current_period_end, updated_at
+-       FROM saas_subscriptions
+-       WHERE tenant_id = ? AND saas_slug = ?
+-       LIMIT 1`,
+-      input.tenantId,
+-      input.saasSlug,
+-    );
+-  }
++  // Reutiliza el mismo row-fetch que getCanonicalBillingSnapshot (antes esta función
++  // mantenía su propia query duplicada) — internal_accounts NO se aplica aquí a
++  // propósito: esta función solo representa una suscripción Stripe real (por eso el
++  // null-check de stripe_customer_id/stripe_subscription_id justo debajo se mantiene
++  // intacto), y una cuenta interna no tiene Stripe real que gestionar. El bypass de
++  // cuentas internas para los consumidores que sí tratan ese null como "no
++  // autorizado" (sso-init, Mentoria) vive en isInternalAccount(), no aquí.
++  const row = await getCanonicalSubscriptionRow(input);
+   if (!row?.stripe_customer_id || !row.stripe_subscription_id) {
+     return null;
+   }
+@@ -595,24 +555,51 @@ async function readCanonicalFeatures(input: {
+   }
+ }
+ 
++// Cuentas propias del founder (tabla internal_accounts, DRACO_DB, gestionada 100% a
++// mano vía SQL directo — sin endpoint, sin UI). Falla cerrado a "no interna" si la
++// tabla todavía no existe en algún entorno (local/test sin la migración 0203
++// aplicada) en vez de tumbar getCanonicalBillingSnapshot/getCanonicalSubscriptionState,
++// que se usan en el camino caliente de todos los productos.
++export async function isInternalAccount(tenantId: string, saasSlug: string): Promise<boolean> {
++  try {
++    const row = await queryOne<{ tenant_id: string }>(
++      `SELECT tenant_id FROM internal_accounts WHERE tenant_id = ? AND saas_slug = ? LIMIT 1`,
++      tenantId,
++      saasSlug,
++    );
++    return Boolean(row);
++  } catch (error) {
++    if (isMissingTableError(error)) return false;
++    throw error;
++  }
++}
++
+ export async function getCanonicalBillingSnapshot(input: {
+   tenantId: string;
+   saasSlug: string;
+ }): Promise<CanonicalBillingSnapshot> {
+-  const [subscriptionRow, saasId, quotas] = await Promise.all([
++  const [subscriptionRow, saasId, quotas, internal] = await Promise.all([
+     getCanonicalSubscriptionRow(input),
+     resolveCanonicalSaasId(input),
+     readCanonicalLimitsAndUsage(input),
++    isInternalAccount(input.tenantId, input.saasSlug),
+   ]);
+   const features = await readCanonicalFeatures({ tenantId: input.tenantId, saasId });
+-  const normalizedStatus = subscriptionRow?.status?.trim().toLowerCase() as CanonicalSubscriptionStatus | undefined;
++  const rawStatus = subscriptionRow?.status?.trim().toLowerCase() as CanonicalSubscriptionStatus | undefined;
++  // Cuenta interna → status forzado a "active" (entra en ENTITLED_STATUSES en todos
++  // los productos) ignorando por completo lo que diga saas_subscriptions. El
++  // plan_code "top tier" concreto (empresa_pro/influencer_pro, family, etc.) lo
++  // decide cada producto a partir de isInternalAccount abajo — este objeto no sabe
++  // de accountType ni de catálogos de planes específicos de un SaaS.
++  const normalizedStatus: CanonicalSubscriptionStatus | null = internal ? "active" : (rawStatus ?? null);
+ 
+   return {
+     tenantId: input.tenantId,
+     saasSlug: input.saasSlug,
+     saasId,
++    isInternalAccount: internal,
+     subscription: {
+-      status: normalizedStatus ?? null,
++      status: normalizedStatus,
+       planCode: normalizePlanCode(subscriptionRow?.plan_code),
+       currentPeriodStart: subscriptionRow?.current_period_start ?? null,
+       currentPeriodEnd: subscriptionRow?.current_period_end ?? null,
+diff --git a/src/lib/mentoria/plans.ts b/src/lib/mentoria/plans.ts
+index 20c6ac5..69aeeb8 100644
+--- a/src/lib/mentoria/plans.ts
++++ b/src/lib/mentoria/plans.ts
+@@ -97,7 +97,17 @@ export function getMentoriaStripePriceId(planCode: Exclude<MentoriaPlanCode, "fr
+   return typeof bound === "string" && bound.trim().length > 0 ? bound.trim() : null;
+ }
+ 
+-export function resolveMentoriaPlanCode(subscription: CanonicalSubscriptionState | null): MentoriaPlanCode {
++export function resolveMentoriaPlanCode(
++  subscription: CanonicalSubscriptionState | null,
++  options?: { isInternalAccount?: boolean },
++): MentoriaPlanCode {
++  // Cuenta interna (internal_accounts, DRACO_DB) — ignora saas_subscriptions y
++  // devuelve el plan más alto del catálogo, "family" (60 sesiones guiadas/día, 4
++  // seats). Mentoria no tiene split por accountType como Socialcors, así que aquí
++  // no hace falta ningún parámetro adicional más allá del flag.
++  if (options?.isInternalAccount) {
++    return "family";
++  }
+   if (!subscription || !ENTITLED_STATUSES.has(subscription.status)) {
+     return "free";
+   }
+@@ -108,8 +118,9 @@ export function buildMentoriaBillingSummary(input: {
+   subscription: CanonicalSubscriptionState | null;
+   usage: MentoriaBillingUsage;
+   canManageBilling: boolean;
++  isInternalAccount?: boolean;
+ }): MentoriaBillingSummary {
+-  const planCode = resolveMentoriaPlanCode(input.subscription);
++  const planCode = resolveMentoriaPlanCode(input.subscription, { isInternalAccount: input.isInternalAccount });
+   const plan = getMentoriaPlanDefinition(planCode);
+   const limitReached =
+     input.usage.guidedSessionsToday >= plan.limits.guidedSessionsPerDay
+diff --git a/src/lib/mentoria/service.ts b/src/lib/mentoria/service.ts
+index 7673bb1..a72ad79 100644
+--- a/src/lib/mentoria/service.ts
++++ b/src/lib/mentoria/service.ts
+@@ -9,7 +9,7 @@ import type { MentoriaAgentHistoryTurn } from "@/lib/agents/mentoria/base-agent"
+ import { correctExercise } from "@/lib/agents/mentoria/exercise-agent";
+ import { buildStudyPlan } from "@/lib/agents/mentoria/planner-agent";
+ import { buildInitialProgressFromOnboarding } from "@/lib/agents/mentoria/progress-agent";
+-import { getCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
++import { getCanonicalSubscriptionState, isInternalAccount } from "@/lib/billing/subscriptions";
+ import { recordCampamentoEvent } from "@/lib/empire/events";
+ import type { MentoriaRequestSession } from "@/lib/mentoria/auth/request";
+ import { ensureMentoriaAgentHandlersRegistered } from "@/lib/mentoria/drako-agent-handlers";
+@@ -1331,8 +1331,9 @@ export class MentoriaService {
+       });
+       return null;
+     });
+-    const [subscription, guidedSessionsToday, exercisesToday, plannerRegenerationsToday, referralProfile] = await Promise.all([
++    const [subscription, isInternal, guidedSessionsToday, exercisesToday, plannerRegenerationsToday, referralProfile] = await Promise.all([
+       subscriptionPromise,
++      isInternalAccount(context.tenantId, "mentoria"),
+       this.repository.countLearningSessionsForDay(context.tenantId, student.id, isoDay),
+       this.repository.countExercisesForDay(context.tenantId, student.id, isoDay),
+       this.repository.countPlannerRegenerationsForDay(context.tenantId, student.id, isoDay),
+@@ -1347,6 +1348,7 @@ export class MentoriaService {
+         plannerRegenerationsToday,
+       },
+       canManageBilling: context.canManageBilling,
++      isInternalAccount: isInternal,
+     });
+     return applyMentoriaGrowthEntitlements(billing, resolveGrowthEntitlements(referralProfile));
+   }
+diff --git a/src/lib/socialflow/billing/enforce.ts b/src/lib/socialflow/billing/enforce.ts
+index 3755247..091fd0a 100644
+--- a/src/lib/socialflow/billing/enforce.ts
++++ b/src/lib/socialflow/billing/enforce.ts
+@@ -1,7 +1,19 @@
+-import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
++import { getCanonicalBillingSnapshot, type CanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
++import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
+ import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
+ import { resolveSocialFlowPlanCode, type SocialFlowPlanCode } from "./plans";
+ 
++// El fetch de accountType solo se dispara cuando isInternalAccount es true (caso
++// raro, gestionado a mano) — evita añadir una consulta extra a SOCIALFLOW_AUTHS_DB
++// en el camino caliente de cada tenant normal.
++async function resolvePlanCode(tenantId: string, snapshot: CanonicalBillingSnapshot): Promise<SocialFlowPlanCode> {
++  if (!snapshot.isInternalAccount) {
++    return resolveSocialFlowPlanCode(snapshot.subscription);
++  }
++  const accountType = await getSocialFlowAccountTypeByTenant(tenantId);
++  return resolveSocialFlowPlanCode(snapshot.subscription, { isInternalAccount: true, accountType });
++}
++
+ // Sin extras ni add-ons: el límite de canales coincide exactamente con el número
+ // de redes incluidas en cada plan (ver network-entitlements.ts).
+ const PLAN_MAX_CHANNELS: Record<SocialFlowPlanCode, number> = {
+@@ -67,7 +79,7 @@ export async function guardChannelLimit(
+     resolveSocialContext({ tenantId, saasId }),
+   ]);
+ 
+-  const planCode = resolveSocialFlowPlanCode(snapshot.subscription);
++  const planCode = await resolvePlanCode(tenantId, snapshot);
+   const maxChannels = PLAN_MAX_CHANNELS[planCode];
+   const accounts = await listSaasSocialAccounts(ctx);
+   const activeCount = accounts.filter((a) => a.status !== "DISCONNECTED").length;
+@@ -99,7 +111,7 @@ export async function guardAiAccess(
+   }
+ 
+   const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
+-  const planCode = resolveSocialFlowPlanCode(snapshot.subscription);
++  const planCode = await resolvePlanCode(tenantId, snapshot);
+ 
+   if (!PLAN_AI_ALLOWED[planCode]) {
+     return {
+@@ -133,7 +145,7 @@ export async function getUploadBatchLimit(tenantId: string, role?: string): Prom
+   const isActiveTrial = sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
+   if (isActiveTrial) return 1;
+ 
+-  const planCode = resolveSocialFlowPlanCode(sub);
++  const planCode = await resolvePlanCode(tenantId, snapshot);
+   if (planCode === "free") return FREE_TIER_UPLOAD_BATCH_LIMIT;
+   return PLAN_DAILY_MULTIPLIER[planCode] * daysInCurrentMonth();
+ }
+@@ -154,7 +166,7 @@ export async function getCarouselSlideLimit(tenantId: string, role?: string): Pr
+   const isActiveTrial = sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
+   if (isActiveTrial) return 0;
+ 
+-  const planCode = resolveSocialFlowPlanCode(sub);
++  const planCode = await resolvePlanCode(tenantId, snapshot);
+   if (planCode === "free") return 0;
+   return CAROUSEL_SLIDES_PER_PLAN[planCode];
+ }
+diff --git a/src/lib/socialflow/billing/network-entitlements.ts b/src/lib/socialflow/billing/network-entitlements.ts
+index d777821..c85e684 100644
+--- a/src/lib/socialflow/billing/network-entitlements.ts
++++ b/src/lib/socialflow/billing/network-entitlements.ts
+@@ -36,7 +36,10 @@ export async function resolveNetworkEntitlements(input: {
+     getSocialFlowAccountTypeByTenant(input.tenantId),
+   ]);
+ 
+-  const planCode = resolveSocialFlowPlanCode(snapshot.subscription);
++  const planCode = resolveSocialFlowPlanCode(snapshot.subscription, {
++    isInternalAccount: snapshot.isInternalAccount,
++    accountType,
++  });
+   const accounts = await listSaasSocialAccounts(ctx);
+   const connected = new Set(accounts.filter((account) => account.status !== "DISCONNECTED").map((account) => account.provider));
+ 
+diff --git a/src/lib/socialflow/billing/plans.ts b/src/lib/socialflow/billing/plans.ts
+index 4815efc..45cb0da 100644
+--- a/src/lib/socialflow/billing/plans.ts
++++ b/src/lib/socialflow/billing/plans.ts
+@@ -178,7 +178,16 @@ export function normalizeSocialFlowPlanCode(value: string | null | undefined): S
+   }
+ }
+ 
+-export function resolveSocialFlowPlanCode(subscription: { status: string | null; planCode: string | null } | null): SocialFlowPlanCode {
++export function resolveSocialFlowPlanCode(
++  subscription: { status: string | null; planCode: string | null } | null,
++  options?: { isInternalAccount?: boolean; accountType?: SocialFlowAccountType | null },
++): SocialFlowPlanCode {
++  // Cuenta interna (internal_accounts, DRACO_DB) — ignora saas_subscriptions por
++  // completo y devuelve el plan más alto disponible según accountType. Ver
++  // getCanonicalBillingSnapshot() en @/lib/billing/subscriptions para el flag.
++  if (options?.isInternalAccount) {
++    return options.accountType === "empresa" ? "empresa_pro" : "influencer_pro";
++  }
+   if (!subscription || !subscription.status || !ENTITLED_STATUSES.has(subscription.status)) {
+     return "free";
+   }
