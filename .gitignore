@@ -56,3 +56,9 @@ node_modules/
 .next/
 dist/
 build/
+
+# scratch / local audit files
+tmp/
+audit-*.md
+auditoria-*.md
+datos-reales-*.md
