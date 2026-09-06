@@ -126,7 +126,7 @@ const HERO_SIDES: HeroSideConfig[] = [
     title: "Solo saca la foto. Nosotros hacemos el resto.",
     subtitle: "La IA reconoce empleados, local y productos. Genera el texto y publica en Instagram y LinkedIn.",
     plans: [
-      { name: "Starter", price: "169€", period: "/mes", stats: ["8 piezas/semana", "máx. 2/día", "6 vídeos IA/mes", "1 historia/día"] },
+      { name: "Starter", price: "169€", period: "/mes", stats: ["6 piezas/semana", "máx. 2/día", "6 vídeos IA/mes", "1 historia/día"] },
       { name: "Básico", price: "299€", period: "/mes", popular: true, stats: ["12 piezas/semana", "máx. 2/día", "12 vídeos IA/mes", "2 historias/día", "LinkedIn incluido"] },
       { name: "Pro", price: "449€", period: "/mes", stats: ["14 piezas/semana", "máx. 2/día", "20 vídeos IA/mes", "CRM Social", "LinkedIn Company Page"] },
     ],

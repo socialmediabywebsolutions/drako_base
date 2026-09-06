@@ -122,7 +122,7 @@ const PLAN_KIND_CONFIG: Record<PlanKind, PlanKindConfig> = {
         period: "/mes",
         description: "Para negocios que quieren empezar a publicar solos",
         checks: [
-          "8 piezas/semana Instagram",
+          "6 piezas/semana Instagram",
           "Máx. 2/día",
           "1 historia/día",
           "6 vídeos IA/mes",
