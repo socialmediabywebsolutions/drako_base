@@ -110,35 +110,28 @@ export async function PATCH(request: Request, { params }: { params: { id: string
           });
         }
 
+        // El operador ya aprobó el mensaje: un fallo al entregarlo a Meta es un problema
+        // de entrega, no de aprobación. Se loguea pero NO bloquea el update de status —
+        // si revertimos aquí, el hilo queda atascado sin que el operador pueda reintentar
+        // desde la UI (el botón ya no ofrece "Aprobar" sobre un hilo ya APPROVED).
         try {
           const creds = await requireInstagramCredentials(instagramAccount);
 
           if (current.threadType === "COMMENT") {
             const replyResult = await replyToInstagramComment(current.platformThreadId, finalReply, creds.accessToken, creds.apiBase);
             if (!replyResult.ok) {
-              return new Response(JSON.stringify({ error: "INSTAGRAM_REPLY_FAILED", message: replyResult.error }), {
-                status: 502,
-                headers: { "content-type": "application/json" },
-              });
+              console.error("SOCIALFLOW_INSTAGRAM_REPLY_DELIVERY_FAILED", current.id, replyResult.error);
             }
           } else if (current.threadType === "DM") {
             // current.platformThreadId es el IGSID del remitente para hilos DM (viene
-            // del webhook inbound) — no un comment_id, por eso sendInstagramDirectMessage
-            // recibe recipientIgsid, no commentId. Ver BACKLOG en inbound/route.ts: hoy
-            // nada rellena este campo con un valor real de un evento de Meta genuino.
+            // del webhook inbound, ver transformMetaWebhookBody en inbound/route.ts).
             const dmResult = await sendInstagramDirectMessage(creds.igUserId, current.platformThreadId, finalReply, creds.accessToken, creds.apiBase);
             if (!dmResult.ok) {
-              return new Response(JSON.stringify({ error: "INSTAGRAM_DM_FAILED", message: dmResult.error }), {
-                status: 502,
-                headers: { "content-type": "application/json" },
-              });
+              console.error("SOCIALFLOW_INSTAGRAM_DM_DELIVERY_FAILED", current.id, dmResult.error);
             }
           }
         } catch (error) {
-          return new Response(
-            JSON.stringify({ error: "INSTAGRAM_REPLY_FAILED", message: error instanceof Error ? error.message : "unknown" }),
-            { status: 502, headers: { "content-type": "application/json" } },
-          );
+          console.error("SOCIALFLOW_INSTAGRAM_DELIVERY_ERROR", current.id, error instanceof Error ? error.message : "unknown");
         }
       }
     }
