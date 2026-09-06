@@ -22,6 +22,8 @@ export default function EmployeeForm({
   const [description, setDescription] = useState(employee?.description ?? "");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(employee?.photoUrl ?? null);
+  const [faceFile, setFaceFile] = useState<File | null>(null);
+  const [facePreview, setFacePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,6 +32,12 @@ export default function EmployeeForm({
     const file = e.target.files?.[0] ?? null;
     setPhotoFile(file);
     if (file) setPhotoPreview(URL.createObjectURL(file));
+  }
+
+  function handleFaceChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setFaceFile(file);
+    if (file) setFacePreview(URL.createObjectURL(file));
   }
 
   async function uploadPhoto(employeeId: string): Promise<string | null> {
@@ -43,6 +51,19 @@ export default function EmployeeForm({
     const json = (await res.json()) as SaveResponse;
     if (!json.ok) throw new Error(json.message ?? json.error ?? "Error al subir la foto");
     return json.employee.photoUrl;
+  }
+
+  async function uploadFace(employeeId: string): Promise<string | null> {
+    if (!faceFile) return null;
+    const fd = new FormData();
+    fd.append("file", faceFile);
+    const res = await fetch(`/api/socialflow/empresa/employees/${employeeId}/face`, {
+      method: "POST",
+      body: fd,
+    });
+    const json = (await res.json()) as SaveResponse;
+    if (!json.ok) throw new Error(json.message ?? json.error ?? "Error al subir la foto de rostro");
+    return json.employee.faceR2Key;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -89,6 +110,10 @@ export default function EmployeeForm({
       if (photoFile) {
         const photoUrl = await uploadPhoto(saved.id);
         if (photoUrl) saved = { ...saved, photoUrl };
+      }
+      if (faceFile) {
+        const faceR2Key = await uploadFace(saved.id);
+        if (faceR2Key) saved = { ...saved, faceR2Key };
       }
 
       onSaved(saved);
@@ -146,6 +171,24 @@ export default function EmployeeForm({
           <Field label="Descripción de su estilo de trabajo">
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Le encanta trabajar con colores vibrantes..." rows={3} className={inputCls} />
           </Field>
+
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-white/45">
+              Foto de rostro de referencia — la IA usará esta imagen para reconocer a este empleado en las fotos
+            </span>
+            <div className="flex items-center gap-3">
+              {facePreview && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={facePreview} alt="Foto de rostro de referencia" className="h-12 w-12 rounded-lg border border-white/10 object-cover" />
+              )}
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png"
+                onChange={handleFaceChange}
+                className="text-xs text-white/50 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-500/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-violet-200 hover:file:bg-violet-500/30"
+              />
+            </div>
+          </div>
 
           {error && <p className="text-sm text-red-400">{error}</p>}
 

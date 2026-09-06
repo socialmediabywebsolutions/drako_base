@@ -7,6 +7,7 @@ export interface EmpresaEmployee {
   specialty: string | null;
   description: string | null;
   photoUrl: string | null;
+  faceR2Key: string | null;
   active: boolean;
   createdAt: string;
 }
@@ -26,5 +27,6 @@ export interface UpdateEmployeeInput {
   specialty?: string | null;
   description?: string | null;
   photoUrl?: string | null;
+  faceR2Key?: string | null;
   active?: boolean;
 }

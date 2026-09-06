@@ -12,6 +12,7 @@ type EmployeeRow = {
   specialty: string | null;
   description: string | null;
   photo_url: string | null;
+  face_r2_key: string | null;
   active: number;
   created_at: string;
 };
@@ -26,6 +27,7 @@ function rowToEmployee(row: EmployeeRow): EmpresaEmployee {
     specialty: row.specialty,
     description: row.description,
     photoUrl: row.photo_url,
+    faceR2Key: row.face_r2_key,
     active: row.active === 1,
     createdAt: row.created_at,
   };
@@ -43,9 +45,9 @@ export async function getEmployeesByTenant(
   const db = await getDb(tenantId, saasId);
   const { results } = await db
     .prepare(
-      `SELECT id, tenant_id, saas_id, name, role, specialty, description, photo_url, active, created_at
+      `SELECT id, tenant_id, saas_id, name, role, specialty, description, photo_url, face_r2_key, active, created_at
        FROM ${TABLE}
-       WHERE tenant_id = ? AND saas_id = ?
+       WHERE tenant_id = ? AND saas_id = ? AND deleted_at IS NULL
        ORDER BY created_at DESC
        LIMIT 200`,
     )
@@ -62,9 +64,9 @@ async function getEmployeeById(
   const db = await getDb(tenantId, saasId);
   const row = await db
     .prepare(
-      `SELECT id, tenant_id, saas_id, name, role, specialty, description, photo_url, active, created_at
+      `SELECT id, tenant_id, saas_id, name, role, specialty, description, photo_url, face_r2_key, active, created_at
        FROM ${TABLE}
-       WHERE id = ? AND tenant_id = ? AND saas_id = ?`,
+       WHERE id = ? AND tenant_id = ? AND saas_id = ? AND deleted_at IS NULL`,
     )
     .bind(id, tenantId, saasId)
     .first<EmployeeRow>();
@@ -109,6 +111,7 @@ export async function createEmployee(
     specialty: input.specialty ?? null,
     description: input.description ?? null,
     photoUrl: input.photoUrl ?? null,
+    faceR2Key: null,
     active,
     createdAt: now,
   };
@@ -145,6 +148,10 @@ export async function updateEmployee(
     fields.push("photo_url = ?");
     values.push(input.photoUrl);
   }
+  if (input.faceR2Key !== undefined) {
+    fields.push("face_r2_key = ?");
+    values.push(input.faceR2Key);
+  }
   if (input.active !== undefined) {
     fields.push("active = ?");
     values.push(input.active ? 1 : 0);
@@ -156,7 +163,7 @@ export async function updateEmployee(
 
   values.push(id, tenantId, saasId);
   await db
-    .prepare(`UPDATE ${TABLE} SET ${fields.join(", ")} WHERE id = ? AND tenant_id = ? AND saas_id = ?`)
+    .prepare(`UPDATE ${TABLE} SET ${fields.join(", ")} WHERE id = ? AND tenant_id = ? AND saas_id = ? AND deleted_at IS NULL`)
     .bind(...values)
     .run();
 
@@ -170,7 +177,7 @@ export async function deleteEmployee(
 ): Promise<boolean> {
   const db = await getDb(tenantId, saasId);
   const result = await db
-    .prepare(`DELETE FROM ${TABLE} WHERE id = ? AND tenant_id = ? AND saas_id = ?`)
+    .prepare(`UPDATE ${TABLE} SET deleted_at = datetime('now') WHERE id = ? AND tenant_id = ? AND saas_id = ? AND deleted_at IS NULL`)
     .bind(id, tenantId, saasId)
     .run();
   return ((result?.meta as { changes?: number })?.changes ?? 0) > 0;

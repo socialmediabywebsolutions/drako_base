@@ -1,9 +1,28 @@
 import { env } from "@/lib/cf";
 import { getPhysicalProfile } from "@/lib/socialflow/profile/physical-repository";
-import { listActiveEmployeeProfiles, describeEmployeeProfilesForPrompt } from "@/lib/socialflow/profile/employee-profiles-repository";
+import { getEmployeesByTenant } from "@/lib/socialflow/employees/repository";
+import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
+import type { EmpresaEmployee } from "@/lib/socialflow/employees/types";
 
 const MODEL = "@cf/stabilityai/stable-diffusion-xl-base-1.0";
 const R2_PUBLIC_BASE = "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev";
+const EMPLOYEES_SAAS_ID = "socialflow";
+
+// Contexto de equipo para el prompt de SDXL — cuentas empresa no tienen physical_profile
+// (eso es solo influencer); en su lugar, si hay empleados dados de alta en
+// saas_empresa_employees (única fuente de verdad, ver /empresa/empleados), se le da
+// contexto al modelo de quién puede aparecer en la foto.
+function describeEmployeesForPrompt(employees: EmpresaEmployee[]): string | null {
+  const active = employees.filter((e) => e.active);
+  if (!active.length) return null;
+  const entries = active.map((e) => {
+    const roleSpecialty = [e.role, e.specialty ? `especialidad: ${e.specialty}` : null].filter(Boolean).join(", ");
+    const parenthetical = roleSpecialty ? ` (${roleSpecialty})` : "";
+    const description = e.description ? `: ${e.description}` : "";
+    return `${e.name}${parenthetical}${description}`;
+  });
+  return `Known team members: ${entries.join("; ")}`;
+}
 
 // SDXL (Workers AI) acepta negative_prompt de forma nativa — evita las anomalías de
 // anatomía más comunes (manos/extremidades) en las imágenes generadas para posts.
@@ -223,11 +242,12 @@ export async function generatePostImage(prompt: string, postId: string, tenantId
   const physicalProfile = tenantId ? await getPhysicalProfile(tenantId).catch(() => null) : null;
   const physicalDescription = describePhysicalProfile(physicalProfile);
 
-  // Cuentas empresa no tienen physical_profile (eso es solo influencer) — en su lugar,
-  // si hay empleados dados de alta, se les da contexto al modelo de quién puede
-  // aparecer en la foto (ver socialcors_employee_profiles / "Equipo" en Mi Perfil).
-  const employeeProfiles = tenantId ? await listActiveEmployeeProfiles(tenantId).catch(() => []) : [];
-  const employeeDescription = describeEmployeeProfilesForPrompt(employeeProfiles);
+  const accountType = tenantId ? await getSocialFlowAccountTypeByTenant(tenantId).catch(() => null) : null;
+  const employees =
+    accountType === "empresa" && tenantId
+      ? await getEmployeesByTenant(tenantId, EMPLOYEES_SAAS_ID).catch(() => [])
+      : [];
+  const employeeDescription = describeEmployeesForPrompt(employees);
 
   const promptWithPhysical = physicalDescription ? `${prompt}, ${physicalDescription}` : prompt;
   const finalPrompt = employeeDescription ? `${promptWithPhysical}. ${employeeDescription}` : promptWithPhysical;

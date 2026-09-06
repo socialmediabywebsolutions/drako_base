@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Field, MiniList, SelectField, sectionCls, TagField, TextareaField } from "./ProfileFormFields";
 import ProfileAiChat from "./ProfileAiChat";
 import PhysicalProfileAiChat from "./PhysicalProfileAiChat";
-import EmployeeTeamSection from "./EmployeeTeamSection";
 
 type ProfileResponse = {
   ok: boolean;
@@ -717,9 +716,6 @@ export default function SocialFlowProfilePage() {
           </section>
         );
       })()}
-
-      {/* Employee team — only for empresa accounts, feeds the AI image generator */}
-      {accountType === "empresa" && <EmployeeTeamSection />}
 
       {/* Niche & topics */}
       <section className={sectionCls}>
