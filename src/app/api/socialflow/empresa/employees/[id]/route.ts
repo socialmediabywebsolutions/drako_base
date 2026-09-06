@@ -18,19 +18,7 @@ type EmployeeUpdateBody = {
   description?: string | null;
   photoUrl?: string | null;
   active?: boolean;
-  age?: unknown;
-  heightCm?: unknown;
-  weightKg?: unknown;
-  gender?: unknown;
-  skinTone?: unknown;
-  hairColor?: unknown;
-  hairStyle?: unknown;
-  hairLength?: unknown;
-  eyeColor?: unknown;
-  bodyConstitution?: unknown;
-  faceShape?: unknown;
-  tattoos?: unknown;
-  beard?: unknown;
+  [key: string]: unknown;
 };
 
 export async function PATCH(

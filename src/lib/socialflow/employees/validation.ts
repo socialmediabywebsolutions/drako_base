@@ -31,23 +31,7 @@ function parseNullableString(value: unknown): string | null | undefined {
   return typeof value === "string" ? value.trim() || null : null;
 }
 
-type PhysicalFieldsBody = {
-  age?: unknown;
-  heightCm?: unknown;
-  weightKg?: unknown;
-  gender?: unknown;
-  skinTone?: unknown;
-  hairColor?: unknown;
-  hairStyle?: unknown;
-  hairLength?: unknown;
-  eyeColor?: unknown;
-  bodyConstitution?: unknown;
-  faceShape?: unknown;
-  tattoos?: unknown;
-  beard?: unknown;
-};
-
-export function parseEmployeePhysicalFields(body: PhysicalFieldsBody): EmployeePhysicalFields {
+export function parseEmployeePhysicalFields(body: Record<string, unknown>): EmployeePhysicalFields {
   return {
     age: parseNumber(body.age),
     heightCm: parseNumber(body.heightCm),
