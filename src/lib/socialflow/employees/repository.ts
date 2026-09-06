@@ -1,7 +1,20 @@
 import { resolveSocialContext } from "@/lib/socialflow/repository";
-import type { EmpresaEmployee, CreateEmployeeInput, UpdateEmployeeInput } from "./types";
+import type {
+  EmpresaEmployee,
+  CreateEmployeeInput,
+  UpdateEmployeeInput,
+  EmployeeGender,
+  EmployeeSkinTone,
+  EmployeeHairStyle,
+  EmployeeHairLength,
+  EmployeeBodyConstitution,
+} from "./types";
 
 const TABLE = "saas_empresa_employees";
+
+const SELECT_COLUMNS = `id, tenant_id, saas_id, name, role, specialty, description, photo_url, face_r2_key, active, created_at,
+       age, height_cm, weight_kg, gender, skin_tone, hair_color, hair_style, hair_length, eye_color,
+       body_constitution, face_shape, tattoos, beard`;
 
 type EmployeeRow = {
   id: string;
@@ -15,6 +28,19 @@ type EmployeeRow = {
   face_r2_key: string | null;
   active: number;
   created_at: string;
+  age: number | null;
+  height_cm: number | null;
+  weight_kg: number | null;
+  gender: string | null;
+  skin_tone: string | null;
+  hair_color: string | null;
+  hair_style: string | null;
+  hair_length: string | null;
+  eye_color: string | null;
+  body_constitution: string | null;
+  face_shape: string | null;
+  tattoos: string | null;
+  beard: string | null;
 };
 
 function rowToEmployee(row: EmployeeRow): EmpresaEmployee {
@@ -30,6 +56,19 @@ function rowToEmployee(row: EmployeeRow): EmpresaEmployee {
     faceR2Key: row.face_r2_key,
     active: row.active === 1,
     createdAt: row.created_at,
+    age: row.age,
+    heightCm: row.height_cm,
+    weightKg: row.weight_kg,
+    gender: (row.gender as EmployeeGender | null) ?? null,
+    skinTone: (row.skin_tone as EmployeeSkinTone | null) ?? null,
+    hairColor: row.hair_color,
+    hairStyle: (row.hair_style as EmployeeHairStyle | null) ?? null,
+    hairLength: (row.hair_length as EmployeeHairLength | null) ?? null,
+    eyeColor: row.eye_color,
+    bodyConstitution: (row.body_constitution as EmployeeBodyConstitution | null) ?? null,
+    faceShape: row.face_shape,
+    tattoos: row.tattoos,
+    beard: row.beard,
   };
 }
 
@@ -45,7 +84,7 @@ export async function getEmployeesByTenant(
   const db = await getDb(tenantId, saasId);
   const { results } = await db
     .prepare(
-      `SELECT id, tenant_id, saas_id, name, role, specialty, description, photo_url, face_r2_key, active, created_at
+      `SELECT ${SELECT_COLUMNS}
        FROM ${TABLE}
        WHERE tenant_id = ? AND saas_id = ? AND deleted_at IS NULL
        ORDER BY created_at DESC
@@ -64,7 +103,7 @@ async function getEmployeeById(
   const db = await getDb(tenantId, saasId);
   const row = await db
     .prepare(
-      `SELECT id, tenant_id, saas_id, name, role, specialty, description, photo_url, face_r2_key, active, created_at
+      `SELECT ${SELECT_COLUMNS}
        FROM ${TABLE}
        WHERE id = ? AND tenant_id = ? AND saas_id = ? AND deleted_at IS NULL`,
     )
@@ -85,8 +124,11 @@ export async function createEmployee(
 
   await db
     .prepare(
-      `INSERT INTO ${TABLE} (id, tenant_id, saas_id, name, role, specialty, description, photo_url, active, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ${TABLE} (
+        id, tenant_id, saas_id, name, role, specialty, description, photo_url, active, created_at,
+        age, height_cm, weight_kg, gender, skin_tone, hair_color, hair_style, hair_length, eye_color,
+        body_constitution, face_shape, tattoos, beard
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -99,6 +141,19 @@ export async function createEmployee(
       input.photoUrl ?? null,
       active ? 1 : 0,
       now,
+      input.age ?? null,
+      input.heightCm ?? null,
+      input.weightKg ?? null,
+      input.gender ?? null,
+      input.skinTone ?? null,
+      input.hairColor ?? null,
+      input.hairStyle ?? null,
+      input.hairLength ?? null,
+      input.eyeColor ?? null,
+      input.bodyConstitution ?? null,
+      input.faceShape ?? null,
+      input.tattoos ?? null,
+      input.beard ?? null,
     )
     .run();
 
@@ -114,8 +169,43 @@ export async function createEmployee(
     faceR2Key: null,
     active,
     createdAt: now,
+    age: input.age ?? null,
+    heightCm: input.heightCm ?? null,
+    weightKg: input.weightKg ?? null,
+    gender: input.gender ?? null,
+    skinTone: input.skinTone ?? null,
+    hairColor: input.hairColor ?? null,
+    hairStyle: input.hairStyle ?? null,
+    hairLength: input.hairLength ?? null,
+    eyeColor: input.eyeColor ?? null,
+    bodyConstitution: input.bodyConstitution ?? null,
+    faceShape: input.faceShape ?? null,
+    tattoos: input.tattoos ?? null,
+    beard: input.beard ?? null,
   };
 }
+
+const PATCHABLE_COLUMNS: Array<[keyof UpdateEmployeeInput, string]> = [
+  ["name", "name"],
+  ["role", "role"],
+  ["specialty", "specialty"],
+  ["description", "description"],
+  ["photoUrl", "photo_url"],
+  ["faceR2Key", "face_r2_key"],
+  ["age", "age"],
+  ["heightCm", "height_cm"],
+  ["weightKg", "weight_kg"],
+  ["gender", "gender"],
+  ["skinTone", "skin_tone"],
+  ["hairColor", "hair_color"],
+  ["hairStyle", "hair_style"],
+  ["hairLength", "hair_length"],
+  ["eyeColor", "eye_color"],
+  ["bodyConstitution", "body_constitution"],
+  ["faceShape", "face_shape"],
+  ["tattoos", "tattoos"],
+  ["beard", "beard"],
+];
 
 export async function updateEmployee(
   id: string,
@@ -128,29 +218,11 @@ export async function updateEmployee(
   const fields: string[] = [];
   const values: unknown[] = [];
 
-  if (input.name !== undefined) {
-    fields.push("name = ?");
-    values.push(input.name);
-  }
-  if (input.role !== undefined) {
-    fields.push("role = ?");
-    values.push(input.role);
-  }
-  if (input.specialty !== undefined) {
-    fields.push("specialty = ?");
-    values.push(input.specialty);
-  }
-  if (input.description !== undefined) {
-    fields.push("description = ?");
-    values.push(input.description);
-  }
-  if (input.photoUrl !== undefined) {
-    fields.push("photo_url = ?");
-    values.push(input.photoUrl);
-  }
-  if (input.faceR2Key !== undefined) {
-    fields.push("face_r2_key = ?");
-    values.push(input.faceR2Key);
+  for (const [key, column] of PATCHABLE_COLUMNS) {
+    if (input[key] !== undefined) {
+      fields.push(`${column} = ?`);
+      values.push(input[key]);
+    }
   }
   if (input.active !== undefined) {
     fields.push("active = ?");

@@ -1,10 +1,49 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { EmpresaEmployee } from "@/lib/socialflow/employees/types";
+import type { EmpresaEmployee, EmployeeGender } from "@/lib/socialflow/employees/types";
 
 type ListItem = Omit<EmpresaEmployee, "tenantId" | "saasId">;
 type SaveResponse = { ok: true; employee: EmpresaEmployee } | { ok: false; error?: string; message?: string };
+
+const GENDER_OPTIONS: Array<{ value: EmployeeGender; label: string }> = [
+  { value: "mujer", label: "Mujer" },
+  { value: "hombre", label: "Hombre" },
+  { value: "no_binario", label: "No binario" },
+];
+
+const SKIN_TONE_OPTIONS = [
+  { value: "muy_clara", label: "Muy clara" },
+  { value: "clara", label: "Clara" },
+  { value: "media", label: "Media" },
+  { value: "olivacea", label: "Olivácea" },
+  { value: "morena", label: "Morena" },
+  { value: "oscura", label: "Oscura" },
+  { value: "muy_oscura", label: "Muy oscura" },
+];
+
+const HAIR_STYLE_OPTIONS = [
+  { value: "liso", label: "Liso" },
+  { value: "ondulado", label: "Ondulado" },
+  { value: "rizado", label: "Rizado" },
+  { value: "muy_rizado_afro", label: "Muy rizado / afro" },
+];
+
+const HAIR_LENGTH_OPTIONS = [
+  { value: "rapado", label: "Rapado" },
+  { value: "muy_corto", label: "Muy corto" },
+  { value: "corto", label: "Corto" },
+  { value: "medio", label: "Medio" },
+  { value: "largo", label: "Largo" },
+  { value: "muy_largo", label: "Muy largo" },
+];
+
+const BODY_CONSTITUTION_OPTIONS = [
+  { value: "ectomorfo", label: "Ectomorfo" },
+  { value: "mesomorfo", label: "Mesomorfo" },
+  { value: "endomorfo", label: "Endomorfo" },
+  { value: "mixto", label: "Mixto" },
+];
 
 export default function EmployeeForm({
   employee,
@@ -27,6 +66,22 @@ export default function EmployeeForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Rasgos físicos — mismo nivel de detalle que socialcors_physical_profile (influencer),
+  // para que SDXL pueda generar imágenes precisas de cada empleado.
+  const [age, setAge] = useState(employee?.age != null ? String(employee.age) : "");
+  const [heightCm, setHeightCm] = useState(employee?.heightCm != null ? String(employee.heightCm) : "");
+  const [weightKg, setWeightKg] = useState(employee?.weightKg != null ? String(employee.weightKg) : "");
+  const [gender, setGender] = useState(employee?.gender ?? "");
+  const [skinTone, setSkinTone] = useState(employee?.skinTone ?? "");
+  const [hairColor, setHairColor] = useState(employee?.hairColor ?? "");
+  const [hairStyle, setHairStyle] = useState(employee?.hairStyle ?? "");
+  const [hairLength, setHairLength] = useState(employee?.hairLength ?? "");
+  const [eyeColor, setEyeColor] = useState(employee?.eyeColor ?? "");
+  const [bodyConstitution, setBodyConstitution] = useState(employee?.bodyConstitution ?? "");
+  const [faceShape, setFaceShape] = useState(employee?.faceShape ?? "");
+  const [tattoos, setTattoos] = useState(employee?.tattoos ?? "");
+  const [beard, setBeard] = useState(employee?.beard ?? "");
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
@@ -84,6 +139,19 @@ export default function EmployeeForm({
         role: trimmedRole,
         specialty: specialty.trim() || null,
         description: description.trim() || null,
+        age: age.trim() ? Number(age) : null,
+        heightCm: heightCm.trim() ? Number(heightCm) : null,
+        weightKg: weightKg.trim() ? Number(weightKg) : null,
+        gender: gender || null,
+        skinTone: skinTone || null,
+        hairColor: hairColor.trim() || null,
+        hairStyle: hairStyle || null,
+        hairLength: hairLength || null,
+        eyeColor: eyeColor.trim() || null,
+        bodyConstitution: bodyConstitution || null,
+        faceShape: faceShape.trim() || null,
+        tattoos: tattoos.trim() || null,
+        beard: gender === "hombre" ? beard.trim() || null : null,
       };
 
       let saved: ListItem;
@@ -187,6 +255,80 @@ export default function EmployeeForm({
                 onChange={handleFaceChange}
                 className="text-xs text-white/50 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-500/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-violet-200 hover:file:bg-violet-500/30"
               />
+            </div>
+          </div>
+
+          <div className="border-t border-white/8 pt-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/40">
+              Rasgos físicos — para que la IA genere imágenes precisas de este empleado
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Edad">
+                <input type="number" min={0} value={age} onChange={(e) => setAge(e.target.value)} placeholder="32" className={inputCls} />
+              </Field>
+              <Field label="Género">
+                <select value={gender} onChange={(e) => setGender(e.target.value as EmployeeGender | "")} className={inputCls}>
+                  <option value="">Sin especificar</option>
+                  {GENDER_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Altura (cm)">
+                <input type="number" min={0} value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="170" className={inputCls} />
+              </Field>
+              <Field label="Peso (kg)">
+                <input type="number" min={0} value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="65" className={inputCls} />
+              </Field>
+              <Field label="Complexión">
+                <select value={bodyConstitution} onChange={(e) => setBodyConstitution(e.target.value)} className={inputCls}>
+                  <option value="">Sin especificar</option>
+                  {BODY_CONSTITUTION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Tono de piel">
+                <select value={skinTone} onChange={(e) => setSkinTone(e.target.value)} className={inputCls}>
+                  <option value="">Sin especificar</option>
+                  {SKIN_TONE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Color de cabello">
+                <input type="text" value={hairColor} onChange={(e) => setHairColor(e.target.value)} placeholder="Castaño oscuro" className={inputCls} />
+              </Field>
+              <Field label="Tipo de cabello">
+                <select value={hairStyle} onChange={(e) => setHairStyle(e.target.value)} className={inputCls}>
+                  <option value="">Sin especificar</option>
+                  {HAIR_STYLE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Largo de cabello">
+                <select value={hairLength} onChange={(e) => setHairLength(e.target.value)} className={inputCls}>
+                  <option value="">Sin especificar</option>
+                  {HAIR_LENGTH_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Color de ojos">
+                <input type="text" value={eyeColor} onChange={(e) => setEyeColor(e.target.value)} placeholder="Marrones" className={inputCls} />
+              </Field>
+              <Field label="Forma de cara">
+                <input type="text" value={faceShape} onChange={(e) => setFaceShape(e.target.value)} placeholder="Ovalada" className={inputCls} />
+              </Field>
+              <Field label="Tatuajes">
+                <input type="text" value={tattoos} onChange={(e) => setTattoos(e.target.value)} placeholder="Sin tatuajes" className={inputCls} />
+              </Field>
+              {gender === "hombre" && (
+                <Field label="Barba">
+                  <input type="text" value={beard} onChange={(e) => setBeard(e.target.value)} placeholder="Barba corta" className={inputCls} />
+                </Field>
+              )}
             </div>
           </div>
 

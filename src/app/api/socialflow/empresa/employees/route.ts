@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { getEmployeesByTenant, createEmployee } from "@/lib/socialflow/employees/repository";
+import { parseEmployeePhysicalFields } from "@/lib/socialflow/employees/validation";
 
 const DEFAULT_SAAS_ID = "socialflow";
 
@@ -42,6 +43,7 @@ export async function POST(req: Request) {
     description?: string;
     photoUrl?: string;
     active?: boolean;
+    [key: string]: unknown;
   };
   try {
     body = await req.json();
@@ -62,6 +64,7 @@ export async function POST(req: Request) {
       description: body.description?.trim() || null,
       photoUrl: body.photoUrl?.trim() || null,
       active: body.active,
+      ...parseEmployeePhysicalFields(body),
     });
     return NextResponse.json({ ok: true, employee });
   } catch (err) {

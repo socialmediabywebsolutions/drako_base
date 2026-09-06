@@ -3,12 +3,35 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { updateEmployee, deleteEmployee } from "@/lib/socialflow/employees/repository";
+import { parseEmployeePhysicalFields } from "@/lib/socialflow/employees/validation";
 
 const DEFAULT_SAAS_ID = "socialflow";
 
 function resolveSaasId(request: Request): string {
   return new URL(request.url).searchParams.get("saasId")?.trim() || DEFAULT_SAAS_ID;
 }
+
+type EmployeeUpdateBody = {
+  name?: string;
+  role?: string | null;
+  specialty?: string | null;
+  description?: string | null;
+  photoUrl?: string | null;
+  active?: boolean;
+  age?: unknown;
+  heightCm?: unknown;
+  weightKg?: unknown;
+  gender?: unknown;
+  skinTone?: unknown;
+  hairColor?: unknown;
+  hairStyle?: unknown;
+  hairLength?: unknown;
+  eyeColor?: unknown;
+  bodyConstitution?: unknown;
+  faceShape?: unknown;
+  tattoos?: unknown;
+  beard?: unknown;
+};
 
 export async function PATCH(
   req: Request,
@@ -26,14 +49,7 @@ export async function PATCH(
     return NextResponse.json({ error: "ID_REQUIRED" }, { status: 400 });
   }
 
-  let body: {
-    name?: string;
-    role?: string | null;
-    specialty?: string | null;
-    description?: string | null;
-    photoUrl?: string | null;
-    active?: boolean;
-  };
+  let body: EmployeeUpdateBody;
   try {
     body = await req.json();
   } catch {
@@ -48,6 +64,7 @@ export async function PATCH(
       description: body.description !== undefined ? body.description?.trim() || null : undefined,
       photoUrl: body.photoUrl !== undefined ? body.photoUrl?.trim() || null : undefined,
       active: body.active,
+      ...parseEmployeePhysicalFields(body),
     });
     if (!employee) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });

@@ -8,10 +8,54 @@ const MODEL = "@cf/stabilityai/stable-diffusion-xl-base-1.0";
 const R2_PUBLIC_BASE = "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev";
 const EMPLOYEES_SAAS_ID = "socialflow";
 
+const EMPLOYEE_HAIR_STYLE_LABELS: Record<string, string> = {
+  liso: "liso",
+  ondulado: "ondulado",
+  rizado: "rizado",
+  muy_rizado_afro: "muy rizado/afro",
+};
+
+// Rasgos físicos de un empleado (saas_empresa_employees) para que SDXL genere imágenes
+// precisas de esa persona — mismo nivel de detalle que describePhysicalProfile() para
+// influencer, pero por empleado en vez de por tenant.
+function describeEmployeePhysicalTraits(e: EmpresaEmployee): string | null {
+  const parts: string[] = [];
+
+  const genderLabel = e.gender ? GENDER_LABELS[e.gender] : null;
+  if (genderLabel) parts.push(genderLabel);
+
+  if (e.age) parts.push(`${e.age} años`);
+
+  const constitutionGroup = e.gender === "hombre" ? "hombre" : e.gender === "mujer" ? "mujer" : "otro";
+  if (e.bodyConstitution) {
+    const label = BODY_CONSTITUTION_LABELS[constitutionGroup][e.bodyConstitution];
+    if (label) parts.push(`constitución ${label}`);
+  }
+
+  if (e.heightCm) parts.push(`${e.heightCm}cm`);
+  if (e.weightKg) parts.push(`${e.weightKg}kg`);
+
+  if (e.skinTone) parts.push(`tono de piel ${SKIN_TONE_LABELS[e.skinTone] ?? e.skinTone}`);
+
+  const hairBits: string[] = [];
+  if (e.hairColor) hairBits.push(e.hairColor);
+  if (e.hairStyle) hairBits.push(EMPLOYEE_HAIR_STYLE_LABELS[e.hairStyle] ?? e.hairStyle);
+  if (e.hairLength) hairBits.push(HAIR_LENGTH_LABELS[e.hairLength] ?? e.hairLength);
+  if (hairBits.length) parts.push(`cabello ${hairBits.join(" ")}`);
+
+  if (e.eyeColor) parts.push(`ojos ${e.eyeColor}`);
+  if (e.faceShape) parts.push(`cara ${e.faceShape}`);
+  if (e.tattoos) parts.push(e.tattoos);
+  if (e.beard) parts.push(e.beard);
+
+  if (!parts.length) return null;
+  return parts.join(", ");
+}
+
 // Contexto de equipo para el prompt de SDXL — cuentas empresa no tienen physical_profile
 // (eso es solo influencer); en su lugar, si hay empleados dados de alta en
 // saas_empresa_employees (única fuente de verdad, ver /empresa/empleados), se le da
-// contexto al modelo de quién puede aparecer en la foto.
+// contexto al modelo de quién puede aparecer en la foto y con qué aspecto físico.
 function describeEmployeesForPrompt(employees: EmpresaEmployee[]): string | null {
   const active = employees.filter((e) => e.active);
   if (!active.length) return null;
@@ -19,7 +63,9 @@ function describeEmployeesForPrompt(employees: EmpresaEmployee[]): string | null
     const roleSpecialty = [e.role, e.specialty ? `especialidad: ${e.specialty}` : null].filter(Boolean).join(", ");
     const parenthetical = roleSpecialty ? ` (${roleSpecialty})` : "";
     const description = e.description ? `: ${e.description}` : "";
-    return `${e.name}${parenthetical}${description}`;
+    const physical = describeEmployeePhysicalTraits(e);
+    const physicalSuffix = physical ? `. ${e.name} is ${physical}` : "";
+    return `${e.name}${parenthetical}${description}${physicalSuffix}`;
   });
   return `Known team members: ${entries.join("; ")}`;
 }
