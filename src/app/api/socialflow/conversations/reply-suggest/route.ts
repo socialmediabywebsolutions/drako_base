@@ -2,41 +2,10 @@ import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { generateConversationalReply } from "@/lib/socialflow/conversational/engine";
 import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
 import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
+import { BLOCKED_INTENT_REPLY, detectBlockedIntent } from "@/lib/socialflow/conversational/blocked-intent";
 import type { ConversationThreadType } from "@/lib/socialflow/conversational/types";
 
 export const dynamic = "force-dynamic";
-
-// Temas que SIEMPRE debe derivar un humano — nunca deben llegar al motor de IA, ni
-// siquiera como sugerencia editable. La IA (mock o real) no respeta de forma fiable
-// instrucciones de "no hables de precio" dentro del system prompt, así que esto se
-// detecta ANTES de llamar a generateConversationalReply(), no como una regla que se le
-// pide seguir al LLM.
-const BLOCKED_INTENT_PHRASES = [
-  "precio", "precios", "tarifa", "tarifas", "presupuesto",
-  "cuanto cobras", "cuanto cuesta", "cuanto vale", "cuanto me costaria",
-  "contrato", "acuerdo", "exclusividad", "condiciones",
-  "te pago", "pagarte", "te ofrezco", "oferta economica",
-  "medico", "diagnostico", "enfermedad", "medicacion",
-  "vida privada", "familia", "pareja", "relacion personal",
-];
-
-const BLOCKED_INTENT_REPLY =
-  "¡Gracias por escribir! Este tipo de consultas las gestiona Sofía personalmente. Escríbele por DM a @sofiamarenfit o al email sofiamarenfit.socialcors@gmail.com y te responderá lo antes posible. 🙌";
-
-// Case-insensitive y sin tildes: NFD + strip de marcas diacríticas reduce "cuánto",
-// "médico", "diagnóstico" a su forma sin acento antes de comparar contra la lista de
-// arriba (que ya está escrita sin tildes), así una sola entrada cubre ambas variantes.
-function normalizeForBlockedIntentMatch(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-function detectBlockedIntent(message: string): boolean {
-  const normalized = normalizeForBlockedIntentMatch(message);
-  return BLOCKED_INTENT_PHRASES.some((phrase) => normalized.includes(phrase));
-}
 
 export async function POST(request: Request) {
   try {

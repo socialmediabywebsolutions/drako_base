@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
@@ -26,7 +26,8 @@ type ControlResponse = {
     | CampoBaseSocialAutomationToggleOutput
     | CampoBaseSocialFlowOperatorActionResult
     | { refreshed: boolean; tenantId: string; saasId: string }
-    | { checksPassed: number; checksFailed: number; recommendedAction: string };
+    | { checksPassed: number; checksFailed: number; recommendedAction: string }
+    | { kind: "BLOCKED_INTENT" | "AI_GENERATED"; suggestedReply: string; aiMetadata?: Record<string, unknown> };
   observability?: CampoBaseSocialFlowObservability | null;
   trendTriggers?: SocialFlowTrendTrigger[];
   trendTriggerHealth?: SocialFlowTrendTriggerHealth | null;
@@ -148,6 +149,18 @@ export default function CampoBaseSocialAutomationControl() {
   const [message, setMessage] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [openAgentKey, setOpenAgentKey] = useState<string | null>(null);
+
+  // Probador de respuestas IA — movido aquí desde el CRM Social del cliente (era una
+  // herramienta de diagnóstico interna, no algo que el cliente final deba ver, ver
+  // acción "test_ai_reply" en api/operator/socialflow/route.ts).
+  const [testTenantKey, setTestTenantKey] = useState("");
+  const [testNiche, setTestNiche] = useState("");
+  const [testChannel, setTestChannel] = useState("INSTAGRAM");
+  const [testThreadType, setTestThreadType] = useState<"DM" | "COMMENT">("DM");
+  const [testMessage, setTestMessage] = useState("");
+  const [testResult, setTestResult] = useState<{ kind: "BLOCKED_INTENT" | "AI_GENERATED"; suggestedReply: string } | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+  const [testBusy, setTestBusy] = useState(false);
 
   const loadObservability = useCallback(async (scope: { tenantId: string; saasId: string }) => {
     setSelectedScope(scope);
@@ -305,6 +318,64 @@ export default function CampoBaseSocialAutomationControl() {
     }
   }
 
+  // status.items trae una fila por automationKey registrada — varios tenants
+  // registran más de una (content_generation + health_check), así que se deduplica
+  // por tenant/saasId para el selector.
+  const testTenantOptions = useMemo(() => {
+    const seen = new Map<string, { key: string; tenantId: string; saasId: string; niche: string | null; displayName: string }>();
+    for (const item of status?.items ?? []) {
+      const key = `${item.tenantId}:${item.saasId}`;
+      if (!seen.has(key)) {
+        seen.set(key, { key, tenantId: item.tenantId, saasId: item.saasId, niche: item.niche, displayName: item.displayName });
+      }
+    }
+    return Array.from(seen.values());
+  }, [status]);
+
+  function handleTestTenantChange(key: string) {
+    setTestTenantKey(key);
+    const found = testTenantOptions.find((t) => t.key === key);
+    setTestNiche(found?.niche ?? "");
+  }
+
+  async function runAiReplyTest() {
+    const selected = testTenantOptions.find((t) => t.key === testTenantKey);
+    if (!selected || !testMessage.trim()) return;
+
+    setTestBusy(true);
+    setTestError(null);
+    setTestResult(null);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "test_ai_reply",
+          tenantId: selected.tenantId,
+          saasId: selected.saasId,
+          niche: testNiche,
+          provider: testChannel,
+          threadType: testThreadType,
+          message: testMessage,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { result?: { kind: "BLOCKED_INTENT" | "AI_GENERATED"; suggestedReply: string }; message?: string }
+        | null;
+
+      if (!response.ok || !data?.result) {
+        throw new Error(data?.message ?? "No se pudo generar la respuesta de prueba.");
+      }
+
+      setTestResult(data.result);
+    } catch (testErr) {
+      setTestError(testErr instanceof Error ? testErr.message : "No se pudo generar la respuesta de prueba.");
+    } finally {
+      setTestBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6 p-6">
       {message ? (
@@ -353,6 +424,109 @@ export default function CampoBaseSocialAutomationControl() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </Card>
+
+      <Card
+        tone="default"
+        title="Probador de respuestas IA"
+        subtitle="Herramienta de diagnóstico interna — simula un mensaje entrante y ve exactamente qué respondería la IA para un tenant real"
+      >
+        {testTenantOptions.length === 0 ? (
+          <EmptyState
+            title="Sin tenants activos"
+            subtitle="No hay tenants registrados en la automatización de Socialcors todavía."
+          />
+        ) : (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="block text-xs font-semibold text-slate-500">
+                Tenant
+                <select
+                  value={testTenantKey}
+                  onChange={(e) => handleTestTenantChange(e.target.value)}
+                  className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+                >
+                  <option value="">Selecciona un tenant…</option>
+                  {testTenantOptions.map((t) => (
+                    <option key={t.key} value={t.key}>{t.displayName} ({t.saasId})</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-xs font-semibold text-slate-500">
+                Nicho
+                <input
+                  type="text"
+                  value={testNiche}
+                  onChange={(e) => setTestNiche(e.target.value)}
+                  placeholder="Se rellena al elegir tenant — editable"
+                  className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+                />
+              </label>
+
+              <label className="block text-xs font-semibold text-slate-500">
+                Canal
+                <select
+                  value={testChannel}
+                  onChange={(e) => setTestChannel(e.target.value)}
+                  className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+                >
+                  <option value="INSTAGRAM">Instagram</option>
+                  <option value="FACEBOOK_PAGE">Facebook</option>
+                  <option value="LINKEDIN">LinkedIn</option>
+                </select>
+              </label>
+
+              <label className="block text-xs font-semibold text-slate-500">
+                Tipo
+                <select
+                  value={testThreadType}
+                  onChange={(e) => setTestThreadType(e.target.value as "DM" | "COMMENT")}
+                  className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+                >
+                  <option value="DM">DM</option>
+                  <option value="COMMENT">Comentario</option>
+                </select>
+              </label>
+            </div>
+
+            <label className="block text-xs font-semibold text-slate-500">
+              Mensaje de prueba
+              <textarea
+                value={testMessage}
+                onChange={(e) => setTestMessage(e.target.value)}
+                placeholder="Pega aquí un mensaje entrante…"
+                rows={3}
+                className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+              />
+            </label>
+
+            <Button
+              variant="primary"
+              size="md"
+              loading={testBusy}
+              disabled={testBusy || !testTenantKey || !testMessage.trim()}
+              onClick={runAiReplyTest}
+            >
+              Generar respuesta
+            </Button>
+
+            {testError ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {testError}
+              </div>
+            ) : null}
+
+            {testResult ? (
+              <div className="rounded-2xl border-2 border-slate-200 bg-slate-50 p-4">
+                <Badge variant={testResult.kind === "BLOCKED_INTENT" ? "warn" : "ok"}>
+                  {testResult.kind} · {testResult.kind === "BLOCKED_INTENT" ? "derivación al humano" : "respuesta de la IA"}
+                </Badge>
+                <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">{testResult.suggestedReply}</p>
+              </div>
+            ) : null}
           </div>
         )}
       </Card>

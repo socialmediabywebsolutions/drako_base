@@ -20,6 +20,11 @@ import {
   type SocialFlowAutomationKey,
 } from "@/lib/campamento-base/socialflow-control-plane-service";
 import { getCampoBaseAgentControlCenter } from "@/lib/campamento-base/socialflow-agent-control-center";
+import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
+import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
+import { generateConversationalReply } from "@/lib/socialflow/conversational/engine";
+import { BLOCKED_INTENT_REPLY, detectBlockedIntent } from "@/lib/socialflow/conversational/blocked-intent";
+import type { ConversationThreadType } from "@/lib/socialflow/conversational/types";
 
 type SocialFlowRouteAction =
   | { action: "run_all" }
@@ -30,6 +35,15 @@ type SocialFlowRouteAction =
   | { action: "disable"; tenantId: string; saasId: string; automationKey?: SocialFlowAutomationKey }
   | { action: "linkedin_health_check"; tenantId: string; saasId: string }
   | { action: "refresh_observability"; tenantId: string; saasId: string }
+  | {
+      action: "test_ai_reply";
+      tenantId: string;
+      saasId: string;
+      message: string;
+      threadType: ConversationThreadType;
+      provider: string;
+      niche?: string;
+    }
   | { action: CampoBaseSocialFlowOperatorAction; tenantId: string; saasId: string };
 
 function validateAction(body: unknown): SocialFlowRouteAction | null {
@@ -48,6 +62,9 @@ function validateAction(body: unknown): SocialFlowRouteAction | null {
     "automationKey" in body && typeof body.automationKey === "string"
       ? body.automationKey as SocialFlowAutomationKey
       : undefined;
+  const message = "message" in body ? body.message : null;
+  const threadType = "threadType" in body ? body.threadType : null;
+  const provider = "provider" in body ? body.provider : null;
 
   if (action === "run_all") {
     return { action };
@@ -107,6 +124,23 @@ function validateAction(body: unknown): SocialFlowRouteAction | null {
     && typeof saasId === "string"
   ) {
     return { action, tenantId, saasId };
+  }
+
+  if (
+    action === "test_ai_reply"
+    && typeof tenantId === "string"
+    && typeof saasId === "string"
+    && typeof message === "string"
+  ) {
+    return {
+      action,
+      tenantId,
+      saasId,
+      message,
+      threadType: threadType === "COMMENT" ? "COMMENT" : "DM",
+      provider: typeof provider === "string" && provider ? provider : "INSTAGRAM",
+      niche: typeof niche === "string" && niche.trim() ? niche.trim() : undefined,
+    };
   }
 
   return null;
@@ -410,6 +444,58 @@ export async function POST(request: Request) {
         result,
         status,
         observability,
+      });
+    }
+
+    if (action.action === "test_ai_reply") {
+      if (!action.message.trim()) {
+        return NextResponse.json(
+          { code: "CAMPOBASE_SOCIALFLOW_INVALID_ACTION", message: "message is required" },
+          { status: 400 },
+        );
+      }
+
+      // Probador de respuestas IA — movido aquí desde el CRM Social del cliente (era
+      // una herramienta de diagnóstico interna, no algo que el cliente final deba ver).
+      // Reusa exactamente el mismo gate (detectBlockedIntent) y motor
+      // (generateConversationalReply) que /api/socialflow/conversations/reply-suggest,
+      // pero con el tenant elegido por el operador en vez del tenant de la sesión.
+      if (detectBlockedIntent(action.message)) {
+        return NextResponse.json({
+          action: action.action,
+          result: {
+            kind: "BLOCKED_INTENT" as const,
+            suggestedReply: BLOCKED_INTENT_REPLY,
+          },
+        });
+      }
+
+      const [knowledge, knowledgeContext] = await Promise.all([
+        getChannelKnowledge(action.tenantId, action.saasId),
+        getKnowledgeContext(action.tenantId, action.saasId).catch(() => ""),
+      ]);
+      // El nicho del selector es editable a propósito (ver UI): permite probar cómo
+      // respondería la IA si este tenant tuviera otro nicho, sin tocar su perfil real
+      // — solo se usa para esta llamada, nunca se persiste.
+      const profile = action.niche ? { ...knowledge.profile, niche: action.niche } : knowledge.profile;
+
+      const { suggestedReply, aiMetadata } = await generateConversationalReply({
+        incomingMessage: action.message,
+        threadType: action.threadType,
+        profile,
+        knowledge,
+        knowledgeContext,
+        tenantId: action.tenantId,
+        saasId: action.saasId,
+      });
+
+      return NextResponse.json({
+        action: action.action,
+        result: {
+          kind: "AI_GENERATED" as const,
+          suggestedReply,
+          aiMetadata,
+        },
       });
     }
 

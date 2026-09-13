@@ -116,17 +116,9 @@ export default function ConversationInbox({
 
   const [tab, setTab] = useState<Tab>("inbox");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [testOpen, setTestOpen] = useState(false);
   const [settings, setSettings] = useState(initialSettings);
   const [threads, setThreads] = useState(initialThreads);
   const [settingsError, setSettingsError] = useState<string | null>(null);
-
-  const [testMessage, setTestMessage] = useState("");
-  const [testProvider, setTestProvider] = useState("INSTAGRAM");
-  const [testThreadType, setTestThreadType] = useState<"DM" | "COMMENT">("DM");
-  const [testResult, setTestResult] = useState<string | null>(null);
-  const [testError, setTestError] = useState<string | null>(null);
-  const [testSavedMessage, setTestSavedMessage] = useState<string | null>(null);
 
   const [editedReplies, setEditedReplies] = useState<Record<string, string>>({});
   const [overriding, setOverriding] = useState<Record<string, boolean>>({});
@@ -135,7 +127,6 @@ export default function ConversationInbox({
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
 
   const [isPendingSettings, startSettingsTransition] = useTransition();
-  const [isPendingTest, startTestTransition] = useTransition();
   const [isPendingAction, startActionTransition] = useTransition();
 
   const inboxThreads = threads.filter(
@@ -202,42 +193,6 @@ export default function ConversationInbox({
         setSettingsError(e instanceof Error ? e.message : "Error al actualizar proveedores");
       }
     });
-  }
-
-  function generateTestReply() {
-    if (!testMessage.trim()) return;
-    setTestResult(null);
-    setTestError(null);
-    setTestSavedMessage(null);
-    startTestTransition(async () => {
-      try {
-        const res = await fetch("/api/socialflow/conversations/reply-suggest", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ saasId, message: testMessage, threadType: testThreadType }),
-        });
-        const data = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          suggestedReply?: string;
-          error?: string;
-        };
-        if (!res.ok || !data.ok) throw new Error(data.error ?? "Generation failed");
-        setTestResult(data.suggestedReply ?? "");
-      } catch (e) {
-        setTestError(e instanceof Error ? e.message : "Error al generar respuesta");
-      }
-    });
-  }
-
-  // El generador de pruebas no tiene un sender_id/platform_thread_id real (no viene de
-  // una cuenta conectada, solo del textarea de prueba) — antes esto igual intentaba
-  // persistirlo como hilo real vía POST /threads, y el INSERT fallaba con
-  // THREAD_INGEST_FAILED. Un mensaje de prueba nunca pertenece a la bandeja real: se
-  // confirma localmente que la prueba funcionó, sin tocar la base de datos.
-  function saveTestToInbox() {
-    if (!testMessage.trim()) return;
-    setTestError(null);
-    setTestSavedMessage("✓ Prueba guardada. Los mensajes de prueba no tienen remitente real, así que no se añaden a la bandeja.");
   }
 
   function patchThread(threadId: string, status: ConversationThread["status"], finalReply?: string | null) {
@@ -392,69 +347,6 @@ export default function ConversationInbox({
         initialActiveHoursJson={settings.activeHoursJson}
         onSaved={setSettings}
       />
-
-      {/* Test panel */}
-      <div className="rounded-xl border border-white/8 bg-white/4">
-        <button
-          type="button"
-          onClick={() => setTestOpen((v) => !v)}
-          className="flex w-full items-center justify-between px-5 py-4 text-left"
-        >
-          <span className="text-sm font-semibold text-white">Probar generador de respuestas IA</span>
-          <ChevronIcon open={testOpen} />
-        </button>
-
-        {testOpen && (
-          <div className="border-t border-white/8 px-5 pb-5 pt-4 space-y-3">
-            <div className="flex gap-2">
-              <select
-                value={testProvider}
-                onChange={(e) => setTestProvider(e.target.value)}
-                className="rounded-lg border border-white/10 bg-[#0d0d1e] px-2 py-1.5 text-sm text-white/70 focus:outline-none"
-              >
-                {AUTO_SEND_PROVIDERS.map((p) => (
-                  <option key={p} value={p}>{PROVIDER_LABELS[p]}</option>
-                ))}
-              </select>
-              <select
-                value={testThreadType}
-                onChange={(e) => setTestThreadType(e.target.value as "DM" | "COMMENT")}
-                className="rounded-lg border border-white/10 bg-[#0d0d1e] px-2 py-1.5 text-sm text-white/70 focus:outline-none"
-              >
-                <option value="DM">DM</option>
-                <option value="COMMENT">Comentario</option>
-              </select>
-            </div>
-
-            <textarea
-              value={testMessage}
-              onChange={(e) => setTestMessage(e.target.value)}
-              placeholder="Pega aquí un mensaje entrante…"
-              rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
-            />
-
-            {testResult !== null && (
-              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/8 px-3 py-2.5 text-sm text-emerald-300 whitespace-pre-wrap">
-                {testResult}
-              </div>
-            )}
-            {testError && <p className="text-xs text-red-400">{testError}</p>}
-            {testSavedMessage && <p className="text-xs text-emerald-400">{testSavedMessage}</p>}
-
-            <div className="flex gap-2">
-              <Btn onClick={generateTestReply} disabled={isPendingTest || !testMessage.trim()} variant="primary">
-                {isPendingTest ? "Generando…" : "Generar respuesta"}
-              </Btn>
-              {testResult !== null && (
-                <Btn onClick={saveTestToInbox} disabled={isPendingTest} variant="secondary">
-                  Guardar en bandeja
-                </Btn>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Tab bar */}
       <div className="flex gap-1 rounded-xl border border-white/8 bg-white/4 p-1">
