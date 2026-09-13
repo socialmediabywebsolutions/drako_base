@@ -14,7 +14,7 @@ type Doc = {
   created_at: string;
 };
 
-type Panel = "none" | "upload" | "url" | "competitor" | "market" | "catalog";
+type Panel = "none" | "url" | "competitor" | "market" | "catalog";
 
 type ListResponse = { ok: true; docs: Doc[] } | { ok: false; error: string };
 type DeleteResponse = { ok: true } | { ok: false; error: string };
@@ -51,6 +51,8 @@ export default function KnowledgeBaseClient({
   const [loading, setLoading] = useState(true);
   const [panel, setPanel] = useState<Panel>("none");
   const [error, setError] = useState<string | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function loadDocs() {
     setLoading(true);
@@ -90,6 +92,35 @@ export default function KnowledgeBaseClient({
     setPanel("none");
   }
 
+  // "Subir PDF o documento": clic → explorador de archivos del sistema operativo
+  // directamente (fileInputRef), sin formulario intermedio. Al seleccionar el
+  // archivo se sube automáticamente y el nombre se genera del propio nombre del
+  // archivo — el usuario no pulsa ningún botón adicional.
+  async function handleDirectFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0] ?? null;
+    // Limpia el input ya — permite volver a seleccionar el mismo archivo más tarde
+    // (el navegador no dispara onChange dos veces seguidas con el mismo File si no
+    // se resetea el value).
+    e.target.value = "";
+    if (!selected) return;
+
+    setUploadingFile(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", selected);
+      fd.append("name", selected.name.replace(/\.[^.]+$/, ""));
+      const res = await fetch("/api/socialflow/knowledge/upload", { method: "POST", body: fd });
+      const json = await res.json() as SaveResponse;
+      if (json.ok) onSaved(json.doc);
+      else setError(json.message ?? json.error ?? "Error al subir el archivo");
+    } catch {
+      setError("Error inesperado al subir el archivo");
+    } finally {
+      setUploadingFile(false);
+    }
+  }
+
   const marketDocs = docs.filter((d) => d.type === "market_analysis");
   const competitorDocs = docs.filter((d) => d.type === "competitor");
   const catalogDocs = docs.filter((d) => d.type === "catalog");
@@ -112,9 +143,16 @@ export default function KnowledgeBaseClient({
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          <ActionButton active={panel === "upload"} onClick={() => togglePanel("upload")} icon="upload">
-            Subir PDF o documento
+          <ActionButton active={uploadingFile} onClick={() => { if (!uploadingFile) fileInputRef.current?.click(); }} icon="upload">
+            {uploadingFile ? "Subiendo..." : "Subir PDF o documento"}
           </ActionButton>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.txt,application/pdf,text/plain"
+            className="hidden"
+            onChange={handleDirectFileUpload}
+          />
           <ActionButton active={panel === "url"} onClick={() => togglePanel("url")} icon="globe">
             Añadir URL
           </ActionButton>
@@ -139,7 +177,6 @@ export default function KnowledgeBaseClient({
       <BrainScorePanel score={score} />
 
       {/* Panels */}
-      {panel === "upload" && <UploadPanel onSuccess={onSaved} />}
       {panel === "url" && <UrlPanel onSuccess={onSaved} />}
       {panel === "catalog" && <CatalogPanel onSuccess={onSaved} />}
       {panel === "competitor" && <CompetitorPanel onSuccess={onSaved} />}
@@ -282,61 +319,6 @@ function DocRow({ doc, onDelete }: { doc: Doc; onDelete: (id: string) => void })
         {deleting ? "Eliminando..." : "Eliminar"}
       </button>
     </li>
-  );
-}
-
-/* ── Panel: Upload ───────────────────────────────────────────────────────── */
-
-function UploadPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
-  const [uploading, setUploading] = useState(false);
-  const [name, setName] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [localError, setLocalError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!file) { setLocalError("Selecciona un archivo"); return; }
-    setUploading(true);
-    setLocalError(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      if (name.trim()) fd.append("name", name.trim());
-      const res = await fetch("/api/socialflow/knowledge/upload", { method: "POST", body: fd });
-      const json = await res.json() as SaveResponse;
-      if (json.ok) onSuccess(json.doc);
-      else setLocalError(json.message ?? json.error ?? "Error al subir");
-    } catch { setLocalError("Error inesperado"); }
-    finally { setUploading(false); }
-  }
-
-  return (
-    <DarkPanel title="Subir documento (PDF o texto)">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Field label="Nombre personalizado (opcional)">
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Guía de marca 2024" className={inputCls} />
-        </Field>
-        <Field label={<>Archivo <span className="text-white/25">(PDF, .txt — máx. 10 MB)</span></>}>
-          <div onClick={() => inputRef.current?.click()} className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/10 bg-white/3 px-6 py-8 text-center transition hover:border-violet-500/40 hover:bg-white/5">
-            {file ? (
-              <div><p className="text-sm font-medium text-white/80">{file.name}</p><p className="text-xs text-white/35">{(file.size / 1024).toFixed(0)} KB</p></div>
-            ) : (
-              <p className="text-sm text-white/40">Haz clic para seleccionar un archivo</p>
-            )}
-          </div>
-          <input ref={inputRef} type="file" accept=".pdf,.txt,application/pdf,text/plain" className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0] ?? null;
-              setFile(f);
-              if (f && !name) setName(f.name.replace(/\.[^.]+$/, ""));
-            }}
-          />
-        </Field>
-        {localError && <p className="text-sm text-red-400">{localError}</p>}
-        <SubmitButton loading={uploading} disabled={!file}>{uploading ? "Subiendo..." : "Subir documento"}</SubmitButton>
-      </form>
-    </DarkPanel>
   );
 }
 
