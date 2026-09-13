@@ -23,6 +23,7 @@ import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
 import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
 import { detectLeadSignals } from "@/lib/socialflow/leads/detector";
 import { createLead } from "@/lib/socialflow/leads/repository";
+import { notifyTenantOfNewLead } from "@/lib/socialflow/leads/notify";
 import { listKeywordDmTriggers, hasKeywordDmLogEntry, recordKeywordDmLog } from "@/lib/socialflow/keyword-dm/repository";
 import { pickMatchingTrigger } from "@/lib/socialflow/keyword-dm/matcher";
 import type { KeywordDmTrigger } from "@/lib/socialflow/keyword-dm/types";
@@ -103,6 +104,17 @@ async function maybeCreateLead(
       incomingMessage: comment.text,
       intentScore: leadSignals.intentScore,
       temperature: leadSignals.temperature,
+    });
+    // Best-effort pero SÍ esperado (no fire-and-forget): un fetch sin await puede
+    // cortarse cuando el Worker devuelve la respuesta HTTP antes de que termine. El
+    // lead ya está persistido arriba, así que un email fallido nunca lo revierte ni
+    // bloquea el resto del loop — notifyTenantOfNewLead nunca lanza.
+    await notifyTenantOfNewLead({
+      tenantId: convCtx.tenantId,
+      saasId: convCtx.saasId ?? "socialflow",
+      temperature: leadSignals.temperature,
+      incomingMessage: comment.text,
+      intentScore: leadSignals.intentScore,
     });
   } catch (err) {
     console.warn("[cron/comments] lead create failed", err instanceof Error ? err.message : String(err));

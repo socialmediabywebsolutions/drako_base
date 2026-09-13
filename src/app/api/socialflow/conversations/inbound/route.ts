@@ -12,6 +12,7 @@ import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
 import type { ConversationThreadType } from "@/lib/socialflow/conversational/types";
 import { detectLeadSignals } from "@/lib/socialflow/leads/detector";
 import { createLead } from "@/lib/socialflow/leads/repository";
+import { notifyTenantOfNewLead } from "@/lib/socialflow/leads/notify";
 import { listSaasSocialAccounts } from "@/lib/socialflow/repository";
 import { requireInstagramCredentials } from "@/lib/socialflow/meta/publishing";
 import { sendInstagramDirectMessage } from "@/lib/socialflow/meta/directMessages";
@@ -316,6 +317,16 @@ export async function POST(request: Request) {
           temperature: leadSignals.temperature,
         });
         leadId = lead.id;
+        // El lead ya está persistido arriba — un email fallido nunca lo revierte.
+        // await (no fire-and-forget): un fetch sin await puede cortarse cuando el
+        // Worker devuelve la respuesta HTTP antes de que termine.
+        await notifyTenantOfNewLead({
+          tenantId,
+          saasId,
+          temperature: leadSignals.temperature,
+          incomingMessage,
+          intentScore: leadSignals.intentScore,
+        });
       } catch (err) {
         console.warn("SOCIALFLOW_LEAD_CREATE_WARN", err instanceof Error ? err.message : "unknown");
       }

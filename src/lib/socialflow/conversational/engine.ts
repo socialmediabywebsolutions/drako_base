@@ -61,11 +61,21 @@ function buildSystemPrompt(input: ConversationalReplyInput): string {
 
   // 2. INFORMACIÓN DE NEGOCIO — documentos reales de la Knowledge Base (PDF/texto
   // subidos por el cliente: servicios, ofertas, precios, FAQs). Segunda prioridad,
-  // por encima del contexto de marca genérico del perfil.
+  // por encima del contexto de marca genérico del perfil. El funnel de ventas de
+  // abajo se muestra SIEMPRE, no solo cuando hay knowledgeContext — un tenant puede
+  // tener servicios cargados solo en el perfil (sección 3, ver "Negocio y ofertas")
+  // sin haber subido ningún documento a la KB, y el funnel debe aplicar igual.
+  sections.push(
+    [
+      "=== 2. INFORMACIÓN DE NEGOCIO (segunda prioridad) ===",
+      "Cuando detectes intención de compra o interés en un servicio (preguntas sobre dieta, rutinas, planes, recetas, o cualquier servicio listado en el perfil), NO derives inmediatamente al humano. Primero presenta el servicio relevante con entusiasmo en primera persona, menciona el precio si lo conoces, y genera deseo. Solo al final invita a contactar para contratar: 'Si quieres empezar, escríbeme y lo gestionamos juntos.' El objetivo es convertir el interés en una venta, no solo informar.",
+    ].join(" "),
+  );
+
   if (knowledgeContext) {
     sections.push(
       [
-        "=== 2. INFORMACIÓN DE NEGOCIO — DOCUMENTOS DE CONOCIMIENTO (segunda prioridad) ===",
+        "=== DOCUMENTOS DE CONOCIMIENTO (misma prioridad que la sección 2) ===",
         knowledgeContext,
         "Si esta información cubre el tema preguntado (servicios, ofertas, precios, FAQs), ÚSALA SIEMPRE tal cual está escrita — no la contradigas ni la completes con datos inventados.",
       ].join("\n"),

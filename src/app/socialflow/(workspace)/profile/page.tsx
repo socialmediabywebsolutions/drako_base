@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Field, MiniList, SelectField, sectionCls, TagField, TextareaField } from "./ProfileFormFields";
 import ProfileAiChat from "./ProfileAiChat";
 import PhysicalProfileAiChat from "./PhysicalProfileAiChat";
+import MonetizationSuggestionsPanel from "./MonetizationSuggestionsPanel";
+import { MONETIZATION_TYPE_LABELS, type MonetizationSuggestion } from "@/lib/socialflow/profile/monetization-suggestions";
 
 type ProfileResponse = {
   ok: boolean;
@@ -185,6 +187,34 @@ export default function SocialFlowProfilePage() {
         // ignore — competitors list will just refresh next page load
       }
     }
+  }
+
+  // Toma el primer número (o el promedio de un rango, ej. "19-39€/mes" → 29) del
+  // priceRange de texto libre que devuelve el endpoint de sugerencias — solo para
+  // rellenar "Precio promedio" automáticamente, nunca se muestra tal cual.
+  function parsePriceFromRange(range: string): number | null {
+    const numbers = range.match(/\d+([.,]\d+)?/g);
+    if (!numbers?.length) return null;
+    const parsed = numbers.map((n) => parseFloat(n.replace(",", "."))).filter((n) => !Number.isNaN(n));
+    if (!parsed.length) return null;
+    return Math.round(parsed.reduce((a, b) => a + b, 0) / parsed.length);
+  }
+
+  // "Añadir este servicio" de MonetizationSuggestionsPanel — rellena servicios,
+  // ofertas y precio promedio del perfil sin pisar lo que el cliente ya haya escrito
+  // (dedup por nombre/línea, avgPrice solo si estaba vacío).
+  function onAddMonetizationSuggestion(s: MonetizationSuggestion) {
+    setProfile((prev: any) => {
+      const current = prev || {};
+      const services: string[] = Array.isArray(current.services) ? current.services : [];
+      const offers: string[] = Array.isArray(current.offers) ? current.offers : [];
+      const nextServices = services.includes(s.name) ? services : [...services, s.name];
+      const offerLine = `${s.name} — ${s.description} (${s.priceRange}, ${MONETIZATION_TYPE_LABELS[s.type]})`;
+      const nextOffers = offers.includes(offerLine) ? offers : [...offers, offerLine];
+      const suggestedAvgPrice = parsePriceFromRange(s.priceRange);
+      const nextAvgPrice = current.avgPrice == null && suggestedAvgPrice != null ? suggestedAvgPrice : current.avgPrice;
+      return { ...current, services: nextServices, offers: nextOffers, avgPrice: nextAvgPrice };
+    });
   }
 
   if (loading && !profile) {
@@ -766,6 +796,7 @@ export default function SocialFlowProfilePage() {
           <h2 className="text-base font-bold text-white/90">Negocio y ofertas</h2>
           <span className="text-xs text-white/30">Cómo ganas dinero realmente.</span>
         </div>
+        <MonetizationSuggestionsPanel saasId="socialflow" onAdd={onAddMonetizationSuggestion} />
         <div className="grid gap-4 text-sm md:grid-cols-3">
           <TagField label="Productos" value={p.products} onChange={(v) => setProfile({ ...p, products: v })} />
           <TagField label="Servicios" value={p.services} onChange={(v) => setProfile({ ...p, services: v })} />
