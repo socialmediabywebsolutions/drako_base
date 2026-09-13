@@ -244,7 +244,7 @@ export default function ConversationInbox({
       const res = await fetch("/api/socialflow/conversations/reply-suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ saasId, message: thread.incomingMessage, threadType: thread.threadType }),
+        body: JSON.stringify({ saasId, message: thread.incomingMessage, threadType: thread.threadType, provider: thread.provider }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;

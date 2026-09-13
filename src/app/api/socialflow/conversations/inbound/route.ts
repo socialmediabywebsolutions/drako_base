@@ -242,6 +242,7 @@ export async function POST(request: Request) {
     const { suggestedReply, aiMetadata } = await generateConversationalReply({
       incomingMessage,
       threadType,
+      provider,
       senderName,
       profile: knowledge.profile,
       knowledge,

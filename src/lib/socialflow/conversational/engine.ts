@@ -10,8 +10,18 @@ import type { ConversationalReplyInput, ConversationalReplyOutput } from "@/lib/
 // menor, con el orden y el lenguaje del prompt reforzando esa jerarquía — un LLM no
 // tiene "tiers" reales, así que la prioridad se implementa con orden + instrucción
 // explícita, no con estructura de datos.
+// Etiqueta legible del canal para la REGLA CRÍTICA DE CANAL — el resto del codebase
+// usa estos mismos 3 valores de provider (ver PROVIDER_LABELS en conversation-inbox.tsx
+// y el selector de canal del probador de operador). Cualquier provider no listado se
+// muestra tal cual (nunca se inventa una etiqueta).
+const CHANNEL_LABELS: Record<string, string> = {
+  INSTAGRAM: "Instagram",
+  FACEBOOK_PAGE: "Facebook",
+  LINKEDIN: "LinkedIn",
+};
+
 function buildSystemPrompt(input: ConversationalReplyInput): string {
-  const { profile, knowledge, knowledgeContext } = input;
+  const { profile, knowledge, knowledgeContext, provider, threadType } = input;
   const brandName = profile.brandName || "la marca";
   const bannedWords = profile.bannedWords?.length ? profile.bannedWords.join(", ") : "ninguna";
   const forbiddenTopics = profile.forbiddenTopics?.length ? profile.forbiddenTopics.join(", ") : "ninguno";
@@ -22,6 +32,8 @@ function buildSystemPrompt(input: ConversationalReplyInput): string {
   const competitorNames = knowledge?.competitors?.length
     ? knowledge.competitors.map((c) => c.name).filter(Boolean).join(", ")
     : "";
+  const channelLabel = CHANNEL_LABELS[provider] ?? provider;
+  const threadTypeLabel = threadType === "COMMENT" ? "COMENTARIO (respuesta pública)" : "DM (mensaje directo privado)";
 
   const sections: string[] = [`Eres el asistente de respuesta social de ${brandName}.`];
 
@@ -29,11 +41,16 @@ function buildSystemPrompt(input: ConversationalReplyInput): string {
   // puedan traer los documentos de conocimiento (sección 2) se eleva explícitamente a
   // este nivel: no se parsea el texto del documento aquí (sería frágil), se le indica
   // al modelo que trate cualquier instrucción de derivación que encuentre ahí como una
-  // regla dura, sin importar en qué sección del prompt aparezca físicamente.
+  // regla dura, sin importar en qué sección del prompt aparezca físicamente. Las
+  // reglas de voz (BUG 1: la IA hablaba DE la influencer en tercera persona) y de
+  // canal (BUG 2: mezclaba contexto de DM/comentario) van aquí también — son tan
+  // básicas para que la respuesta suene real como la derivación a humano.
   sections.push(
     [
       "=== 1. REGLAS DURAS (máxima prioridad — nunca las ignores) ===",
       "Cualquier instrucción sobre cuándo derivar la conversación a un humano que aparezca dentro de los DOCUMENTOS DE CONOCIMIENTO de la sección 2 tiene prioridad absoluta sobre el resto de este prompt — si un documento dice que un tema debe derivarse a una persona, derívalo siempre, aunque el resto del contexto sugiera responder.",
+      `REGLA CRÍTICA DE VOZ: Habla SIEMPRE en primera persona como si fueras ${brandName}. NUNCA menciones tu propio nombre en tercera persona. NUNCA digas '${brandName} te ayudará' o '${brandName} te responderá' — di siempre 'yo te ayudaré', 'con gusto te ayudo', 'estaré encantada de ayudarte'. Si derivas al humano, di 'te respondo yo personalmente' o 'lo gestiono yo directamente', nunca '${brandName} lo gestionará'.`,
+      `REGLA CRÍTICA DE CANAL: El canal actual es ${channelLabel} y el tipo es ${threadTypeLabel}. Adapta tu respuesta al contexto: si es DM, respuesta privada, directa, personal — NUNCA digas 'cuéntame en los comentarios' ni 'escríbeme por DM' (ya estás en DM); si es COMENTARIO, respuesta pública, más breve, puedes invitar a continuar por DM si el tema es privado o comercial.`,
       toneLine ? `Tono y personalidad: ${toneLine}.` : "",
       `Palabras prohibidas: ${bannedWords}.`,
       `Temas prohibidos: ${forbiddenTopics}.`,

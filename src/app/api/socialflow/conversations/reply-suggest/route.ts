@@ -13,11 +13,13 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as {
       message?: string;
       threadType?: string;
+      provider?: string;
       saasId?: string;
     } | null;
 
     const message = body?.message?.trim();
     const threadType = (body?.threadType?.trim() || "DM") as ConversationThreadType;
+    const provider = body?.provider?.trim() || "INSTAGRAM";
     const saasId = body?.saasId?.trim() || "socialflow";
 
     if (!message) {
@@ -48,6 +50,7 @@ export async function POST(request: Request) {
     const { suggestedReply, aiMetadata } = await generateConversationalReply({
       incomingMessage: message,
       threadType,
+      provider,
       profile: knowledge.profile,
       knowledge,
       knowledgeContext,

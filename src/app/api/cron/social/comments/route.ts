@@ -251,6 +251,7 @@ async function processTenantComments(
           const reply = await generateConversationalReply({
             incomingMessage: comment.text,
             threadType: "COMMENT",
+            provider: "INSTAGRAM",
             senderName: comment.username,
             profile: knowledge.profile,
             knowledge,

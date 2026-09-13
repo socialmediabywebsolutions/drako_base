@@ -63,6 +63,10 @@ export type ConversationSettings = {
 export type ConversationalReplyInput = {
   incomingMessage: string;
   threadType: ConversationThreadType;
+  // Canal real (INSTAGRAM/FACEBOOK_PAGE/LINKEDIN) — buildSystemPrompt() lo sustituye
+  // literalmente en la REGLA CRÍTICA DE CANAL para que la IA nunca invente contexto
+  // de canal (p. ej. decir "cuéntame en los comentarios" dentro de un DM).
+  provider: string;
   senderName?: string | null;
   profile: ChannelProfile;
   knowledge: ChannelKnowledgeSnapshot;
