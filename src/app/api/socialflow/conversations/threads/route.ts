@@ -6,6 +6,7 @@ import {
   resolveSocialContext,
 } from "@/lib/socialflow/conversational/repository";
 import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
+import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
 import type { ConversationThreadStatus, ConversationThreadType } from "@/lib/socialflow/conversational/types";
 
 export const dynamic = "force-dynamic";
@@ -69,13 +70,19 @@ export async function POST(request: Request) {
     }
 
     const ctx = await resolveSocialContext({ tenantId: session.tenantId, saasId });
-    const knowledge = await getChannelKnowledge(session.tenantId, saasId);
+    const [knowledge, knowledgeContext] = await Promise.all([
+      getChannelKnowledge(session.tenantId, saasId),
+      getKnowledgeContext(session.tenantId, saasId).catch(() => ""),
+    ]);
     const { suggestedReply, aiMetadata } = await generateConversationalReply({
       incomingMessage,
       threadType,
       senderName: body?.sender_name ?? null,
       profile: knowledge.profile,
       knowledge,
+      knowledgeContext,
+      tenantId: session.tenantId,
+      saasId,
     });
 
     const thread = await ingestConversationThread(ctx, {

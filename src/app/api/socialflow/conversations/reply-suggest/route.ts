@@ -1,6 +1,7 @@
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { generateConversationalReply } from "@/lib/socialflow/conversational/engine";
 import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
+import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
 import type { ConversationThreadType } from "@/lib/socialflow/conversational/types";
 
 export const dynamic = "force-dynamic";
@@ -71,12 +72,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const knowledge = await getChannelKnowledge(session.tenantId, saasId);
+    const [knowledge, knowledgeContext] = await Promise.all([
+      getChannelKnowledge(session.tenantId, saasId),
+      getKnowledgeContext(session.tenantId, saasId).catch(() => ""),
+    ]);
     const { suggestedReply, aiMetadata } = await generateConversationalReply({
       incomingMessage: message,
       threadType,
       profile: knowledge.profile,
       knowledge,
+      knowledgeContext,
       tenantId: session.tenantId,
       saasId,
     });
