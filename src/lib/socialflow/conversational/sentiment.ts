@@ -1,4 +1,5 @@
 import { defaultLocalModel } from "@/lib/socialflow/ai/models/localModel";
+import type { LeadDetectionResult } from "@/lib/socialflow/leads/types";
 
 export type CommentSentiment = "positive" | "negative" | "neutral" | "lead";
 
@@ -71,4 +72,21 @@ Definitions:
     shouldAutoReply,
     reason: typeof data.reason === "string" ? data.reason : "",
   };
+}
+
+// El regex de leads/detector.ts es literal: "cómo funciona esto para mi negocio" es
+// intención de compra real que el LLM sí capta por contexto pero que no matchea ningún
+// patrón, así que sin esto se perdía como lead. Cuando el LLM clasifica "lead" y el
+// regex dio 0, no sabemos su intentScore real — WARM=30 es un mínimo razonable, ni tan
+// bajo como para no aparecer en el panel ni tan alto como para inflar HOT sin evidencia
+// del regex.
+const LLM_ONLY_LEAD_SCORE = 30;
+
+export function reconcileLeadSignals(
+  sentiment: SentimentResult,
+  regexResult: LeadDetectionResult,
+): LeadDetectionResult {
+  if (regexResult.isLead) return regexResult;
+  if (sentiment.sentiment !== "lead") return regexResult;
+  return { isLead: true, intentScore: LLM_ONLY_LEAD_SCORE, temperature: "WARM" };
 }

@@ -4,11 +4,17 @@ import {
   getConversationSettings,
   ingestConversationThread,
   resolveSocialContext,
+  updateConversationThread,
 } from "@/lib/socialflow/conversational/repository";
+import { isWithinActiveHours } from "@/lib/socialflow/conversational/active-hours";
 import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
+import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
 import type { ConversationThreadType } from "@/lib/socialflow/conversational/types";
 import { detectLeadSignals } from "@/lib/socialflow/leads/detector";
 import { createLead } from "@/lib/socialflow/leads/repository";
+import { listSaasSocialAccounts } from "@/lib/socialflow/repository";
+import { requireInstagramCredentials } from "@/lib/socialflow/meta/publishing";
+import { sendInstagramDirectMessage } from "@/lib/socialflow/meta/directMessages";
 
 export const dynamic = "force-dynamic";
 
@@ -225,20 +231,57 @@ export async function POST(request: Request) {
     }
 
     const ctx = await resolveSocialContext({ tenantId, saasId });
-    const knowledge = await getChannelKnowledge(tenantId, saasId);
+    const [knowledge, knowledgeContext, settings] = await Promise.all([
+      getChannelKnowledge(tenantId, saasId),
+      getKnowledgeContext(tenantId, saasId).catch(() => ""),
+      getConversationSettings(ctx),
+    ]);
+    // Mismo patrón que el cron de comentarios (cron/social/comments/route.ts) — antes
+    // este handler solo pasaba knowledge.profile, así que el DM nunca veía catálogo,
+    // horarios ni precios aunque el tenant los tuviera cargados en su Knowledge Base.
     const { suggestedReply, aiMetadata } = await generateConversationalReply({
       incomingMessage,
       threadType,
       senderName,
       profile: knowledge.profile,
       knowledge,
+      knowledgeContext,
+      tenantId,
+      saasId,
     });
 
-    const settings = await getConversationSettings(ctx);
-    const status =
-      settings.autoSendEnabled && settings.autoSendProviders.includes(provider)
-        ? "AUTO_APPROVED"
-        : "PENDING";
+    const autoSendConfigured = settings.autoSendEnabled && settings.autoSendProviders.includes(provider);
+
+    // Auto-envío real del DM — mismo criterio de horario que ya aplica el cron de
+    // comentarios (active-hours.ts). Antes de este cambio, un DM entrante SIEMPRE
+    // quedaba en AUTO_APPROVED/PENDING esperando clic humano en "Aprobar", aunque el
+    // tenant tuviera auto-envío activado para Instagram. Solo aplica a DM de
+    // Instagram (sendInstagramDirectMessage es específico de esa API) — cualquier otro
+    // provider/threadType cae al comportamiento anterior sin cambios.
+    let dmSent = false;
+    if (autoSendConfigured && isWithinActiveHours(settings.activeHoursJson) && provider === "INSTAGRAM" && threadType === "DM" && platformThreadId) {
+      try {
+        const accounts = await listSaasSocialAccounts(ctx);
+        const instagramAccount = accounts.find((a) => a.provider === "INSTAGRAM" && a.status === "CONNECTED_REAL");
+        if (instagramAccount) {
+          const creds = await requireInstagramCredentials(instagramAccount);
+          const dmResult = await sendInstagramDirectMessage(creds.igUserId, platformThreadId, suggestedReply, creds.accessToken, creds.apiBase);
+          dmSent = dmResult.ok;
+          if (!dmResult.ok) {
+            console.error("SOCIALFLOW_INBOUND_DM_AUTOSEND_FAILED", dmResult.error);
+          }
+        }
+      } catch (error) {
+        console.error("SOCIALFLOW_INBOUND_DM_AUTOSEND_ERROR", error instanceof Error ? error.message : "unknown");
+      }
+    }
+
+    // dmSent false por horario/config/fallo de entrega → mismo comportamiento que
+    // antes (AUTO_APPROVED esperando clic humano, o PENDING si no hay auto-envío
+    // configurado). Un fallo de entrega aquí no es distinto de nunca haberlo
+    // intentado: el operador lo aprueba manualmente desde el inbox, donde el PATCH de
+    // threads/[id] ya reintenta el envío real y marca DELIVERY_FAILED si vuelve a fallar.
+    const status = dmSent ? "SENT" : autoSendConfigured ? "AUTO_APPROVED" : "PENDING";
 
     const thread = await ingestConversationThread(ctx, {
       provider,
@@ -252,6 +295,10 @@ export async function POST(request: Request) {
       status,
       aiMetadata,
     });
+
+    if (dmSent) {
+      await updateConversationThread(ctx, thread.id, { status: "SENT", finalReply: suggestedReply });
+    }
 
     // Lead detection: score the message and persist a lead record if signals found.
     const leadSignals = detectLeadSignals(incomingMessage);

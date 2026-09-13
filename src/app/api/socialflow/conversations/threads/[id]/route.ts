@@ -19,6 +19,7 @@ const VALID_STATUSES: ConversationThreadStatus[] = [
   "SENT",
   "DISMISSED",
   "NEEDS_HUMAN",
+  "DELIVERY_FAILED",
 ];
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
@@ -79,6 +80,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // FIX crítico: "Aprobar" en un comentario o DM debe enviarlo de verdad a Instagram
     // antes de marcar el hilo como APPROVED — antes de este cambio, el PATCH solo
     // actualizaba la fila en D1 y el mensaje nunca salía.
+    let statusOverride: ConversationThreadStatus | undefined;
+    let delivery: "ok" | "failed" | undefined;
     if (body?.status === "APPROVED") {
       const current = await getConversationThread(ctx, params.id);
       if (!current) {
@@ -109,10 +112,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
           });
         }
 
-        // El operador ya aprobó el mensaje: un fallo al entregarlo a Meta es un problema
-        // de entrega, no de aprobación. Se loguea pero NO bloquea el update de status —
-        // si revertimos aquí, el hilo queda atascado sin que el operador pueda reintentar
-        // desde la UI (el botón ya no ofrece "Aprobar" sobre un hilo ya APPROVED).
+        // El operador ya aprobó el mensaje, pero un fallo al entregarlo a Meta ya NO se
+        // esconde detrás de APPROVED: el hilo pasa a DELIVERY_FAILED para que la UI
+        // ofrezca "Reintentar envío" en vez de dar por hecho que el DM/comentario salió.
         try {
           const creds = await requireInstagramCredentials(instagramAccount);
 
@@ -120,6 +122,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
             const replyResult = await replyToInstagramComment(current.platformThreadId, finalReply, creds.accessToken, creds.apiBase);
             if (!replyResult.ok) {
               console.error("SOCIALFLOW_INSTAGRAM_REPLY_DELIVERY_FAILED", current.id, replyResult.error);
+              delivery = "failed";
+            } else {
+              delivery = "ok";
             }
           } else if (current.threadType === "DM") {
             // current.platformThreadId es el IGSID del remitente para hilos DM (viene
@@ -127,16 +132,24 @@ export async function PATCH(request: Request, { params }: { params: { id: string
             const dmResult = await sendInstagramDirectMessage(creds.igUserId, current.platformThreadId, finalReply, creds.accessToken, creds.apiBase);
             if (!dmResult.ok) {
               console.error("SOCIALFLOW_INSTAGRAM_DM_DELIVERY_FAILED", current.id, dmResult.error);
+              delivery = "failed";
+            } else {
+              delivery = "ok";
             }
           }
         } catch (error) {
           console.error("SOCIALFLOW_INSTAGRAM_DELIVERY_ERROR", current.id, error instanceof Error ? error.message : "unknown");
+          delivery = "failed";
+        }
+
+        if (delivery === "failed") {
+          statusOverride = "DELIVERY_FAILED";
         }
       }
     }
 
     const thread = await updateConversationThread(ctx, params.id, {
-      status: body?.status as ConversationThreadStatus | undefined,
+      status: (statusOverride ?? (body?.status as ConversationThreadStatus | undefined)),
       finalReply: "finalReply" in (body ?? {}) ? body?.finalReply ?? null : undefined,
     });
 
@@ -147,7 +160,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, thread }), {
+    return new Response(JSON.stringify({ ok: true, thread, ...(delivery ? { delivery } : {}) }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });

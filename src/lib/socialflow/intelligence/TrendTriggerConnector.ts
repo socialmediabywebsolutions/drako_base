@@ -1,25 +1,20 @@
-import { safeParseObject, type Env } from "./NicheIntelligenceService";
+import { type Env, getNicheIntelligence } from "./NicheIntelligenceService";
 import { extractTrendSignals, type TrendSignals } from "./TrendKeywordAgent";
 import { isTenantAllowedInPrivatePilot } from "../private-pilot";
 import { getSocialFlowAccountTypeByTenant } from "../auth/account-type";
+import { getChannelProfile } from "../profile/repository";
 
-// Nivel 3 — flujo autónomo tendencia → imagen+texto → publicado, SOLO para esta
-// cuenta interna (ver auditoría de piezas existentes). Hardcodeado a propósito: no es
-// una feature multi-tenant todavía, es un piloto de un único tenant propio (775444ce,
-// "Socialcors - cuenta oficial" en internal_accounts). Ampliarlo a más tenants
-// requiere decidir de nuevo el umbral y la ventana de veto por tenant, no solo
-// generalizar este archivo.
-const TREND_TRIGGER_TENANT = {
-  tenantId: "775444ce-5ed0-4e69-864f-dc3e0d886817",
-  saasId: "socialflow",
-  niche: "marketing",
-  tone: "profesional y cercano",
-} as const;
+// Nivel 3 — flujo autónomo tendencia → imagen+texto → publicado. Generalizado para
+// calcular y persistir el score de TODOS los tenants activos (antes: solo el tenant
+// piloto interno 775444ce, hardcodeado). El gate de private pilot ya NO bloquea el
+// cálculo/persistencia del score — solo bloquea la parte de AUTO-PUBLICACIÓN
+// (queue.send más abajo), para que el score sea visible en "¿Qué creo hoy?" incluso
+// para tenants fuera de la allowlist del piloto.
+const DEFAULT_TONE = "profesional y cercano";
 
 // Calibrado contra los 9 nichos con trendSignals reales en producción al momento del
-// diseño (rango observado: 10 en nichos con solo ruido de globalTrends, 50-100 en
-// nichos con señal real de YouTube/Reddit) — ver conversación de diseño. Ajustable:
-// registrar finalScore aunque no dispare (no implementado aún) antes de subir/bajar.
+// diseño original (rango observado: 10 en nichos con solo ruido de globalTrends,
+// 50-100 en nichos con señal real de YouTube/Reddit) — ver conversación de diseño.
 const SCORE_THRESHOLD = 70;
 
 type ScoreBreakdown = {
@@ -78,77 +73,97 @@ function generateUuid(): string {
 }
 
 export type TrendTriggerResult =
-  | { ok: true; triggered: false; reason: string }
-  | { ok: true; triggered: true; campaignId: string; score: number }
-  | { ok: false; error: string };
+  | { ok: true; triggered: false; reason: string; tenantId: string; niche: string; score?: number }
+  | { ok: true; triggered: true; campaignId: string; score: number; tenantId: string; niche: string }
+  | { ok: false; error: string; tenantId: string };
 
-// Se llama en cada corrida de /api/cron/social/trend-keywords (cada ~20min),
-// independientemente de qué nicho haya tocado esa corrida — lee directo la fila del
-// nicho del tenant interno. Nunca lanza: cualquier fallo se captura y se reporta como
-// resultado, para que el cron de trend-keywords nunca degrade su propia respuesta por
-// culpa de este bolt-on.
-export async function runTrendTriggerConnector(env: Env): Promise<TrendTriggerResult> {
-  const db = env?.SOCIAL_DB;
-  if (!db) return { ok: true, triggered: false, reason: "SOCIAL_DB_UNAVAILABLE" };
+export type TrendTriggerBatchResult = {
+  ok: boolean;
+  processed: number;
+  triggered: number;
+  belowThreshold: number;
+  results: TrendTriggerResult[];
+  error?: string;
+};
 
+type ActiveTenant = { tenantId: string; saasId: string };
+
+// "Tenant activo" = tenant con al menos una cuenta social de socialflow no
+// desconectada — mismo criterio que ya usa cron/social/comments/route.ts para
+// enumerar tenants a procesar en cada corrida.
+async function listActiveTenants(db: NonNullable<Env["SOCIAL_DB"]>): Promise<ActiveTenant[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT DISTINCT tenant_id, saas_id FROM saas_social_accounts
+       WHERE saas_id = 'socialflow' AND status != 'DISCONNECTED'`,
+    )
+    .all<{ tenant_id: string; saas_id: string }>();
+  return (results ?? []).map((row) => ({ tenantId: row.tenant_id, saasId: row.saas_id }));
+}
+
+// Calcula y persiste el score de UN tenant. Nunca lanza: cualquier fallo se captura y
+// se reporta como resultado, para que un tenant con datos rotos nunca tumbe la corrida
+// completa ni degrade el resultado de los demás tenants de este mismo batch.
+async function computeAndPersistTrendScore(
+  env: Env,
+  db: NonNullable<Env["SOCIAL_DB"]>,
+  tenant: ActiveTenant,
+): Promise<TrendTriggerResult> {
+  const { tenantId, saasId } = tenant;
   try {
-    if (isAiGenerationDisabled()) {
-      return { ok: true, triggered: false, reason: "AI_DISABLED" };
+    const [profile, accountType] = await Promise.all([
+      getChannelProfile(tenantId, saasId).catch(() => null),
+      getSocialFlowAccountTypeByTenant(tenantId).catch(() => null),
+    ]);
+
+    const niche = profile?.niche?.trim();
+    if (!niche) {
+      return { ok: true, triggered: false, reason: "NICHE_NOT_CONFIGURED", tenantId, niche: "" };
     }
-    if (!isTenantAllowedInPrivatePilot(TREND_TRIGGER_TENANT.tenantId, env)) {
-      return { ok: true, triggered: false, reason: "PRIVATE_PILOT_TENANT_NOT_ALLOWED" };
-    }
 
-    // Cerebro Socialcors — desde la migración 0224 hay 2 filas por nicho (una por
-    // accountType); sin este filtro el LIMIT 1 de abajo devolvía una fila arbitraria.
-    // Resuelto dinámicamente (no hardcodeado) por el mismo motivo que
-    // CrossTenantIntelligenceAgent: no asumir qué accountType tiene este tenant.
-    const accountType = (await getSocialFlowAccountTypeByTenant(TREND_TRIGGER_TENANT.tenantId).catch(() => null)) ?? "influencer";
+    // getNicheIntelligence resuelve el slug normalizado (con caché en el perfil, ver
+    // resolveNicheSlug en NicheIntelligenceService.ts) y lee la fila cross-tenant
+    // compartida de socialcors_niche_intelligence para ese (niche, accountType) — el
+    // mismo texto libre de nicho puede matchear la misma fila para varios tenants.
+    const intel = await getNicheIntelligence(niche, env, tenantId, saasId, accountType ?? "influencer");
+    if (!intel) return { ok: true, triggered: false, reason: "NICHE_ROW_NOT_FOUND", tenantId, niche };
 
-    const nicheRow = await db
-      .prepare(`SELECT analysis_json FROM socialcors_niche_intelligence WHERE niche = ? AND account_type = ? LIMIT 1`)
-      .bind(TREND_TRIGGER_TENANT.niche, accountType)
-      .first<{ analysis_json: string }>();
-    if (!nicheRow) return { ok: true, triggered: false, reason: "NICHE_ROW_NOT_FOUND" };
-
-    const signals = extractTrendSignals(safeParseObject(nicheRow.analysis_json));
-    if (!signals) return { ok: true, triggered: false, reason: "NO_TREND_SIGNALS_YET" };
+    const signals = extractTrendSignals(intel.analysis);
+    if (!signals) return { ok: true, triggered: false, reason: "NO_TREND_SIGNALS_YET", tenantId, niche };
 
     const ageHours = (Date.now() - new Date(signals.fetchedAt).getTime()) / (1000 * 60 * 60);
     const freshness = freshnessMultiplier(ageHours);
     if (freshness === 0) {
-      return { ok: true, triggered: false, reason: `STALE_SIGNAL_${Math.round(ageHours)}H` };
+      return { ok: true, triggered: false, reason: `STALE_SIGNAL_${Math.round(ageHours)}H`, tenantId, niche };
     }
 
     const rawBreakdown = computeRawScore(signals);
     const finalScore = Math.round(rawBreakdown.rawScore * freshness);
-    if (finalScore < SCORE_THRESHOLD) {
-      return { ok: true, triggered: false, reason: `SCORE_BELOW_THRESHOLD_${finalScore}` };
-    }
-
-    // Idempotencia por lectura: ¿ya se disparó sobre este mismo snapshot
-    // (mismo trend_fetched_at)? El índice único de la tabla es el backstop duro ante
-    // una condición de carrera; este SELECT evita el intento de INSERT en el caso
-    // normal (no-carrera), que es casi siempre.
-    const alreadyTriggered = await db
-      .prepare(`SELECT id FROM socialcors_trend_triggers WHERE tenant_id = ? AND niche = ? AND trend_fetched_at = ? LIMIT 1`)
-      .bind(TREND_TRIGGER_TENANT.tenantId, TREND_TRIGGER_TENANT.niche, signals.fetchedAt)
-      .first<{ id: string }>();
-    if (alreadyTriggered) {
-      return { ok: true, triggered: false, reason: "ALREADY_TRIGGERED_FOR_THIS_SNAPSHOT" };
-    }
-
-    const queue = env?.SOCIALFLOW_AI_QUEUE;
-    if (!queue) {
-      return { ok: true, triggered: false, reason: "SOCIALFLOW_AI_QUEUE_UNAVAILABLE" };
-    }
-
-    // Prefijo ai_campaign_ (no trend_campaign_ ni otro) a propósito: repository.ts
-    // approvePost() corrige el provider a INSTAGRAM solo cuando
-    // campaignId.startsWith("ai_campaign_") — perder el prefijo rompería esa
-    // corrección de compatibilidad en silencio.
-    const campaignId = `ai_campaign_trend_${Date.now()}`;
     const breakdown: ScoreBreakdown = { ...rawBreakdown, freshnessMultiplier: freshness, ageHours: Math.round(ageHours * 10) / 10 };
+
+    // Idempotencia por lectura: ¿ya se persistió sobre este mismo snapshot (mismo
+    // trend_fetched_at) para este tenant? El índice único de la tabla es el backstop
+    // duro ante una condición de carrera; este SELECT evita el intento de INSERT en el
+    // caso normal (no-carrera), que es casi siempre. Ahora también cubre
+    // BELOW_THRESHOLD, no solo TRIGGERED — antes de este cambio esas filas nunca se
+    // guardaban, así que no había nada que deduplicar para ellas.
+    const alreadyPersisted = await db
+      .prepare(`SELECT id FROM socialcors_trend_triggers WHERE tenant_id = ? AND niche = ? AND trend_fetched_at = ? LIMIT 1`)
+      .bind(tenantId, niche, signals.fetchedAt)
+      .first<{ id: string }>();
+    if (alreadyPersisted) {
+      return { ok: true, triggered: false, reason: "ALREADY_PERSISTED_FOR_THIS_SNAPSHOT", tenantId, niche, score: finalScore };
+    }
+
+    const belowThreshold = finalScore < SCORE_THRESHOLD;
+    // Prefijo ai_campaign_ (no trend_campaign_ ni otro) a propósito cuando SÍ dispara:
+    // repository.ts approvePost() corrige el provider a INSTAGRAM solo cuando
+    // campaignId.startsWith("ai_campaign_") — perder el prefijo rompería esa
+    // corrección de compatibilidad en silencio. Cuando NO dispara, campaign_id es NOT
+    // NULL en el schema (migración 0222) pero no hay campaña real que referenciar —
+    // se guarda un id sin ese prefijo para que nunca se confunda con uno real.
+    const campaignId = belowThreshold ? `scored_only_${generateUuid()}` : `ai_campaign_trend_${Date.now()}_${tenantId.slice(0, 8)}`;
+    const status = belowThreshold ? "BELOW_THRESHOLD" : "TRIGGERED";
 
     try {
       await db
@@ -156,25 +171,48 @@ export async function runTrendTriggerConnector(env: Env): Promise<TrendTriggerRe
           `INSERT INTO socialcors_trend_triggers
              (id, tenant_id, saas_id, niche, trend_score, score_breakdown_json, trend_fetched_at,
               trend_snapshot_json, campaign_id, status, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'TRIGGERED', ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           generateUuid(),
-          TREND_TRIGGER_TENANT.tenantId,
-          TREND_TRIGGER_TENANT.saasId,
-          TREND_TRIGGER_TENANT.niche,
+          tenantId,
+          saasId,
+          niche,
           finalScore,
           JSON.stringify(breakdown),
           signals.fetchedAt,
           JSON.stringify(signals),
           campaignId,
+          status,
           new Date().toISOString(),
         )
         .run();
     } catch (insertErr) {
       // Incluye el constraint único perdiendo una condición de carrera, pero también
       // cualquier otro fallo de escritura — en ambos casos, no se debe encolar nada.
-      return { ok: true, triggered: false, reason: `TRIGGER_INSERT_FAILED: ${insertErr instanceof Error ? insertErr.message : String(insertErr)}` };
+      return {
+        ok: true,
+        triggered: false,
+        reason: `TRIGGER_INSERT_FAILED: ${insertErr instanceof Error ? insertErr.message : String(insertErr)}`,
+        tenantId,
+        niche,
+      };
+    }
+
+    if (belowThreshold) {
+      return { ok: true, triggered: false, reason: `SCORE_BELOW_THRESHOLD_${finalScore}`, tenantId, niche, score: finalScore };
+    }
+
+    // AUTO-PUBLICACIÓN: el score ya quedó persistido arriba independientemente de este
+    // gate — isTenantAllowedInPrivatePilot solo decide si esta tendencia dispara una
+    // campaña real en cola, no si el score existe o es visible.
+    if (!isTenantAllowedInPrivatePilot(tenantId, env)) {
+      return { ok: true, triggered: false, reason: "PRIVATE_PILOT_TENANT_NOT_ALLOWED_FOR_AUTOPUBLISH", tenantId, niche, score: finalScore };
+    }
+
+    const queue = env?.SOCIALFLOW_AI_QUEUE;
+    if (!queue) {
+      return { ok: true, triggered: false, reason: "SOCIALFLOW_AI_QUEUE_UNAVAILABLE", tenantId, niche, score: finalScore };
     }
 
     // Sin provider explícito — mismo criterio que el productor existente
@@ -182,16 +220,57 @@ export async function runTrendTriggerConnector(env: Env): Promise<TrendTriggerRe
     // "INSTAGRAM" por defecto cuando input.provider es undefined.
     await queue.send({
       type: "campaign",
-      tenantId: TREND_TRIGGER_TENANT.tenantId,
-      saasId: TREND_TRIGGER_TENANT.saasId,
-      niche: TREND_TRIGGER_TENANT.niche,
-      tone: TREND_TRIGGER_TENANT.tone,
+      tenantId,
+      saasId,
+      niche,
+      tone: profile?.toneOfVoice?.trim() || DEFAULT_TONE,
       frequencyPerWeek: 1,
       campaignId,
     });
 
-    return { ok: true, triggered: true, campaignId, score: finalScore };
+    return { ok: true, triggered: true, campaignId, score: finalScore, tenantId, niche };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: err instanceof Error ? err.message : String(err), tenantId };
   }
+}
+
+// Se llama en cada corrida de /api/cron/social/trend-keywords (cada ~20min),
+// independientemente de qué nicho(s) haya tocado esa corrida — enumera todos los
+// tenants activos y calcula/persiste el score de cada uno. Nunca lanza: cualquier
+// fallo por tenant se captura y se reporta como resultado individual, para que el
+// cron de trend-keywords nunca degrade su propia respuesta por culpa de este bolt-on.
+export async function runTrendTriggerConnector(env: Env): Promise<TrendTriggerBatchResult> {
+  const db = env?.SOCIAL_DB;
+  if (!db) return { ok: true, processed: 0, triggered: 0, belowThreshold: 0, results: [] };
+
+  if (isAiGenerationDisabled()) {
+    return { ok: true, processed: 0, triggered: 0, belowThreshold: 0, results: [] };
+  }
+
+  let tenants: ActiveTenant[];
+  try {
+    tenants = await listActiveTenants(db);
+  } catch (err) {
+    return {
+      ok: false,
+      processed: 0,
+      triggered: 0,
+      belowThreshold: 0,
+      results: [],
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  const results: TrendTriggerResult[] = [];
+  let triggered = 0;
+  let belowThreshold = 0;
+
+  for (const tenant of tenants) {
+    const result = await computeAndPersistTrendScore(env, db, tenant);
+    results.push(result);
+    if (result.ok && result.triggered) triggered++;
+    else if (result.ok && !result.triggered && result.reason.startsWith("SCORE_BELOW_THRESHOLD_")) belowThreshold++;
+  }
+
+  return { ok: true, processed: tenants.length, triggered, belowThreshold, results };
 }

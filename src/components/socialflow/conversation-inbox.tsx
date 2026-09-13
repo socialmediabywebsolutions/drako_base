@@ -38,6 +38,7 @@ const STATUS_LABEL: Record<string, string> = {
   SENT: "Enviado",
   DISMISSED: "Descartado",
   NEEDS_HUMAN: "Requiere revisión",
+  DELIVERY_FAILED: "Envío fallido",
 };
 
 const STATUS_BG: Record<string, string> = {
@@ -47,6 +48,7 @@ const STATUS_BG: Record<string, string> = {
   SENT: "bg-white/8 text-white/50",
   DISMISSED: "bg-rose-500/10 text-rose-400",
   NEEDS_HUMAN: "bg-orange-500/15 text-orange-300",
+  DELIVERY_FAILED: "bg-red-500/15 text-red-300",
 };
 
 const SENTIMENT_BG: Record<string, string> = {
@@ -135,7 +137,9 @@ export default function ConversationInbox({
   const [isPendingTest, startTestTransition] = useTransition();
   const [isPendingAction, startActionTransition] = useTransition();
 
-  const inboxThreads = threads.filter((t) => t.status === "PENDING" || t.status === "AUTO_APPROVED");
+  const inboxThreads = threads.filter(
+    (t) => t.status === "PENDING" || t.status === "AUTO_APPROVED" || t.status === "DELIVERY_FAILED",
+  );
   const needsHumanThreads = threads.filter((t) => t.status === "NEEDS_HUMAN");
   const toxicThreads = threads.filter((t) => getSentiment(t.aiMetadata) === "negative");
   const historyThreads = threads.filter(
@@ -527,6 +531,7 @@ export default function ConversationInbox({
                 error={actionErrors[thread.id] ?? null}
                 onReplyChange={(v) => setEditedReplies((prev) => ({ ...prev, [thread.id]: v }))}
                 onApprove={() => patchThread(thread.id, "APPROVED")}
+                onRetry={() => patchThread(thread.id, "APPROVED", thread.finalReply ?? thread.suggestedReply ?? null)}
                 onDismiss={() => patchThread(thread.id, "DISMISSED")}
                 onOverride={() => generateOverrideReply(thread)}
                 onApproveOverride={() => {
@@ -558,6 +563,7 @@ type ThreadCardProps = {
   onDismiss: () => void;
   onOverride: () => void;
   onApproveOverride: () => void;
+  onRetry: () => void;
 };
 
 function ThreadCard({
@@ -573,6 +579,7 @@ function ThreadCard({
   onDismiss,
   onOverride,
   onApproveOverride,
+  onRetry,
 }: ThreadCardProps) {
   const sentiment = getSentiment(thread.aiMetadata);
   const reason = getSentimentReason(thread.aiMetadata);
@@ -586,7 +593,9 @@ function ThreadCard({
       className={[
         "rounded-xl border bg-white/4 transition",
         thread.status === "DISMISSED" ? "opacity-60" : "",
-        thread.status === "NEEDS_HUMAN" ? "border-orange-500/30" : "border-white/8",
+        thread.status === "NEEDS_HUMAN" ? "border-orange-500/30"
+          : thread.status === "DELIVERY_FAILED" ? "border-red-500/30"
+          : "border-white/8",
       ].join(" ")}
     >
       {/* Header */}
@@ -655,6 +664,16 @@ function ThreadCard({
           </div>
         )}
 
+        {/* DELIVERY_FAILED: se aprobó pero Meta rechazó el envío real — distinto de
+            actionErrors (fallo del PATCH en sí), este es un fallo de entrega ya
+            persistido en el hilo. */}
+        {thread.status === "DELIVERY_FAILED" && (
+          <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs text-red-300">
+            <span className="mt-0.5 shrink-0">⚠</span>
+            <span>Se aprobó pero Instagram rechazó el envío. El mensaje NO llegó al destinatario.</span>
+          </div>
+        )}
+
         {/* Reply area */}
         {!isHistory && (thread.suggestedReply || isOverriding) && (
           <div className="space-y-1.5">
@@ -715,6 +734,16 @@ function ThreadCard({
               <>
                 <Btn onClick={onApprove} disabled={isPending} variant="primary">
                   {isPending ? "Guardando…" : "Aprobar"}
+                </Btn>
+                <Btn onClick={onDismiss} disabled={isPending} variant="ghost">
+                  Descartar
+                </Btn>
+              </>
+            )}
+            {thread.status === "DELIVERY_FAILED" && (
+              <>
+                <Btn onClick={onRetry} disabled={isPending} variant="primary">
+                  {isPending ? "Reintentando…" : "Reintentar envío"}
                 </Btn>
                 <Btn onClick={onDismiss} disabled={isPending} variant="ghost">
                   Descartar

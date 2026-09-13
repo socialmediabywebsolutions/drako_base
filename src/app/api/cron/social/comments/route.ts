@@ -9,7 +9,7 @@ import { fetchInstagramRecentMedia } from "@/lib/socialflow/meta/core";
 import { fetchInstagramComments, replyToInstagramComment } from "@/lib/socialflow/meta/comments";
 import type { InstagramComment } from "@/lib/socialflow/meta/comments";
 import { sendInstagramPrivateReply } from "@/lib/socialflow/meta/privateReplies";
-import { analyzeSentiment } from "@/lib/socialflow/conversational/sentiment";
+import { analyzeSentiment, reconcileLeadSignals, type SentimentResult } from "@/lib/socialflow/conversational/sentiment";
 import { generateConversationalReply } from "@/lib/socialflow/conversational/engine";
 import { isWithinActiveHours, getOutsideHoursMessage } from "@/lib/socialflow/conversational/active-hours";
 import {
@@ -90,8 +90,9 @@ async function maybeCreateLead(
   convCtx: SocialContext,
   threadId: string,
   comment: { text: string; username: string },
+  sentiment: SentimentResult,
 ): Promise<void> {
-  const leadSignals = detectLeadSignals(comment.text);
+  const leadSignals = reconcileLeadSignals(sentiment, detectLeadSignals(comment.text));
   if (!leadSignals.isLead || !leadSignals.temperature) return;
   try {
     await createLead(convCtx, {
@@ -232,7 +233,7 @@ async function processTenantComments(
           status: "NEEDS_HUMAN",
           aiMetadata: { sentiment: sentiment.sentiment, confidence: sentiment.confidence, reason: sentiment.reason },
         });
-        await maybeCreateLead(convCtx, thread.id, comment);
+        await maybeCreateLead(convCtx, thread.id, comment, sentiment);
         result.commentsProcessed.push({
           commentId: comment.id,
           status: "NEEDS_HUMAN",
@@ -278,7 +279,7 @@ async function processTenantComments(
           status: "NEEDS_HUMAN",
           aiMetadata: { ...aiMetadata, errorReason: "reply_generation_failed" },
         });
-        await maybeCreateLead(convCtx, thread.id, comment);
+        await maybeCreateLead(convCtx, thread.id, comment, sentiment);
         result.commentsProcessed.push({ commentId: comment.id, status: "NEEDS_HUMAN", sentiment: sentiment.sentiment });
         continue;
       }
@@ -316,7 +317,7 @@ async function processTenantComments(
         if (replyResult.ok) {
           await updateConversationThread(convCtx, thread.id, { status: "SENT", finalReply: messageToSend });
         }
-        await maybeCreateLead(convCtx, thread.id, comment);
+        await maybeCreateLead(convCtx, thread.id, comment, sentiment);
         result.commentsProcessed.push({
           commentId: comment.id,
           status: replyResult.ok ? "SENT" : "AUTO_APPROVED",
@@ -335,7 +336,7 @@ async function processTenantComments(
           status: "AUTO_APPROVED",
           aiMetadata: aiMetadataWithHours,
         });
-        await maybeCreateLead(convCtx, thread.id, comment);
+        await maybeCreateLead(convCtx, thread.id, comment, sentiment);
         result.commentsProcessed.push({ commentId: comment.id, status: "AUTO_APPROVED", sentiment: sentiment.sentiment });
       }
     }

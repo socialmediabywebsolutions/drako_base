@@ -6,7 +6,8 @@ export type ConversationThreadStatus =
   | "APPROVED"
   | "SENT"
   | "DISMISSED"
-  | "NEEDS_HUMAN";
+  | "NEEDS_HUMAN"
+  | "DELIVERY_FAILED";
 
 export type ConversationThreadType = "DM" | "COMMENT";
 

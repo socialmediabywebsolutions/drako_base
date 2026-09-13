@@ -31,6 +31,7 @@ type LeadRow = {
   status: string;
   created_at: string;
   updated_at: string;
+  last_contact_at: string | null;
 };
 
 function mapLeadRow(row: LeadRow): SocialFlowLead {
@@ -48,6 +49,7 @@ function mapLeadRow(row: LeadRow): SocialFlowLead {
     status: row.status as LeadStatus,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    lastContactAt: row.last_contact_at,
   };
 }
 
@@ -106,6 +108,14 @@ async function ensureLeadsSchemaInner(db: D1Database): Promise<void> {
     `CREATE INDEX IF NOT EXISTS idx_sf_leads_thread
      ON socialflow_leads (tenant_id, saas_id, thread_id)`,
   );
+
+  // last_contact_at: añadida para el dedup de 24h en createLead — mismo patrón de
+  // PRAGMA table_info + ALTER TABLE que repository.ts (ensurePostsChannelColumn) y
+  // profile/repository.ts, para no romper filas ya existentes en producción.
+  const columns = await queryRows<{ name: string }>(db, "PRAGMA table_info('socialflow_leads')");
+  if (!columns.some((column) => column.name === "last_contact_at")) {
+    await runStatement(db, "ALTER TABLE socialflow_leads ADD COLUMN last_contact_at TEXT");
+  }
 }
 
 export async function ensureLeadsSchema(db: D1Database): Promise<void> {
@@ -122,7 +132,7 @@ export async function ensureLeadsSchema(db: D1Database): Promise<void> {
 }
 
 const LEAD_COLS =
-  "id, tenant_id, saas_id, thread_id, provider, sender_name, sender_handle, incoming_message, intent_score, temperature, status, created_at, updated_at";
+  "id, tenant_id, saas_id, thread_id, provider, sender_name, sender_handle, incoming_message, intent_score, temperature, status, created_at, updated_at, last_contact_at";
 
 export type CreateLeadInput = {
   threadId: string;
@@ -134,16 +144,85 @@ export type CreateLeadInput = {
   temperature: LeadTemperature;
 };
 
+const DEDUP_WINDOW_HOURS = 24;
+
+function temperatureRank(temperature: LeadTemperature): number {
+  return temperature === "HOT" ? 3 : temperature === "WARM" ? 2 : 1;
+}
+
+// sender_handle es el identificador de remitente disponible en esta tabla (IGSID no se
+// persiste aquí — ver platformThreadId en ConversationThread) — vale tanto para
+// comentarios (username) como para DMs. Sin sender_handle no hay con qué deduplicar,
+// así que ese caso siempre inserta un lead nuevo (comportamiento previo, sin cambios).
+async function findRecentLeadBySenderHandle(
+  ctx: SocialContext,
+  saasId: string,
+  senderHandle: string,
+): Promise<LeadRow | null> {
+  const sinceIso = new Date(Date.now() - DEDUP_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+  return queryFirst<LeadRow>(
+    ctx.socialDb,
+    `SELECT ${LEAD_COLS} FROM socialflow_leads
+     WHERE tenant_id = ? AND saas_id = ? AND sender_handle = ? AND datetime(created_at) >= datetime(?)
+     ORDER BY datetime(created_at) DESC LIMIT 1`,
+    ctx.tenantId,
+    saasId,
+    senderHandle,
+    sinceIso,
+  );
+}
+
 export async function createLead(ctx: SocialContext, input: CreateLeadInput): Promise<SocialFlowLead> {
   await ensureLeadsSchema(ctx.socialDb);
   const saasId = ctx.saasId ?? "socialflow";
-  const id = generateId();
   const now = nowIso();
+
+  const existing = input.senderHandle
+    ? await findRecentLeadBySenderHandle(ctx, saasId, input.senderHandle)
+    : null;
+
+  if (existing) {
+    // Mismo contacto dentro de la ventana de 24h: se actualiza el lead existente en vez
+    // de crear uno duplicado por cada mensaje — el score solo sube (nunca se degrada un
+    // HOT a WARM porque el mensaje más reciente puntuó menos), y last_contact_at siempre
+    // se refresca para reflejar la interacción más reciente.
+    const nextScore = Math.max(existing.intent_score, input.intentScore);
+    const nextTemperature =
+      temperatureRank(input.temperature) > temperatureRank(existing.temperature as LeadTemperature)
+        ? input.temperature
+        : (existing.temperature as LeadTemperature);
+    await runStatement(
+      ctx.socialDb,
+      `UPDATE socialflow_leads
+       SET intent_score = ?, temperature = ?, incoming_message = ?, thread_id = ?, updated_at = ?, last_contact_at = ?
+       WHERE tenant_id = ? AND saas_id = ? AND id = ?`,
+      nextScore,
+      nextTemperature,
+      input.incomingMessage,
+      input.threadId,
+      now,
+      now,
+      ctx.tenantId,
+      saasId,
+      existing.id,
+    );
+    const updatedRow = await queryFirst<LeadRow>(
+      ctx.socialDb,
+      `SELECT ${LEAD_COLS} FROM socialflow_leads WHERE tenant_id = ? AND saas_id = ? AND id = ? LIMIT 1`,
+      ctx.tenantId,
+      saasId,
+      existing.id,
+    );
+    if (!updatedRow) throw new Error("LEAD_PERSIST_FAILED");
+    return mapLeadRow(updatedRow);
+  }
+
+  const id = generateId();
   await runStatement(
     ctx.socialDb,
     `INSERT INTO socialflow_leads
-     (id, tenant_id, saas_id, thread_id, provider, sender_name, sender_handle, incoming_message, intent_score, temperature, status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (id, tenant_id, saas_id, thread_id, provider, sender_name, sender_handle, incoming_message, intent_score, temperature, status, created_at, updated_at, last_contact_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     ctx.tenantId,
     saasId,
@@ -155,6 +234,7 @@ export async function createLead(ctx: SocialContext, input: CreateLeadInput): Pr
     input.intentScore,
     input.temperature,
     "NEW",
+    now,
     now,
     now,
   );

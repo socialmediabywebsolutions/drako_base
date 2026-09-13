@@ -15,6 +15,7 @@ export type SocialFlowLead = {
   status: LeadStatus;
   createdAt: string;
   updatedAt: string;
+  lastContactAt: string | null;
 };
 
 export type LeadDetectionResult = {

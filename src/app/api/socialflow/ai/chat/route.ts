@@ -63,6 +63,9 @@ type ViralThemeCard = {
   formatoRecomendado: ViralThemeFormat;
   piezas: number;
   hashtags: string[];
+  // 0-100, del score real de TrendTriggerConnector.ts para este tenant/nicho — omitido
+  // (no undefined con valor inventado) cuando todavía no hay ningún score calculado.
+  score?: number;
 };
 
 type DateRange = {
@@ -861,11 +864,36 @@ function buildFallbackViralThemes(data: NicheDataForIdeas, niche: string): Viral
   });
 }
 
+// Score real más reciente de TrendTriggerConnector.ts para este tenant/nicho — mismo
+// score visible en el panel interno de Campo Base (trend-triggers/route.ts), ahora
+// también en el chat del cliente. null cuando el conector todavía no ha corrido para
+// este tenant/nicho (nunca se inventa un valor).
+async function getLatestTrendTriggerScore(
+  dracoEnv: ReturnType<typeof env>,
+  tenantId: string,
+  niche: string,
+): Promise<number | null> {
+  const db = dracoEnv?.SOCIAL_DB;
+  if (!db) return null;
+  try {
+    const row = await db
+      .prepare(
+        `SELECT trend_score FROM socialcors_trend_triggers
+         WHERE tenant_id = ? AND niche = ? ORDER BY datetime(created_at) DESC LIMIT 1`,
+      )
+      .bind(tenantId, niche)
+      .first<{ trend_score: number }>();
+    return typeof row?.trend_score === "number" ? Math.round(row.trend_score) : null;
+  } catch {
+    return null;
+  }
+}
+
 // PASO 1-2 del nuevo flujo "¿Qué creo hoy?" — reutiliza el mismo snapshot del Cerebro
 // que loadNicheDataForIdeas ya carga (trendSignals, viral_moments, hashtag_intelligence,
 // strategic_plan) y le pide al LLM exactamente 3 tarjetas de tema viral con formato
 // recomendado, sin repetir formato entre las 3.
-async function buildViralThemes(
+async function buildViralThemesCore(
   niche: string,
   dracoEnv: ReturnType<typeof env>,
   tenantId: string,
@@ -954,6 +982,24 @@ Reglas:
   }
 
   return buildFallbackViralThemes(data, niche);
+}
+
+// Envuelve buildViralThemesCore con el score real de TrendTriggerConnector.ts — se
+// resuelve en paralelo (no bloquea la generación de las tarjetas) y se adjunta a las 3
+// por igual, porque es un único score por tenant/nicho, no por tema individual.
+async function buildViralThemes(
+  niche: string,
+  dracoEnv: ReturnType<typeof env>,
+  tenantId: string,
+  saasId: string,
+  accountType: "influencer" | "empresa",
+): Promise<ViralThemeCard[]> {
+  const [themes, score] = await Promise.all([
+    buildViralThemesCore(niche, dracoEnv, tenantId, saasId, accountType),
+    getLatestTrendTriggerScore(dracoEnv, tenantId, niche),
+  ]);
+  if (score === null) return themes;
+  return themes.map((theme) => ({ ...theme, score }));
 }
 
 // ---------------------------------------------------------------------------

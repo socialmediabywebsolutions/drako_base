@@ -7,11 +7,6 @@ import { runTrendKeywordCron } from "@/lib/socialflow/intelligence/TrendKeywordA
 import { runTrendTriggerConnector } from "@/lib/socialflow/intelligence/TrendTriggerConnector";
 import { withAgentExecutionLog } from "@/lib/socialflow/intelligence/agent-execution-log";
 
-// Mismo tenant piloto hardcodeado que TrendTriggerConnector.ts:12-17 y
-// trend-triggers/route.ts:16 — no exportado desde el propio conector, así que se repite
-// aquí solo para el log de ejecución, no para ninguna lógica de negocio.
-const TREND_TRIGGER_TENANT_ID = "775444ce-5ed0-4e69-864f-dc3e0d886817";
-
 export async function GET(request: NextRequest) {
   try {
     verifyCronAuth(request);
@@ -36,17 +31,18 @@ export async function GET(request: NextRequest) {
     rowsWritten: (r) => r.length,
   });
 
-  // Nivel 3 — conector de scoring de tendencias (tenant interno, ver diseño). Corre
-  // independientemente de qué nicho(s) haya tocado runTrendKeywordCron esta vez: lee
-  // directo la fila del nicho del tenant interno. runTrendTriggerConnector nunca
-  // lanza, así que esto nunca puede degradar la respuesta 200 de este cron.
+  // Nivel 3 — conector de scoring de tendencias, generalizado a todos los tenants
+  // activos (ver TrendTriggerConnector.ts). Corre independientemente de qué nicho(s)
+  // haya tocado runTrendKeywordCron esta vez: cada tenant lee la fila cross-tenant de
+  // su propio nicho. runTrendTriggerConnector nunca lanza, así que esto nunca puede
+  // degradar la respuesta 200 de este cron.
   const trendTrigger = await withAgentExecutionLog({
     db: bindings.SOCIAL_DB,
     agentName: "TrendTriggerConnector",
-    tenantId: TREND_TRIGGER_TENANT_ID,
+    tenantId: null,
     saasId: "socialflow",
     run: () => runTrendTriggerConnector(bindings),
-    rowsWritten: (r) => (r.ok && r.triggered ? 1 : 0),
+    rowsWritten: (r) => (r.ok ? r.triggered : null),
   });
 
   return NextResponse.json({ ok: true, batchSize: results.length, results, trendTrigger });

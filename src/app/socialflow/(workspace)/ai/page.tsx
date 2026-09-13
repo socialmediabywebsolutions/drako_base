@@ -76,6 +76,9 @@ type ViralThemeCard = {
   formatoRecomendado: ViralThemeFormat;
   piezas: number;
   hashtags: string[];
+  // 0-100 — ausente cuando el backend todavía no tiene un score calculado para este
+  // tenant/nicho (ver buildViralThemes en ai/chat/route.ts), nunca inventado aquí.
+  score?: number;
 };
 
 type Message = {
@@ -433,6 +436,11 @@ function ViralThemeCards({
               <span className="inline-block rounded-full bg-violet-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-300">
                 {VIRAL_FORMAT_LABEL[theme.formatoRecomendado]}
               </span>
+              {typeof theme.score === "number" && (
+                <p className="mt-1.5 text-[11px] font-semibold text-orange-300">
+                  🔥 Potencial viral: {theme.score}%
+                </p>
+              )}
               <p className="mt-2 text-base font-semibold leading-snug text-white">{theme.tema}</p>
               <p className="mt-2 text-xs leading-relaxed text-white/60">
                 Por qué es viral ahora: {theme.porqueViral}
