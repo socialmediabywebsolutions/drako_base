@@ -457,9 +457,10 @@ export async function POST(request: Request) {
 
       // Probador de respuestas IA — movido aquí desde el CRM Social del cliente (era
       // una herramienta de diagnóstico interna, no algo que el cliente final deba ver).
-      // Reusa exactamente el mismo gate (detectBlockedIntent) y motor
-      // (generateConversationalReply) que /api/socialflow/conversations/reply-suggest,
-      // pero con el tenant elegido por el operador en vez del tenant de la sesión.
+      // Llama directamente a las funciones del motor conversacional del producto
+      // (detectBlockedIntent, generateConversationalReply) — NUNCA a través de un
+      // endpoint HTTP de producto final, con el tenant elegido por el operador en vez
+      // del tenant de la sesión.
       if (detectBlockedIntent(action.message)) {
         return NextResponse.json({
           action: action.action,
