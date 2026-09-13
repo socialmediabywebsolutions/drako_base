@@ -25,6 +25,7 @@ export default function MonetizationSuggestionsPanel({
       const res = await fetch("/api/socialflow/profile/monetization-suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ saasId }),
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; suggestions?: MonetizationSuggestion[]; error?: string };
