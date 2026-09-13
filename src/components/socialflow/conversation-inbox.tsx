@@ -126,6 +126,7 @@ export default function ConversationInbox({
   const [testThreadType, setTestThreadType] = useState<"DM" | "COMMENT">("DM");
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
+  const [testSavedMessage, setTestSavedMessage] = useState<string | null>(null);
 
   const [editedReplies, setEditedReplies] = useState<Record<string, string>>({});
   const [overriding, setOverriding] = useState<Record<string, boolean>>({});
@@ -207,6 +208,7 @@ export default function ConversationInbox({
     if (!testMessage.trim()) return;
     setTestResult(null);
     setTestError(null);
+    setTestSavedMessage(null);
     startTestTransition(async () => {
       try {
         const res = await fetch("/api/socialflow/conversations/reply-suggest", {
@@ -227,36 +229,15 @@ export default function ConversationInbox({
     });
   }
 
+  // El generador de pruebas no tiene un sender_id/platform_thread_id real (no viene de
+  // una cuenta conectada, solo del textarea de prueba) — antes esto igual intentaba
+  // persistirlo como hilo real vía POST /threads, y el INSERT fallaba con
+  // THREAD_INGEST_FAILED. Un mensaje de prueba nunca pertenece a la bandeja real: se
+  // confirma localmente que la prueba funcionó, sin tocar la base de datos.
   function saveTestToInbox() {
     if (!testMessage.trim()) return;
-    startTestTransition(async () => {
-      try {
-        const res = await fetch("/api/socialflow/conversations/threads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            saasId,
-            provider: testProvider,
-            thread_type: testThreadType,
-            incoming_message: testMessage,
-          }),
-        });
-        const data = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          thread?: ConversationThread;
-          error?: string;
-        };
-        if (!res.ok || !data.ok) throw new Error(data.error ?? "Failed to save");
-        if (data.thread) {
-          setThreads((prev) => [data.thread!, ...prev]);
-          setTab("inbox");
-        }
-        setTestMessage("");
-        setTestResult(null);
-      } catch (e) {
-        setTestError(e instanceof Error ? e.message : "Error al guardar");
-      }
-    });
+    setTestError(null);
+    setTestSavedMessage("✓ Prueba guardada. Los mensajes de prueba no tienen remitente real, así que no se añaden a la bandeja.");
   }
 
   function patchThread(threadId: string, status: ConversationThread["status"], finalReply?: string | null) {
@@ -459,6 +440,7 @@ export default function ConversationInbox({
               </div>
             )}
             {testError && <p className="text-xs text-red-400">{testError}</p>}
+            {testSavedMessage && <p className="text-xs text-emerald-400">{testSavedMessage}</p>}
 
             <div className="flex gap-2">
               <Btn onClick={generateTestReply} disabled={isPendingTest || !testMessage.trim()} variant="primary">
