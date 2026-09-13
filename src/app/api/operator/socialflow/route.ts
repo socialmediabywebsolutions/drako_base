@@ -25,9 +25,14 @@ import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
 import { generateConversationalReply } from "@/lib/socialflow/conversational/engine";
 import { BLOCKED_INTENT_REPLY, detectBlockedIntent } from "@/lib/socialflow/conversational/blocked-intent";
 import type { ConversationThreadType } from "@/lib/socialflow/conversational/types";
+import { env } from "@/lib/cf";
+import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
+import { resolveSocialFlowPlanCode } from "@/lib/socialflow/billing/plans";
+import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
 
 type SocialFlowRouteAction =
   | { action: "run_all" }
+  | { action: "list_tenants" }
   | { action: "run_one"; tenantId: string; saasId: string; automationKey?: SocialFlowAutomationKey }
   | { action: "register"; tenantId: string; saasId: string; niche: string; tone: string; frequencyPerWeek: number; enabled?: boolean; automationKey?: SocialFlowAutomationKey }
   | { action: "register_health"; tenantId: string; saasId: string; tone?: string; enabled?: boolean; automationKey?: SocialFlowAutomationKey }
@@ -67,6 +72,10 @@ function validateAction(body: unknown): SocialFlowRouteAction | null {
   const provider = "provider" in body ? body.provider : null;
 
   if (action === "run_all") {
+    return { action };
+  }
+
+  if (action === "list_tenants") {
     return { action };
   }
 
@@ -298,6 +307,98 @@ function buildHistorySummary(
   };
 }
 
+type TenantProfileRow = {
+  tenant_id: string;
+  saas_id: string;
+  brand_name: string | null;
+  display_name: string | null;
+  business_type: string | null;
+  contact_email: string | null;
+  metadata_json: string | null;
+};
+
+export type OperatorTenantListItem = {
+  id: string;
+  tenantId: string;
+  saasId: string;
+  name: string;
+  niche: string | null;
+  plan: string | null;
+};
+
+// business_type es la columna real donde se guarda el nicho (ver
+// profile/repository.ts upsertProfileRow) — cae a metadata_json.profile.niche solo
+// para filas viejas que todavía no tienen esa columna rellenada.
+function parseNicheFromMetadata(metadataJson: string | null): string | null {
+  if (!metadataJson) return null;
+  try {
+    const parsed = JSON.parse(metadataJson) as { profile?: { niche?: unknown } };
+    const niche = parsed?.profile?.niche;
+    return typeof niche === "string" && niche.trim() ? niche.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function mapTenantProfileRow(row: TenantProfileRow): { tenantId: string; saasId: string; name: string; niche: string | null } {
+  const niche = row.business_type?.trim() || parseNicheFromMetadata(row.metadata_json);
+  const name =
+    row.brand_name?.trim()
+    || row.display_name?.trim()
+    || row.contact_email?.trim()
+    || row.tenant_id;
+  return { tenantId: row.tenant_id, saasId: row.saas_id, name, niche: niche || null };
+}
+
+// Mismo criterio que resolvePlanCode() en billing/enforce.ts (no exportado desde ahí):
+// cuenta interna → plan "top tier" resuelto vía accountType; cuenta normal → plan real
+// de la suscripción canónica. Nunca lanza — un fallo de billing para un tenant no debe
+// tumbar el listado completo de tenants.
+async function resolveTenantPlanCode(tenantId: string): Promise<string | null> {
+  try {
+    const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
+    if (!snapshot.isInternalAccount) {
+      return resolveSocialFlowPlanCode(snapshot.subscription);
+    }
+    const accountType = await getSocialFlowAccountTypeByTenant(tenantId);
+    return resolveSocialFlowPlanCode(snapshot.subscription, { isInternalAccount: true, accountType });
+  } catch {
+    return null;
+  }
+}
+
+// Lista TODOS los tenants activos de Socialcors — leídos directo de
+// socialflow_profiles en SOCIAL_DB (la misma tabla que usa el resto del producto para
+// resolver el perfil/nicho de cada cliente, ver profile/repository.ts), no del
+// registro de automatización (que solo cubre tenants con automatización configurada,
+// típicamente solo el tenant interno).
+async function listOperatorSocialFlowTenants(): Promise<OperatorTenantListItem[]> {
+  const db = env()?.SOCIAL_DB;
+  if (!db) return [];
+
+  let rows: TenantProfileRow[] = [];
+  try {
+    const result = await db
+      .prepare(
+        `SELECT tenant_id, saas_id, brand_name, display_name, business_type, contact_email, metadata_json
+         FROM socialflow_profiles WHERE saas_id = 'socialflow' ORDER BY updated_at DESC`,
+      )
+      .all<TenantProfileRow>();
+    rows = result.results ?? [];
+  } catch (err) {
+    console.error("OPERATOR_SOCIALFLOW_LIST_TENANTS_ERROR", err);
+    return [];
+  }
+
+  return Promise.all(
+    rows.map(async (row) => {
+      const base = mapTenantProfileRow(row);
+      const plan = await resolveTenantPlanCode(base.tenantId);
+      return { id: base.tenantId, tenantId: base.tenantId, saasId: base.saasId, name: base.name, niche: base.niche, plan };
+    }),
+  );
+}
+
 export async function GET(request: Request) {
   try {
     await requireOwnerAccess(request);
@@ -371,6 +472,14 @@ export async function POST(request: Request) {
         action: action.action,
         result,
         status,
+      });
+    }
+
+    if (action.action === "list_tenants") {
+      const tenants = await listOperatorSocialFlowTenants();
+      return NextResponse.json({
+        action: action.action,
+        result: { tenants },
       });
     }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
@@ -27,13 +27,26 @@ type ControlResponse = {
     | CampoBaseSocialFlowOperatorActionResult
     | { refreshed: boolean; tenantId: string; saasId: string }
     | { checksPassed: number; checksFailed: number; recommendedAction: string }
-    | { kind: "BLOCKED_INTENT" | "AI_GENERATED"; suggestedReply: string; aiMetadata?: Record<string, unknown> };
+    | { kind: "BLOCKED_INTENT" | "AI_GENERATED"; suggestedReply: string; aiMetadata?: Record<string, unknown> }
+    | { tenants: OperatorTenantOption[] };
   observability?: CampoBaseSocialFlowObservability | null;
   trendTriggers?: SocialFlowTrendTrigger[];
   trendTriggerHealth?: SocialFlowTrendTriggerHealth | null;
   agentControlCenter?: AgentControlCenterGroup[];
   message?: string;
   code?: string;
+};
+
+// Tenant real de Socialcors, leído de socialflow_profiles en SOCIAL_DB (acción
+// "list_tenants") — no del registro de automatización, que solo cubre tenants con
+// automatización configurada.
+type OperatorTenantOption = {
+  id: string;
+  tenantId: string;
+  saasId: string;
+  name: string;
+  niche: string | null;
+  plan: string | null;
 };
 
 const endpoint = "/api/operator/socialflow";
@@ -153,6 +166,8 @@ export default function CampoBaseSocialAutomationControl() {
   // Probador de respuestas IA — movido aquí desde el CRM Social del cliente (era una
   // herramienta de diagnóstico interna, no algo que el cliente final deba ver, ver
   // acción "test_ai_reply" en api/operator/socialflow/route.ts).
+  const [tenantOptions, setTenantOptions] = useState<OperatorTenantOption[]>([]);
+  const [tenantOptionsLoading, setTenantOptionsLoading] = useState(false);
   const [testTenantKey, setTestTenantKey] = useState("");
   const [testNiche, setTestNiche] = useState("");
   const [testChannel, setTestChannel] = useState("INSTAGRAM");
@@ -161,6 +176,34 @@ export default function CampoBaseSocialAutomationControl() {
   const [testResult, setTestResult] = useState<{ kind: "BLOCKED_INTENT" | "AI_GENERATED"; suggestedReply: string } | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
   const [testBusy, setTestBusy] = useState(false);
+
+  // Todos los tenants activos de Socialcors (socialflow_profiles), no solo el
+  // registrado en la automatización — se carga una vez al montar el panel.
+  const loadTenantOptions = useCallback(async () => {
+    setTenantOptionsLoading(true);
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "list_tenants" }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { result?: { tenants?: OperatorTenantOption[] }; message?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(data?.message ?? "No se pudo cargar la lista de tenants.");
+      }
+      setTenantOptions(data?.result && "tenants" in data.result ? data.result.tenants ?? [] : []);
+    } catch {
+      setTenantOptions([]);
+    } finally {
+      setTenantOptionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTenantOptions();
+  }, [loadTenantOptions]);
 
   const loadObservability = useCallback(async (scope: { tenantId: string; saasId: string }) => {
     setSelectedScope(scope);
@@ -318,28 +361,14 @@ export default function CampoBaseSocialAutomationControl() {
     }
   }
 
-  // status.items trae una fila por automationKey registrada — varios tenants
-  // registran más de una (content_generation + health_check), así que se deduplica
-  // por tenant/saasId para el selector.
-  const testTenantOptions = useMemo(() => {
-    const seen = new Map<string, { key: string; tenantId: string; saasId: string; niche: string | null; displayName: string }>();
-    for (const item of status?.items ?? []) {
-      const key = `${item.tenantId}:${item.saasId}`;
-      if (!seen.has(key)) {
-        seen.set(key, { key, tenantId: item.tenantId, saasId: item.saasId, niche: item.niche, displayName: item.displayName });
-      }
-    }
-    return Array.from(seen.values());
-  }, [status]);
-
-  function handleTestTenantChange(key: string) {
-    setTestTenantKey(key);
-    const found = testTenantOptions.find((t) => t.key === key);
+  function handleTestTenantChange(id: string) {
+    setTestTenantKey(id);
+    const found = tenantOptions.find((t) => t.id === id);
     setTestNiche(found?.niche ?? "");
   }
 
   async function runAiReplyTest() {
-    const selected = testTenantOptions.find((t) => t.key === testTenantKey);
+    const selected = tenantOptions.find((t) => t.id === testTenantKey);
     if (!selected || !testMessage.trim()) return;
 
     setTestBusy(true);
@@ -433,10 +462,12 @@ export default function CampoBaseSocialAutomationControl() {
         title="Probador de respuestas IA"
         subtitle="Herramienta de diagnóstico interna — simula un mensaje entrante y ve exactamente qué respondería la IA para un tenant real"
       >
-        {testTenantOptions.length === 0 ? (
+        {tenantOptionsLoading ? (
+          <EmptyState title="Cargando tenants…" subtitle="Leyendo clientes activos de Socialcors desde SOCIAL_DB." />
+        ) : tenantOptions.length === 0 ? (
           <EmptyState
             title="Sin tenants activos"
-            subtitle="No hay tenants registrados en la automatización de Socialcors todavía."
+            subtitle="No hay clientes con perfil en Socialcors todavía."
           />
         ) : (
           <div className="space-y-4">
@@ -449,8 +480,8 @@ export default function CampoBaseSocialAutomationControl() {
                   className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
                 >
                   <option value="">Selecciona un tenant…</option>
-                  {testTenantOptions.map((t) => (
-                    <option key={t.key} value={t.key}>{t.displayName} ({t.saasId})</option>
+                  {tenantOptions.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}{t.niche ? ` (${t.niche})` : ""}</option>
                   ))}
                 </select>
               </label>
