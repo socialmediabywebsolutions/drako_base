@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 // ─── Design tokens — mismos que landing-client.tsx (morado dominante para nav/logo,
 // colores de red para el contenido específico de cada tipo de plan) ──────────────
@@ -323,9 +324,11 @@ export default function PlanesClient() {
       ].join(" ")}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/socialflows" className="flex items-center gap-2.5">
-            <img
+            <Image
               src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png"
               alt="Socialcors"
+              width={200}
+              height={50}
               className="h-8 w-auto"
             />
             <span className="text-lg font-black tracking-tight" style={{ color: INK }}>Socialcors</span>

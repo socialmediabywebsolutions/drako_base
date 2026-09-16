@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import type { SaasSocialProvider } from "@/lib/social-core/types";
@@ -176,9 +177,11 @@ export default function SidebarNav({
 
         {/* Logo — R2 como fuente de verdad única, ver WeeklyBriefingAgent.ts */}
         <div className="flex items-center gap-2.5 pt-1 pb-1">
-          <img
+          <Image
             src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png"
             alt="Socialcors"
+            width={200}
+            height={50}
             className="h-8 w-auto"
           />
           <span className="text-base font-black tracking-tight text-white">
