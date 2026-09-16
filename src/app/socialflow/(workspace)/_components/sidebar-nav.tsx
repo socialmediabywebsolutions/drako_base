@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import type { SaasSocialProvider } from "@/lib/social-core/types";
@@ -175,15 +174,9 @@ export default function SidebarNav({
     <aside className="flex w-64 shrink-0 flex-col border-r border-white/8 bg-[#06060f]">
       <div className="flex flex-col gap-5 p-5 flex-1 overflow-y-auto">
 
-        {/* Logo — R2 como fuente de verdad única, ver WeeklyBriefingAgent.ts */}
+        {/* Logo — /public/logo-cabecera.png local, sin dependencias externas */}
         <div className="flex items-center gap-2.5 pt-1 pb-1">
-          <Image
-            src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png"
-            alt="Socialcors"
-            width={200}
-            height={50}
-            className="h-8 w-auto"
-          />
+          <img src="/logo-cabecera.png" alt="Socialcors" className="h-8 w-auto" />
           <span className="text-base font-black tracking-tight text-white">
             Social<span className="sf-shimmer-text">cors</span>
           </span>

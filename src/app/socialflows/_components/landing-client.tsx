@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import Image from "next/image";
 import ChatWidget from "./chat-widget";
 
 // ─── Design tokens (landing-only, ver auditoría de fondo oscuro para el resto del SaaS) ──
@@ -407,13 +406,7 @@ export default function LandingClient() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
-            <Image
-              src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png"
-              alt="Socialcors"
-              width={200}
-              height={50}
-              className="h-8 w-auto"
-            />
+            <img src="/logo-cabecera.png" alt="Socialcors" className="h-8 w-auto" />
             <span className="text-lg font-black tracking-tight" style={{ color: INK }}>Socialcors</span>
           </div>
           {/* Actions */}
@@ -800,13 +793,7 @@ export default function LandingClient() {
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
             {/* Logo */}
             <div className="flex items-center gap-2">
-              <Image
-                src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png"
-                alt="Socialcors"
-                width={200}
-                height={50}
-                className="h-7 w-auto"
-              />
+              <img src="/logo-cabecera.png" alt="Socialcors" className="h-7 w-auto" />
               <span className="text-base font-black" style={{ color: INK }}>Socialcors</span>
             </div>
             {/* Links */}

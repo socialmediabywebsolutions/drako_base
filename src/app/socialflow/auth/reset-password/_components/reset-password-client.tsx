@@ -3,7 +3,6 @@
 import { FormEvent, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 
 type ApiError = { message?: string; error?: string };
 
@@ -30,15 +29,9 @@ function Card({ children }: { children: React.ReactNode }) {
       />
 
       <section className="relative mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-5 py-16">
-        {/* Logo — R2 como fuente de verdad única, ver WeeklyBriefingAgent.ts */}
+        {/* Logo — /public/logo-cabecera.png local, sin dependencias externas */}
         <div className="mb-8 flex items-center gap-3 self-start">
-          <Image
-            src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png"
-            alt="Socialcors"
-            width={200}
-            height={50}
-            className="h-10 w-auto"
-          />
+          <img src="/logo-cabecera.png" alt="Socialcors" className="h-10 w-auto" />
           <span className="text-xl font-black tracking-tight">
             Social<span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">cors</span>
           </span>

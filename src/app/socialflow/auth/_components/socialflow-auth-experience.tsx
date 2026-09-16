@@ -3,7 +3,6 @@
 import { FormEvent, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { listSocialFlowPaidPlans, type SocialFlowAccountType } from "@/lib/socialflow/billing/plans";
 
 type SocialFlowAuthMode = "login" | "register";
@@ -280,13 +279,7 @@ export default function SocialFlowAuthExperience() {
             {/* Left — sales content */}
             <div className="mb-10 w-full max-w-xl lg:mb-0 lg:flex-1">
               <Link href="/" className="mb-8 flex items-center gap-3">
-                <Image
-                  src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png"
-                  alt="Socialcors"
-                  width={200}
-                  height={50}
-                  className="h-10 w-auto"
-                />
+                <img src="/logo-cabecera.png" alt="Socialcors" className="h-10 w-auto" />
                 <span className="text-xl font-black tracking-tight" style={{ color: INK }}>
                   Socialcors
                 </span>
@@ -385,13 +378,7 @@ export default function SocialFlowAuthExperience() {
                 state, qué previsualizar — no cambia la URL) */}
             <div className="mb-10 w-full max-w-xl lg:mb-0 lg:flex-1">
               <Link href="/" className="mb-8 flex items-center gap-3">
-                <Image
-                  src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png"
-                  alt="Socialcors"
-                  width={200}
-                  height={50}
-                  className="h-10 w-auto"
-                />
+                <img src="/logo-cabecera.png" alt="Socialcors" className="h-10 w-auto" />
                 <span className="text-xl font-black tracking-tight" style={{ color: INK }}>
                   Socialcors
                 </span>
