@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   // Favicon/perfil — R2 como fuente de verdad única, mismo bucket que el logo de
   // cabecera y el de los emails (WeeklyBriefingAgent.ts).
   icons: {
-    icon: "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-perfil.png",
-    apple: "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-perfil.png",
+    icon: "https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-perfil.png",
+    apple: "https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-perfil.png",
   },
 };
 

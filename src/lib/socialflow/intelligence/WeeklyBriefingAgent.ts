@@ -345,7 +345,7 @@ function buildBriefingHtml(briefing: BriefingResult): string {
 
     <!-- HEADER -->
     <div style="background:linear-gradient(135deg,#1a1a3e 0%,#2d1b69 100%);border-radius:16px 16px 0 0;padding:32px 32px 24px;text-align:center;border-bottom:1px solid ${BORDER};">
-      <img src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png" alt="Socialcors" style="height:36px;width:auto;margin-bottom:20px;display:block;margin-left:auto;margin-right:auto;">
+      <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-cabecera.png" alt="Socialcors" style="height:36px;width:auto;margin-bottom:20px;display:block;margin-left:auto;margin-right:auto;">
       <h1 style="margin:0 0 6px;color:${TEXT_PRIMARY};font-size:22px;font-weight:700;letter-spacing:-0.3px;">Resumen semanal</h1>
       <p style="margin:0;color:${TEXT_MUTED};font-size:13px;">${escapeHtml(briefing.period)} &nbsp;·&nbsp; <span style="color:${PURPLE};font-weight:600;">${escapeHtml(briefing.niche)}</span></p>
     </div>

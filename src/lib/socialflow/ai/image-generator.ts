@@ -5,7 +5,7 @@ import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-
 import type { EmpresaEmployee } from "@/lib/socialflow/employees/types";
 
 const MODEL = "@cf/stabilityai/stable-diffusion-xl-base-1.0";
-const R2_PUBLIC_BASE = "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev";
+const R2_PUBLIC_BASE = "https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev";
 const EMPLOYEES_SAAS_ID = "socialflow";
 
 const EMPLOYEE_HAIR_STYLE_LABELS: Record<string, string> = {

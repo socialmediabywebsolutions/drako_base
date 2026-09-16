@@ -5,7 +5,7 @@ import type { ReelsTemplate } from "./ReelsEngine";
 // borrar hasta confirmar en producción que la query D1 funciona con un Reel real.
 // No se importa desde ningún otro archivo.
 
-const MUSIC_BASE_URL = "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/music/";
+const MUSIC_BASE_URL = "https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/music/";
 
 export type MusicCategory = "fitness_energetic" | "lifestyle_chill" | "educativo_corporate" | "general_upbeat";
 
