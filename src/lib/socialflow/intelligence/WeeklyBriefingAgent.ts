@@ -290,51 +290,149 @@ function escapeHtml(text: string): string {
 }
 
 function buildBriefingHtml(briefing: BriefingResult): string {
-  const postRow = (p: BriefingPost) =>
-    `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;">${escapeHtml(p.contentType)}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;">${escapeHtml(p.excerpt)}${p.excerpt.length >= 140 ? "…" : ""}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">${p.engagement}</td></tr>`;
+  const PURPLE = "#6c47ff";
+  const DARK_BG = "#0d0d1a";
+  const CARD_BG = "#13132a";
+  const BORDER = "#2a2a4a";
+  const TEXT_PRIMARY = "#f0f0ff";
+  const TEXT_MUTED = "#8888aa";
+
+  const badgeColor = (type: string) => {
+    const t = type.toLowerCase();
+    if (t.includes("reel")) return "#ff4f8b";
+    if (t.includes("carrusel") || t.includes("carousel")) return "#00c9a7";
+    if (t.includes("historia") || t.includes("story")) return "#ff9f43";
+    if (t.includes("foto") || t.includes("photo") || t.includes("image")) return "#54a0ff";
+    return PURPLE;
+  };
+
+  const postRows = briefing.topPerformingPosts.map((p) => `
+    <tr>
+      <td style="padding:14px 16px;border-bottom:1px solid ${BORDER};vertical-align:top;">
+        <span style="display:inline-block;background:${badgeColor(p.contentType)};color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px;">${escapeHtml(p.contentType)}</span>
+      </td>
+      <td style="padding:14px 16px;border-bottom:1px solid ${BORDER};vertical-align:top;color:${TEXT_PRIMARY};font-size:13px;line-height:1.5;">
+        ${escapeHtml(p.excerpt)}${p.excerpt.length >= 140 ? "…" : ""}
+      </td>
+      <td style="padding:14px 16px;border-bottom:1px solid ${BORDER};vertical-align:top;text-align:right;white-space:nowrap;">
+        <span style="color:${PURPLE};font-size:18px;font-weight:700;">${p.engagement}</span>
+        <div style="color:${TEXT_MUTED};font-size:10px;margin-top:2px;">❤️ ${p.likes} &nbsp;💬 ${p.comments} &nbsp;↗️ ${p.shares}</div>
+      </td>
+    </tr>`).join("");
 
   const contentMixLine = Object.entries(briefing.contentMix)
     .map(([type, count]) => `${count} ${escapeHtml(type)}`)
     .join(" · ") || "sin publicaciones esta semana";
 
+  const totalPosts = Object.values(briefing.contentMix).reduce((a, b) => a + b, 0);
+  const totalEngagement = briefing.topPerformingPosts.reduce((a, p) => a + p.engagement, 0);
+
+  const recommendationsHtml = briefing.recommendations.map((r, i) => `
+    <tr>
+      <td style="padding:12px 0;vertical-align:top;width:32px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:${PURPLE};color:#fff;font-size:11px;font-weight:700;border-radius:50%;">${i + 1}</span>
+      </td>
+      <td style="padding:12px 0 12px 12px;color:${TEXT_PRIMARY};font-size:14px;line-height:1.6;border-bottom:1px solid ${BORDER};">
+        ${escapeHtml(r)}
+      </td>
+    </tr>`).join("");
+
   return `<!doctype html>
 <html>
-<body style="font-family:Arial,Helvetica,sans-serif;background:#f6f6f6;padding:24px;color:#222;">
-  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;">
-    <div style="background:#111;color:#fff;padding:20px 24px;">
-      <h1 style="margin:0;font-size:20px;">Tu briefing semanal de Socialcors</h1>
-      <p style="margin:4px 0 0;color:#ccc;font-size:13px;">${escapeHtml(briefing.period)} · nicho: ${escapeHtml(briefing.niche)}</p>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:${DARK_BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <div style="max-width:620px;margin:0 auto;padding:24px 16px;">
+
+    <!-- HEADER -->
+    <div style="background:linear-gradient(135deg,#1a1a3e 0%,#2d1b69 100%);border-radius:16px 16px 0 0;padding:32px 32px 24px;text-align:center;border-bottom:1px solid ${BORDER};">
+      <img src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png" alt="Socialcors" style="height:36px;width:auto;margin-bottom:20px;display:block;margin-left:auto;margin-right:auto;">
+      <h1 style="margin:0 0 6px;color:${TEXT_PRIMARY};font-size:22px;font-weight:700;letter-spacing:-0.3px;">Resumen semanal</h1>
+      <p style="margin:0;color:${TEXT_MUTED};font-size:13px;">${escapeHtml(briefing.period)} &nbsp;·&nbsp; <span style="color:${PURPLE};font-weight:600;">${escapeHtml(briefing.niche)}</span></p>
     </div>
-    <div style="padding:20px 24px;">
-      <h2 style="font-size:15px;margin:0 0 8px;">Contenido publicado</h2>
-      <p style="margin:0 0 16px;font-size:14px;">${escapeHtml(contentMixLine)}</p>
 
-      ${briefing.topPerformingPosts.length ? `
-      <h2 style="font-size:15px;margin:0 0 8px;">Lo que mejor funcionó</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
-        <thead><tr><th style="text-align:left;padding:8px 12px;border-bottom:2px solid #111;">Tipo</th><th style="text-align:left;padding:8px 12px;border-bottom:2px solid #111;">Post</th><th style="text-align:right;padding:8px 12px;border-bottom:2px solid #111;">Interacciones</th></tr></thead>
-        <tbody>${briefing.topPerformingPosts.map(postRow).join("")}</tbody>
-      </table>` : ""}
-
-      ${briefing.worstPerformingPosts.length ? `
-      <h2 style="font-size:15px;margin:0 0 8px;">Con menos alcance</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
-        <tbody>${briefing.worstPerformingPosts.map(postRow).join("")}</tbody>
-      </table>` : ""}
-
-      ${briefing.followerChange.current !== null ? `<p style="font-size:14px;">Seguidores actuales: <strong>${briefing.followerChange.current}</strong></p>` : ""}
-
-      ${briefing.fatigueWarning ? `<p style="background:#fff3cd;border:1px solid #ffe69c;border-radius:6px;padding:10px 12px;font-size:13px;">⚠️ ${escapeHtml(briefing.fatigueWarning)}</p>` : ""}
-
-      <h2 style="font-size:15px;margin:16px 0 8px;">Recomendaciones para esta semana</h2>
-      <ul style="font-size:14px;padding-left:20px;margin:0 0 16px;">
-        ${briefing.recommendations.map((r) => `<li style="margin-bottom:6px;">${escapeHtml(r)}</li>`).join("")}
-      </ul>
-
-      <h2 style="font-size:15px;margin:0 0 8px;">Foco de la semana que viene</h2>
-      <p style="font-size:14px;margin:0;">${escapeHtml(briefing.nextWeekFocus)}</p>
+    <!-- MÉTRICAS EN FILA -->
+    <div style="background:${CARD_BG};display:table;width:100%;box-sizing:border-box;border-left:1px solid ${BORDER};border-right:1px solid ${BORDER};">
+      <div style="display:table-row;">
+        <div style="display:table-cell;padding:24px 16px;text-align:center;border-right:1px solid ${BORDER};width:33%;">
+          <div style="color:${PURPLE};font-size:28px;font-weight:800;">${totalPosts}</div>
+          <div style="color:${TEXT_MUTED};font-size:11px;text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;">Posts</div>
+        </div>
+        <div style="display:table-cell;padding:24px 16px;text-align:center;border-right:1px solid ${BORDER};width:33%;">
+          <div style="color:${PURPLE};font-size:28px;font-weight:800;">${totalEngagement}</div>
+          <div style="color:${TEXT_MUTED};font-size:11px;text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;">Interacciones</div>
+        </div>
+        <div style="display:table-cell;padding:24px 16px;text-align:center;width:33%;">
+          <div style="color:${PURPLE};font-size:28px;font-weight:800;">${briefing.followerChange.current !== null ? briefing.followerChange.current.toLocaleString("es-ES") : "—"}</div>
+          <div style="color:${TEXT_MUTED};font-size:11px;text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;">Seguidores</div>
+        </div>
+      </div>
     </div>
-    <div style="padding:14px 24px;background:#fafafa;color:#888;font-size:11px;">Generado automáticamente por Socialcors — ${escapeHtml(briefing.generatedAt)}</div>
+
+    <!-- MIX DE CONTENIDO -->
+    <div style="background:${CARD_BG};padding:16px 24px;border-left:1px solid ${BORDER};border-right:1px solid ${BORDER};border-bottom:1px solid ${BORDER};">
+      <span style="color:${TEXT_MUTED};font-size:12px;text-transform:uppercase;letter-spacing:0.8px;">Contenido publicado &nbsp;</span>
+      <span style="color:${TEXT_PRIMARY};font-size:13px;">${escapeHtml(contentMixLine)}</span>
+    </div>
+
+    ${briefing.fatigueWarning ? `
+    <!-- ALERTA FATIGA -->
+    <div style="background:#2a1a00;border-left:3px solid #ff9f43;padding:14px 20px;margin-top:2px;">
+      <span style="color:#ff9f43;font-size:13px;">⚠️ ${escapeHtml(briefing.fatigueWarning)}</span>
+    </div>` : ""}
+
+    <!-- POSTS QUE MÁS FUNCIONARON -->
+    ${briefing.topPerformingPosts.length ? `
+    <div style="background:${CARD_BG};margin-top:16px;border-radius:12px;border:1px solid ${BORDER};overflow:hidden;">
+      <div style="padding:16px 20px;border-bottom:1px solid ${BORDER};">
+        <span style="color:${TEXT_PRIMARY};font-size:14px;font-weight:700;">🏆 Mejor rendimiento esta semana</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#0f0f28;">
+            <th style="padding:10px 16px;text-align:left;color:${TEXT_MUTED};font-size:11px;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;width:100px;">Tipo</th>
+            <th style="padding:10px 16px;text-align:left;color:${TEXT_MUTED};font-size:11px;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Contenido</th>
+            <th style="padding:10px 16px;text-align:right;color:${TEXT_MUTED};font-size:11px;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;width:110px;">Engagement</th>
+          </tr>
+        </thead>
+        <tbody>${postRows}</tbody>
+      </table>
+    </div>` : ""}
+
+    <!-- TENDENCIAS DEL NICHO -->
+    ${briefing.nicheTrends && (briefing.nicheTrends.hashtags.length || briefing.nicheTrends.hooks.length) ? `
+    <div style="background:${CARD_BG};margin-top:16px;border-radius:12px;border:1px solid ${BORDER};padding:20px 24px;">
+      <div style="color:${TEXT_PRIMARY};font-size:14px;font-weight:700;margin-bottom:14px;">📈 Tendencias en tu nicho</div>
+      ${briefing.nicheTrends.hashtags.length ? `
+      <div style="margin-bottom:12px;">
+        <div style="color:${TEXT_MUTED};font-size:11px;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;">Hashtags</div>
+        <div>${briefing.nicheTrends.hashtags.slice(0, 6).map(h => `<span style="display:inline-block;background:#1a1a3e;color:${PURPLE};font-size:12px;padding:3px 10px;border-radius:20px;margin:3px 4px 3px 0;border:1px solid ${PURPLE}33;">${escapeHtml(h)}</span>`).join("")}</div>
+      </div>` : ""}
+      ${briefing.nicheTrends.hooks.length ? `
+      <div>
+        <div style="color:${TEXT_MUTED};font-size:11px;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;">Hooks que funcionan</div>
+        ${briefing.nicheTrends.hooks.slice(0, 3).map(h => `<div style="color:${TEXT_PRIMARY};font-size:13px;padding:8px 12px;background:#0f0f28;border-radius:6px;margin-bottom:6px;border-left:3px solid ${PURPLE};">"${escapeHtml(h)}"</div>`).join("")}
+      </div>` : ""}
+    </div>` : ""}
+
+    <!-- RECOMENDACIONES -->
+    <div style="background:${CARD_BG};margin-top:16px;border-radius:12px;border:1px solid ${BORDER};padding:20px 24px;">
+      <div style="color:${TEXT_PRIMARY};font-size:14px;font-weight:700;margin-bottom:16px;">💡 Recomendaciones para esta semana</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <tbody>${recommendationsHtml}</tbody>
+      </table>
+    </div>
+
+    <!-- FOCO SEMANAL -->
+    <div style="background:linear-gradient(135deg,#2d1b69 0%,#1a0a3e 100%);margin-top:16px;border-radius:12px;padding:24px;border:1px solid ${PURPLE}44;">
+      <div style="color:${PURPLE};font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px;">🎯 Foco de la semana que viene</div>
+      <div style="color:${TEXT_PRIMARY};font-size:16px;font-weight:600;line-height:1.5;">${escapeHtml(briefing.nextWeekFocus)}</div>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="text-align:center;padding:20px 0 8px;color:${TEXT_MUTED};font-size:11px;">
+      Generado por Socialcors · ${escapeHtml(new Date(briefing.generatedAt).toLocaleDateString("es-ES", { day:"numeric", month:"long", year:"numeric", timeZone:"UTC" }))}
+    </div>
+
   </div>
 </body>
 </html>`;
@@ -369,7 +467,7 @@ export async function sendBriefingEmail(tenantId: string, saasId: string, briefi
 
   const result = await sendEmail({
     to: email,
-    subject: `Tu briefing semanal de Socialcors — ${briefing.period}`,
+    subject: `Tu resumen semanal — ${briefing.period}`,
     html: buildBriefingHtml(briefing),
   });
 
