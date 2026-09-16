@@ -163,13 +163,21 @@ async function upsertNicheIntelligence(niche: string, accountType: NicheAccountT
   const realHooks = existingTrendSignals?.youtubeHooks;
   const hooks = realHooks?.length ? realHooks.slice(0, 8) : payload.hooks;
 
-  // Preserva trendSignals de TrendKeywordAgent (mismo objeto ya extraído arriba para
-  // realHooks) en vez de reconstruir analysis_json desde cero — un reemplazo completo
-  // aquí borraba trendSignals en cada corrida semanal sin tocar trend_last_fetched,
-  // dejando al nicho con trend_last_fetched "reciente" pero sin trendSignals hasta que
-  // TrendKeywordAgent volviera a tocarlo en su round-robin (hasta ~18h+). Fix: mismo
-  // criterio "datos reales tienen prioridad" que ya aplica a hashtags/hooks arriba.
+  // Merge genérico, no reemplazo — antes esto reconstruía analysis_json desde cero
+  // con solo `summary` (+ trendSignals a mano), así que CUALQUIER otra clave que otro
+  // agente hubiera escrito ahí (ej. engagementPatterns de CrossTenantIntelligenceAgent,
+  // ver mismo patrón en ese archivo) se borraba cada corrida semanal — enmascarado la
+  // mayoría de las semanas solo porque CrossTenantIntelligenceAgent corre justo
+  // después en la cadena semanal y la vuelve a escribir minutos más tarde, pero
+  // cualquier otro campo o un reordenamiento futuro se perdía sin avisar. Fix: parte
+  // del analysis_json existente completo y solo pisa encima summary (lo que este
+  // agente sí genera) y trendSignals validado (mismo criterio "datos reales tienen
+  // prioridad" que ya aplica a hashtags/hooks arriba) — todo lo demás sobrevive tal
+  // cual. Sin fila previa, existingAnalysis es {} y el resultado es idéntico al
+  // comportamiento anterior para filas nuevas.
+  const existingAnalysis = existing ? safeParseObject(existing.analysis_json) ?? {} : {};
   const analysisJson = JSON.stringify({
+    ...existingAnalysis,
     summary: payload.analysis,
     ...(existingTrendSignals ? { trendSignals: existingTrendSignals } : {}),
   });
