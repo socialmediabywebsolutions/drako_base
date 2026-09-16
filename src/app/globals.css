@@ -322,6 +322,26 @@ body::before {
 
 .sf-ticker-track { animation: sf-ticker 28s linear infinite; }
 
+/* Onboarding "Primeros pasos" — mensajes de carga que aparecen uno a uno. */
+@keyframes sf-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sf-fade-in { animation: sf-fade-in 0.5s ease-out forwards; }
+
+/* Auditoría — grafo SVG animado (nodos pulsando + aristas fluyendo). */
+@keyframes sf-node-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.25); }
+}
+.sf-node-pulse { animation: sf-node-pulse 2.2s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+
+@keyframes sf-edge-flow {
+  0%   { stroke-dashoffset: 16; }
+  100% { stroke-dashoffset: 0; }
+}
+.sf-edge-flow { animation: sf-edge-flow 1.4s linear infinite; }
+
 .auth-input {
   display: block;
   width: 100%;

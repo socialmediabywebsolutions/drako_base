@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import EmpresaChecklist from "@/components/socialflow/EmpresaChecklist";
+import ChecklistLoadingSequence from "./ChecklistLoadingSequence";
 import type { ChecklistItem } from "@/lib/socialflow/onboarding/checklistRepository";
 
 const SOCIAL_NETWORKS = [
@@ -396,9 +397,7 @@ export default function SocialFlowOnboardingPage() {
             <p className="text-xs text-white/40">Puedes hacerlo ahora o más tarde desde el menú lateral.</p>
           </div>
           {checklistLoading || !checklist ? (
-            <div className="rounded-2xl border border-white/10 bg-white/4 p-6 text-center text-sm text-white/40">
-              Cargando checklist...
-            </div>
+            <ChecklistLoadingSequence />
           ) : (
             <EmpresaChecklist
               items={checklist.items}

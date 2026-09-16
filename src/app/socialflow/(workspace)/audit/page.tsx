@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import AuditLoadingGraph from "./AuditLoadingGraph";
 
 type AuditAreaScore = { area: string; score: number; notes: string };
 type AuditRecommendation = { title: string; description: string; impact: "high" | "medium" | "low" };
@@ -90,12 +91,7 @@ export default function SocialFlowAuditPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-sm text-white/45">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-violet-500" />
-        Analizando tu presencia social con IA...
-      </div>
-    );
+    return <AuditLoadingGraph />;
   }
 
   if (error && !audit) {
