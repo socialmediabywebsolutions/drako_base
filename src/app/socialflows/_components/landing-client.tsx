@@ -406,7 +406,7 @@ export default function LandingClient() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           {/* Logo */}
           <div className="flex items-center gap-2.5">
-            <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-perfil.png" alt="Socialcors" className="h-14 w-14 object-contain" />
+            <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-perfil.png" alt="Socialcors" className="h-16 w-16 object-contain" />
             <span className="text-lg font-black tracking-tight" style={{ color: INK }}>Socialcors</span>
           </div>
           {/* Actions */}
@@ -789,12 +789,12 @@ export default function LandingClient() {
 
       {/* ── FOOTER ────────────────────────────────────────────────────────── */}
       <footer className="border-t border-black/5" style={{ backgroundColor: BG }}>
-        {/* Logo — banda de cierre a ancho completo, fondo oscuro */}
-        <div className="flex w-full justify-center bg-gray-900 py-6">
+        {/* Logo — banda de cierre a ancho completo, sin fondo, imagen de lado a lado */}
+        <div className="w-full">
           <img
             src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-cabecera.png"
             alt="Socialcors"
-            className="h-auto w-full max-w-lg object-contain"
+            className="h-auto w-full object-cover"
           />
         </div>
         <div className="mx-auto max-w-6xl px-6 py-10">
