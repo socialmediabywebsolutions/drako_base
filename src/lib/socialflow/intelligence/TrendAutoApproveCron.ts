@@ -1,14 +1,17 @@
 import type { DracoEnv } from "@/lib/cf";
-import { isAutoPublishBlockedByPrivatePilotMode } from "@/lib/socialflow/private-pilot";
+import { isTenantAllowedInPrivatePilot } from "@/lib/socialflow/private-pilot";
 
-// Nivel 3 — auto-aprobación con ventana de veto, SOLO para el tenant interno
-// (775444ce). No toca SocialFlowOrchestrator.persistToDb(): los posts siguen
-// naciendo en DRAFT exactamente igual que hoy. Preserva scheduled_at (no lo pisa a
-// "ahora") — el margen de veto real es esta ventana de espera MÁS el tiempo hasta
-// scheduled_at, que SchedulerAgent ya calculó al horario óptimo del nicho. Solo se
-// reduce a lo que tarde el cron nativo de publicación (cada 1min, mismo worker) en
-// recogerlo si ese scheduled_at ya venció para cuando este cron corre.
-const TREND_TRIGGER_TENANT_ID = "775444ce-5ed0-4e69-864f-dc3e0d886817";
+// Nivel 3 — auto-aprobación con ventana de veto. Generalizado el 16/09 para cubrir
+// TODOS los tenants activos, no solo el piloto interno (775444ce) — mismo cambio que
+// ya se hizo en TrendTriggerConnector.ts el 13/09: ese conector lleva 3 días
+// generando TRIGGERED reales para cualquier tenant (ver el de Sofía Marén,
+// ea85eb95, atascado 76h porque este cron seguía filtrando solo por el tenant
+// interno). No toca SocialFlowOrchestrator.persistToDb(): los posts siguen naciendo
+// en DRAFT exactamente igual que hoy. Preserva scheduled_at (no lo pisa a "ahora") —
+// el margen de veto real es esta ventana de espera MÁS el tiempo hasta scheduled_at,
+// que SchedulerAgent ya calculó al horario óptimo del nicho. Solo se reduce a lo que
+// tarde el cron nativo de publicación (cada 1min, mismo worker) en recogerlo si ese
+// scheduled_at ya venció para cuando este cron corre.
 const VETO_WINDOW_MINUTES = 45;
 
 // Mismo patrón que TrendTriggerConnector.ts: SOCIALFLOW_DISABLE_AI solo se expone vía
@@ -33,36 +36,40 @@ export async function runTrendAutoApproveCron(env: DracoEnv): Promise<TrendAutoA
   const db = env?.SOCIAL_DB;
   if (!db) return { ok: true, candidates: 0, approved: 0, generationFailed: 0 };
 
-  // Mismo kill-switch que ya respeta processScheduledPosts() antes de publicar
-  // (isAutoPublishBlockedByPrivatePilotMode) — si está bloqueado, no tiene sentido
-  // mover DRAFT→SCHEDULED aquí para que se quede varado esperando ese mismo bloqueo
-  // río abajo. No-op silencioso, nunca un error. El check de GENERATION_FAILED de
-  // abajo también se salta a propósito: si el operador desactivó la IA a mano, un
-  // TRIGGERED sin post todavía no es necesariamente un fallo real de generación.
+  // Kill-switch global — si el operador desactivó la IA a mano, un TRIGGERED sin post
+  // todavía no es necesariamente un fallo real de generación, así que también se salta
+  // la reconciliación GENERATION_FAILED de abajo (no solo la auto-aprobación). No-op
+  // silencioso, nunca un error.
   if (isAiGenerationDisabled()) {
     return { ok: true, candidates: 0, approved: 0, generationFailed: 0, skipped: "AI_DISABLED" };
-  }
-  if (isAutoPublishBlockedByPrivatePilotMode(env)) {
-    return { ok: true, candidates: 0, approved: 0, generationFailed: 0, skipped: "PRIVATE_PILOT_AUTOPUBLISH_BLOCKED" };
   }
 
   try {
     const cutoff = new Date(Date.now() - VETO_WINDOW_MINUTES * 60 * 1000).toISOString();
 
-    // scheduled_at IS NOT NULL: mismo requisito que ya exige processScheduledPosts()
-    // para publicar — auto-aprobar un DRAFT sin scheduled_at solo lo dejaría varado
-    // en SCHEDULED sin publicarse nunca, sin ganar nada.
+    // Ya NO se filtra por tenant_id — TrendTriggerConnector.ts genera TRIGGERED para
+    // cualquier tenant activo desde el 13/09, así que este cron debe poder resolverlos
+    // a todos, no solo al piloto interno. scheduled_at IS NOT NULL: mismo requisito que
+    // ya exige processScheduledPosts() para publicar — auto-aprobar un DRAFT sin
+    // scheduled_at solo lo dejaría varado en SCHEDULED sin publicarse nunca.
     const { results: candidates } = await db
       .prepare(
-        `SELECT id, campaign_id FROM saas_social_posts
-         WHERE tenant_id = ? AND status = 'DRAFT' AND creation_mode = 'AUTO'
+        `SELECT id, tenant_id, campaign_id FROM saas_social_posts
+         WHERE status = 'DRAFT' AND creation_mode = 'AUTO'
            AND scheduled_at IS NOT NULL AND datetime(created_at) <= datetime(?)`,
       )
-      .bind(TREND_TRIGGER_TENANT_ID, cutoff)
-      .all<{ id: string; campaign_id: string | null }>();
+      .bind(cutoff)
+      .all<{ id: string; tenant_id: string; campaign_id: string | null }>();
 
     let approved = 0;
     for (const candidate of candidates ?? []) {
+      // AUTO-PUBLICACIÓN: aquí (no en la reconciliación de abajo) es donde este cron
+      // realmente "publica" — pasar un post a SCHEDULED lo entrega al cron nativo de
+      // publicación. Mismo criterio que el queue.send() de TrendTriggerConnector.ts:
+      // isTenantAllowedInPrivatePilot gatea solo esta acción, nunca el marcado de
+      // estados (la reconciliación GENERATION_FAILED de abajo corre para todos).
+      if (!isTenantAllowedInPrivatePilot(candidate.tenant_id, env)) continue;
+
       const now = new Date().toISOString();
       // Escritura condicional por status = 'DRAFT': si un humano rechazó justo antes,
       // esta fila ya no matchea y el UPDATE simplemente no la toca — gana el veto,
@@ -99,20 +106,21 @@ export async function runTrendAutoApproveCron(env: DracoEnv): Promise<TrendAutoA
     // encoló. Reusa el mismo `cutoff` — un post que sí aterrizó pero sigue en DRAFT
     // dentro de la ventana ya lo cubre el loop de arriba en esta misma corrida o en la
     // siguiente, así que "TRIGGERED viejo" es un fallo real, no una carrera con el loop
-    // de auto-aprobación.
+    // de auto-aprobación. Sin filtro de tenant_id (todos) NI de isTenantAllowedInPrivatePilot
+    // — es puro marcado de estados, nunca causa una publicación, así que nunca se gatea.
     const { results: staleTriggers } = await db
       .prepare(
-        `SELECT id, campaign_id FROM socialcors_trend_triggers
-         WHERE tenant_id = ? AND status = 'TRIGGERED' AND datetime(created_at) <= datetime(?)`,
+        `SELECT id, tenant_id, campaign_id FROM socialcors_trend_triggers
+         WHERE status = 'TRIGGERED' AND datetime(created_at) <= datetime(?)`,
       )
-      .bind(TREND_TRIGGER_TENANT_ID, cutoff)
-      .all<{ id: string; campaign_id: string }>();
+      .bind(cutoff)
+      .all<{ id: string; tenant_id: string; campaign_id: string }>();
 
     let generationFailed = 0;
     for (const trigger of staleTriggers ?? []) {
       const hasPost = await db
         .prepare(`SELECT 1 as found FROM saas_social_posts WHERE tenant_id = ? AND campaign_id = ? LIMIT 1`)
-        .bind(TREND_TRIGGER_TENANT_ID, trigger.campaign_id)
+        .bind(trigger.tenant_id, trigger.campaign_id)
         .first<{ found: number }>();
       if (hasPost) continue; // aterrizó pero sigue DRAFT dentro de ventana — no es un fallo
 
