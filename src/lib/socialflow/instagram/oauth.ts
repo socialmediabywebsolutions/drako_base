@@ -121,6 +121,30 @@ export function resolveInstagramCallbackUrl(request: Request): string {
   }
 }
 
+// Bug fix — Instagram OAuth losing the session on return: callbackUrl above is
+// deliberately pinned to APP_URL (Meta's redirect_uri must match exactly), but
+// this app is routed on more than one custom domain (socialflow.drako.systems
+// and socialcors.com). A user browsing on the domain that ISN'T APP_URL still
+// gets sent through APP_URL for the Meta round-trip; if the final redirect
+// back to the dashboard also stayed on APP_URL's origin, their __Host-
+// (origin-locked) session cookie — only ever set for the domain they actually
+// logged in on — would never be sent, so the workspace layout sees no session
+// and bounces them to the public landing. Captured here, BEFORE the detour,
+// so the callback can send them back to the origin their cookie belongs to.
+function resolveRequestOrigin(request: Request): string | null {
+  const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.trim();
+  if (forwardedHost) {
+    const proto = forwardedProto || (forwardedHost.startsWith("localhost") ? "http" : "https");
+    return `${proto}://${forwardedHost}`;
+  }
+  try {
+    return new URL(request.url).origin;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // State encoding / decoding
 // ---------------------------------------------------------------------------
@@ -143,6 +167,7 @@ export async function buildInstagramAuthorizationUrl(input: {
     saasId: input.saasId,
     redirectTo: input.redirectTo?.trim() || `${SETTINGS_REDIRECT}?saasId=${encodeURIComponent(input.saasId)}`,
     callbackUrl,
+    originUrl: resolveRequestOrigin(input.request),
   });
   console.log("INSTAGRAM_BUILD_AUTH_URL", { appId, callbackUrl });
 

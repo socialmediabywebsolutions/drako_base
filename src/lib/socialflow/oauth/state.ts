@@ -32,6 +32,10 @@ type OAuthStateClaims = {
   // the rest of the state instead of being recomputed (and potentially
   // drifting) at callback time. Meta/LinkedIn leave it null.
   callbackUrl: string | null;
+  // The user's real browsing origin at /connect time — see normalizeOAuthOrigin
+  // above for why this exists. Optional/null for states signed before this field
+  // existed, or for a caller that never had a trustworthy origin to capture.
+  originUrl: string | null;
   nonce: string;
   iat: number;
 };
@@ -43,6 +47,7 @@ export type VerifiedOAuthState = {
   saasId: string;
   redirectTo: string | null;
   callbackUrl: string | null;
+  originUrl: string | null;
   nonce: string;
   issuedAt: number;
 };
@@ -75,6 +80,38 @@ export function normalizeOAuthRedirectPath(path: string | null | undefined): str
   if (!trimmed.startsWith("/")) return null;
   if (trimmed.startsWith("//")) return null;
   return trimmed;
+}
+
+// ---------------------------------------------------------------------------
+// Origin allowlisting for originUrl — bug fix (Instagram OAuth losing session):
+// the callback always lands on the fixed origin registered as Meta's
+// redirect_uri (resolveInstagramCallbackUrl's APP_URL), which can differ from
+// the origin the user was actually browsing (this app is routed on both
+// socialflow.drako.systems and socialcors.com). Session cookies are __Host-
+// prefixed (origin-locked), so a final redirect built off the callback
+// request's own origin silently drops the cookie whenever those two origins
+// differ. originUrl carries the user's REAL origin (captured at /connect time,
+// before the Meta detour) through the signed state, so the callback's last
+// hop can send them back to the origin their cookie actually belongs to.
+// Same trust-boundary reasoning as normalizeOAuthRedirectPath: validate both
+// when signing (untrusted request data going in) and when consuming (defense
+// in depth — the signature already proves no tampering, this just guards
+// against a stale/misconfigured value ever producing an open redirect).
+// ---------------------------------------------------------------------------
+
+const ALLOWED_OAUTH_ORIGIN_HOSTS = new Set(["socialflow.drako.systems", "socialcors.com"]);
+
+export function normalizeOAuthOrigin(origin: string | null | undefined): string | null {
+  if (!origin) return null;
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return url.origin; // local dev
+    if (!ALLOWED_OAUTH_ORIGIN_HOSTS.has(url.hostname)) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +170,7 @@ function resolveOAuthStateSecret(): string {
 }
 
 function buildSignatureInput(claims: OAuthStateClaims): string {
-  return `${claims.provider}\n${claims.tenantId}\n${claims.saasId}\n${claims.redirectTo ?? ""}\n${claims.callbackUrl ?? ""}\n${claims.nonce}\n${claims.iat}`;
+  return `${claims.provider}\n${claims.tenantId}\n${claims.saasId}\n${claims.redirectTo ?? ""}\n${claims.callbackUrl ?? ""}\n${claims.originUrl ?? ""}\n${claims.nonce}\n${claims.iat}`;
 }
 
 async function signClaims(claims: OAuthStateClaims, secret: string): Promise<string> {
@@ -158,6 +195,7 @@ export async function signOAuthState(input: {
   saasId: string;
   redirectTo?: string | null;
   callbackUrl?: string | null;
+  originUrl?: string | null;
   now?: number;
 }): Promise<string> {
   const secret = resolveOAuthStateSecret();
@@ -167,6 +205,7 @@ export async function signOAuthState(input: {
     saasId: input.saasId.trim(),
     redirectTo: normalizeOAuthRedirectPath(input.redirectTo),
     callbackUrl: input.callbackUrl?.trim() || null,
+    originUrl: normalizeOAuthOrigin(input.originUrl),
     nonce: generateNonce(),
     iat: input.now ?? Date.now(),
   };
@@ -188,6 +227,9 @@ function decodeClaims(rawState: string): (OAuthStateClaims & { sig: string }) | 
     const saasId = typeof parsed.saasId === "string" ? parsed.saasId.trim() : "";
     const redirectTo = typeof parsed.redirectTo === "string" ? parsed.redirectTo : null;
     const callbackUrl = typeof parsed.callbackUrl === "string" ? parsed.callbackUrl : null;
+    // Absent on states signed before this field existed — treated the same as null,
+    // never as a decode failure, so in-flight states across a deploy still verify.
+    const originUrl = typeof parsed.originUrl === "string" ? parsed.originUrl : null;
     const nonce = typeof parsed.nonce === "string" ? parsed.nonce.trim() : "";
     const iat = typeof parsed.iat === "number" ? parsed.iat : NaN;
     const sig = typeof parsed.sig === "string" ? parsed.sig.trim() : "";
@@ -199,7 +241,7 @@ function decodeClaims(rawState: string): (OAuthStateClaims & { sig: string }) | 
       return null;
     }
 
-    return { provider, tenantId, saasId, redirectTo, callbackUrl, nonce, iat, sig };
+    return { provider, tenantId, saasId, redirectTo, callbackUrl, originUrl, nonce, iat, sig };
   } catch {
     return null;
   }
@@ -226,6 +268,7 @@ export async function verifyOAuthState(
       saasId: claims.saasId,
       redirectTo: claims.redirectTo,
       callbackUrl: claims.callbackUrl,
+      originUrl: claims.originUrl,
       nonce: claims.nonce,
       iat: claims.iat,
     },
@@ -240,6 +283,7 @@ export async function verifyOAuthState(
     saasId: claims.saasId,
     redirectTo: normalizeOAuthRedirectPath(claims.redirectTo),
     callbackUrl: claims.callbackUrl,
+    originUrl: normalizeOAuthOrigin(claims.originUrl),
     nonce: claims.nonce,
     issuedAt: claims.iat,
   };
