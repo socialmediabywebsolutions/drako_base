@@ -23,6 +23,14 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_GIT_SHA: gitSha,
     NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "pub-04c730a67921499bac35a1f62402cc17.r2.dev",
+      },
+    ],
+  },
   // Ensure tracing resolves packages from the workspace root when running inside monorepo-like setups.
 
   // outputFileTracingRoot: __dirname,
