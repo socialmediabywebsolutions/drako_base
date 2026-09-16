@@ -174,9 +174,9 @@ export default function SidebarNav({
     <aside className="flex w-64 shrink-0 flex-col border-r border-white/8 bg-[#06060f]">
       <div className="flex flex-col gap-5 p-5 flex-1 overflow-y-auto">
 
-        {/* Logo — /public/logo-cabecera.png local, sin dependencias externas */}
+        {/* Logo */}
         <div className="flex items-center gap-2.5 pt-1 pb-1">
-          <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-cabecera.png" alt="Socialcors" className="h-8 w-auto" />
+          <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-perfil.png" alt="Socialcors" className="h-10 w-10 object-contain" />
           <span className="text-base font-black tracking-tight text-white">
             Social<span className="sf-shimmer-text">cors</span>
           </span>
