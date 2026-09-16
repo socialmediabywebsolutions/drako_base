@@ -174,11 +174,13 @@ export default function SidebarNav({
     <aside className="flex w-64 shrink-0 flex-col border-r border-white/8 bg-[#06060f]">
       <div className="flex flex-col gap-5 p-5 flex-1 overflow-y-auto">
 
-        {/* Logo */}
+        {/* Logo — R2 como fuente de verdad única, ver WeeklyBriefingAgent.ts */}
         <div className="flex items-center gap-2.5 pt-1 pb-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-xs font-black text-white shadow-md shadow-violet-500/20">
-            SC
-          </div>
+          <img
+            src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png"
+            alt="Socialcors"
+            className="h-8 w-auto"
+          />
           <span className="text-base font-black tracking-tight text-white">
             Social<span className="sf-shimmer-text">cors</span>
           </span>

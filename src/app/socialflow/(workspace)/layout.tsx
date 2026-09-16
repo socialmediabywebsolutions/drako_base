@@ -17,6 +17,12 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
+  // Favicon/perfil — R2 como fuente de verdad única, mismo bucket que el logo de
+  // cabecera y el de los emails (WeeklyBriefingAgent.ts).
+  icons: {
+    icon: "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-perfil.png",
+    apple: "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-perfil.png",
+  },
 };
 
 export default async function SocialFlowWorkspaceLayout({

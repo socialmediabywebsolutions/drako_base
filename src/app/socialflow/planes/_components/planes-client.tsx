@@ -323,12 +323,11 @@ export default function PlanesClient() {
       ].join(" ")}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/socialflows" className="flex items-center gap-2.5">
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded-lg shadow-lg"
-              style={{ background: `linear-gradient(135deg, ${ACCENT_SOFT}, ${ACCENT})`, boxShadow: `0 8px 20px ${ACCENT}33` }}
-            >
-              <span className="text-xs font-black text-white">SC</span>
-            </div>
+            <img
+              src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png"
+              alt="Socialcors"
+              className="h-8 w-auto"
+            />
             <span className="text-lg font-black tracking-tight" style={{ color: INK }}>Socialcors</span>
           </Link>
           <div className="flex items-center gap-3">

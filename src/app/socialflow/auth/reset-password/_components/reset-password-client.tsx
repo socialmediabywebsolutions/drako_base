@@ -29,11 +29,13 @@ function Card({ children }: { children: React.ReactNode }) {
       />
 
       <section className="relative mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-5 py-16">
-        {/* Logo */}
+        {/* Logo — R2 como fuente de verdad única, ver WeeklyBriefingAgent.ts */}
         <div className="mb-8 flex items-center gap-3 self-start">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-black shadow-lg shadow-violet-500/30">
-            SC
-          </div>
+          <img
+            src="https://pub-04c730a67921499bac35a1f62402cc17.r2.dev/assets/logo-cabecera.png"
+            alt="Socialcors"
+            className="h-10 w-auto"
+          />
           <span className="text-xl font-black tracking-tight">
             Social<span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">cors</span>
           </span>
