@@ -31,7 +31,7 @@ function Card({ children }: { children: React.ReactNode }) {
       <section className="relative mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-5 py-16">
         {/* Logo — /public/logo-cabecera.png local, sin dependencias externas */}
         <div className="mb-8 flex items-center gap-3 self-start">
-          <img src="/logo-cabecera.png" alt="Socialcors" className="h-10 w-auto" />
+          <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-cabecera.png" alt="Socialcors" className="h-10 w-auto" />
           <span className="text-xl font-black tracking-tight">
             Social<span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">cors</span>
           </span>

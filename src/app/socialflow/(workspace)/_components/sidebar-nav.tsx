@@ -176,7 +176,7 @@ export default function SidebarNav({
 
         {/* Logo — /public/logo-cabecera.png local, sin dependencias externas */}
         <div className="flex items-center gap-2.5 pt-1 pb-1">
-          <img src="/logo-cabecera.png" alt="Socialcors" className="h-8 w-auto" />
+          <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-cabecera.png" alt="Socialcors" className="h-8 w-auto" />
           <span className="text-base font-black tracking-tight text-white">
             Social<span className="sf-shimmer-text">cors</span>
           </span>

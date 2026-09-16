@@ -323,7 +323,7 @@ export default function PlanesClient() {
       ].join(" ")}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/socialflows" className="flex items-center gap-2.5">
-            <img src="/logo-cabecera.png" alt="Socialcors" className="h-8 w-auto" />
+            <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-cabecera.png" alt="Socialcors" className="h-8 w-auto" />
             <span className="text-lg font-black tracking-tight" style={{ color: INK }}>Socialcors</span>
           </Link>
           <div className="flex items-center gap-3">

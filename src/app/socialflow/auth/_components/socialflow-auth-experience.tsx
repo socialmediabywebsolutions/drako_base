@@ -279,7 +279,7 @@ export default function SocialFlowAuthExperience() {
             {/* Left — sales content */}
             <div className="mb-10 w-full max-w-xl lg:mb-0 lg:flex-1">
               <Link href="/" className="mb-8 flex items-center gap-3">
-                <img src="/logo-cabecera.png" alt="Socialcors" className="h-10 w-auto" />
+                <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-cabecera.png" alt="Socialcors" className="h-10 w-auto" />
                 <span className="text-xl font-black tracking-tight" style={{ color: INK }}>
                   Socialcors
                 </span>
@@ -378,7 +378,7 @@ export default function SocialFlowAuthExperience() {
                 state, qué previsualizar — no cambia la URL) */}
             <div className="mb-10 w-full max-w-xl lg:mb-0 lg:flex-1">
               <Link href="/" className="mb-8 flex items-center gap-3">
-                <img src="/logo-cabecera.png" alt="Socialcors" className="h-10 w-auto" />
+                <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-cabecera.png" alt="Socialcors" className="h-10 w-auto" />
                 <span className="text-xl font-black tracking-tight" style={{ color: INK }}>
                   Socialcors
                 </span>
