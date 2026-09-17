@@ -86,6 +86,20 @@ export default function SocialFlowAuthExperience() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    if (mode === "register" && !name.trim()) {
+      setError("Introduce tu nombre.");
+      return;
+    }
+    if (!email.trim()) {
+      setError("Introduce tu correo electrónico.");
+      return;
+    }
+    if (!password) {
+      setError("Introduce tu contraseña.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     const endpoint =
@@ -179,7 +193,7 @@ export default function SocialFlowAuthExperience() {
             : (typeConfig?.registerSubtitle ?? "Empieza gratis 15 días — sin tarjeta de crédito")}
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           {mode === "register" && (
             <FieldLabel label="Tu nombre">
               <input
