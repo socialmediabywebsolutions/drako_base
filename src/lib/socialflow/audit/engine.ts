@@ -39,6 +39,14 @@ function nonEmptyList(value: string[] | null | undefined): boolean {
   return Array.isArray(value) && value.length > 0;
 }
 
+function parsePercent(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const match = value.match(/-?\d+(\.\d+)?/);
+  if (!match) return null;
+  const num = Number(match[0]);
+  return Number.isFinite(num) ? num : null;
+}
+
 function scoreBrandIdentity(profile: ChannelProfile): AuditAreaScore {
   const checks = [
     filled(profile.brandName),
@@ -104,6 +112,57 @@ function scoreCompetitivePositioning(profile: ChannelProfile, competitors: Chann
     ? `Se han identificado ${competitors.length} competidores para comparar.`
     : "Se necesitan mas competidores mapeados para una comparativa solida.";
   return { area: "Posicionamiento competitivo", score, notes };
+}
+
+function howStepsForArea(area: string): string[] {
+  const key = area.toLowerCase();
+  if (key.includes("identidad")) {
+    return [
+      "Ve a Mi Perfil → Identidad de marca.",
+      "Completa nombre, tono de voz, nicho y diferenciadores con datos reales de tu negocio.",
+      "Guarda y regenera la auditoría para confirmar la mejora.",
+    ];
+  }
+  if (key.includes("audiencia")) {
+    return [
+      "Ve a Mi Perfil → Audiencia.",
+      "Define el buyer persona, dolores y deseos de tu público objetivo.",
+      "Cuanto más detalle aportes, mejor podrá segmentar el Cerebro el contenido.",
+    ];
+  }
+  if (key.includes("estrategia") || key.includes("contenido")) {
+    return [
+      "Ve a Mi Perfil → Estrategia de contenido.",
+      "Define tus pilares de contenido, temas principales y formatos preferidos.",
+      "Fija una frecuencia de publicación objetivo realista.",
+    ];
+  }
+  if (key.includes("presencia")) {
+    return [
+      "Ve a Conectar redes.",
+      "Vincula al menos una cuenta de Instagram o LinkedIn activa.",
+      "Verifica que la conexión quede en estado activo antes de publicar.",
+    ];
+  }
+  if (key.includes("competitiv")) {
+    return [
+      "Ve a Mi Perfil → Competidores.",
+      "Añade al menos 3 competidores relevantes de tu nicho con su usuario o página.",
+      "Revisa sus formatos y frecuencia para detectar oportunidades.",
+    ];
+  }
+  if (key.includes("rendimiento") || key.includes("real")) {
+    return [
+      "Publica con mayor frecuencia para generar más datos reales.",
+      "Revisa qué formatos generan más impresiones y engagement.",
+      "Ajusta tu calendario de contenido según lo que mejor funcione.",
+    ];
+  }
+  return [
+    "Revisa este apartado en Mi Perfil.",
+    "Actualiza la información con datos reales y específicos.",
+    "Regenera la auditoría para verificar la mejora.",
+  ];
 }
 
 function scoreEngagementMetrics(metrics: AuditMetrics | null | undefined): AuditAreaScore | null {
@@ -178,14 +237,36 @@ function buildHeuristicBase(input: AuditEngineInput): AuditBase {
       title: `Mejorar: ${area.area}`,
       description: area.notes,
       impact: area.score < 40 ? "high" : area.score < 70 ? "medium" : "low",
+      how: howStepsForArea(area.area),
     }));
 
-  const competitorComparison: AuditCompetitorComparison[] = competitors.slice(0, 5).map((competitor) => ({
-    competitor: competitor.name,
-    comparison: competitor.engagementRate
-      ? `Engagement reportado: ${competitor.engagementRate}. Compara tu actividad reciente con este referente.`
-      : "Sin datos de engagement aun: registra metricas para comparar con tu marca.",
-  }));
+  const ownEngagementRate = metrics?.followersCount && metrics.followersCount > 0
+    ? (metrics.engagement / metrics.followersCount) * 100
+    : null;
+
+  const competitorComparison: AuditCompetitorComparison[] = competitors.slice(0, 5).map((competitor) => {
+    const competitorRate = parsePercent(competitor.engagementRate);
+    const vsAccount = ownEngagementRate != null && competitorRate != null
+      ? {
+          direction: (ownEngagementRate > competitorRate ? "up" : ownEngagementRate < competitorRate ? "down" : "equal") as
+            | "up"
+            | "down"
+            | "equal",
+          diff: `${Math.abs(ownEngagementRate - competitorRate).toFixed(2)}pp ${ownEngagementRate >= competitorRate ? "por encima" : "por debajo"} de ${competitor.name}`,
+        }
+      : null;
+
+    return {
+      competitor: competitor.name,
+      comparison: competitor.engagementRate
+        ? `Engagement reportado: ${competitor.engagementRate}. Compara tu actividad reciente con este referente.`
+        : "Sin datos de engagement aun: registra metricas para comparar con tu marca.",
+      followers: null,
+      engagementRate: competitor.engagementRate ?? null,
+      postingFrequency: competitor.postingFrequency ?? null,
+      vsAccount,
+    };
+  });
 
   const summary = `Score global de presencia social: ${score}/100. ` +
     `${strengths.length} area(s) fuerte(s), ${weaknesses.length} area(s) por mejorar.`;
@@ -221,21 +302,31 @@ Perfil de marca:
 - Temas principales: ${profile.mainTopics?.join(", ") || "(ninguno)"}
 ${metricsSection}
 Competidores (${competitors.length}):
-${competitors.map((c) => `- ${c.name} (${c.platform}${c.handle ? `, ${c.handle}` : ""})`).join("\n") || "(sin competidores)"}
+${competitors.map((c) => `- ${c.name} (${c.platform}${c.handle ? `, ${c.handle}` : ""}) — engagementRate: ${c.engagementRate ?? "(sin dato)"}, frecuencia de publicacion: ${c.postingFrequency ?? "(sin dato)"}`).join("\n") || "(sin competidores)"}
 
 Devuelve un JSON con: score global (0-100), desglose por area (areaScores con area/score/notes), fortalezas (strengths),
 debilidades (weaknesses), oportunidades (opportunities), top 5 recomendaciones priorizadas (recommendations con
-title/description/impact), y comparativa con competidores (competitorComparison con competitor/comparison), y un
-resumen ejecutivo (summary). Se especifico y orientado a acciones concretas. Si hay metricas reales, basate en ellas
-para calibrar el score y las recomendaciones.
+title/description/impact/how), y comparativa con competidores (competitorComparison con
+competitor/comparison/followers/engagementRate/postingFrequency/vsAccount), y un resumen ejecutivo (summary). Se
+especifico y orientado a acciones concretas. Si hay metricas reales, basate en ellas para calibrar el score y las
+recomendaciones.
 
 Para cada recommendation, el titulo debe ser una frase corta en lenguaje cotidiano que explique QUE PROBLEMA TIENE el
 cliente (ej: "Tu audiencia no está definida", "No sabes qué publicar cada semana", "Tus hashtags no llegan a nadie
 nuevo"). La description debe explicar en 1-2 frases POR QUÉ le afecta y QUÉ MEJORARÍA si lo resuelve, usando lenguaje
-simple sin tecnicismos. Distingue claramente entre dos tipos: (a) "setup" — algo que falta configurar para que el
-sistema funcione al 100%, empieza el título con "Falta: ", (b) "insight" — algo que el Cerebro detectó analizando tu
-nicho o competencia, empieza con "Detectado: ". El campo impact debe ser "high", "medium" o "low" según el impacto
-real en el crecimiento del cliente.`;
+simple sin tecnicismos. El campo how debe ser un array de 2-3 pasos concretos y accionables para resolver el problema,
+en imperativo (ej: "Ve a Mi Perfil y completa tu buyer persona"). Distingue claramente entre dos tipos: (a) "setup" —
+algo que falta configurar para que el sistema funcione al 100%, empieza el título con "Falta: ", (b) "insight" — algo
+que el Cerebro detectó analizando tu nicho o competencia, empieza con "Detectado: ". El campo impact debe ser "high",
+"medium" o "low" según el impacto real en el crecimiento del cliente.
+
+Para cada competidor en competitorComparison, usa UNICAMENTE los datos reales de engagementRate y frecuencia de
+publicacion listados arriba para ese competidor: copia engagementRate y postingFrequency tal cual (o null si dice
+"(sin dato)"). NUNCA inventes numero de seguidores: el campo followers debe ser siempre null porque no tenemos esa
+metrica. El campo vsAccount debe ser null salvo que tengas tanto la tasa de engagement propia (ver metricas reales
+arriba) como el engagementRate real del competidor; en ese caso calcula la diferencia real y devuelve
+{ direction: "up"|"down"|"equal", diff: "X.XXpp por encima/debajo de <competidor>" }. Si falta cualquiera de los dos
+datos, vsAccount debe ser null. No inventes datos: si no tienes el dato real, usa null.`;
 
   const system =
     "Eres el motor de auditoria social estrategica de SocialFlow. Analiza perfiles de marca y devuelve diagnosticos " +

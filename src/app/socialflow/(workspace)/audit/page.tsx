@@ -6,8 +6,15 @@ import AuditLoadingGraph from "./AuditLoadingGraph";
 import AuditScoreGauge from "./AuditScoreGauge";
 
 type AuditAreaScore = { area: string; score: number; notes: string };
-type AuditRecommendation = { title: string; description: string; impact: "high" | "medium" | "low" };
-type AuditCompetitorComparison = { competitor: string; comparison: string };
+type AuditRecommendation = { title: string; description: string; impact: "high" | "medium" | "low"; how?: string[] };
+type AuditCompetitorComparison = {
+  competitor: string;
+  comparison: string;
+  followers?: number | null;
+  engagementRate?: string | null;
+  postingFrequency?: string | null;
+  vsAccount?: { direction: "up" | "down" | "equal"; diff: string } | null;
+};
 
 type SocialAudit = {
   id: string;
@@ -64,12 +71,42 @@ function pickArea(areas: AuditAreaScore[], keywords: string[]): AuditAreaScore |
   return areas.find((a) => keywords.some((k) => a.area.toLowerCase().includes(k)));
 }
 
+function recTitle(rec: AuditRecommendation): string {
+  return rec.title.replace(/^(Falta|Detectado):\s*/i, "");
+}
+
+function recSteps(rec: AuditRecommendation): string[] {
+  if (rec.how && rec.how.length > 0) return rec.how;
+  const subject = recTitle(rec);
+  return [
+    `Revisa "${subject}" en tu perfil de SocialFlow.`,
+    "Actualiza la información con datos reales y específicos de tu marca.",
+    "Guarda los cambios y regenera la auditoría para confirmar la mejora.",
+  ];
+}
+
+function vsAccountCls(direction: "up" | "down" | "equal"): string {
+  if (direction === "up") return "text-emerald-400";
+  if (direction === "down") return "text-rose-400";
+  return "text-white/50";
+}
+
 export default function SocialFlowAuditPage() {
   const [audit, setAudit] = useState<SocialAudit | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("resumen");
+  const [openRecs, setOpenRecs] = useState<Set<number>>(new Set());
+
+  function toggleRec(idx: number) {
+    setOpenRecs((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }
 
   async function load() {
     setLoading(true);
@@ -240,17 +277,52 @@ export default function SocialFlowAuditPage() {
             <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Alto impacto primero</p>
           </header>
           <div className="space-y-3 px-6 py-5">
-            {sortedRecommendations.map((rec, idx) => (
-              <div key={idx} className="rounded-xl border border-white/8 bg-white/4 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <p className="text-sm font-bold text-white/90">{rec.title}</p>
-                  <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${IMPACT_CLS[rec.impact]}`}>
-                    {IMPACT_LABEL[rec.impact]}
-                  </span>
+            {sortedRecommendations.map((rec, idx) => {
+              const isOpen = openRecs.has(idx);
+              return (
+                <div key={idx} className="rounded-xl border border-white/8 bg-white/4">
+                  <button
+                    type="button"
+                    onClick={() => toggleRec(idx)}
+                    className="flex w-full flex-wrap items-start justify-between gap-3 p-4 text-left"
+                    aria-expanded={isOpen}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className={`mt-0.5 shrink-0 text-white/35 transition-transform ${isOpen ? "rotate-90" : ""}`}>
+                        ▸
+                      </span>
+                      <p className="text-sm font-bold text-white/90">{rec.title}</p>
+                    </div>
+                    <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${IMPACT_CLS[rec.impact]}`}>
+                      {IMPACT_LABEL[rec.impact]}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="sf-fade-in space-y-3 border-t border-white/8 px-4 py-4 pl-9">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-300">Qué</p>
+                        <p className="mt-1 text-sm leading-6 text-white/70">{recTitle(rec)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-300">Por qué</p>
+                        <p className="mt-1 text-sm leading-6 text-white/70">{rec.description}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-300">Cómo</p>
+                        <ol className="mt-1 space-y-1.5">
+                          {recSteps(rec).map((step, stepIdx) => (
+                            <li key={stepIdx} className="flex gap-2 text-sm leading-6 text-white/70">
+                              <span className="shrink-0 text-white/35">{stepIdx + 1}.</span>
+                              <span>{step}</span>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <p className="mt-2 text-sm leading-6 text-white/55">{rec.description}</p>
-              </div>
-            ))}
+              );
+            })}
             {sortedRecommendations.length === 0 && (
               <p className="text-sm text-white/35">Sin recomendaciones por ahora.</p>
             )}
@@ -271,14 +343,46 @@ export default function SocialFlowAuditPage() {
               </div>
             ) : (
               audit.competitorComparison.map((item, idx) => (
-                <div key={idx} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-white/8 bg-white/4 p-4">
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-white/90">{item.competitor}</p>
-                    <p className="mt-1 text-sm leading-6 text-white/55">{item.comparison}</p>
+                <div key={idx} className="rounded-xl border border-white/8 bg-white/4 p-4">
+                  <p className="text-sm font-bold text-white/90">{item.competitor}</p>
+                  <p className="mt-1 text-sm leading-6 text-white/55">{item.comparison}</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Seguidores</p>
+                      {item.followers ? (
+                        <p className="mt-1 text-sm font-semibold text-white/80">{item.followers.toLocaleString("es-ES")}</p>
+                      ) : (
+                        <p className="mt-1 text-sm text-white/30">Sin datos aún</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Engagement rate</p>
+                      {item.engagementRate ? (
+                        <p className="mt-1 text-sm font-semibold text-white/80">{item.engagementRate}</p>
+                      ) : (
+                        <p className="mt-1 text-sm text-white/30">Sin datos aún</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Frecuencia de publicación</p>
+                      {item.postingFrequency ? (
+                        <p className="mt-1 text-sm font-semibold text-white/80">{item.postingFrequency}</p>
+                      ) : (
+                        <p className="mt-1 text-sm text-white/30">Sin datos aún</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Vs. tu cuenta</p>
+                      {item.vsAccount ? (
+                        <p className={`mt-1 text-sm font-semibold ${vsAccountCls(item.vsAccount.direction)}`}>
+                          {item.vsAccount.direction === "up" ? "↑ " : item.vsAccount.direction === "down" ? "↓ " : "= "}
+                          {item.vsAccount.diff}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-sm text-white/30">Sin datos aún</p>
+                      )}
+                    </div>
                   </div>
-                  <span className="shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">
-                    Con datos
-                  </span>
                 </div>
               ))
             )}
