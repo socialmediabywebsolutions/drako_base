@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AuditLoadingGraph from "./AuditLoadingGraph";
+import AuditScoreGauge from "./AuditScoreGauge";
 
 type AuditAreaScore = { area: string; score: number; notes: string };
 type AuditRecommendation = { title: string; description: string; impact: "high" | "medium" | "low" };
@@ -24,6 +25,15 @@ type SocialAudit = {
 
 type AuditResponse = { ok: boolean; audit?: SocialAudit; message?: string; error?: string };
 
+type TabId = "resumen" | "fortalezas" | "recomendaciones" | "competidores";
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: "resumen", label: "Resumen" },
+  { id: "fortalezas", label: "Fortalezas y debilidades" },
+  { id: "recomendaciones", label: "Recomendaciones" },
+  { id: "competidores", label: "Competidores" },
+];
+
 const IMPACT_LABEL: Record<AuditRecommendation["impact"], string> = {
   high: "Alto impacto",
   medium: "Impacto medio",
@@ -35,6 +45,8 @@ const IMPACT_CLS: Record<AuditRecommendation["impact"], string> = {
   medium: "bg-amber-500/15 text-amber-300 border-amber-500/25",
   low: "bg-white/8 text-white/45 border-white/10",
 };
+
+const IMPACT_ORDER: Record<AuditRecommendation["impact"], number> = { high: 0, medium: 1, low: 2 };
 
 function scoreColor(score: number): string {
   if (score >= 70) return "text-emerald-400";
@@ -48,11 +60,16 @@ function barColor(score: number): string {
   return "bg-rose-400";
 }
 
+function pickArea(areas: AuditAreaScore[], keywords: string[]): AuditAreaScore | undefined {
+  return areas.find((a) => keywords.some((k) => a.area.toLowerCase().includes(k)));
+}
+
 export default function SocialFlowAuditPage() {
   const [audit, setAudit] = useState<SocialAudit | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>("resumen");
 
   async function load() {
     setLoading(true);
@@ -83,12 +100,27 @@ export default function SocialFlowAuditPage() {
         throw new Error(json?.message || json?.error || "AUDIT_REGENERATE_FAILED");
       }
       setAudit(json.audit);
+      setActiveTab("resumen");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo regenerar la auditoría");
     } finally {
       setRegenerating(false);
     }
   }
+
+  const heroAreas = useMemo(() => {
+    if (!audit) return [];
+    const identidad = pickArea(audit.areaScores, ["identidad"]);
+    const audiencia = pickArea(audit.areaScores, ["audiencia"]);
+    const presencia = pickArea(audit.areaScores, ["presencia"]);
+    const picked = [identidad, audiencia, presencia].filter((a): a is AuditAreaScore => Boolean(a));
+    return picked.length > 0 ? picked : audit.areaScores.slice(0, 3);
+  }, [audit]);
+
+  const sortedRecommendations = useMemo(() => {
+    if (!audit) return [];
+    return [...audit.recommendations].sort((a, b) => IMPACT_ORDER[a.impact] - IMPACT_ORDER[b.impact]);
+  }, [audit]);
 
   if (loading) {
     return <AuditLoadingGraph />;
@@ -132,92 +164,124 @@ export default function SocialFlowAuditPage() {
         <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-4 py-3 text-sm text-red-300">{error}</div>
       )}
 
-      {/* Score panel */}
-      <div className="rounded-2xl border border-violet-500/25 bg-violet-500/8 p-6">
-        <div className="flex flex-wrap items-center gap-8">
-          <div className="text-center">
-            <div className={`text-6xl font-black ${scoreColor(audit.score)}`}>{audit.score}</div>
-            <div className="mt-1 text-xs font-bold uppercase tracking-[0.2em] text-white/35">Score de presencia social</div>
+      {/* Tab nav */}
+      <div className="flex flex-wrap gap-1 rounded-xl border border-white/10 bg-white/4 p-1">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`min-w-[140px] flex-1 rounded-lg px-4 py-2.5 text-xs font-black uppercase tracking-wide transition ${
+              activeTab === tab.id
+                ? "bg-[#6c47ff] text-white shadow-md shadow-[#6c47ff]/30"
+                : "text-white/45 hover:bg-white/6 hover:text-white/70"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Resumen */}
+      {activeTab === "resumen" && (
+        <div className="sf-fade-in space-y-6">
+          <div className="rounded-2xl border border-[#6c47ff]/25 bg-[#6c47ff]/8 p-8">
+            <AuditScoreGauge score={audit.score} />
           </div>
-          <div className="min-w-[260px] flex-1 space-y-3">
-            {audit.areaScores.map((area) => (
-              <div key={area.area}>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {heroAreas.map((area) => (
+              <div key={area.area} className="rounded-2xl border border-white/10 bg-white/4 p-4">
                 <div className="flex items-center justify-between text-xs font-semibold text-white/65">
                   <span>{area.area}</span>
                   <span className={scoreColor(area.score)}>{area.score}</span>
                 </div>
-                <div className="mt-1 h-2 w-full rounded-full bg-white/8">
+                <div className="mt-2 h-2 w-full rounded-full bg-white/8">
                   <div className={`h-2 rounded-full ${barColor(area.score)}`} style={{ width: `${area.score}%` }} />
                 </div>
-                <p className="mt-1 text-xs text-white/30">{area.notes}</p>
+                <p className="mt-2 text-xs leading-5 text-white/35">{area.notes}</p>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Strengths / Weaknesses / Opportunities */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/6 p-5">
-          <h3 className="mb-3 text-sm font-black uppercase italic tracking-tight text-emerald-300">Fortalezas</h3>
-          <div className="space-y-2">
-            {audit.strengths.map((item, idx) => (
-              <p key={idx} className="text-sm leading-6 text-white/65">{item}</p>
-            ))}
-          </div>
-        </div>
-        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/6 p-5">
-          <h3 className="mb-3 text-sm font-black uppercase italic tracking-tight text-rose-300">Debilidades</h3>
-          <div className="space-y-2">
-            {audit.weaknesses.map((item, idx) => (
-              <p key={idx} className="text-sm leading-6 text-white/65">{item}</p>
-            ))}
-          </div>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/4 p-5">
-          <h3 className="mb-3 text-sm font-black uppercase italic tracking-tight text-white/80">Oportunidades</h3>
-          <div className="space-y-2">
-            {audit.opportunities.map((item, idx) => (
-              <p key={idx} className="text-sm leading-6 text-white/65">{item}</p>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Recommendations */}
-      <div className="rounded-2xl border border-white/10 bg-white/4">
-        <header className="border-b border-white/8 px-6 py-5">
-          <h2 className="text-lg font-black uppercase italic tracking-tight text-white">Top recomendaciones</h2>
-          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Acciones priorizadas</p>
-        </header>
-        <div className="space-y-3 px-6 py-5">
-          {audit.recommendations.map((rec, idx) => (
-            <div key={idx} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-white/8 bg-white/4 p-4">
-              <div className="flex-1">
-                <p className="text-sm font-bold text-white/90">{rec.title}</p>
-                <p className="mt-1 text-sm leading-6 text-white/55">{rec.description}</p>
-              </div>
-              <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${IMPACT_CLS[rec.impact]}`}>
-                {IMPACT_LABEL[rec.impact]}
-              </span>
+      {/* Tab: Fortalezas y debilidades */}
+      {activeTab === "fortalezas" && (
+        <div className="sf-fade-in grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/6 p-5">
+            <h3 className="mb-3 text-sm font-black uppercase italic tracking-tight text-emerald-300">Fortalezas</h3>
+            <div className="space-y-3">
+              {audit.strengths.map((item, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <span className="mt-0.5 shrink-0 text-emerald-400">✓</span>
+                  <p className="text-sm leading-6 text-white/65">{item}</p>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+          <div className="rounded-2xl border border-rose-500/20 bg-rose-500/6 p-5">
+            <h3 className="mb-3 text-sm font-black uppercase italic tracking-tight text-rose-300">Debilidades</h3>
+            <div className="space-y-3">
+              {audit.weaknesses.map((item, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <span className="mt-0.5 shrink-0 text-rose-400">✕</span>
+                  <p className="text-sm leading-6 text-white/65">{item}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Competitor comparison */}
-      {audit.competitorComparison.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-white/4">
+      {/* Tab: Recomendaciones */}
+      {activeTab === "recomendaciones" && (
+        <div className="sf-fade-in rounded-2xl border border-white/10 bg-white/4">
           <header className="border-b border-white/8 px-6 py-5">
-            <h2 className="text-lg font-black uppercase italic tracking-tight text-white">Comparativa con competidores</h2>
+            <h2 className="text-lg font-black uppercase italic tracking-tight text-white">Recomendaciones priorizadas</h2>
+            <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Alto impacto primero</p>
           </header>
           <div className="space-y-3 px-6 py-5">
-            {audit.competitorComparison.map((item, idx) => (
+            {sortedRecommendations.map((rec, idx) => (
               <div key={idx} className="rounded-xl border border-white/8 bg-white/4 p-4">
-                <p className="text-sm font-bold text-white/90">{item.competitor}</p>
-                <p className="mt-1 text-sm leading-6 text-white/55">{item.comparison}</p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <p className="text-sm font-bold text-white/90">{rec.title}</p>
+                  <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${IMPACT_CLS[rec.impact]}`}>
+                    {IMPACT_LABEL[rec.impact]}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-white/55">{rec.description}</p>
               </div>
             ))}
+            {sortedRecommendations.length === 0 && (
+              <p className="text-sm text-white/35">Sin recomendaciones por ahora.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Competidores */}
+      {activeTab === "competidores" && (
+        <div className="sf-fade-in rounded-2xl border border-white/10 bg-white/4">
+          <header className="border-b border-white/8 px-6 py-5">
+            <h2 className="text-lg font-black uppercase italic tracking-tight text-white">Competidores detectados</h2>
+          </header>
+          <div className="space-y-3 px-6 py-5">
+            {audit.competitorComparison.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-white/10 bg-white/4 p-6 text-center text-sm text-white/35">
+                Aún no hay competidores con datos suficientes.
+              </div>
+            ) : (
+              audit.competitorComparison.map((item, idx) => (
+                <div key={idx} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-white/8 bg-white/4 p-4">
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-white/90">{item.competitor}</p>
+                    <p className="mt-1 text-sm leading-6 text-white/55">{item.comparison}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">
+                    Con datos
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
