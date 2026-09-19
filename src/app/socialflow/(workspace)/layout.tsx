@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
+import { resolveSocialFlowPlanCode } from "@/lib/socialflow/billing/plans";
 import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
 import { getWeeklyPublishStatus } from "@/lib/socialflow/billing/enforce";
 import SidebarNav from "./_components/sidebar-nav";
@@ -59,8 +60,16 @@ export default async function SocialFlowWorkspaceLayout({
   const isTrialActive = !isPrivilegedRole && sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
   const isTrialExpired = !isPrivilegedRole && sub.status === "trial" && trialEndsAt !== null && trialEndsAt <= new Date();
 
+  // Plan real ya asignado (distinto de free) — si el tenant ya eligió plan, el banner
+  // de "Elegir plan" deja de tener sentido aunque el status siga en "trial".
+  const assignedPlanCode = resolveSocialFlowPlanCode(
+    { status: sub.status, planCode: sub.planCode },
+    { isInternalAccount: snapshot.isInternalAccount, accountType: session.accountType },
+  );
+  const hasAssignedPlan = assignedPlanCode !== "free";
+
   // Days left (shown in banner, max precision = 1 day)
-  const trialDaysLeft = isTrialActive && trialEndsAt
+  const trialDaysLeft = isTrialActive && trialEndsAt && !hasAssignedPlan
     ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
 

@@ -80,6 +80,7 @@ export default function SocialFlowAuthExperience() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -236,10 +237,16 @@ export default function SocialFlowAuthExperience() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onFocus={() => setPasswordFocused(true)}
+              onBlur={() => setPasswordFocused(false)}
               placeholder="Tu contraseña segura"
               className="auth-input"
             />
           </FieldLabel>
+
+          {mode === "register" && (passwordFocused || password.length > 0) && (
+            <PasswordRequirements password={password} />
+          )}
 
           {error && (
             <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
@@ -493,6 +500,28 @@ export default function SocialFlowAuthExperience() {
 
       </div>
     </main>
+  );
+}
+
+function PasswordRequirements({ password }: { password: string }) {
+  const requirements = [
+    { label: "Mínimo 8 caracteres", met: password.length >= 8 },
+    { label: "Al menos una mayúscula", met: /[A-Z]/.test(password) },
+    { label: "Al menos un número", met: /\d/.test(password) },
+  ];
+  return (
+    <ul className="-mt-2 space-y-1 pl-1">
+      {requirements.map((req) => (
+        <li
+          key={req.label}
+          className="flex items-center gap-1.5 text-xs font-medium transition-colors"
+          style={{ color: req.met ? "#16a34a" : `${MUTED}99` }}
+        >
+          <span aria-hidden="true">{req.met ? "✓" : "○"}</span>
+          {req.label}
+        </li>
+      ))}
+    </ul>
   );
 }
 

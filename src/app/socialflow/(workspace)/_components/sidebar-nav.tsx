@@ -105,7 +105,6 @@ const crmNavItem = { href: "/socialflow/crm", label: "CRM Social", icon: <IcoUse
 
 const settingsNav = [
   { href: "/socialflow/settings/account",   label: "Mi cuenta" },
-  { href: "/socialflow/settings/accounts",  label: "Cuentas sociales" },
   { href: "/socialflow/settings/team",      label: "Equipo" },
   { href: "/socialflow/settings/billing",   label: "Facturación" },
   { href: "/socialflow/settings/ownership", label: "Propiedad" },
