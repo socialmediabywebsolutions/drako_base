@@ -232,7 +232,6 @@ export async function exchangeInstagramCode(input: {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params.toString(),
-    cache: "no-store",
   });
 
   const rawBody = await res.text();
@@ -275,7 +274,7 @@ export async function exchangeForLongLivedInstagramToken(shortLivedToken: string
   url.searchParams.set("client_secret", appSecret);
   url.searchParams.set("access_token", shortLivedToken);
 
-  const res = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const res = await fetch(url.toString(), { method: "GET" });
   const payload = await parseJson(res);
 
   if (!res.ok || typeof payload?.access_token !== "string") {
@@ -304,7 +303,7 @@ export async function refreshLongLivedInstagramToken(currentAccessToken: string)
   url.searchParams.set("grant_type", "ig_refresh_token");
   url.searchParams.set("access_token", currentAccessToken);
 
-  const res = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const res = await fetch(url.toString(), { method: "GET" });
   const payload = await parseJson(res);
 
   if (!res.ok || typeof payload?.access_token !== "string") {
@@ -326,7 +325,7 @@ export async function fetchInstagramUser(accessToken: string): Promise<Instagram
   url.searchParams.set("fields", "id,username,account_type");
   url.searchParams.set("access_token", accessToken);
 
-  const res = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const res = await fetch(url.toString(), { method: "GET" });
   const payload = await parseJson(res);
 
   if (!res.ok || typeof payload?.id !== "string" || typeof payload?.username !== "string") {

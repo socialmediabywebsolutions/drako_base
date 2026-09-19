@@ -344,7 +344,7 @@ export async function exchangeMetaCodeForAccessToken(
   shortLivedUrl.searchParams.set("redirect_uri", callback.callbackUrl);
   shortLivedUrl.searchParams.set("code", normalizedCode);
 
-  const shortLivedResponse = await fetch(shortLivedUrl.toString(), { method: "GET", cache: "no-store" });
+  const shortLivedResponse = await fetch(shortLivedUrl.toString(), { method: "GET" });
   const shortLivedPayload = await parseMetaJson(shortLivedResponse);
   if (!shortLivedResponse.ok) {
     throw buildMetaApiError(
@@ -378,7 +378,7 @@ export async function exchangeMetaCodeForAccessToken(
   longLivedUrl.searchParams.set("client_secret", appSecret.value);
   longLivedUrl.searchParams.set("fb_exchange_token", shortLivedPayload.access_token.trim());
 
-  const longLivedResponse = await fetch(longLivedUrl.toString(), { method: "GET", cache: "no-store" });
+  const longLivedResponse = await fetch(longLivedUrl.toString(), { method: "GET" });
   const longLivedPayload = await parseMetaJson(longLivedResponse);
   if (!longLivedResponse.ok || typeof longLivedPayload?.access_token !== "string" || !longLivedPayload.access_token.trim()) {
     throw buildMetaApiError(
@@ -413,7 +413,7 @@ export async function fetchMetaPages(accessToken: string): Promise<MetaPage[]> {
   url.searchParams.set("access_token", normalizedToken);
   url.searchParams.set("fields", "id,name,access_token");
 
-  const response = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const response = await fetch(url.toString(), { method: "GET" });
   const payload = await parseMetaJson(response);
   if (!response.ok) {
     throw buildMetaApiError("META_PAGES_FETCH_FAILED", normalizeMetaApiMessage(payload, "Meta Pages lookup failed."), {
@@ -509,11 +509,11 @@ export async function fetchInstagramAccountInsights(
       ? Promise.resolve(null)
       : fetch(
           `${apiBase}/${normalizedId}/insights?metric=impressions,reach&period=day&since=${since}&until=${until}&access_token=${normalizedToken}`,
-          { method: "GET", cache: "no-store" },
+          { method: "GET" },
         ),
     fetch(
       `${apiBase}/${normalizedId}?fields=followers_count&access_token=${normalizedToken}`,
-      { method: "GET", cache: "no-store" },
+      { method: "GET" },
     ),
   ]);
 
@@ -547,7 +547,7 @@ export async function fetchInstagramRecentMedia(
   url.searchParams.set("limit", "25");
   url.searchParams.set("access_token", normalizedToken);
 
-  const response = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const response = await fetch(url.toString(), { method: "GET" });
   const payload = await parseMetaJson(response);
   if (!response.ok) {
     throw buildMetaApiError("META_MEDIA_FETCH_FAILED", normalizeMetaApiMessage(payload, "Instagram media fetch failed."), { status: response.status, payload });
@@ -589,7 +589,7 @@ export async function fetchInstagramMediaEngagement(
   url.searchParams.set("fields", "like_count,comments_count");
   url.searchParams.set("access_token", normalizedToken);
 
-  const response = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const response = await fetch(url.toString(), { method: "GET" });
   const payload = await parseMetaJson(response);
   if (!response.ok) {
     throw buildMetaApiError("META_MEDIA_ENGAGEMENT_FAILED", normalizeMetaApiMessage(payload, "Instagram media engagement fetch failed."), { status: response.status, payload });
@@ -625,7 +625,7 @@ export async function fetchInstagramMediaInsights(
   url.searchParams.set("metric", metric);
   url.searchParams.set("access_token", normalizedToken);
 
-  const response = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const response = await fetch(url.toString(), { method: "GET" });
   const payload = await parseMetaJson(response);
   if (!response.ok) {
     throw buildMetaApiError("META_MEDIA_INSIGHTS_FAILED", normalizeMetaApiMessage(payload, "Instagram media insights fetch failed."), { status: response.status, payload });
@@ -662,7 +662,7 @@ export async function fetchInstagramBusinessAccount(pageId: string, pageAccessTo
   url.searchParams.set("fields", "instagram_business_account{id,username}");
   url.searchParams.set("access_token", normalizedToken);
 
-  const response = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+  const response = await fetch(url.toString(), { method: "GET" });
   const payload = await parseMetaJson(response);
   if (!response.ok) {
     throw buildMetaApiError("META_INSTAGRAM_LOOKUP_FAILED", normalizeMetaApiMessage(payload, "Instagram Business Account lookup failed."), {

@@ -159,7 +159,7 @@ async function waitForVideoContainer(
     url.searchParams.set("fields", "status_code");
     url.searchParams.set("access_token", accessToken);
 
-    const res = await fetch(url.toString(), { cache: "no-store" });
+    const res = await fetch(url.toString());
     const payload = await parseJson(res);
     const statusCode = typeof payload?.status_code === "string" ? payload.status_code : "";
 
@@ -223,7 +223,7 @@ async function createCarouselItemContainer(
   url.searchParams.set("image_url", mediaUrl);
   url.searchParams.set("is_carousel_item", "true");
 
-  const res = await fetch(url.toString(), { method: "POST", cache: "no-store" });
+  const res = await fetch(url.toString(), { method: "POST" });
   const payload = await parseJson(res);
 
   if (!res.ok) {
@@ -289,7 +289,7 @@ async function publishInstagramCarousel(input: {
 
   console.log("INSTAGRAM_CAROUSEL_CONTAINER_CREATE", { igUserId, itemCount: childContainerIds.length });
 
-  const parentRes = await fetch(parentUrl.toString(), { method: "POST", cache: "no-store" });
+  const parentRes = await fetch(parentUrl.toString(), { method: "POST" });
   const parentPayload = await parseJson(parentRes);
 
   if (!parentRes.ok) {
@@ -322,7 +322,7 @@ async function publishInstagramCarousel(input: {
   publishUrl.searchParams.set("creation_id", parentContainerId);
   publishUrl.searchParams.set("access_token", accessToken);
 
-  const publishRes = await fetch(publishUrl.toString(), { method: "POST", cache: "no-store" });
+  const publishRes = await fetch(publishUrl.toString(), { method: "POST" });
   const publishPayload = await parseJson(publishRes);
 
   if (!publishRes.ok) {
@@ -410,7 +410,6 @@ export async function publishInstagramContent(
 
   const containerRes = await fetch(containerUrl.toString(), {
     method: "POST",
-    cache: "no-store",
   });
   const containerPayload = await parseJson(containerRes);
 
@@ -447,7 +446,6 @@ export async function publishInstagramContent(
 
   const publishRes = await fetch(publishUrl.toString(), {
     method: "POST",
-    cache: "no-store",
   });
   const publishPayload = await parseJson(publishRes);
 
@@ -526,7 +524,7 @@ export async function publishFacebookPageContent(
 
   console.log("FACEBOOK_PUBLISH_ATTEMPT", { pageId, usesPhoto });
 
-  const res = await fetch(url.toString(), { method: "POST", cache: "no-store" });
+  const res = await fetch(url.toString(), { method: "POST" });
   const payload = await parseJson(res);
 
   if (!res.ok) {
