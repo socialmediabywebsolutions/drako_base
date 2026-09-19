@@ -60,7 +60,6 @@ export async function sendInstagramDirectMessage(
         recipient: { id: normalizedRecipient },
         message: { text: normalizedMessage },
       }),
-      cache: "no-store",
     });
   } catch (err) {
     return { ok: false, error: `Network error: ${err instanceof Error ? err.message : String(err)}` };
