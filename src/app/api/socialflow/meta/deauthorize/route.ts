@@ -53,6 +53,18 @@ export async function POST(request: Request) {
         .prepare(`UPDATE saas_social_accounts SET status = 'DISCONNECTED', auth_meta = NULL, updated_at = ? WHERE id = ?`)
         .bind(now, account.id)
         .run();
+
+      // Log explícito — a diferencia del botón manual en accounts/disconnect, este
+      // trigger viene de Meta (el usuario revocó el acceso desde Facebook/Instagram,
+      // no desde Socialcors), así que queda registrado por separado para poder
+      // distinguir ambas causas si un tenant reporta una desconexión que no pidió.
+      console.log("SOCIALFLOW_ACCOUNT_DISCONNECTED", {
+        provider: "INSTAGRAM",
+        accountId: account.id,
+        tenantId: account.tenant_id,
+        igUserId,
+        source: "meta_deauthorize_webhook",
+      });
     }
 
     return NextResponse.json({ success: true, accountsDisconnected: accounts.length });

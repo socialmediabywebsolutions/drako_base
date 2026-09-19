@@ -42,6 +42,22 @@ export async function POST(request: Request) {
       isPrimary: existing.isPrimary,
     });
 
+    // Log explícito de quién desconectó y desde dónde — para poder auditar
+    // desconexiones que el tenant no recuerde haber pedido (ver investigación
+    // del caso Sofía: no se encontró ningún trigger automático, solo este botón
+    // manual y el webhook de meta/deauthorize; este log cubre el hueco si vuelve
+    // a pasar).
+    console.log("SOCIALFLOW_ACCOUNT_DISCONNECTED", {
+      provider,
+      accountId: existing.id,
+      tenantId: session.tenantId,
+      byUserEmail: session.email,
+      byUserRole: session.role,
+      ip: request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for") ?? null,
+      userAgent: request.headers.get("user-agent"),
+      source: "manual_disconnect_endpoint",
+    });
+
     return new Response(JSON.stringify({ ok: true, provider, status: "DISCONNECTED" }), {
       status: 200,
       headers: { "content-type": "application/json" },
