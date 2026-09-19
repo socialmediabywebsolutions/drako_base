@@ -27,36 +27,120 @@ async function scheduleServiceAnnouncementPost(
     const connected = accounts.find((a) => a.status === "CONNECTED_REAL");
     const provider: SaasSocialProvider = connected?.provider ?? "INSTAGRAM";
 
-    const bodyLines = [
-      `✨ Nuevo servicio: ${service.name}${service.category ? ` (${service.category})` : ""}`,
-      service.description?.trim() || null,
-      service.tarifa?.trim() ? `💶 Tarifa: ${service.tarifa.trim()}` : null,
-      service.zona?.trim() ? `📍 Zona: ${service.zona.trim()}` : null,
-      "Reserva ya y descúbrelo.",
-    ].filter((line): line is string => Boolean(line));
+    const name = service.name;
+    const category = service.category ? ` (${service.category})` : "";
+    const tarifa = service.tarifa?.trim() ? `💶 ${service.tarifa.trim()}` : null;
+    const zona = service.zona?.trim() ? `📍 ${service.zona.trim()}` : null;
+    const desc = service.description?.trim() || null;
 
-    // Entre 1h y 48h desde ahora — evita que todos los servicios creados a la vez
-    // caigan exactamente en el mismo instante del calendario.
-    const scheduledAt = new Date(Date.now() + (1 + Math.random() * 47) * 60 * 60 * 1000).toISOString();
+    // Día 1 (~2h): Post presentación
+    const post1At = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    // Día 2 (~28h): Carrusel explicativo
+    const post2At = new Date(Date.now() + 28 * 60 * 60 * 1000).toISOString();
+    // Día 3 (~52h): Historia con CTA
+    const post3At = new Date(Date.now() + 52 * 60 * 60 * 1000).toISOString();
+    // Día 5 (~116h): Reel de transformación
+    const post4At = new Date(Date.now() + 116 * 60 * 60 * 1000).toISOString();
 
-    await upsertSaasSocialPost(ctx, {
-      saasId,
-      channelId: null,
-      campaignId: null,
-      provider,
-      contentType: "FEED",
-      title: `Nuevo servicio: ${service.name}`,
-      body: bodyLines.join("\n\n"),
-      imageHint: `Foto profesional presentando el servicio "${service.name}"`,
-      status: "SCHEDULED",
-      scheduledAt,
-      postedAt: null,
-      externalPostId: null,
-      creationMode: "AUTO",
-      metadata: { linkedServiceId: service.id, source: "service_created_auto_announcement" },
-    });
+    const pieces: Parameters<typeof upsertSaasSocialPost>[1][] = [
+      {
+        saasId,
+        channelId: null,
+        campaignId: null,
+        provider,
+        contentType: "FEED",
+        title: `Lanzamiento: ${name}`,
+        body: [
+          `✨ ¡Nuevo servicio disponible! ${name}${category}`,
+          desc,
+          tarifa,
+          zona,
+          "Reserva ya y descúbrelo. 👇",
+        ].filter((l): l is string => Boolean(l)).join("\n\n"),
+        imageHint: `Foto profesional presentando el servicio "${name}"`,
+        status: "SCHEDULED",
+        scheduledAt: post1At,
+        postedAt: null,
+        externalPostId: null,
+        creationMode: "AUTO",
+        metadata: { linkedServiceId: service.id, source: "service_launch_1_post" },
+      },
+      {
+        saasId,
+        channelId: null,
+        campaignId: null,
+        provider,
+        contentType: "CAROUSEL",
+        title: `Carrusel: qué incluye ${name}`,
+        body: [
+          `¿Qué incluye ${name}${category}? 🧵`,
+          desc,
+          "Slide 1: Qué es y para quién es.",
+          "Slide 2: Qué obtienes exactamente.",
+          "Slide 3: Cómo funciona el proceso.",
+          "Slide 4: Precio y cómo reservar.",
+          tarifa,
+        ].filter((l): l is string => Boolean(l)).join("\n\n"),
+        imageHint: `Serie de slides explicando el servicio "${name}" de forma visual y clara`,
+        status: "SCHEDULED",
+        scheduledAt: post2At,
+        postedAt: null,
+        externalPostId: null,
+        creationMode: "AUTO",
+        metadata: { linkedServiceId: service.id, source: "service_launch_2_carousel" },
+      },
+      {
+        saasId,
+        channelId: null,
+        campaignId: null,
+        provider,
+        contentType: "STORY",
+        title: `Historia CTA: ${name}`,
+        body: [
+          `¿Te interesa ${name}?`,
+          tarifa,
+          zona,
+          "Desliza arriba o escríbenos ahora. ⬆️",
+        ].filter((l): l is string => Boolean(l)).join("\n\n"),
+        imageHint: `Historia llamativa con CTA directo para reservar el servicio "${name}"`,
+        status: "SCHEDULED",
+        scheduledAt: post3At,
+        postedAt: null,
+        externalPostId: null,
+        creationMode: "AUTO",
+        metadata: { linkedServiceId: service.id, source: "service_launch_3_story" },
+      },
+      {
+        saasId,
+        channelId: null,
+        campaignId: null,
+        provider,
+        contentType: "REEL",
+        title: `Reel: transformación con ${name}`,
+        body: [
+          `¿Cómo cambia tu vida con ${name}${category}? 🎬`,
+          desc,
+          "Mira el antes y el después. La diferencia es real.",
+          tarifa,
+          "Escríbenos y empieza hoy. 👇",
+        ].filter((l): l is string => Boolean(l)).join("\n\n"),
+        imageHint: `Reel dinámico mostrando la transformación o resultado del servicio "${name}"`,
+        status: "SCHEDULED",
+        scheduledAt: post4At,
+        postedAt: null,
+        externalPostId: null,
+        creationMode: "AUTO",
+        metadata: { linkedServiceId: service.id, source: "service_launch_4_reel" },
+      },
+    ];
+
+    for (const piece of pieces) {
+      await upsertSaasSocialPost(ctx, piece);
+    }
+
+    console.log("[Services] campaña de lanzamiento programada", { tenantId, serviceId: service.id, pieces: pieces.length });
   } catch (err) {
-    console.error("[Services] auto announcement post failed", err instanceof Error ? err.message : String(err));
+    console.error("[Services] auto announcement campaign failed", err instanceof Error ? err.message : String(err));
   }
 }
 
