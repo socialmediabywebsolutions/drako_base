@@ -4,10 +4,13 @@ import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import {
   getChannelKnowledge,
+  listChannelCompetitors,
   upsertChannelCompetitor,
   upsertChannelProfile,
 } from "@/lib/socialflow/profile/repository";
 import { SocialContextError } from "@/lib/socialflow/repository";
+import { analyzeCompetitorForKnowledgeBase, buildCompetitorSourceUrl } from "@/lib/socialflow/knowledge/competitor-analysis";
+import { getCloudflareContextSafeAsync } from "@/lib/cloudflare/runtime";
 
 const DEFAULT_SAAS_ID = "socialflow";
 
@@ -37,6 +40,44 @@ function isTenantMismatch(sessionTenantId: string, request: Request, body?: Prof
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
+}
+
+// Runs `work` after the response is sent when a real Workers ExecutionContext is
+// available (ctx.waitUntil keeps the isolate alive without the client waiting on
+// it); falls back to awaiting inline in environments without one (local dev),
+// so the analysis still runs there instead of silently being dropped.
+async function runInBackground(work: Promise<unknown>): Promise<void> {
+  const settled = work.catch((err) => {
+    console.error("SOCIALFLOW_PROFILE_BACKGROUND_TASK_FAILED", err instanceof Error ? err.message : String(err));
+  });
+  const cfContext = (await getCloudflareContextSafeAsync()) as { ctx?: { waitUntil?: (p: Promise<unknown>) => void } } | null;
+  if (cfContext?.ctx?.waitUntil) {
+    cfContext.ctx.waitUntil(settled);
+    return;
+  }
+  await settled;
+}
+
+// Al guardar el perfil del canal, si ya hay competidores configurados (Mi Perfil
+// → Competidores), relanza el análisis de cada uno en background — así el
+// Cerebro se mantiene al día sin que el usuario tenga que volver a pulsar
+// "Analizar competidora" manualmente cada vez. dedupe:true actualiza el doc
+// existente de cada competidor en vez de acumular uno nuevo en cada guardado.
+async function triggerCompetitorAnalysisForProfileSave(tenantId: string, saasId: string): Promise<void> {
+  const competitors = await listChannelCompetitors(tenantId, saasId);
+  if (competitors.length === 0) return;
+
+  await Promise.allSettled(
+    competitors.map((competitor) =>
+      analyzeCompetitorForKnowledgeBase({
+        tenantId,
+        saasId,
+        name: competitor.name,
+        url: buildCompetitorSourceUrl(competitor),
+        dedupe: true,
+      }),
+    ),
+  );
 }
 
 export async function GET(request: Request) {
@@ -80,6 +121,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: false, error: "Invalid profile payload" }, { status: 400 });
       }
       const updated = await upsertChannelProfile(session.tenantId, profilePatch, saasId);
+      void runInBackground(triggerCompetitorAnalysisForProfileSave(session.tenantId, saasId));
       return NextResponse.json({ ok: true, profile: updated });
     }
     if (body.competitor) {

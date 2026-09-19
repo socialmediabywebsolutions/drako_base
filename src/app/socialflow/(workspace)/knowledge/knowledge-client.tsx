@@ -423,11 +423,58 @@ function UrlPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
 
 /* ── Panel: Competitor ───────────────────────────────────────────────────── */
 
+type ProfileCompetitor = { id: string; name: string; handle: string | null; platform: string };
+type ProfileResponse = { ok: true; competitors: ProfileCompetitor[] } | { ok: false };
+
 function CompetitorPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const [profileCompetitors, setProfileCompetitors] = useState<ProfileCompetitor[]>([]);
+  const [loadingProfileCompetitors, setLoadingProfileCompetitors] = useState(true);
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/socialflow/profile");
+        const json = await res.json() as ProfileResponse;
+        if (!cancelled && json.ok) setProfileCompetitors(json.competitors);
+      } catch {
+        // silencioso — el formulario manual sigue funcionando sin la lista precargada
+      } finally {
+        if (!cancelled) setLoadingProfileCompetitors(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function runAnalysis(payload: { name?: string; url?: string }): Promise<Doc | null> {
+    const res = await fetch("/api/socialflow/knowledge/analyze-competitor", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json() as SaveResponse;
+    if (json.ok) return json.doc;
+    setLocalError(json.message ?? json.error ?? "Error al analizar el competidor");
+    return null;
+  }
+
+  // Un clic sobre un competidor ya configurado en Mi Perfil → Competidores —
+  // no hace falta reintroducir nombre/URL, se analiza directamente con lo que
+  // ya hay guardado en el perfil del canal.
+  async function handleAnalyzeProfileCompetitor(competitor: ProfileCompetitor) {
+    setAnalyzingId(competitor.id);
+    setLocalError(null);
+    try {
+      const doc = await runAnalysis({ name: competitor.name });
+      if (doc) onSuccess(doc);
+    } catch { setLocalError("Error inesperado"); }
+    finally { setAnalyzingId(null); }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -435,24 +482,39 @@ function CompetitorPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
     setLoading(true);
     setLocalError(null);
     try {
-      const res = await fetch("/api/socialflow/knowledge/analyze-competitor", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() || undefined, url: url.trim() || undefined }),
-      });
-      const json = await res.json() as SaveResponse;
-      if (json.ok) onSuccess(json.doc);
-      else setLocalError(json.message ?? json.error ?? "Error al analizar el competidor");
+      const doc = await runAnalysis({ name: name.trim() || undefined, url: url.trim() || undefined });
+      if (doc) onSuccess(doc);
     } catch { setLocalError("Error inesperado"); }
     finally { setLoading(false); }
   }
 
   return (
     <DarkPanel title="Analizar competidor con IA">
+      {!loadingProfileCompetitors && profileCompetitors.length > 0 && (
+        <div className="mb-5">
+          <p className="mb-2 text-xs font-medium text-white/45">
+            Competidores de tu perfil — analízalos con un clic:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {profileCompetitors.map((competitor) => (
+              <button
+                key={competitor.id}
+                type="button"
+                onClick={() => void handleAnalyzeProfileCompetitor(competitor)}
+                disabled={analyzingId !== null}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {analyzingId === competitor.id ? "Analizando..." : competitor.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <p className="mb-4 text-xs text-white/40">
-        Introduce el nombre y/o la URL del competidor. La IA extraerá sus servicios, fortalezas, patrones de contenido y oportunidades de diferenciación.
+        O introduce el nombre y/o la URL de otro competidor. La IA extraerá sus servicios, fortalezas, patrones de contenido y oportunidades de diferenciación.
       </p>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Field label="Nombre del competidor"><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Agencia XYZ" className={inputCls} autoFocus /></Field>
+        <Field label="Nombre del competidor"><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Agencia XYZ" className={inputCls} /></Field>
         <Field label="URL de su web (opcional — mejora el análisis)"><input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://agenciaxyz.com" className={inputCls} /></Field>
         {localError && <p className="text-sm text-red-400">{localError}</p>}
         <SubmitButton loading={loading}>{loading ? "Analizando..." : "Analizar competidor"}</SubmitButton>

@@ -118,6 +118,51 @@ export async function upsertKnowledgeDocByType(params: {
   return saveKnowledgeDoc(params);
 }
 
+// Like upsertKnowledgeDocByType but scoped by name too — used for competitor
+// reports, where there can be several docs of type "competitor" (one per
+// competitor) and re-analyzing the same competitor should update its existing
+// entry instead of piling up duplicates.
+export async function upsertKnowledgeDocByTypeAndName(params: {
+  tenantId: string;
+  saasId: string;
+  name: string;
+  type: KnowledgeDoc["type"];
+  contentText: string;
+  sourceUrl?: string | null;
+}): Promise<KnowledgeDoc> {
+  const db = await getDb(params.tenantId, params.saasId);
+  const content = params.contentText.slice(0, MAX_CONTENT_CHARS);
+  const existing = await db
+    .prepare(
+      `SELECT id, created_at FROM ${TABLE} WHERE tenant_id = ? AND saas_id = ? AND type = ? AND name = ? LIMIT 1`,
+    )
+    .bind(params.tenantId, params.saasId, params.type, params.name)
+    .first<{ id: string; created_at: string }>();
+
+  const now = new Date().toISOString();
+
+  if (existing) {
+    await db
+      .prepare(
+        `UPDATE ${TABLE} SET content_text = ?, source_url = ?, created_at = ? WHERE id = ?`,
+      )
+      .bind(content, params.sourceUrl ?? null, now, existing.id)
+      .run();
+    return {
+      id: existing.id,
+      tenant_id: params.tenantId,
+      saas_id: params.saasId,
+      name: params.name,
+      type: params.type,
+      content_text: content,
+      source_url: params.sourceUrl ?? null,
+      created_at: now,
+    };
+  }
+
+  return saveKnowledgeDoc(params);
+}
+
 export async function deleteKnowledgeDoc(
   id: string,
   tenantId: string,
