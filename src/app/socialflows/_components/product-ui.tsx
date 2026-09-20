@@ -2,14 +2,15 @@
 // Usan las etiquetas que ya existen en el workspace (Editar, Aprobar, Post/Reel/Historia,
 // "Nombre de marca", "Tono de comunicación"…). NO son funcionales y van con aria-hidden:
 // el contenido de texto equivalente está siempre en la página, fuera de las maquetas.
-// El caption/hashtags/hora son un EJEMPLO ilustrativo, no datos de ningún cliente.
+// El caption/hashtags/hora son un EJEMPLO ilustrativo (un negocio inventado), no datos de ningún
+// cliente. Genérico a propósito (sin sector concreto): antes era un ejemplo de restaurante.
 import { Eye, Heart, MessageCircle, TrendingUp, type LucideIcon } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 
 export const SAMPLE = {
-  caption: "Cada pieza sale del taller con el mismo cuidado. Pásate esta semana y compruébalo en persona.",
-  hashtags: ["#hechoamano", "#negociolocal", "#artesania"],
-  slot: "Jue · 19:30",
+  caption: "SocialCors analiza tu perfil, elige el mejor momento y publica por ti.",
+  hashtags: ["#tunegocio", "#emprender", "#redessociales"],
+  slot: "Sáb · 12:30",
 };
 
 function IcoCamera() {

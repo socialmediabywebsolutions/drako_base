@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import ChatWidget from "./_components/chat-widget";
+import { Spine } from "./_components/flow";
 import { Engine } from "./_components/engine";
+import { KnowsYourBusiness } from "./_components/knowledge-system";
+import { Networks } from "./_components/networks-system";
 import {
   BeforeAfter,
   Demo,
@@ -8,10 +11,8 @@ import {
   FinalCta,
   Hero,
   HowItWorks,
-  KnowsYourBusiness,
   LandingFooter,
   LandingNav,
-  Networks,
   RealTime,
   TrialAndPlans,
   YourTime,
@@ -54,17 +55,28 @@ export default function SocialflowsLandingPage() {
       <LandingNav />
       <main id="contenido">
         <Hero />
+        <Spine />
         <HowItWorks />
+        <Spine />
         <RealTime />
+        <Spine />
         <KnowsYourBusiness />
+        <Spine />
         <Engine />
+        <Spine />
         <BeforeAfter />
         <YourTime />
+        <Spine />
         <Networks />
+        <Spine />
         <Demo />
+        <Spine />
         <TrialAndPlans />
+        <Spine />
         <Faq />
+        <Spine />
         <FinalCta />
+        <Spine />
       </main>
       <LandingFooter />
       <ChatWidget />

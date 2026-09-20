@@ -1,15 +1,17 @@
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
+import { HeroSystem } from "./hero-system";
 import LiveZone from "./live-zone";
 import Reveal from "./reveal";
+import { CoreDisc, SysHead, Wires, vars, type WirePath } from "./flow";
 import {
-  AVAILABLE_NETWORKS,
   DEMO_VIDEO_URL,
   FAQ,
   HEADLINE,
   HREF_LOGIN,
   HREF_PLANS,
   HREF_START,
+  LOGO_HEADER_URL,
   LOGO_URL,
   SUBHEADLINE,
   TRIAL_DAYS,
@@ -19,36 +21,32 @@ import {
   FormField,
   GeneratedPost,
   IcoCamera,
-  InteractionChips,
-  InteractionPill,
   IcoCheck,
-  MiniCalendar,
+  InteractionPill,
   PhotoTile,
-  SAMPLE,
-  StageLabel,
 } from "./product-ui";
 
-// Variables CSS (--d = retardo de animación, --w = ancho final de barra) tipadas para style.
-const vars = (v: Record<string, string>) => v as unknown as CSSProperties;
-const delay = (seconds: number) => vars({ "--d": `${seconds}s` });
-
-function SectionHead({
-  eyebrow,
-  title,
-  children,
-  align = "center",
+// ── Cadena de nodos (recorrido horizontal en escritorio, vertical en móvil) ─────
+function Chain({
+  items,
+  tone = "light",
+  className = "",
+  label,
 }: {
-  eyebrow?: string;
-  title: ReactNode;
-  children?: ReactNode;
-  align?: "center" | "left";
+  items: string[];
+  tone?: "light" | "dark";
+  className?: string;
+  label: string;
 }) {
   return (
-    <div className={align === "center" ? "mx-auto max-w-2xl text-center" : "max-w-xl"}>
-      {eyebrow && <p className="sc-eyebrow">{eyebrow}</p>}
-      <h2 className="sc-ink mt-3 text-3xl font-black leading-[1.1] tracking-tight md:text-4xl">{title}</h2>
-      {children && <p className="sc-muted mt-4 text-base leading-relaxed md:text-lg">{children}</p>}
-    </div>
+    <ol className={`sy-chain sy-${tone} ${className}`} aria-label={label}>
+      {items.map((item, i) => (
+        <li key={item} className="sy-chain-item" style={vars({ "--nd": `${0.3 + i * 0.35}s` })}>
+          <span className="sy-chain-node" aria-hidden="true" />
+          <span className="sy-chain-label">{item}</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -85,93 +83,6 @@ export function LandingNav() {
 }
 
 // ── HERO ────────────────────────────────────────────────────────────────────
-function HeroProduct() {
-  return (
-    <div className="mx-auto mt-12 max-w-5xl md:mt-14">
-      <AppWindow title="SocialCors · Analizar y publicar con IA">
-        <div className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
-          {/* 1 — Foto subida */}
-          <div className="sc-app-card sc-rise p-3" style={delay(0.1)}>
-            <StageLabel n={1}>Subes tu foto</StageLabel>
-            <PhotoTile className="h-24" />
-            <div className="mt-3 flex items-center justify-between text-[0.625rem]" style={{ color: "var(--sc-app-muted)" }}>
-              <span>Foto subida</span>
-              <span>100%</span>
-            </div>
-            <div className="sc-bar-track mt-1.5">
-              <div className="sc-bar-fill sc-grow" style={vars({ "--d": "0.4s", "--w": "100%" })} />
-            </div>
-          </div>
-
-          {/* 2 — Análisis */}
-          <div className="sc-app-card sc-rise p-3" style={delay(0.7)}>
-            <StageLabel n={2}>Analiza</StageLabel>
-            <ul className="flex flex-col gap-2.5 pt-1">
-              {[
-                { label: "Personas", d: 1.0 },
-                { label: "Lugar", d: 1.25 },
-                { label: "Producto", d: 1.5 },
-              ].map(({ label, d }) => (
-                <li key={label} className="flex items-center gap-2 text-[0.6875rem]" style={{ color: "var(--sc-app-text)" }}>
-                  <span
-                    className="sc-fade flex h-4 w-4 items-center justify-center rounded-full text-white"
-                    style={{ ...delay(d), background: "var(--sc-accent-soft)" }}
-                  >
-                    <IcoCheck />
-                  </span>
-                  {label}
-                </li>
-              ))}
-            </ul>
-            <p className="sc-fade mt-4 text-[0.625rem] leading-relaxed" style={{ ...delay(1.7), color: "var(--sc-app-muted)" }}>
-              Cruza la foto con el perfil y la Base de conocimiento de tu negocio.
-            </p>
-          </div>
-
-          {/* 3 — Contenido generado */}
-          <div className="sc-app-card sc-rise p-3" style={delay(1.5)}>
-            <StageLabel n={3}>Genera el contenido</StageLabel>
-            <div className="sc-fade flex flex-col gap-2" style={delay(1.9)}>
-              <p className="text-[0.6875rem] leading-relaxed" style={{ color: "var(--sc-app-text)" }}>
-                {SAMPLE.caption}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {SAMPLE.hashtags.map((h) => (
-                  <span key={h} className="sc-app-chip">{h}</span>
-                ))}
-              </div>
-              <div className="flex gap-1.5">
-                <span className="sc-app-chip" data-on="true">Post</span>
-                <span className="sc-app-chip">Reel</span>
-                <span className="sc-app-chip">Historia</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 4 — Calendario */}
-          <div className="sc-app-card sc-rise p-3" style={delay(2.2)}>
-            <StageLabel n={4}>Lo programa</StageLabel>
-            <MiniCalendar animated />
-            <div className="sc-fade mt-3 flex items-center justify-between gap-2" style={delay(2.9)}>
-              <span className="sc-app-label">{SAMPLE.slot}</span>
-              <span className="sc-app-btn">
-                <IcoCheck /> Aprobar
-              </span>
-            </div>
-            <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--sc-app-line)" }}>
-              <p className="sc-app-label sc-fade mb-2" style={delay(3.3)}>Interacción</p>
-              <InteractionChips startDelay={3.5} />
-            </div>
-          </div>
-        </div>
-      </AppWindow>
-      <p className="sc-muted mt-3 text-center text-xs">
-        Ejemplo ilustrativo de la interfaz de SocialCors: foto → análisis → contenido → calendario → interacción.
-      </p>
-    </div>
-  );
-}
-
 export function Hero() {
   return (
     <section aria-labelledby="hero-title" className="px-4 pb-6 pt-12 sm:px-6 md:pt-20">
@@ -199,7 +110,7 @@ export function Hero() {
         </p>
       </div>
 
-      <HeroProduct />
+      <HeroSystem />
 
       <p className="sc-ink mx-auto mt-8 max-w-2xl text-center text-base font-bold md:text-lg">
         Menos tiempo creando contenido. Más tiempo haciendo crecer tu negocio.
@@ -208,7 +119,7 @@ export function Hero() {
   );
 }
 
-// ── CÓMO FUNCIONA ───────────────────────────────────────────────────────────
+// ── CÓMO FUNCIONA: un recorrido, no cuatro tarjetas ─────────────────────────
 function StepAccount() {
   return (
     <AppWindow title="Crear cuenta">
@@ -288,50 +199,54 @@ const STEPS: { n: string; title: string; text: string; visual: ReactNode }[] = [
 
 export function HowItWorks() {
   return (
-    <section id="como-funciona" aria-labelledby="how-title" className="px-4 py-16 sm:px-6 md:py-20">
+    <section id="como-funciona" aria-labelledby="how-title" className="sy-band px-4 py-14 sm:px-6 md:py-20">
       <div className="mx-auto max-w-6xl">
         <Reveal>
-          <SectionHead eyebrow="Cómo funciona" title={<span id="how-title">De una foto a contenido listo para tus redes.</span>} />
+          <SysHead eyebrow="Cómo funciona" titleId="how-title" title="De una foto a contenido listo para tus redes." />
         </Reveal>
-        <ol className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((step, i) => (
-            <li key={step.n} className="flex">
-              <Reveal delay={i * 0.07} className="sc-card flex w-full flex-col gap-4 p-5">
-                <div>
-                  <span className="sc-accent text-sm font-black tracking-widest">{step.n}</span>
-                  <h3 className="sc-ink mt-1 text-lg font-black leading-snug">{step.title}</h3>
-                  <p className="sc-muted mt-2 text-sm leading-relaxed">{step.text}</p>
-                </div>
-                <div>{step.visual}</div>
-              </Reveal>
-            </li>
-          ))}
-        </ol>
-        <p className="sc-muted mt-4 text-center text-xs">Ilustraciones de la interfaz de SocialCors.</p>
+        <LiveZone className="sy-jour-wrap mt-14">
+          <Reveal className="sy-jour">
+            <span className="sy-jline" aria-hidden="true" />
+            <span className="sy-jdot" aria-hidden="true" />
+            <ol className="sy-jol">
+              {STEPS.map((step, i) => (
+                <li key={step.n} className="sy-jstep" style={vars({ "--nd": `${0.3 + i * 0.32}s` })}>
+                  <span className="sy-jnode">{step.n}</span>
+                  <span className="sy-jstem" aria-hidden="true" />
+                  <div className="sy-jbody">
+                    <h3 className="sy-jt">{step.title}</h3>
+                    <p className="sy-jp">{step.text}</p>
+                    <div className="sy-jui">{step.visual}</div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </Reveal>
+        </LiveZone>
+        <p className="sc-muted mt-8 text-center text-xs">Ilustraciones de la interfaz de SocialCors.</p>
       </div>
     </section>
   );
 }
 
 // ── EN TIEMPO REAL ──────────────────────────────────────────────────────────
+// El "00:00" es solo visual (no es un cronómetro funcional): la duración real llegará con los
+// vídeos de demostración. NO inventar tiempos.
 export function RealTime() {
   return (
-    <section id="tiempo-real" aria-labelledby="realtime-title" className="px-4 py-8 sm:px-6 md:py-12">
+    <section id="tiempo-real" aria-labelledby="realtime-title" className="px-4 py-6 sm:px-6 md:py-8">
       <Reveal className="mx-auto max-w-6xl">
-        <div
-          className="grid items-center gap-10 rounded-3xl px-6 py-12 md:grid-cols-2 md:px-12 md:py-14"
-          style={{ background: "var(--sc-app-bg)" }}
-        >
+        <div className="sy-dpanel grid items-center gap-10 rounded-3xl px-6 py-12 md:grid-cols-[1fr_1.05fr] md:px-12 md:py-14">
           <div>
-            <p className="text-[0.6875rem] font-extrabold uppercase tracking-[0.2em]" style={{ color: "#a5b4fc" }}>
-              En tiempo real
-            </p>
-            <h2 id="realtime-title" className="mt-3 text-3xl font-black leading-[1.1] tracking-tight text-white md:text-4xl">
-              No te lo contamos. Te lo enseñamos.
-            </h2>
-            <p className="mt-4 text-base leading-relaxed md:text-lg" style={{ color: "rgba(255,255,255,0.7)" }}>
+            <SysHead
+              align="left"
+              dark
+              eyebrow="En tiempo real"
+              titleId="realtime-title"
+              title="No te lo contamos. Te lo enseñamos."
+            >
               Mira cuánto tardas realmente en poner SocialCors en marcha.
-            </p>
+            </SysHead>
             <div className="mt-7">
               {DEMO_VIDEO_URL ? (
                 <a href={DEMO_VIDEO_URL} className="sc-btn-light" target="_blank" rel="noopener noreferrer">
@@ -345,152 +260,99 @@ export function RealTime() {
             </div>
           </div>
 
-          <AppWindow title="Crear cuenta · cronómetro">
-            <div className="flex flex-col gap-4 p-4">
-              <div className="flex items-baseline justify-between">
-                <span className="sc-app-label">Cronómetro</span>
-                <span className="sc-stopwatch text-4xl font-black text-white md:text-5xl">00:00</span>
-              </div>
-              {["Nombre", "Email", "Contraseña"].map((label, i) => (
-                <div key={label} className="flex flex-col gap-1.5">
-                  <span className="sc-app-label">{label}</span>
-                  <div className="sc-app-field !px-0">
-                    <div
-                      className="sc-bar-fill sc-grow-view mx-2"
-                      style={{ ...vars({ "--d": `${0.2 + i * 0.5}s`, "--w": `${[58, 74, 42][i]}%` }), height: "0.3rem" }}
-                    />
-                  </div>
+          <div className="sy-rt">
+            <AppWindow title="Crear cuenta · cronómetro">
+              <div className="sy-rt-body">
+                <div className="sy-rt-clock">
+                  <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+                    <circle cx="50" cy="50" r="45" className="sy-rt-ring" />
+                    <circle cx="50" cy="5" r="3.4" className="sy-rt-tick" />
+                  </svg>
+                  <span className="sc-stopwatch sy-rt-time">00:00</span>
                 </div>
-              ))}
-            </div>
-          </AppWindow>
+                <ol className="sy-rt-form sc-onview">
+                  {["Nombre", "Email", "Contraseña"].map((label, i) => (
+                    <li key={label} className="sy-rt-field">
+                      <span className="sy-rt-fnode" aria-hidden="true" />
+                      <div className="flex-1">
+                        <span className="sc-app-label">{label}</span>
+                        <div className="sc-app-field !px-0">
+                          <div
+                            className="sc-bar-fill sc-grow-view mx-2"
+                            style={{ ...vars({ "--d": `${0.2 + i * 0.5}s`, "--w": `${[58, 74, 42][i]}%` }), height: "0.3rem" }}
+                          />
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                  <li className="sy-rt-field">
+                    <span className="sy-rt-fnode sy-rt-fnode--end" aria-hidden="true" />
+                    <span className="sc-app-btn !py-1.5 flex-1">Crear cuenta</span>
+                  </li>
+                </ol>
+              </div>
+            </AppWindow>
+          </div>
         </div>
       </Reveal>
     </section>
   );
 }
 
-// ── SOCIALCORS CONOCE TU NEGOCIO ────────────────────────────────────────────
-// Cada categoría existe hoy en el producto (Mi Perfil / Base de conocimiento).
-const KNOWLEDGE: { title: string; text: string; where: string }[] = [
-  { title: "Tu negocio", text: "Nombre de marca, descripción, misión y propuesta de valor.", where: "Mi Perfil" },
-  { title: "Tono de comunicación", text: "Cómo hablas y qué personalidad tiene tu marca.", where: "Mi Perfil" },
-  { title: "Tu público", text: "Rango de edad, mercados objetivo y estilo visual.", where: "Mi Perfil" },
-  { title: "Tu web", text: "Añade una URL y SocialCors lee su contenido.", where: "Base de conocimiento" },
-  { title: "Documentación", text: "Sube PDFs con información relevante de tu negocio.", where: "Base de conocimiento" },
-  { title: "Productos y servicios", text: "Catálogo en CSV o Excel (cuentas de empresa).", where: "Base de conocimiento" },
-  { title: "Competidores", text: "Analiza a los competidores que tú indiques.", where: "Base de conocimiento" },
-];
-
-export function KnowsYourBusiness() {
-  return (
-    <section id="conocimiento" aria-labelledby="knowledge-title" className="px-4 py-16 sm:px-6 md:py-20">
-      <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
-        <Reveal>
-          <SectionHead
-            align="left"
-            eyebrow="SocialCors conoce tu negocio"
-            title={<span id="knowledge-title">Cuanto más conoce tu negocio, mejor puede ayudarte.</span>}
-          >
-            Tú aportas la información que quieras. SocialCors la usa como contexto al crear cada pieza.
-          </SectionHead>
-          <p className="sc-ink mt-6 text-xl font-black leading-snug md:text-2xl">Contenido que tiene contexto.</p>
-        </Reveal>
-
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {KNOWLEDGE.map((item, i) => (
-            <li key={item.title} className={i === KNOWLEDGE.length - 1 ? "sm:col-span-2" : ""}>
-              <Reveal delay={i * 0.05} className="sc-card h-full p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="sc-ink text-base font-black">{item.title}</h3>
-                  <span
-                    className="shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-bold"
-                    style={{ background: "var(--sc-accent-quiet)", color: "var(--sc-accent)" }}
-                  >
-                    {item.where}
-                  </span>
-                </div>
-                <p className="sc-muted mt-1.5 text-sm leading-relaxed">{item.text}</p>
-              </Reveal>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-// ── ANTES / DESPUÉS ─────────────────────────────────────────────────────────
-const TRANSFORM_CHAIN = ["Foto", "Texto", "Hashtags", "Formato", "Contenido preparado"];
-
+// ── LA TRANSFORMACIÓN: contenido bruto → SocialCors → contenido preparado ───
 export function BeforeAfter() {
   return (
-    <section id="antes-despues" aria-labelledby="transform-title" className="px-4 py-16 sm:px-6 md:py-20">
+    <section id="antes-despues" aria-labelledby="transform-title" className="sy-band px-4 py-14 sm:px-6 md:py-20">
       <div className="mx-auto max-w-6xl">
         <Reveal>
-          <SectionHead
+          <SysHead
             eyebrow="La transformación"
-            title={<span id="transform-title">De «¿y ahora qué publico?» a contenido preparado.</span>}
+            titleId="transform-title"
+            title="De «¿y ahora qué publico?» a contenido preparado."
           />
         </Reveal>
 
-        <div className="mt-12 grid items-center gap-6 lg:grid-cols-[minmax(0,4fr)_auto_minmax(0,5fr)]">
-          <Reveal className="sc-card p-5">
-            <p className="sc-eyebrow" style={{ color: "var(--sc-muted)" }}>Antes</p>
-            <PhotoTile className="mt-3 h-40" />
-            <p
-              className="sc-ink mt-4 rounded-2xl rounded-tl-sm px-4 py-3 text-base font-semibold leading-snug"
-              style={{ background: "var(--sc-bg)" }}
-            >
-              «Tengo esta foto… ¿y ahora qué publico?»
-            </p>
-          </Reveal>
+        <LiveZone className="sy-tf mt-12">
+          <Reveal className="sy-tf-grid">
+            <div className="sy-tf-side">
+              <p className="sy-tf-tag">Antes · Contenido bruto</p>
+              <div className="sy-tf-before">
+                <PhotoTile className="h-40" />
+                <p className="sy-tf-quote">«Tengo esta foto… ¿y ahora qué publico?»</p>
+              </div>
+            </div>
 
-          <ol
-            aria-label="Qué hace SocialCors"
-            className="flex flex-wrap items-center justify-center gap-x-2 gap-y-2 lg:flex-col lg:gap-2"
-          >
-            {TRANSFORM_CHAIN.map((item, i) => (
-              <li key={item} className="flex items-center gap-2 lg:flex-col">
-                <span
-                  className="rounded-full border px-3 py-1 text-xs font-bold"
-                  style={{
-                    borderColor: i === TRANSFORM_CHAIN.length - 1 ? "var(--sc-accent)" : "var(--sc-line)",
-                    background: i === TRANSFORM_CHAIN.length - 1 ? "var(--sc-accent)" : "var(--sc-surface)",
-                    color: i === TRANSFORM_CHAIN.length - 1 ? "#fff" : "var(--sc-ink)",
-                  }}
-                >
-                  {item}
-                </span>
-                {i < TRANSFORM_CHAIN.length - 1 && (
-                  <span aria-hidden="true" className="sc-accent text-sm font-black">
-                    <span className="lg:hidden">→</span>
-                    <span className="hidden lg:inline">↓</span>
-                  </span>
-                )}
-              </li>
-            ))}
-          </ol>
+            <div className="sy-tf-mid" aria-hidden="true">
+              <span className="sy-tf-link" />
+              <CoreDisc className="sy-core--tf" />
+              <span className="sy-tf-link" />
+            </div>
 
-          <Reveal delay={0.1}>
-            <p className="sc-eyebrow mb-3">Después</p>
-            <LiveZone className="relative">
-              <AppWindow title="Analizar y publicar con IA">
-                <div className="p-3 sm:p-4">
-                  <GeneratedPost />
-                </div>
-              </AppWindow>
-              {/* Señales de interacción: 4 iconos, sin cifras, aparecen y se desvanecen despacio */}
-              <InteractionPill kind="heart" className="-right-2 top-20" delay={0} />
-              <InteractionPill kind="comment" className="-left-2 top-[42%]" delay={1.1} />
-              <InteractionPill kind="eye" className="-right-2 top-[62%]" delay={2.2} />
-              <InteractionPill kind="trend" className="-left-2 bottom-16" delay={3.3} />
-            </LiveZone>
-            <p className="sc-muted mt-3 text-xs">
-              Ejemplo ilustrativo de la interfaz de SocialCors. Las interacciones dependen de tu audiencia.
-            </p>
+            <div className="sy-tf-side">
+              <p className="sy-tf-tag sy-tf-tag--on">Después · Contenido preparado</p>
+              <div className="relative">
+                <AppWindow title="Analizar y publicar con IA">
+                  <div className="p-3 sm:p-4">
+                    <GeneratedPost />
+                  </div>
+                </AppWindow>
+                {/* Señales de interacción: 4 iconos, sin cifras, aparecen y se desvanecen despacio */}
+                <InteractionPill kind="heart" className="-right-2 top-20" delay={0} />
+                <InteractionPill kind="comment" className="-left-2 top-[42%]" delay={1.1} />
+                <InteractionPill kind="eye" className="-right-2 top-[62%]" delay={2.2} />
+                <InteractionPill kind="trend" className="-left-2 bottom-16" delay={3.3} />
+              </div>
+              <p className="sc-muted mt-3 text-xs">
+                Ejemplo ilustrativo de la interfaz de SocialCors. Las interacciones dependen de tu audiencia.
+              </p>
+            </div>
           </Reveal>
-        </div>
+          <Chain
+            label="Qué hace SocialCors con tu foto"
+            className="sy-chain--tf"
+            items={["Foto", "Texto", "Hashtags", "Formato", "Contenido preparado"]}
+          />
+        </LiveZone>
       </div>
     </section>
   );
@@ -499,8 +361,9 @@ export function BeforeAfter() {
 // ── TU NEGOCIO YA TE OCUPA SUFICIENTE TIEMPO ────────────────────────────────
 export function YourTime() {
   return (
-    <section aria-labelledby="time-title" className="px-4 py-16 sm:px-6 md:py-20" style={{ background: "var(--sc-surface)" }}>
+    <section aria-labelledby="time-title" className="sy-band sy-band--flat px-4 pb-16 pt-6 sm:px-6 md:pb-24">
       <Reveal className="mx-auto max-w-3xl text-center">
+        <span className="sy-quote-node" aria-hidden="true" />
         <h2 id="time-title" className="sc-ink text-3xl font-black leading-[1.1] tracking-tight md:text-5xl">
           Tu negocio ya te ocupa suficiente tiempo.
         </h2>
@@ -515,54 +378,15 @@ export function YourTime() {
   );
 }
 
-// ── REDES ───────────────────────────────────────────────────────────────────
-const NETWORK_STYLE: Record<(typeof AVAILABLE_NETWORKS)[number]["key"], { bg: string; abbr: string }> = {
-  instagram: { bg: "linear-gradient(135deg,#F58529,#DD2A7B 60%,#8134AF)", abbr: "IG" },
-  linkedin: { bg: "#0A66C2", abbr: "in" },
-};
-
-export function Networks() {
-  return (
-    <section id="redes" aria-labelledby="networks-title" className="px-4 py-16 sm:px-6 md:py-20">
-      <div className="mx-auto max-w-4xl">
-        <Reveal>
-          <SectionHead eyebrow="Redes" title={<span id="networks-title">Publica en las redes que ya usas.</span>}>
-            Estas son las redes que SocialCors soporta hoy.
-          </SectionHead>
-        </Reveal>
-        <ul className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
-          {AVAILABLE_NETWORKS.map((network, i) => (
-            <li key={network.key}>
-              <Reveal delay={i * 0.08} className="sc-card flex items-center gap-4 p-5">
-                <span
-                  aria-hidden="true"
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-base font-black text-white"
-                  style={{ background: NETWORK_STYLE[network.key].bg }}
-                >
-                  {NETWORK_STYLE[network.key].abbr}
-                </span>
-                <h3 className="text-base font-black leading-snug">
-                  <span className="sc-ink">{network.name}</span>
-                  <span className="sc-muted font-semibold"> · {network.detail}</span>
-                </h3>
-              </Reveal>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
 // ── DEMOSTRACIÓN ────────────────────────────────────────────────────────────
 const DEMO_FLOW = ["Cuenta", "Perfil", "Base de conocimiento", "Subir contenido", "IA", "Resultado", "Calendario"];
 
 export function Demo() {
   return (
-    <section id="demo" aria-labelledby="demo-title" className="px-4 py-16 sm:px-6 md:py-20">
+    <section id="demo" aria-labelledby="demo-title" className="px-4 py-10 sm:px-6 md:py-14">
       <div className="mx-auto max-w-5xl">
         <Reveal>
-          <SectionHead title={<span id="demo-title">Mira SocialCors en acción.</span>} />
+          <SysHead titleId="demo-title" title="Mira SocialCors en acción." />
         </Reveal>
         <Reveal delay={0.08} className="mt-10">
           {DEMO_VIDEO_URL ? (
@@ -575,23 +399,12 @@ export function Demo() {
               aria-label="Demostración de SocialCors"
             />
           ) : (
-            <div className="sc-app flex min-h-[15rem] flex-col items-center justify-center gap-6 p-6 sm:aspect-video">
-              <ol className="flex max-w-3xl flex-wrap items-center justify-center gap-x-2 gap-y-3">
-                {DEMO_FLOW.map((step, i) => (
-                  <li key={step} className="flex items-center gap-2">
-                    <span className="sc-app-chip !text-xs !px-3 !py-1" data-on={i === DEMO_FLOW.length - 1 || i === 4}>
-                      {step}
-                    </span>
-                    {i < DEMO_FLOW.length - 1 && (
-                      <span aria-hidden="true" style={{ color: "var(--sc-app-muted)" }}>→</span>
-                    )}
-                  </li>
-                ))}
-              </ol>
-              <p className="text-center text-sm font-semibold" style={{ color: "var(--sc-app-muted)" }}>
+            <LiveZone className="sc-app sy-demo">
+              <Chain label="Recorrido de la demostración" tone="dark" items={DEMO_FLOW} className="sy-chain--demo" />
+              <p className="mt-8 text-center text-sm font-semibold" style={{ color: "var(--sc-app-muted)" }}>
                 Demostración en vídeo: próximamente.
               </p>
-            </div>
+            </LiveZone>
           )}
         </Reveal>
       </div>
@@ -599,51 +412,59 @@ export function Demo() {
   );
 }
 
-// ── PRUEBA GRATUITA + PLANES ────────────────────────────────────────────────
+// ── PRUEBA GRATUITA → PLANES: un solo recorrido ─────────────────────────────
 export function TrialAndPlans() {
   return (
     <section aria-labelledby="trial-title" className="px-4 py-8 sm:px-6 md:py-12">
-      <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-2">
-        <Reveal className="sc-tint flex flex-col items-start gap-4 p-8">
-          <p className="sc-eyebrow">Prueba gratuita</p>
-          <h2 id="trial-title" className="sc-ink text-3xl font-black leading-[1.1] tracking-tight">
-            {TRIAL_DAYS} días gratis para probarlo.
-          </h2>
-          <ul className="flex flex-col gap-2 text-sm font-semibold">
-            {["Sin tarjeta de crédito", "Cancela cuando quieras"].map((item) => (
-              <li key={item} className="sc-ink flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="flex h-5 w-5 items-center justify-center rounded-full text-white"
-                  style={{ background: "var(--sc-accent)" }}
-                >
-                  <IcoCheck />
-                </span>
-                {item}
-              </li>
-            ))}
-          </ul>
-          <Link href={HREF_START} className="sc-btn mt-2">
-            Empieza a probar SocialCors
-          </Link>
-        </Reveal>
+      <Reveal className="mx-auto max-w-5xl">
+        <div className="sy-tp">
+          <div className="sy-tp-a">
+            <p className="sc-eyebrow">Prueba gratuita</p>
+            <h2 id="trial-title" className="sc-ink mt-3 text-3xl font-black leading-[1.1] tracking-tight">
+              {TRIAL_DAYS} días gratis para probarlo.
+            </h2>
+            <ul className="mt-5 flex flex-col gap-2 text-sm font-semibold">
+              {["Sin tarjeta de crédito", "Cancela cuando quieras"].map((item) => (
+                <li key={item} className="sc-ink flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="flex h-5 w-5 items-center justify-center rounded-full text-white"
+                    style={{ background: "var(--sc-accent)" }}
+                  >
+                    <IcoCheck />
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <Link href={HREF_START} className="sc-btn mt-6">
+              Empieza a probar SocialCors
+            </Link>
+          </div>
 
-        <Reveal delay={0.08} className="sc-card flex flex-col items-start gap-4 p-8">
-          <p className="sc-eyebrow">Planes</p>
-          <h2 className="sc-ink text-3xl font-black leading-[1.1] tracking-tight">Empieza con SocialCors</h2>
-          <p className="sc-muted text-base leading-relaxed">
-            Elige el plan que mejor se adapta a la cantidad de contenido que necesitas crear.
-          </p>
-          <Link href={HREF_PLANS} className="sc-btn-ghost mt-2">
-            Ver planes
-          </Link>
-        </Reveal>
-      </div>
+          <div className="sy-tp-join" aria-hidden="true">
+            <span className="sy-tp-line" />
+            <span className="sy-tp-node" />
+            <span className="sy-tp-line" />
+          </div>
+
+          <div className="sy-tp-b">
+            <p className="sc-eyebrow">Planes</p>
+            <h2 className="sc-ink mt-3 text-3xl font-black leading-[1.1] tracking-tight">Empieza con SocialCors</h2>
+            <p className="sc-muted mt-4 text-base leading-relaxed">
+              Elige el plan que mejor se adapta a la cantidad de contenido que necesitas crear.
+            </p>
+            <Link href={HREF_PLANS} className="sc-btn-ghost mt-6">
+              Ver planes
+            </Link>
+          </div>
+        </div>
+      </Reveal>
     </section>
   );
 }
 
-// ── FAQ ─────────────────────────────────────────────────────────────────────
+// ── FAQ: hilo con un nodo por pregunta ──────────────────────────────────────
 export function Faq() {
   const jsonLd = {
     "@context": "https://schema.org",
@@ -656,70 +477,76 @@ export function Faq() {
   };
 
   return (
-    <section id="faq" aria-labelledby="faq-title" className="px-4 py-16 sm:px-6 md:py-20">
+    <section id="faq" aria-labelledby="faq-title" className="sy-band px-4 py-14 sm:px-6 md:py-20">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       <div className="mx-auto max-w-3xl">
         <Reveal>
-          <SectionHead eyebrow="Preguntas frecuentes" title={<span id="faq-title">Lo que suele preguntarse antes de empezar.</span>} />
+          <SysHead eyebrow="Preguntas frecuentes" titleId="faq-title" title="Lo que suele preguntarse antes de empezar." />
         </Reveal>
-        <div className="sc-faq mt-10 flex flex-col gap-3">
+        <Reveal className="sy-fq mt-10">
           {FAQ.map((item) => (
-            <details key={item.q} className="sc-card group px-5 py-4">
-              <summary className="flex items-center justify-between gap-4">
-                <h3 className="sc-ink text-base font-bold">{item.q}</h3>
-                <svg
-                  className="sc-chev sc-muted h-4 w-4 shrink-0"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  aria-hidden="true"
-                >
+            <details key={item.q} className="sy-fq-item">
+              <summary>
+                <span className="sy-fq-node" aria-hidden="true" />
+                <h3 className="sy-fq-q">{item.q}</h3>
+                <svg className="sy-fq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                 </svg>
               </summary>
-              <p className="sc-muted mt-3 text-sm leading-relaxed">{item.a}</p>
+              <p className="sy-fq-a">{item.a}</p>
             </details>
           ))}
-        </div>
+        </Reveal>
       </div>
     </section>
   );
 }
 
-// ── CTA FINAL ───────────────────────────────────────────────────────────────
+// ── CTA FINAL: todo converge en la acción ───────────────────────────────────
+const FW = 1000;
+const FH = 440;
+// Los cables convergen en el botón (centrado, ~70 % de la altura) sin cruzar el texto.
+const FINAL_PATHS: WirePath[] = [
+  { d: "M30 270 C 200 270 290 312 392 312", fd: 0.4, draw: 0.1 },
+  { d: "M30 372 C 200 372 300 312 392 312", fd: 1.2, draw: 0.2 },
+  { d: "M970 270 C 800 270 710 312 608 312", fd: 0.8, draw: 0.15 },
+  { d: "M970 372 C 800 372 700 312 608 312", fd: 1.6, draw: 0.25 },
+];
+
 export function FinalCta() {
   return (
-    <section aria-labelledby="final-title" className="px-4 py-16 sm:px-6 md:py-20">
+    <section aria-labelledby="final-title" className="px-4 py-8 sm:px-6 md:py-12">
       <Reveal className="mx-auto max-w-5xl">
-        <div
-          className="rounded-3xl px-6 py-14 text-center md:px-12 md:py-20"
-          style={{ background: "var(--sc-accent-strong)" }}
-        >
-          <h2 id="final-title" className="text-4xl font-black leading-[1.05] tracking-tight text-white md:text-6xl">
-            Deja de pensar qué publicar.
-          </h2>
-          <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed md:text-lg" style={{ color: "rgba(255,255,255,0.78)" }}>
-            Tú conoces tu negocio. SocialCors te ayuda a convertirlo en contenido.
-          </p>
-          <div className="mt-8">
-            <Link href={HREF_START} className="sc-btn-light">
-              Probar SocialCors
-            </Link>
+        <LiveZone className="sy-final">
+          <div className="sy-final-wires" aria-hidden="true">
+            <Wires w={FW} h={FH} paths={FINAL_PATHS} tone="dark" />
           </div>
-          <p className="mt-8 text-sm font-bold tracking-wide" style={{ color: "rgba(255,255,255,0.6)" }}>
-            {HEADLINE}
-          </p>
-        </div>
+          <div className="sy-final-body">
+            <h2 id="final-title" className="text-4xl font-black leading-[1.05] tracking-tight text-white md:text-6xl">
+              Deja de pensar qué publicar.
+            </h2>
+            <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed md:text-lg" style={{ color: "rgba(255,255,255,0.78)" }}>
+              Tú conoces tu negocio. SocialCors te ayuda a convertirlo en contenido.
+            </p>
+            <div className="mt-8">
+              <Link href={HREF_START} className="sc-btn-light">
+                Probar SocialCors
+              </Link>
+            </div>
+            <p className="mt-8 text-sm font-bold tracking-wide" style={{ color: "rgba(255,255,255,0.6)" }}>
+              {HEADLINE}
+            </p>
+          </div>
+        </LiveZone>
       </Reveal>
     </section>
   );
 }
 
-// ── FOOTER ──────────────────────────────────────────────────────────────────
+// ── FOOTER: cierra el recorrido ─────────────────────────────────────────────
 export function LandingFooter() {
   const links = [
     { label: "Planes", href: HREF_PLANS },
@@ -728,22 +555,35 @@ export function LandingFooter() {
     { label: "Contacto", href: "/contact" },
   ];
   return (
-    <footer className="border-t px-4 py-10 sm:px-6" style={{ borderColor: "var(--sc-line)" }}>
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 sm:flex-row sm:justify-between">
-        <div className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={LOGO_URL} alt="" width={32} height={32} loading="lazy" className="h-8 w-8 object-contain" />
-          <span className="sc-ink text-base font-black tracking-tight">SocialCors</span>
-        </div>
-        <nav aria-label="Pie de página" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-          {links.map((l) => (
-            <Link key={l.label} href={l.href} className="sc-muted text-sm font-semibold hover:text-[var(--sc-ink)]">
-              {l.label}
-            </Link>
-          ))}
-        </nav>
-        <p className="sc-muted text-xs">© {new Date().getFullYear()} SocialCors by Drako. Todos los derechos reservados.</p>
-      </div>
+    <footer className="px-4 pb-10 pt-2 sm:px-6">
+      <Reveal className="mx-auto max-w-6xl">
+        <LiveZone className="sy-foot">
+          <div className="sy-foot-logo">
+            {/* Logo de cabecera tal cual (1536×1024, fondo propio): sin recortar ni redibujar */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={LOGO_HEADER_URL} alt="SocialCors" width={1536} height={1024} loading="lazy" decoding="async" />
+          </div>
+          <div className="sy-foot-main">
+            <p className="sy-foot-kicker">El sistema, de principio a fin</p>
+            <Chain
+              label="El recorrido completo"
+              tone="dark"
+              className="sy-chain--foot"
+              items={["SocialCors", "Tu negocio", "Tu contenido", "Tus redes", "Tu evolución"]}
+            />
+            <div className="sy-foot-bottom">
+              <nav aria-label="Pie de página" className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                {links.map((l) => (
+                  <Link key={l.label} href={l.href} className="sy-foot-link">
+                    {l.label}
+                  </Link>
+                ))}
+              </nav>
+              <p className="sy-foot-copy">© {new Date().getFullYear()} SocialCors by Drako. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </LiveZone>
+      </Reveal>
     </footer>
   );
 }
