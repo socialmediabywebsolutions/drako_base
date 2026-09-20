@@ -3,7 +3,8 @@
 // "Nombre de marca", "Tono de comunicación"…). NO son funcionales y van con aria-hidden:
 // el contenido de texto equivalente está siempre en la página, fuera de las maquetas.
 // El caption/hashtags/hora son un EJEMPLO ilustrativo, no datos de ningún cliente.
-import type { ReactNode } from "react";
+import { Eye, Heart, MessageCircle, TrendingUp, type LucideIcon } from "lucide-react";
+import type { CSSProperties, ReactNode } from "react";
 
 export const SAMPLE = {
   caption: "Cada pieza sale del taller con el mismo cuidado. Pásate esta semana y compruébalo en persona.",
@@ -156,3 +157,68 @@ export function FormField({ label, value }: { label: string; value?: string }) {
 }
 
 export { IcoCamera, IcoCheck };
+
+// ── Señales de interacción (decorativas) ────────────────────────────────────
+// Solo iconos: ningún número ni métrica. Representan QUÉ tipo de interacción puede llegar,
+// no cuánta. Dependen de la audiencia de cada cuenta y no se presentan como resultados.
+export type InteractionKind = "heart" | "comment" | "eye" | "trend";
+
+export const INTERACTION_ICON: Record<InteractionKind, LucideIcon> = {
+  heart: Heart,
+  comment: MessageCircle,
+  eye: Eye,
+  trend: TrendingUp,
+};
+
+export const INTERACTION_LABEL: Record<InteractionKind, string> = {
+  heart: "Me gusta",
+  comment: "Comentarios",
+  eye: "Visualizaciones",
+  trend: "Crecimiento",
+};
+
+// Píldora clara para colocar sobre/alrededor de una tarjeta. La posición la pone quien la usa
+// (top/left/right/bottom) y --pd escalona su animación (solo corre bajo .sc-live).
+export function InteractionPill({
+  kind,
+  className = "",
+  delay = 0,
+}: {
+  kind: InteractionKind;
+  className?: string;
+  delay?: number;
+}) {
+  const Icon = INTERACTION_ICON[kind];
+  return (
+    <span
+      className={`sc-pill ${className}`}
+      data-k={kind}
+      style={{ "--pd": `${delay}s` } as CSSProperties}
+      aria-hidden="true"
+    >
+      <Icon strokeWidth={2.2} />
+    </span>
+  );
+}
+
+// Fila de fichas oscuras (dentro de una AppWindow): Interacción → Crecimiento.
+export function InteractionChips({ startDelay = 0 }: { startDelay?: number }) {
+  const kinds: InteractionKind[] = ["heart", "comment", "eye", "trend"];
+  return (
+    <div className="flex items-center gap-1.5">
+      {kinds.map((kind, i) => {
+        const Icon = INTERACTION_ICON[kind];
+        return (
+          <span
+            key={kind}
+            className="sc-app-pill sc-fade"
+            data-k={kind}
+            style={{ "--d": `${startDelay + i * 0.22}s` } as CSSProperties}
+          >
+            <Icon strokeWidth={2.2} />
+          </span>
+        );
+      })}
+    </div>
+  );
+}

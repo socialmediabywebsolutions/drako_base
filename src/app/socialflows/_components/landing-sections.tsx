@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
+import LiveZone from "./live-zone";
 import Reveal from "./reveal";
 import {
   AVAILABLE_NETWORKS,
@@ -18,6 +19,8 @@ import {
   FormField,
   GeneratedPost,
   IcoCamera,
+  InteractionChips,
+  InteractionPill,
   IcoCheck,
   MiniCalendar,
   PhotoTile,
@@ -155,11 +158,15 @@ function HeroProduct() {
                 <IcoCheck /> Aprobar
               </span>
             </div>
+            <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--sc-app-line)" }}>
+              <p className="sc-app-label sc-fade mb-2" style={delay(3.3)}>Interacción</p>
+              <InteractionChips startDelay={3.5} />
+            </div>
           </div>
         </div>
       </AppWindow>
       <p className="sc-muted mt-3 text-center text-xs">
-        Ejemplo ilustrativo de la interfaz de SocialCors: foto → análisis → contenido → calendario.
+        Ejemplo ilustrativo de la interfaz de SocialCors: foto → análisis → contenido → calendario → interacción.
       </p>
     </div>
   );
@@ -467,12 +474,21 @@ export function BeforeAfter() {
 
           <Reveal delay={0.1}>
             <p className="sc-eyebrow mb-3">Después</p>
-            <AppWindow title="Analizar y publicar con IA">
-              <div className="p-3 sm:p-4">
-                <GeneratedPost />
-              </div>
-            </AppWindow>
-            <p className="sc-muted mt-3 text-xs">Ejemplo ilustrativo de la interfaz de SocialCors.</p>
+            <LiveZone className="relative">
+              <AppWindow title="Analizar y publicar con IA">
+                <div className="p-3 sm:p-4">
+                  <GeneratedPost />
+                </div>
+              </AppWindow>
+              {/* Señales de interacción: 4 iconos, sin cifras, aparecen y se desvanecen despacio */}
+              <InteractionPill kind="heart" className="-right-2 top-20" delay={0} />
+              <InteractionPill kind="comment" className="-left-2 top-[42%]" delay={1.1} />
+              <InteractionPill kind="eye" className="-right-2 top-[62%]" delay={2.2} />
+              <InteractionPill kind="trend" className="-left-2 bottom-16" delay={3.3} />
+            </LiveZone>
+            <p className="sc-muted mt-3 text-xs">
+              Ejemplo ilustrativo de la interfaz de SocialCors. Las interacciones dependen de tu audiencia.
+            </p>
           </Reveal>
         </div>
       </div>

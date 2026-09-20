@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ChatWidget from "./_components/chat-widget";
+import { Engine } from "./_components/engine";
 import {
   BeforeAfter,
   Demo,
@@ -56,6 +57,7 @@ export default function SocialflowsLandingPage() {
         <HowItWorks />
         <RealTime />
         <KnowsYourBusiness />
+        <Engine />
         <BeforeAfter />
         <YourTime />
         <Networks />
