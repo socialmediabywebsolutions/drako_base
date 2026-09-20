@@ -210,7 +210,7 @@ describe("auth cookie/session e2e by context", () => {
         host: "app.socialflow.example.com",
         "content-type": "application/json",
       },
-      body: JSON.stringify({ email: "owner@socialflow.app", password: "password123", name: "Owner" }),
+      body: JSON.stringify({ email: "owner@socialflow.app", password: "password123", name: "Owner", acceptedTerms: true }),
     }));
 
     expect(response.status).toBe(201);
