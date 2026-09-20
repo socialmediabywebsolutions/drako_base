@@ -175,7 +175,7 @@ async function assertNoPlaceholderHtml(check, response, url) {
     }
   }
 
-  const authMarkers = ["Socialcors secure access", "Secure access", "Continue to Socialcors"];
+  const authMarkers = ["Bienvenido a SocialCors", "Tu Community Manager con Inteligencia Artificial"];
   if (check.id === "canonical-socialflow-auth" && !authMarkers.some((marker) => body.includes(marker))) {
     return "auth route did not render the Socialcors auth page";
   }
