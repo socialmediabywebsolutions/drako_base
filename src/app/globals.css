@@ -25,6 +25,41 @@
   --font-sans: var(--font-geist-sans), "Inter", system-ui, sans-serif;
 }
 
+/* ── Socialcors Workspace Tokens ─────────────────────────────────────── */
+:root {
+  /* Fondo del workspace */
+  --sf-bg: #f8f9fc;
+  --sf-bg-alt: #f1f5f9;
+  --sf-surface: #ffffff;
+  --sf-surface-alt: #f8fafc;
+  --sf-border: #e2e8f0;
+  --sf-border-strong: #cbd5e1;
+
+  /* Marca Socialcors */
+  --sf-brand: #6c47ff;
+  --sf-brand-strong: #5535e0;
+  --sf-brand-quiet: #f0edff;
+  --sf-brand-glow: rgba(108, 71, 255, 0.15);
+
+  /* Texto */
+  --sf-text: #0f172a;
+  --sf-text-muted: #64748b;
+  --sf-text-subtle: #94a3b8;
+
+  /* Sidebar */
+  --sf-sidebar-bg: #ffffff;
+  --sf-sidebar-border: #e2e8f0;
+  --sf-sidebar-item-hover: #f5f3ff;
+  --sf-sidebar-item-active: #ede9fe;
+  --sf-sidebar-text: #374151;
+  --sf-sidebar-text-active: #5535e0;
+
+  /* Sombras */
+  --sf-shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --sf-shadow-card: 0 4px 12px rgba(0,0,0,0.05);
+  --sf-shadow-brand: 0 0 24px rgba(108, 71, 255, 0.2);
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);
