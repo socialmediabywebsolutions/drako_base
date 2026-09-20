@@ -76,7 +76,7 @@ export default function SocialFlowAuthExperience() {
   // nunca la URL ni el accountType real (eso solo lo fija ?type= al llegar desde la landing).
   const [previewType, setPreviewType] = useState<SocialFlowAccountType>("influencer");
 
-  const [mode, setMode] = useState<SocialFlowAuthMode>("login");
+  const [mode, setMode] = useState<SocialFlowAuthMode>(searchParams.get("mode") === "register" ? "register" : "login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
