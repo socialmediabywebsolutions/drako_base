@@ -15,7 +15,7 @@ const WELCOME: ChatMessage = {
 
 const CTA_TRIGGERS = [
   "registro", "registrarte", "registra", "crear cuenta",
-  "empezamos", "empieza gratis", "prueba gratis", "7 días gratis",
+  "empezamos", "empieza gratis", "prueba gratis", "15 días gratis",
 ];
 
 function detectCta(reply: string): "influencer" | "empresa" | null {
@@ -175,7 +175,7 @@ export default function ChatWidget() {
                   </div>
                   {cta && (
                     <Link
-                      href={`/socialflow/auth?type=${cta}`}
+                      href={`/socialflow/auth?type=${cta}&mode=register`}
                       className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-500 px-3.5 py-2 text-xs font-black text-white shadow-lg shadow-violet-500/25 transition hover:brightness-110"
                     >
                       {cta === "influencer" ? "Crear cuenta como Influencer" : "Crear cuenta como Empresa"}

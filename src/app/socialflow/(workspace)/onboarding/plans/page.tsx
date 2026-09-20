@@ -104,7 +104,7 @@ export default function OnboardingPlansPage() {
         Empieza gratis, crece sin límites
       </h1>
       <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/50">
-        7 días gratis sin tarjeta de crédito. O suscríbete ahora y activa todas las funciones de inmediato.
+        15 días gratis sin tarjeta de crédito. O suscríbete ahora y activa todas las funciones de inmediato.
       </p>
 
       {/* Plan cards — 3 columns on lg+ */}
@@ -169,7 +169,7 @@ export default function OnboardingPlansPage() {
               href="/socialflow/onboarding"
               className="mt-3 block w-full rounded-xl py-3 text-center text-sm font-bold text-white/50 transition-colors hover:text-white/80"
             >
-              Empezar gratis 7 días →
+              Empezar gratis 15 días →
             </Link>
           </div>
         ))}

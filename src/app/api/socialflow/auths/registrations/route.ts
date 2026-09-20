@@ -46,8 +46,8 @@ export async function POST(request: Request) {
     return jsonError(login.code, login.message, 401);
   }
 
-  // Activate 7-day free trial in saas_subscriptions (no Stripe required)
-  const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  // Activate 15-day free trial in saas_subscriptions (no Stripe required)
+  const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
   const nowIso = new Date().toISOString();
   await run(
     `INSERT INTO saas_subscriptions (id, tenant_id, saas_slug, plan_code, status, current_period_end, created_at, updated_at)
