@@ -3,45 +3,28 @@
 import { FormEvent, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { AuthShell } from "../../_components/auth-shell";
+import { AuthField, PasswordInput } from "../../_components/auth-fields";
 
 type ApiError = { message?: string; error?: string };
 
-const inputCls =
-  "mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20";
-const labelCls = "block text-sm font-semibold text-white/70";
-const btnCls =
-  "w-full rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-3.5 text-sm font-black tracking-wide text-white shadow-lg shadow-violet-500/25 transition hover:brightness-110 hover:shadow-violet-500/40 disabled:cursor-not-allowed disabled:opacity-50";
-
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#030312] text-white">
-      {/* Gradient orbs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[-15%] top-[-10%] h-[500px] w-[500px] rounded-full bg-violet-600/25 blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] h-[400px] w-[400px] rounded-full bg-fuchsia-600/20 blur-[100px]" />
-        <div className="absolute left-[40%] top-[50%] h-[300px] w-[300px] rounded-full bg-blue-600/15 blur-[90px]" />
-      </div>
+    <AuthShell>
+      <div className="sa-card sa-rise">{children}</div>
+    </AuthShell>
+  );
+}
 
-      {/* Dot grid */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-15"
-        style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.15) 1px, transparent 1px)", backgroundSize: "32px 32px" }}
-      />
-
-      <section className="relative mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-5 py-16">
-        {/* Logo — /public/logo-cabecera.png local, sin dependencias externas */}
-        <div className="mb-8 flex items-center gap-3 self-start">
-          <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-cabecera.png" alt="Socialcors" className="h-10 w-auto" />
-          <span className="text-xl font-black tracking-tight">
-            Social<span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">cors</span>
-          </span>
-        </div>
-
-        <div className="w-full rounded-2xl border border-white/10 bg-white/5 p-7 shadow-2xl shadow-violet-900/20 backdrop-blur-sm sm:p-9">
-          {children}
-        </div>
-      </section>
-    </main>
+function BackToLogin({ button = false }: { button?: boolean }) {
+  return button ? (
+    <Link href="/socialflow/auth" className="sa-btn" style={{ textDecoration: "none" }}>
+      Ir al inicio de sesión
+    </Link>
+  ) : (
+    <Link href="/socialflow/auth" className="sa-link">
+      ← Volver al inicio de sesión
+    </Link>
   );
 }
 
@@ -76,50 +59,49 @@ function RequestResetForm() {
   if (done) {
     return (
       <>
-        <div className="mb-2 text-[10px] font-black uppercase tracking-[0.28em] text-violet-400">Email enviado</div>
-        <h2 className="mb-4 text-2xl font-black tracking-tight text-white">Revisa tu bandeja</h2>
-        <p className="mb-6 text-sm leading-6 text-white/50">
+        <p className="sy-eyebrow-lite">Email enviado</p>
+        <h1 className="sa-title">Revisa tu bandeja</h1>
+        <p className="sa-sub" style={{ marginBottom: "1.5rem" }}>
           Si existe una cuenta con ese email, recibirás un enlace para restablecer tu contraseña. Caduca en 1 hora.
         </p>
-        <Link href="/socialflow/auth" className="text-sm font-semibold text-violet-400 transition hover:text-violet-300">
-          ← Volver al inicio de sesión
-        </Link>
+        <BackToLogin />
       </>
     );
   }
 
   return (
     <>
-      <div className="mb-2 text-[10px] font-black uppercase tracking-[0.28em] text-violet-400">Recuperar acceso</div>
-      <h2 className="mb-2 text-2xl font-black tracking-tight text-white">Restablece tu contraseña</h2>
-      <p className="mb-6 text-sm leading-6 text-white/50">
+      <p className="sy-eyebrow-lite">Recuperar acceso</p>
+      <h1 className="sa-title">Restablece tu contraseña</h1>
+      <p className="sa-sub" style={{ marginBottom: "1.5rem" }}>
         Introduce tu email y te enviaremos un enlace para crear una nueva contraseña.
       </p>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <label className={labelCls}>
-          Email
+      <form onSubmit={handleSubmit} className="space-y-4" aria-busy={submitting}>
+        <AuthField id="sa-reset-email" label="Email">
           <input
+            id="sa-reset-email"
             required
             type="email"
+            autoComplete="email"
+            inputMode="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={inputCls}
+            className="sa-input"
             placeholder="tu@empresa.com"
           />
-        </label>
+        </AuthField>
         {error && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300">
+          <div role="alert" className="sa-error">
             {error}
           </div>
         )}
-        <button type="submit" disabled={submitting} className={btnCls}>
+        <button type="submit" disabled={submitting} className="sa-btn">
+          {submitting && <span className="sa-spin" aria-hidden="true" />}
           {submitting ? "Enviando..." : "Enviar enlace"}
         </button>
       </form>
-      <div className="mt-5 border-t border-white/8 pt-4">
-        <Link href="/socialflow/auth" className="text-sm font-semibold text-violet-400 transition hover:text-violet-300">
-          ← Volver al inicio de sesión
-        </Link>
+      <div style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid var(--sa-line)" }}>
+        <BackToLogin />
       </div>
     </>
   );
@@ -161,57 +143,51 @@ function ConfirmResetForm({ token }: { token: string }) {
   if (done) {
     return (
       <>
-        <div className="mb-2 text-[10px] font-black uppercase tracking-[0.28em] text-violet-400">Contraseña actualizada</div>
-        <h2 className="mb-4 text-2xl font-black tracking-tight text-white">¡Listo!</h2>
-        <p className="mb-6 text-sm leading-6 text-white/50">
+        <p className="sy-eyebrow-lite">Contraseña actualizada</p>
+        <h1 className="sa-title">¡Listo!</h1>
+        <p className="sa-sub" style={{ marginBottom: "1.5rem" }}>
           Tu contraseña ha sido actualizada correctamente. Ya puedes iniciar sesión con tu nueva contraseña.
         </p>
-        <Link
-          href="/socialflow/auth"
-          className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-3.5 text-sm font-black tracking-wide text-white shadow-lg shadow-violet-500/25 transition hover:brightness-110"
-        >
-          Ir al inicio de sesión
-        </Link>
+        <BackToLogin button />
       </>
     );
   }
 
   return (
     <>
-      <div className="mb-2 text-[10px] font-black uppercase tracking-[0.28em] text-violet-400">Nueva contraseña</div>
-      <h2 className="mb-2 text-2xl font-black tracking-tight text-white">Crea una nueva contraseña</h2>
-      <p className="mb-6 text-sm leading-6 text-white/50">Mínimo 8 caracteres.</p>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <label className={labelCls}>
-          Nueva contraseña
-          <input
+      <p className="sy-eyebrow-lite">Nueva contraseña</p>
+      <h1 className="sa-title">Crea una nueva contraseña</h1>
+      <p className="sa-sub" style={{ marginBottom: "1.5rem" }}>Mínimo 8 caracteres.</p>
+      <form onSubmit={handleSubmit} className="space-y-4" aria-busy={submitting}>
+        <AuthField id="sa-new-password" label="Nueva contraseña">
+          <PasswordInput
+            id="sa-new-password"
             required
-            type="password"
             minLength={8}
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={inputCls}
             placeholder="Mínimo 8 caracteres"
           />
-        </label>
-        <label className={labelCls}>
-          Confirmar contraseña
-          <input
+        </AuthField>
+        <AuthField id="sa-confirm-password" label="Confirmar contraseña">
+          <PasswordInput
+            id="sa-confirm-password"
             required
-            type="password"
             minLength={8}
+            autoComplete="new-password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className={inputCls}
             placeholder="Repite la contraseña"
           />
-        </label>
+        </AuthField>
         {error && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300">
+          <div role="alert" className="sa-error">
             {error}
           </div>
         )}
-        <button type="submit" disabled={submitting} className={btnCls}>
+        <button type="submit" disabled={submitting} className="sa-btn">
+          {submitting && <span className="sa-spin" aria-hidden="true" />}
           {submitting ? "Actualizando..." : "Actualizar contraseña"}
         </button>
       </form>

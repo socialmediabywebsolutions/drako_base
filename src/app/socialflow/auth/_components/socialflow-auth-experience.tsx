@@ -3,7 +3,8 @@
 import { FormEvent, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { listSocialFlowPaidPlans, type SocialFlowAccountType } from "@/lib/socialflow/billing/plans";
+import { AuthShell } from "./auth-shell";
+import { AuthField, PasswordInput } from "./auth-fields";
 
 type SocialFlowAuthMode = "login" | "register";
 
@@ -13,17 +14,9 @@ type AuthResponseBody = {
   code?: string;
 };
 
-// ─── Design tokens — mismos que landing-client.tsx / planes-client.tsx ──────────
-const BG = "#F7F6FA";
-const INK = "#1a1a2e";
-const MUTED = "#64748b";
-
+// Punto de color del distintivo de tipo de cuenta (identidad de red del tipo elegido en la landing).
 const IG_PINK = "#DD2A7B";
 const LI_BLUE = "#0A66C2";
-const BRAND_ACCENT = "#4338CA";
-const IG_GRADIENT = "linear-gradient(90deg, #F58529, #DD2A7B, #8134AF)";
-const LI_GRADIENT = "linear-gradient(90deg, #0A66C2, #0077B5)";
-const BRAND_GRADIENT = "linear-gradient(90deg, #6D5DFB, #4338CA)";
 
 function resolveSafeRedirectTarget(rawTarget: string | null, fallback = "/socialflow") {
   if (!rawTarget) return fallback;
@@ -39,42 +32,27 @@ function resolveSafeRedirectTarget(rawTarget: string | null, fallback = "/social
 export default function SocialFlowAuthExperience() {
   const searchParams = useSearchParams();
 
+  // ?type=influencer|empresa (lo fija la landing / la página de planes): condiciona el distintivo, los
+  // textos de apoyo, la etiqueta del botón de registro y el destino tras registrarse.
   const rawType = searchParams.get("type");
   const accountType = rawType === "influencer" || rawType === "empresa" ? rawType : null;
   const typeConfig = accountType === "influencer"
     ? {
         badge: "✓ Plan Influencer · 15 días gratis",
-        registerTitle: "Crea tu cuenta de Influencer",
         registerSubtitle: "Empieza gratis 15 días en Socialcors para Influencers",
-        loginTitle: "Bienvenido de vuelta, Influencer",
         loginSubtitle: "Accede a tu panel de marketing para creadores",
         registerButtonLabel: "Crear cuenta de Influencer →",
-        loginButtonLabel: "Entrar a Socialcors →",
-        gradient: IG_GRADIENT,
-        accentColor: IG_PINK,
+        dot: IG_PINK,
       }
     : accountType === "empresa"
     ? {
         badge: "✓ Plan Empresa · 15 días gratis",
-        registerTitle: "Crea tu cuenta de Empresa",
         registerSubtitle: "Empieza gratis 15 días en Socialcors para Empresas",
-        loginTitle: "Bienvenido de vuelta",
         loginSubtitle: "Accede a tu panel de marketing empresarial",
         registerButtonLabel: "Crear cuenta de Empresa →",
-        loginButtonLabel: "Entrar a Socialcors →",
-        gradient: LI_GRADIENT,
-        accentColor: LI_BLUE,
+        dot: LI_BLUE,
       }
     : null;
-
-  // Acento activo del panel (tabs, botón, badge) — colores de red cuando hay type,
-  // morado de marca por defecto.
-  const activeGradient = typeConfig?.gradient ?? BRAND_GRADIENT;
-  const activeAccent = typeConfig?.accentColor ?? BRAND_ACCENT;
-
-  // Toggle local del panel "sin type" — solo cambia qué se previsualiza a la izquierda,
-  // nunca la URL ni el accountType real (eso solo lo fija ?type= al llegar desde la landing).
-  const [previewType, setPreviewType] = useState<SocialFlowAccountType>("influencer");
 
   const [mode, setMode] = useState<SocialFlowAuthMode>(searchParams.get("mode") === "register" ? "register" : "login");
   const [name, setName] = useState("");
@@ -157,386 +135,177 @@ export default function SocialFlowAuthExperience() {
     }
   }
 
-  const authForm = (
-    <aside className="w-full max-w-md lg:flex-shrink-0">
-      <div className="rounded-2xl border border-black/[0.06] bg-white p-7 shadow-[0_8px_30px_rgba(15,15,35,0.08)] sm:p-9">
+  const submitLabel = isSubmitting
+    ? "Un momento…"
+    : mode === "login"
+      ? "Entrar en SocialCors →"
+      : (typeConfig?.registerButtonLabel ?? "Crear cuenta →");
 
-        {/* Mode tabs */}
-        <div className="mb-7 grid grid-cols-2 overflow-hidden rounded-xl border border-black/[0.06] bg-black/[0.02] p-1">
+  return (
+    <AuthShell>
+      <div className="sa-card sa-rise">
+        <h1 className="sa-title">Bienvenido a SocialCors</h1>
+        <p className="sa-sub">Tu Community Manager con Inteligencia Artificial</p>
+
+        {/* Selector de vista: cambia entre login y registro sin salir de la página */}
+        <div className="sa-tabs" role="tablist" aria-label="Acceso a SocialCors">
+          <span className="sa-pill" data-mode={mode} aria-hidden="true" />
           {(["login", "register"] as SocialFlowAuthMode[]).map((m) => (
             <button
               key={m}
               type="button"
-              onClick={() => { setMode(m); setError(null); }}
-              className="rounded-lg px-4 py-2.5 text-sm font-bold transition"
-              style={
-                mode === m
-                  ? { background: activeGradient, color: "#fff", boxShadow: `0 4px 14px ${activeAccent}40` }
-                  : { color: MUTED }
-              }
+              role="tab"
+              id={`sa-tab-${m}`}
+              aria-selected={mode === m}
+              aria-controls="sa-panel"
+              className="sa-tab"
+              onClick={() => {
+                setMode(m);
+                setError(null);
+              }}
             >
               {m === "login" ? "Iniciar sesión" : "Crear cuenta"}
             </button>
           ))}
         </div>
 
-        {typeConfig && mode === "register" && (
-          <div
-            className="mb-4 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold"
-            style={{ borderColor: `${activeAccent}40`, backgroundColor: `${activeAccent}14`, color: activeAccent }}
-          >
-            {typeConfig.badge}
-          </div>
-        )}
-
-        <h2 className="mb-1 text-2xl font-black tracking-tight" style={{ color: INK }}>
-          {mode === "login"
-            ? (typeConfig?.loginTitle ?? "Bienvenido de vuelta")
-            : (typeConfig?.registerTitle ?? "Crea tu cuenta")}
-        </h2>
-        <p className="mb-7 text-sm" style={{ color: MUTED }}>
-          {mode === "login"
-            ? (typeConfig?.loginSubtitle ?? "Accede a tu panel de marketing")
-            : (typeConfig?.registerSubtitle ?? "Empieza gratis 15 días — sin tarjeta de crédito")}
-        </p>
-
-        <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          {mode === "register" && (
-            <FieldLabel label="Tu nombre">
-              <input
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Alex Rivera"
-                className="auth-input"
-              />
-            </FieldLabel>
+        <div key={mode} id="sa-panel" role="tabpanel" aria-labelledby={`sa-tab-${mode}`} className="sa-panel sa-swap">
+          {typeConfig && mode === "register" && (
+            <span className="sa-badge" style={{ "--dot": typeConfig.dot } as React.CSSProperties}>
+              <i aria-hidden="true" />
+              {typeConfig.badge}
+            </span>
           )}
-
-          <FieldLabel label="Correo electrónico">
-            <input
-              required
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu@empresa.com"
-              className="auth-input"
-            />
-          </FieldLabel>
-
-          <FieldLabel
-            label="Contraseña"
-            right={
-              mode === "login" ? (
-                <Link
-                  href="/socialflow/auth/reset-password"
-                  className="text-xs font-semibold transition-colors hover:opacity-75"
-                  style={{ color: activeAccent }}
-                >
-                  ¿Olvidaste tu contraseña?
-                </Link>
-              ) : undefined
-            }
-          >
-            <input
-              required
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onFocus={() => setPasswordFocused(true)}
-              onBlur={() => setPasswordFocused(false)}
-              placeholder="Tu contraseña segura"
-              className="auth-input"
-            />
-          </FieldLabel>
-
-          {mode === "register" && (passwordFocused || password.length > 0) && (
-            <PasswordRequirements password={password} />
-          )}
-
-          {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-              {error}
-            </div>
-          )}
-
-          {mode === "register" && (
-            <label className="flex items-start gap-3 text-xs leading-relaxed" style={{ color: MUTED }}>
-              <input
-                type="checkbox"
-                checked={acceptedTerms}
-                onChange={(event) => setAcceptedTerms(event.target.checked)}
-                required
-                className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded"
-                style={{ accentColor: activeAccent }}
-              />
-              <span>
-                He leído y acepto los{" "}
-                <Link href="/terminos" target="_blank" rel="noopener noreferrer" className="font-semibold underline" style={{ color: INK }}>
-                  Términos de servicio
-                </Link>{" "}
-                y la{" "}
-                <Link href="/privacidad" target="_blank" rel="noopener noreferrer" className="font-semibold underline" style={{ color: INK }}>
-                  Política de privacidad
-                </Link>
-              </span>
-            </label>
-          )}
-
-          <button
-            type="submit"
-            disabled={isSubmitting || (mode === "register" && !acceptedTerms)}
-            className="mt-2 w-full rounded-xl px-5 py-3.5 text-sm font-black tracking-wide text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ background: activeGradient, boxShadow: `0 8px 20px ${activeAccent}40` }}
-          >
-            {isSubmitting
-              ? "Un momento…"
-              : mode === "login"
-                ? (typeConfig?.loginButtonLabel ?? "Entrar a Socialcors →")
-                : (typeConfig?.registerButtonLabel ?? "Entrar a Socialcors →")}
-          </button>
-        </form>
-
-        {mode === "login" && (
-          <p className="mt-6 text-center text-xs" style={{ color: `${MUTED}99` }}>
-            Al continuar aceptas los{" "}
-            <Link href="/terminos" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: MUTED }}>
-              Términos de servicio
-            </Link>{" "}
-            y la{" "}
-            <Link href="/privacidad" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: MUTED }}>
-              Política de privacidad
-            </Link>
-            .
+          <p className="sa-context">
+            {mode === "login"
+              ? (typeConfig?.loginSubtitle ?? "Accede a tu panel de marketing")
+              : (typeConfig?.registerSubtitle ?? "Empieza gratis 15 días — sin tarjeta de crédito")}
           </p>
-        )}
-      </div>
-    </aside>
-  );
 
-  return (
-    <main className="relative min-h-screen overflow-hidden" style={{ backgroundColor: BG, color: INK }}>
+          <form onSubmit={handleSubmit} noValidate className="space-y-4" aria-busy={isSubmitting}>
+            {mode === "register" && (
+              <AuthField id="sa-name" label="Tu nombre">
+                <input
+                  id="sa-name"
+                  required
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Alex Rivera"
+                  className="sa-input"
+                />
+              </AuthField>
+            )}
 
-      {/* Gradient orbs — tonos suaves para fondo claro */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="sf-orb-1 absolute left-[-15%] top-[-10%] h-[500px] w-[500px] rounded-full bg-violet-200/30 blur-[120px]" />
-        <div className="sf-orb-2 absolute right-[-10%] bottom-[-10%] h-[400px] w-[400px] rounded-full bg-fuchsia-200/25 blur-[100px]" />
-        <div className="sf-orb-3 absolute left-[40%] top-[50%] h-[300px] w-[300px] rounded-full bg-cyan-100/20 blur-[90px]" />
-      </div>
+            <AuthField id="sa-email" label="Correo electrónico">
+              <input
+                id="sa-email"
+                required
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@empresa.com"
+                className="sa-input"
+              />
+            </AuthField>
 
-      {/* Dot grid */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-70"
-        style={{ backgroundImage: "radial-gradient(rgba(26,26,46,0.08) 1px, transparent 1px)", backgroundSize: "32px 32px" }}
-      />
+            <AuthField
+              id="sa-password"
+              label="Contraseña"
+              right={
+                mode === "login" ? (
+                  <Link href="/socialflow/auth/reset-password" className="sa-link">
+                    ¿Olvidaste tu contraseña?
+                  </Link>
+                ) : undefined
+              }
+            >
+              <PasswordInput
+                id="sa-password"
+                required
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
+                placeholder="Tu contraseña segura"
+              />
+            </AuthField>
 
-      <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col items-center justify-center px-5 py-16 sm:px-8 lg:flex-row lg:items-center lg:gap-16 lg:py-10">
+            {mode === "register" && (passwordFocused || password.length > 0) && (
+              <PasswordRequirements password={password} />
+            )}
 
-        {typeConfig ? (
-          <>
-            {/* Left — sales content */}
-            <div className="mb-10 w-full max-w-xl lg:mb-0 lg:flex-1">
-              <Link href="/" className="mb-8 flex items-center gap-3">
-                <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-cabecera.png" alt="Socialcors" className="h-10 w-auto" />
-                <span className="text-xl font-black tracking-tight" style={{ color: INK }}>
-                  Socialcors
+            {error && (
+              <div role="alert" className="sa-error">
+                {error}
+              </div>
+            )}
+
+            {mode === "register" && (
+              <label className="sa-check">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(event) => setAcceptedTerms(event.target.checked)}
+                  required
+                />
+                <span>
+                  He leído y acepto los{" "}
+                  <Link href="/terminos" target="_blank" rel="noopener noreferrer">
+                    Términos de servicio
+                  </Link>{" "}
+                  y la{" "}
+                  <Link href="/privacidad" target="_blank" rel="noopener noreferrer">
+                    Política de privacidad
+                  </Link>
                 </span>
+              </label>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmitting || (mode === "register" && !acceptedTerms)}
+              className="sa-btn"
+            >
+              {isSubmitting && <span className="sa-spin" aria-hidden="true" />}
+              {submitLabel}
+            </button>
+          </form>
+
+          {mode === "login" && (
+            <p className="sa-legal">
+              Al continuar aceptas los{" "}
+              <Link href="/terminos" target="_blank" rel="noopener noreferrer">
+                Términos de servicio
+              </Link>{" "}
+              y la{" "}
+              <Link href="/privacidad" target="_blank" rel="noopener noreferrer">
+                Política de privacidad
               </Link>
+              .
+            </p>
+          )}
+        </div>
+      </div>
 
-              {accountType === "influencer" ? (
-                <>
-                  <h1
-                    className="text-4xl font-black leading-tight tracking-tight sm:text-5xl"
-                    style={{ background: IG_GRADIENT, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}
-                  >
-                    Para Influencers y Creadores
-                  </h1>
-
-                  <p className="mt-5 text-lg leading-relaxed" style={{ color: MUTED }}>
-                    ¿Pasas horas pensando qué publicar, cuándo publicar y cómo escribir captions que conecten? Eso se acabó.
-                  </p>
-
-                  <p className="mt-6 text-2xl font-bold" style={{ color: INK }}>
-                    La IA publica por ti mientras tú creces
-                  </p>
-
-                  <ul className="mt-6 space-y-3">
-                    {[
-                      "Sube una foto — caption, hashtags y hora óptima en 10 segundos",
-                      "Publicación automática en Instagram sin tocar el móvil",
-                      "Detecta sponsors y colaboraciones en tus DMs automáticamente",
-                    ].map((b) => (
-                      <li key={b} className="flex items-start gap-3 text-sm" style={{ color: `${INK}b3` }}>
-                        <span className="mt-0.5 shrink-0 font-black" style={{ color: IG_PINK }}>✓</span>
-                        {b}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Link
-                    href="/socialflow/planes?type=influencer"
-                    className="mt-8 inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-sm font-black text-white shadow-lg transition-all hover:brightness-110 hover:-translate-y-0.5"
-                    style={{ background: IG_GRADIENT, boxShadow: `0 10px 24px ${IG_PINK}33` }}
-                  >
-                    Ver los 3 planes en detalle →
-                  </Link>
-
-                  <p className="mt-7 text-center text-lg font-black" style={{ color: INK }}>Empieza hoy. Publica mañana.</p>
-                  <p className="mt-2 text-center text-xs" style={{ color: MUTED }}>✓ 15 días gratis · ✓ Sin tarjeta · ✓ Cancela cuando quieras</p>
-                </>
-              ) : (
-                <>
-                  <h1
-                    className="text-4xl font-black leading-tight tracking-tight sm:text-5xl"
-                    style={{ background: LI_GRADIENT, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}
-                  >
-                    Para Empresas y PYMEs
-                  </h1>
-
-                  <p className="mt-5 text-lg leading-relaxed" style={{ color: MUTED }}>
-                    ¿Tu community manager cuesta más de 1.500€/mes y aún así no consigues constancia, leads ni resultados medibles?
-                  </p>
-
-                  <p className="mt-6 text-2xl font-bold" style={{ color: INK }}>
-                    Tu equipo de marketing con IA, por menos que un community manager
-                  </p>
-
-                  <ul className="mt-6 space-y-3">
-                    {[
-                      "Contenido auténtico generado desde tu web, PDFs y catálogo de productos",
-                      "Responde comentarios y DMs con el conocimiento real de tu negocio 24/7",
-                      "Detecta leads y genera presupuestos automáticamente desde conversaciones",
-                    ].map((b) => (
-                      <li key={b} className="flex items-start gap-3 text-sm" style={{ color: `${INK}b3` }}>
-                        <span className="mt-0.5 shrink-0 font-black" style={{ color: LI_BLUE }}>✓</span>
-                        {b}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Link
-                    href="/socialflow/planes?type=empresa"
-                    className="mt-8 inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-sm font-black text-white shadow-lg transition-all hover:brightness-110 hover:-translate-y-0.5"
-                    style={{ background: LI_GRADIENT, boxShadow: `0 10px 24px ${LI_BLUE}33` }}
-                  >
-                    Ver los 3 planes en detalle →
-                  </Link>
-
-                  <p className="mt-7 text-center text-lg font-black" style={{ color: INK }}>Configura hoy. Tu IA trabaja mañana.</p>
-                  <p className="mt-2 text-center text-xs" style={{ color: MUTED }}>✓ 15 días gratis · ✓ Sin tarjeta · ✓ Cancela cuando quieras</p>
-                </>
-              )}
-            </div>
-
-            {authForm}
-          </>
+      {/* Los planes viven en su propia página: aquí solo un enlace discreto. /socialflow/planes exige
+          ?type=; sin él redirige al Home, así que se ofrecen los dos tipos cuando no se conoce. */}
+      <p className="sa-plans">
+        {accountType ? (
+          <Link href={`/socialflow/planes?type=${accountType}`}>Ver planes →</Link>
         ) : (
           <>
-            {/* Left — brand + plan preview (sin type: el visitante elige aquí, en local
-                state, qué previsualizar — no cambia la URL) */}
-            <div className="mb-10 w-full max-w-xl lg:mb-0 lg:flex-1">
-              <Link href="/" className="mb-8 flex items-center gap-3">
-                <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-cabecera.png" alt="Socialcors" className="h-10 w-auto" />
-                <span className="text-xl font-black tracking-tight" style={{ color: INK }}>
-                  Socialcors
-                </span>
-              </Link>
-
-              <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl" style={{ color: INK }}>
-                Tu Community Manager con Inteligencia Artificial
-              </h1>
-              <p className="mt-4 text-base leading-relaxed" style={{ color: MUTED }}>
-                Elige tu plan y empieza gratis hoy — sin tarjeta de crédito
-              </p>
-
-              {/* Toggle Influencer / Empresa — mismo patrón visual que los tabs de modo del
-                  formulario, de arriba (líneas 130-147) */}
-              <div className="mt-8 grid grid-cols-2 overflow-hidden rounded-xl border border-black/[0.06] bg-black/[0.02] p-1">
-                {(["influencer", "empresa"] as SocialFlowAccountType[]).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setPreviewType(t)}
-                    className="rounded-lg px-4 py-2.5 text-sm font-bold transition"
-                    style={
-                      previewType === t
-                        ? {
-                            background: t === "influencer" ? IG_GRADIENT : LI_GRADIENT,
-                            color: "#fff",
-                            boxShadow: `0 4px 14px ${(t === "influencer" ? IG_PINK : LI_BLUE)}40`,
-                          }
-                        : { color: MUTED }
-                    }
-                  >
-                    {t === "influencer" ? "Influencer" : "Empresa"}
-                  </button>
-                ))}
-              </div>
-
-              {/* 3 tarjetas de plan — datos reales de plans.ts, nunca hardcodeados */}
-              <div className="mt-5 grid gap-3">
-                {listSocialFlowPaidPlans(previewType).map((plan) => {
-                  const isPopular = plan.code.endsWith("_basico");
-                  const shortName = plan.label.replace(/^(Influencer|Empresa)\s+/, "");
-                  const previewAccent = previewType === "influencer" ? IG_PINK : LI_BLUE;
-                  const previewGradient = previewType === "influencer" ? IG_GRADIENT : LI_GRADIENT;
-                  return (
-                    <Link
-                      key={plan.code}
-                      href={`/socialflow/planes?type=${previewType}`}
-                      className="relative block rounded-xl bg-white p-4 transition-all duration-300 hover:-translate-y-0.5"
-                      style={{
-                        border: `1.5px solid ${previewAccent}`,
-                        boxShadow: isPopular ? `0 6px 20px ${previewAccent}26` : "0 1px 3px rgba(15,15,35,0.05)",
-                      }}
-                    >
-                      {isPopular && (
-                        <span
-                          className="absolute -top-2.5 left-4 rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow"
-                          style={{ background: previewGradient }}
-                        >
-                          Más popular
-                        </span>
-                      )}
-                      <div className="flex items-baseline justify-between gap-2">
-                        <h4 className="text-sm font-black" style={{ color: INK }}>{shortName}</h4>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-lg font-black" style={{ color: previewAccent }}>{plan.priceEur}€</span>
-                          <span className="text-[11px]" style={{ color: MUTED }}>/mes</span>
-                        </div>
-                      </div>
-                      <p className="mt-1 text-xs" style={{ color: MUTED }}>{plan.description}</p>
-                      <ul className="mt-2.5 space-y-1">
-                        {plan.features.slice(0, 4).map((feature) => (
-                          <li key={feature} className="flex items-start gap-1.5 text-[11px]" style={{ color: `${INK}b3` }}>
-                            <span className="mt-px shrink-0 font-black" style={{ color: previewAccent }}>✓</span>
-                            {feature}
-                          </li>
-                        ))}
-                      </ul>
-                    </Link>
-                  );
-                })}
-              </div>
-
-              <p className="mt-6 text-sm leading-relaxed" style={{ color: MUTED }}>
-                ¿Por qué Socialcors? Analizamos, creamos, publicamos y aprendemos por ti — en Instagram y LinkedIn — mientras tú te dedicas a tu negocio.
-              </p>
-              <Link
-                href={`/socialflow/planes?type=${previewType}`}
-                className="mt-3 inline-flex items-center gap-1 text-sm font-bold transition-colors hover:opacity-75"
-                style={{ color: previewType === "influencer" ? IG_PINK : LI_BLUE }}
-              >
-                Ver todos los detalles de cada plan →
-              </Link>
-            </div>
-
-            {authForm}
+            Ver planes:{" "}
+            <Link href="/socialflow/planes?type=influencer">Influencer</Link>
+            {" · "}
+            <Link href="/socialflow/planes?type=empresa">Empresa</Link>
           </>
         )}
-
-      </div>
-    </main>
+      </p>
+    </AuthShell>
   );
 }
 
@@ -547,37 +316,13 @@ function PasswordRequirements({ password }: { password: string }) {
     { label: "Al menos un número", met: /\d/.test(password) },
   ];
   return (
-    <ul className="-mt-2 space-y-1 pl-1">
+    <ul className="sa-reqs" aria-label="Requisitos de la contraseña">
       {requirements.map((req) => (
-        <li
-          key={req.label}
-          className="flex items-center gap-1.5 text-xs font-medium transition-colors"
-          style={{ color: req.met ? "#16a34a" : `${MUTED}99` }}
-        >
+        <li key={req.label} className="sa-req" data-met={req.met}>
           <span aria-hidden="true">{req.met ? "✓" : "○"}</span>
           {req.label}
         </li>
       ))}
     </ul>
-  );
-}
-
-function FieldLabel({
-  label,
-  right,
-  children,
-}: {
-  label: string;
-  right?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-sm font-semibold" style={{ color: `${INK}b3` }}>{label}</span>
-        {right}
-      </div>
-      {children}
-    </label>
   );
 }
