@@ -1,169 +1,178 @@
+import { LegalIdentity, LegalLayout, LegalLink, LegalList, LegalSection } from "@/components/legal/legal-layout";
+import { EDPB_MEMBERS_URL, LEGAL_HOLDER } from "@/components/legal/legal-data";
+
 export const dynamic = "force-static";
 
 export const metadata = {
   title: "Política de Privacidad — Socialcors",
+  description: "Cómo trata SocialCors tus datos personales: responsable, finalidades, destinatarios, conservación y derechos.",
 };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="mt-10">
-      <h2 className="text-xl font-black text-slate-900">{title}</h2>
-      <div className="mt-3 space-y-3 text-sm leading-relaxed text-slate-600">{children}</div>
-    </section>
-  );
-}
-
 export default function PrivacidadPage() {
+  const mail = <LegalLink href={`mailto:${LEGAL_HOLDER.email}`}>{LEGAL_HOLDER.email}</LegalLink>;
+
   return (
-    <main className="mx-auto max-w-3xl px-6 py-20">
-      <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Socialcors</p>
-      <h1 className="mt-3 text-3xl font-black text-slate-900">Política de Privacidad</h1>
-      <p className="mt-2 text-sm text-slate-500">Última actualización: 25 de agosto de 2026.</p>
-
-      <p className="mt-6 text-sm leading-relaxed text-slate-600">
-        Socialcors es un servicio de gestión y automatización de redes sociales con inteligencia
-        artificial, dirigido a influencers y empresas, que analiza fotos y contexto de marca para
-        generar contenido, publicarlo en Instagram y LinkedIn en el momento óptimo, responder
-        comentarios y mensajes directos, y detectar oportunidades de venta (leads) en las
-        conversaciones entrantes. Esta política explica qué datos recopilamos para prestar ese
-        servicio, cómo los usamos, dónde se almacenan y cómo puedes solicitar su eliminación.
-      </p>
-
-      <Section title="1. Quién trata tus datos">
+    <LegalLayout
+      title="Política de Privacidad"
+      intro={
         <p>
-          Socialcors es un producto operado por Drako Systems. Para cualquier consulta sobre esta
-          política o para ejercer tus derechos de datos, puedes escribirnos a{" "}
-          <a href="mailto:privacidad@socialcors.com" className="underline">
-            privacidad@socialcors.com
-          </a>
-          .
+          SocialCors es un servicio de gestión y automatización de redes sociales con inteligencia
+          artificial, dirigido a influencers, creadores, empresas y autónomos, que analiza fotos y contexto
+          de marca para generar contenido, publicarlo, responder comentarios y mensajes directos y detectar
+          oportunidades de venta (leads). Esta política explica qué datos tratamos para prestar ese servicio,
+          con qué finalidad y base jurídica, con quién los compartimos, cuánto tiempo los conservamos y cómo
+          puedes ejercer tus derechos.
         </p>
-      </Section>
+      }
+    >
+      <LegalSection title="1. Responsable del tratamiento">
+        <LegalIdentity />
+        <p>Para cualquier consulta sobre esta política o para ejercer tus derechos, escríbenos a {mail}.</p>
+      </LegalSection>
 
-      <Section title="2. Qué datos recopilamos">
-        <p>Dependiendo de qué funciones de Socialcors uses, recopilamos:</p>
-        <ul className="list-disc space-y-1 pl-5">
-          <li>
-            <strong>Tokens de acceso OAuth de Instagram y LinkedIn</strong>, obtenidos cuando conectas
-            tu cuenta voluntariamente — nos permiten publicar contenido, leer comentarios/mensajes y
-            consultar métricas en tu nombre, dentro de los permisos que apruebas explícitamente en
-            ese momento.
-          </li>
-          <li>
-            <strong>Comentarios y mensajes directos (DM)</strong> recibidos en tus publicaciones de
-            Instagram, leídos vía la API oficial de Meta, para poder sugerirte o enviar respuestas
-            automáticas.
-          </li>
-          <li>
-            <strong>Métricas e insights</strong> de tus publicaciones (alcance, interacciones,
-            impresiones) obtenidos vía la API de Meta.
-          </li>
-          <li>
-            <strong>Leads</strong>: cuando detectamos que un comentario o mensaje muestra intención de
-            compra (por ejemplo, una pregunta de precio), guardamos ese mensaje y una puntuación de
-            interés para ayudarte a priorizar tu atención comercial.
-          </li>
-          <li>
-            <strong>Fotos que subes</strong> para que la IA genere contenido (posts, reels, carruseles)
-            a partir de ellas.
-          </li>
-          <li>
-            <strong>Datos de tu marca/negocio</strong> que nos proporcionas en el onboarding (nombre,
-            descripción, tono de voz, público objetivo) para que el contenido generado sea coherente
-            con tu identidad.
-          </li>
-          <li>
-            <strong>Datos de cuenta y facturación</strong> (email, datos de pago procesados por
-            Stripe — nunca almacenamos números de tarjeta directamente).
-          </li>
-        </ul>
-      </Section>
+      <LegalSection title="2. Qué datos tratamos">
+        <p>Según las funciones que utilices, tratamos:</p>
+        <LegalList>
+          <li><strong>Datos de cuenta:</strong> nombre, correo electrónico y contraseña. De la contraseña solo se almacena una versión protegida mediante hash con sal; nunca en texto plano.</li>
+          <li><strong>Datos de facturación y pago:</strong> gestionados por Stripe. SocialCors no almacena números de tarjeta.</li>
+          <li><strong>Contenido que subes:</strong> fotos y vídeos, documentos y direcciones web de tu Base de conocimiento y datos de tu marca o negocio (nombre, descripción, tono de voz, público objetivo). Si incorporas datos o imágenes de personas de tu equipo o de terceros, ver la sección 9.</li>
+          <li><strong>Datos de las redes sociales que conectas:</strong> tokens de acceso OAuth (almacenados cifrados), datos básicos de la cuenta, publicaciones, métricas e insights.</li>
+          <li><strong>Mensajes y comentarios de terceros:</strong> los que recibes en tus cuentas conectadas, que el servicio procesa para sugerirte o enviar respuestas y para detectar oportunidades comerciales. Cuando se detecta un lead, se guarda el mensaje y una puntuación de interés.</li>
+          <li><strong>Sesión:</strong> una cookie técnica estrictamente necesaria (ver la <LegalLink href="/cookies">Política de Cookies</LegalLink>).</li>
+        </LegalList>
+      </LegalSection>
 
-      <Section title="3. Cómo usamos tus datos">
-        <ul className="list-disc space-y-1 pl-5">
-          <li>Generar y publicar contenido (texto, imagen y vídeo) en tu nombre, en los horarios que configures o que la IA recomiende.</li>
-          <li>Responder comentarios y mensajes directos de forma automática o asistida, usando el conocimiento de tu marca.</li>
-          <li>Detectar y priorizar oportunidades de venta (leads) en tus conversaciones entrantes.</li>
-          <li>Mostrarte métricas y analítica de rendimiento de tus publicaciones.</li>
-          <li>Mejorar el contenido futuro en función de qué formatos y horarios funcionan mejor para tu audiencia.</li>
-        </ul>
-        <p>No vendemos tus datos a terceros ni los usamos para publicidad ajena a Socialcors.</p>
-      </Section>
+      <LegalSection title="3. Finalidades y base jurídica">
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="w-full min-w-[34rem] text-left text-sm">
+            <thead className="bg-slate-50 text-slate-900">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Finalidad</th>
+                <th className="px-4 py-3 font-semibold">Base jurídica</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 align-top">
+              <tr>
+                <td className="px-4 py-3">Gestión de tu cuenta y prestación del servicio (generar y publicar contenido, responder comentarios y mensajes, detectar leads, mostrar métricas)</td>
+                <td className="px-4 py-3">Ejecución del contrato (art. 6.1.b RGPD)</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3">Cobro de la suscripción y facturación</td>
+                <td className="px-4 py-3">Ejecución del contrato y cumplimiento de obligaciones legales (art. 6.1.b y 6.1.c RGPD)</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3">Envíos de servicio: resumen semanal, avisos de leads y restablecimiento de contraseña</td>
+                <td className="px-4 py-3">Interés legítimo en informarte sobre el funcionamiento de tu cuenta (art. 6.1.f RGPD)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>No vendemos tus datos a terceros ni los usamos para publicidad ajena a SocialCors.</p>
+      </LegalSection>
 
-      <Section title="4. Dónde y cómo se almacenan">
+      <LegalSection title="4. Destinatarios y proveedores">
+        <p>Compartimos datos únicamente con los proveedores necesarios para prestar el servicio:</p>
+        <LegalList>
+          <li><strong>Cloudflare</strong> — infraestructura y almacenamiento (bases de datos D1, almacenamiento de imágenes y vídeos R2 y caché KV) y modelos de IA de Workers AI (Llama, Mistral, LLaVA y SDXL), en la región del Espacio Económico Europeo.</li>
+          <li><strong>Anthropic</strong> — IA conversacional (Claude), en EE. UU.</li>
+          <li><strong>PiAPI, Apiframe y DashScope</strong> — generación de vídeo con IA.</li>
+          <li><strong>Resend</strong> — envío de correos electrónicos de servicio.</li>
+          <li><strong>Stripe</strong> — procesamiento de pagos.</li>
+          <li><strong>Google</strong> — geocodificación de direcciones (Google Maps).</li>
+          <li><strong>Plataformas que tú conectas</strong> (Meta, para Instagram y Facebook, y LinkedIn) — para publicar, leer comentarios y mensajes y consultar métricas en tu nombre, dentro de los permisos que apruebas al conectar tu cuenta.</li>
+        </LegalList>
+      </LegalSection>
+
+      <LegalSection title="5. Redes sociales integradas">
+        <LegalList>
+          <li><strong>Instagram:</strong> integración activa.</li>
+          <li><strong>LinkedIn:</strong> en desarrollo.</li>
+          <li><strong>Facebook:</strong> preparada, pero no activa.</li>
+        </LegalList>
+      </LegalSection>
+
+      <LegalSection title="6. Transferencias internacionales">
         <p>
-          Tus datos se almacenan en bases de datos de Cloudflare (Cloudflare D1), dentro de la
-          infraestructura sobre la que corre Socialcors. Los tokens de acceso a Instagram y LinkedIn
-          se cifran (AES-GCM) antes de guardarse — nunca se almacenan en texto plano.
+          Los datos tratados por Anthropic (EE. UU.) constituyen una transferencia internacional, que se
+          realiza con garantías adecuadas mediante cláusulas contractuales tipo (SCC) aprobadas por la
+          Comisión Europea. Puedes solicitar más información sobre estas garantías en {mail}.
         </p>
-      </Section>
+      </LegalSection>
 
-      <Section title="5. Con quién compartimos datos">
+      <LegalSection title="7. Cuánto tiempo conservamos tus datos">
         <p>
-          Compartimos datos únicamente con los proveedores necesarios para prestar el servicio:
-          Meta (API de Instagram/Facebook, para publicar y leer comentarios/mensajes en tu nombre),
-          LinkedIn (misma finalidad para esa red), Cloudflare (infraestructura y almacenamiento), y
-          Stripe (procesamiento de pagos). Ninguno de ellos usa tus datos para fines propios ajenos a
-          la prestación de estos servicios.
+          Conservamos tus datos mientras el contrato esté vigente y, una vez finalizado, durante 5 años los
+          datos necesarios para atender obligaciones fiscales. Si desconectas tu cuenta de Instagram desde
+          el panel de Instagram o Meta, invalidamos el token de acceso de inmediato. Si solicitas la
+          eliminación de tus datos (sección 8), los borramos de forma permanente en un plazo razonable tras
+          la solicitud, salvo los que debamos conservar por obligación legal.
         </p>
-      </Section>
+      </LegalSection>
 
-      <Section title="6. Cuánto tiempo conservamos tus datos">
-        <p>
-          Conservamos tus datos mientras tu cuenta esté activa y sea necesario para prestarte el
-          servicio. Si desconectas tu cuenta de Instagram desde el propio panel de Instagram/Meta,
-          invalidamos el token de acceso inmediatamente. Si solicitas la eliminación de tus datos
-          (ver sección 7), los borramos de forma permanente en un plazo razonable tras la solicitud.
-        </p>
-      </Section>
-
-      <Section title="7. Cómo eliminar tus datos">
-        <p>Tienes dos formas de solicitar la eliminación de tus datos:</p>
-        <ul className="list-disc space-y-1 pl-5">
+      <LegalSection title="8. Cómo eliminar tus datos" id="eliminar-datos">
+        <p>Puedes solicitar la eliminación de tus datos de dos formas:</p>
+        <LegalList>
           <li>
-            <strong>Desde Instagram/Facebook</strong>: en la configuración de tu cuenta de Meta, en la
-            sección de aplicaciones conectadas, puedes solicitar directamente que Socialcors elimine
-            tus datos. Meta nos notifica automáticamente y procesamos la solicitud sin intervención
-            manual — recibirás un enlace de confirmación donde podrás verificar que se completó.
+            <strong>Desde Instagram o Facebook:</strong> en la configuración de tu cuenta de Meta, en la
+            sección de aplicaciones conectadas, puedes solicitar que SocialCors elimine tus datos. Meta nos
+            lo notifica automáticamente y procesamos la solicitud sin intervención manual; recibirás un
+            enlace de confirmación donde podrás verificar que se completó.
           </li>
-          <li>
-            <strong>Por email</strong>: escribiendo a{" "}
-            <a href="mailto:privacidad@socialcors.com" className="underline">
-              privacidad@socialcors.com
-            </a>{" "}
-            solicitando la eliminación de tu cuenta y datos asociados.
-          </li>
-        </ul>
+          <li><strong>Por correo electrónico:</strong> escribiendo a {mail} y solicitando la eliminación de tu cuenta y datos asociados.</li>
+        </LegalList>
         <p>
-          Cuando procesamos una solicitud de eliminación, borramos permanentemente: la conexión con
-          tu cuenta de Instagram (y su token), el historial de comentarios/mensajes gestionados a
-          través de Socialcors, y los leads derivados de esas conversaciones. El contenido que hayas
-          creado con Socialcors (posts, campañas) queda bajo tu control y no se elimina
-          automáticamente por esta vía, ya que es contenido tuyo, no datos obtenidos a través de los
-          permisos de Meta.
+          Al procesar una solicitud de eliminación vía Meta, borramos de forma permanente: la conexión con
+          tu cuenta de Instagram (y su token), el historial de comentarios y mensajes gestionados a través
+          de SocialCors y los leads derivados de esas conversaciones. El contenido que hayas creado con
+          SocialCors (publicaciones, campañas) queda bajo tu control y no se elimina automáticamente por
+          esta vía, ya que es contenido tuyo y no datos obtenidos a través de los permisos de Meta.
         </p>
-      </Section>
+      </LegalSection>
 
-      <Section title="8. Tus derechos">
+      <LegalSection title="9. Datos de terceros y encargado del tratamiento" id="terceros">
         <p>
-          De acuerdo con el Reglamento General de Protección de Datos (RGPD) y normativa aplicable,
-          tienes derecho a acceder, rectificar, eliminar, limitar el tratamiento, oponerte al mismo,
-          y solicitar la portabilidad de tus datos. Puedes ejercer cualquiera de estos derechos
-          escribiendo a{" "}
-          <a href="mailto:privacidad@socialcors.com" className="underline">
-            privacidad@socialcors.com
-          </a>
-          .
+          Cuando conectas tus redes sociales, SocialCors trata datos de tus seguidores y de tu audiencia
+          (por ejemplo, sus comentarios y mensajes). En ese caso, <strong>SocialCors actúa como encargado
+          del tratamiento</strong> y tú eres el responsable, conforme al{" "}
+          <LegalLink href="/dpa">Acuerdo de Encargado del Tratamiento (DPA)</LegalLink>.
         </p>
-      </Section>
+        <p>
+          Si subes fotos o datos de personas de tu equipo o de terceros, eres responsable de contar con la
+          legitimación necesaria para hacerlo.
+        </p>
+      </LegalSection>
 
-      <Section title="9. Cambios en esta política">
+      <LegalSection title="10. Inteligencia artificial">
         <p>
-          Podemos actualizar esta política cuando cambien las funciones del producto o los
-          requisitos legales aplicables. La fecha de la última actualización aparece al principio de
-          esta página.
+          El contenido que subes y los mensajes y comentarios que recibes pueden ser procesados por
+          proveedores de inteligencia artificial para generar contenido y respuestas. Este contenido no se
+          utiliza para entrenar modelos propios de SocialCors.
         </p>
-      </Section>
-    </main>
+      </LegalSection>
+
+      <LegalSection title="11. Tus derechos">
+        <p>
+          Tienes derecho a acceder a tus datos, rectificarlos, suprimirlos, limitar su tratamiento,
+          oponerte a él y solicitar su portabilidad. Puedes ejercer estos derechos escribiendo a {mail},
+          indicando el derecho que quieres ejercer y acompañando, si es necesario, un documento que
+          acredite tu identidad.
+        </p>
+        <p>
+          Si consideras que tus derechos no han sido atendidos, puedes presentar una reclamación ante la
+          Agencia Española de Protección de Datos (AEPD):{" "}
+          <LegalLink href="https://www.aepd.es">www.aepd.es</LegalLink>. Si resides en otro país de la
+          Unión Europea, además de la AEPD puedes dirigirte a la autoridad de control de protección de
+          datos de tu país de residencia; puedes encontrar la tuya en el{" "}
+          <LegalLink href={EDPB_MEMBERS_URL}>directorio de autoridades del Comité Europeo de Protección de Datos</LegalLink>.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="12. Cambios en esta política">
+        <p>
+          Podemos actualizar esta política cuando cambien las funciones del servicio o los requisitos
+          legales aplicables. La fecha de la última actualización figura al principio de esta página.
+        </p>
+      </LegalSection>
+    </LegalLayout>
   );
 }

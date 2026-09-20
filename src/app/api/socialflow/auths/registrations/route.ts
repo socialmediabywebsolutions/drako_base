@@ -7,11 +7,14 @@ import { isAuthsIsolationEnabled, isTelemetriesHoldingEnabled } from "@/lib/auth
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { enforceAuthBoundary, resolveSaasSlugForAuthContext } from "@/lib/auths/ssot";
 import { run } from "@/lib/db";
+import { recordTermsAcceptance } from "@/lib/socialflow/auth/terms-acceptance";
 
 type RegistrationBody = {
   email?: string;
   password?: string;
   name?: string;
+  /** El cliente debe marcar la casilla de Términos y Política de privacidad. */
+  acceptedTerms?: boolean;
 };
 
 export async function POST(request: Request) {
@@ -26,6 +29,11 @@ export async function POST(request: Request) {
     return jsonError("INVALID_INPUT", "Email and password are required.");
   }
 
+  // Aceptación de los Términos de servicio y la Política de privacidad (casilla del formulario).
+  if (body.acceptedTerms !== true) {
+    return jsonError("TERMS_NOT_ACCEPTED", "Debes aceptar los Términos de servicio y la Política de privacidad.", 400);
+  }
+
   const registration = await socialflowAuths.register({
     context: "socialflow",
     email: body.email,
@@ -36,6 +44,9 @@ export async function POST(request: Request) {
   if (!registration.ok) {
     return jsonError(registration.code, registration.message, registration.code === "EMAIL_EXISTS" ? 409 : 400);
   }
+
+  // Prueba de la aceptación: fecha/hora en socialflow_users.accepted_terms_at (no bloquea el alta si falla).
+  await recordTermsAcceptance(registration.userId);
 
   const login = await socialflowAuths.login({
     context: "socialflow",

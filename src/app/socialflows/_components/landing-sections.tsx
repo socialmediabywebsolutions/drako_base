@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { HeroSystem } from "./hero-system";
 import LiveZone from "./live-zone";
 import Reveal from "./reveal";
+import { LEGAL_COPYRIGHT } from "@/components/legal/legal-data";
 import { CoreDisc, SysHead, Wires, vars, type WirePath } from "./flow";
 import {
   DEMO_VIDEO_URL,
@@ -548,11 +549,30 @@ export function FinalCta() {
 
 // ── FOOTER: cierra el recorrido ─────────────────────────────────────────────
 export function LandingFooter() {
-  const links = [
-    { label: "Planes", href: HREF_PLANS },
-    { label: "Iniciar sesión", href: HREF_LOGIN },
-    { label: "Privacidad", href: "/privacidad" },
-    { label: "Contacto", href: "/contact" },
+  // Grupos de enlaces del pie. "Contacto" apunta a /contacto (página propia de SocialCors); /contact
+  // es la página de Drako Systems y NO debe enlazarse desde aquí.
+  const groups = [
+    {
+      title: "Producto",
+      links: [
+        { label: "Planes", href: HREF_PLANS },
+        { label: "Iniciar sesión", href: HREF_LOGIN },
+      ],
+    },
+    {
+      title: "Legal",
+      links: [
+        { label: "Aviso Legal", href: "/aviso-legal" },
+        { label: "Privacidad", href: "/privacidad" },
+        { label: "Cookies", href: "/cookies" },
+        { label: "Términos", href: "/terminos" },
+        { label: "DPA", href: "/dpa" },
+      ],
+    },
+    {
+      title: "Contacto",
+      links: [{ label: "Contacto", href: "/contacto" }],
+    },
   ];
   return (
     <footer className="px-4 pb-10 pt-2 sm:px-6">
@@ -571,15 +591,24 @@ export function LandingFooter() {
               className="sy-chain--foot"
               items={["SocialCors", "Tu negocio", "Tu contenido", "Tus redes", "Tu evolución"]}
             />
+            <div className="sy-foot-links">
+              {groups.map((g) => (
+                <nav key={g.title} aria-label={g.title}>
+                  <p className="sy-foot-h">{g.title}</p>
+                  <ul className="sy-foot-ul">
+                    {g.links.map((l) => (
+                      <li key={l.label}>
+                        <Link href={l.href} className="sy-foot-link">
+                          {l.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              ))}
+            </div>
             <div className="sy-foot-bottom">
-              <nav aria-label="Pie de página" className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                {links.map((l) => (
-                  <Link key={l.label} href={l.href} className="sy-foot-link">
-                    {l.label}
-                  </Link>
-                ))}
-              </nav>
-              <p className="sy-foot-copy">© {new Date().getFullYear()} SocialCors by Drako. Todos los derechos reservados.</p>
+              <p className="sy-foot-copy">{LEGAL_COPYRIGHT}. Todos los derechos reservados.</p>
             </div>
           </div>
         </LiveZone>

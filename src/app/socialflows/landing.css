@@ -1542,13 +1542,16 @@
 .sy-foot-logo { overflow: hidden; border-radius: 1rem; max-width: 22rem; }
 .sy-foot-logo img { display: block; width: 100%; height: auto; }
 .sy-foot-kicker { font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: #a5b4fc; margin-bottom: 0.4rem; }
-.sy-foot-bottom { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 1.6rem; padding-top: 1.2rem; border-top: 1px solid var(--sc-app-line); }
-.sy-foot-link { font-size: 0.875rem; font-weight: 600; color: var(--sc-app-muted); transition: color 0.2s ease; }
+.sy-foot-bottom { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 1.2rem; }
+.sy-foot-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.4rem 1rem; margin-top: 1.6rem; padding-top: 1.2rem; border-top: 1px solid var(--sc-app-line); }
+.sy-foot-h { font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: #a5b4fc; margin-bottom: 0.6rem; }
+.sy-foot-ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.sy-foot-link { font-size: 0.875rem; font-weight: 600; color: rgba(255, 255, 255, 0.66); transition: color 0.2s ease; }
 .sy-foot-link:hover { color: #fff; }
 .sy-foot-copy { font-size: 0.75rem; color: var(--sc-app-muted); }
 @media (min-width: 900px) {
   .sy-foot { grid-template-columns: minmax(0, 20rem) 1fr; gap: 2.4rem; padding: 1.8rem; }
-  .sy-foot-bottom { flex-direction: row; justify-content: space-between; align-items: center; }
+  .sy-foot-bottom { flex-direction: row; justify-content: flex-start; align-items: center; }
 }
 
 /* ══ Motor: nodos-panel (qué significa cada resultado) y móvil ampliado ═════ */

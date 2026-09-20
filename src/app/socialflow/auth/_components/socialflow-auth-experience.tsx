@@ -83,6 +83,8 @@ export default function SocialFlowAuthExperience() {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Aceptación de Términos y Política de privacidad (solo se exige en el registro).
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -90,6 +92,10 @@ export default function SocialFlowAuthExperience() {
 
     if (mode === "register" && !name.trim()) {
       setError("Introduce tu nombre.");
+      return;
+    }
+    if (mode === "register" && !acceptedTerms) {
+      setError("Debes aceptar los Términos de servicio y la Política de privacidad para crear tu cuenta.");
       return;
     }
     if (!email.trim()) {
@@ -113,7 +119,7 @@ export default function SocialFlowAuthExperience() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(
-          mode === "login" ? { email, password } : { email, name, password },
+          mode === "login" ? { email, password } : { email, name, password, acceptedTerms: true },
         ),
       });
 
@@ -254,9 +260,32 @@ export default function SocialFlowAuthExperience() {
             </div>
           )}
 
+          {mode === "register" && (
+            <label className="flex items-start gap-3 text-xs leading-relaxed" style={{ color: MUTED }}>
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(event) => setAcceptedTerms(event.target.checked)}
+                required
+                className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded"
+                style={{ accentColor: activeAccent }}
+              />
+              <span>
+                He leído y acepto los{" "}
+                <Link href="/terminos" target="_blank" rel="noopener noreferrer" className="font-semibold underline" style={{ color: INK }}>
+                  Términos de servicio
+                </Link>{" "}
+                y la{" "}
+                <Link href="/privacidad" target="_blank" rel="noopener noreferrer" className="font-semibold underline" style={{ color: INK }}>
+                  Política de privacidad
+                </Link>
+              </span>
+            </label>
+          )}
+
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || (mode === "register" && !acceptedTerms)}
             className="mt-2 w-full rounded-xl px-5 py-3.5 text-sm font-black tracking-wide text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
             style={{ background: activeGradient, boxShadow: `0 8px 20px ${activeAccent}40` }}
           >
@@ -268,11 +297,19 @@ export default function SocialFlowAuthExperience() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs" style={{ color: `${MUTED}99` }}>
-          Al continuar aceptas los{" "}
-          <span style={{ color: MUTED }}>Términos de servicio</span> y la{" "}
-          <span style={{ color: MUTED }}>Política de privacidad</span>.
-        </p>
+        {mode === "login" && (
+          <p className="mt-6 text-center text-xs" style={{ color: `${MUTED}99` }}>
+            Al continuar aceptas los{" "}
+            <Link href="/terminos" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: MUTED }}>
+              Términos de servicio
+            </Link>{" "}
+            y la{" "}
+            <Link href="/privacidad" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: MUTED }}>
+              Política de privacidad
+            </Link>
+            .
+          </p>
+        )}
       </div>
     </aside>
   );
