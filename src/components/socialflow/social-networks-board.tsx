@@ -44,12 +44,12 @@ const STATUS_LABELS: Record<SaasSocialAccountStatus, string> = {
 };
 
 const STATUS_CLS: Record<SaasSocialAccountStatus, string> = {
-  DISCONNECTED: "bg-white/8 text-white/45",
-  CONNECTED_DEMO: "bg-emerald-500/15 text-emerald-300",
-  CONNECTED_REAL: "bg-emerald-500/15 text-emerald-300",
-  INVALID_CREDENTIALS: "bg-rose-500/15 text-red-300",
-  PENDING_REAL: "bg-amber-500/15 text-amber-300",
-  NEEDS_RECONNECTION: "bg-amber-500/15 text-amber-300",
+  DISCONNECTED: "bg-gray-100 text-gray-500",
+  CONNECTED_DEMO: "bg-emerald-50 text-emerald-700",
+  CONNECTED_REAL: "bg-emerald-50 text-emerald-700",
+  INVALID_CREDENTIALS: "bg-rose-50 text-red-700",
+  PENDING_REAL: "bg-amber-50 text-amber-700",
+  NEEDS_RECONNECTION: "bg-amber-50 text-amber-700",
 };
 
 export default function SocialNetworksBoard({ networks, accounts, saasId, redirectTo }: Props) {
@@ -92,10 +92,10 @@ export default function SocialNetworksBoard({ networks, accounts, saasId, redire
         <div
           className={
             callbackBanner.tone === "error"
-              ? "rounded-xl border border-red-500/20 bg-red-500/8 p-4 text-sm text-red-300"
+              ? "rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
               : callbackBanner.tone === "warning"
-                ? "rounded-xl border border-amber-500/20 bg-amber-500/8 p-4 text-sm text-amber-300"
-                : "rounded-xl border border-emerald-500/20 bg-emerald-500/8 p-4 text-sm text-emerald-300"
+                ? "rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700"
+                : "rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700"
           }
         >
           {callbackBanner.message}
@@ -103,13 +103,13 @@ export default function SocialNetworksBoard({ networks, accounts, saasId, redire
       )}
 
       {planBannerMessage && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/8 p-4 text-sm text-amber-300">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
           {planBannerMessage}
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/8 p-4 text-sm text-red-300">{error}</div>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -126,16 +126,16 @@ export default function SocialNetworksBoard({ networks, accounts, saasId, redire
           const showExtraBadge = !network.comingSoon && network.entitlement === "extra" && !isConnected;
 
           return (
-            <div key={network.key} className="rounded-2xl border border-white/10 bg-white/4">
-              <header className="flex flex-wrap items-start justify-between gap-3 border-b border-white/8 px-5 py-4">
+            <div key={network.key} className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <header className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-200 px-5 py-4">
                 <div className="flex items-center gap-3">
                   <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black ${color}`}>
                     {abbr}
                   </span>
                   <div>
-                    <h3 className="text-base font-black uppercase italic tracking-tight text-white">{label}</h3>
+                    <h3 className="text-base font-black uppercase italic tracking-tight text-gray-900">{label}</h3>
                     {network.comingSoon ? (
-                      <span className="mt-1 inline-flex rounded-full bg-white/8 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">
+                      <span className="mt-1 inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-gray-500">
                         Próximamente
                       </span>
                     ) : (
@@ -146,21 +146,21 @@ export default function SocialNetworksBoard({ networks, accounts, saasId, redire
                   </div>
                 </div>
                 {showExtraBadge && (
-                  <span className="inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">
+                  <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">
                     Extra
                   </span>
                 )}
               </header>
               <div className="space-y-3 px-5 py-4">
-                <p className="text-sm text-white/45">{network.description}</p>
+                <p className="text-sm text-gray-500">{network.description}</p>
                 {account && (account.displayName || account.handle) && (
-                  <div className="text-sm font-semibold text-white/80">{account.displayName ?? account.handle}</div>
+                  <div className="text-sm font-semibold text-gray-700">{account.displayName ?? account.handle}</div>
                 )}
 
                 {network.comingSoon ? (
                   <button
                     disabled
-                    className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/35"
+                    className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-400"
                   >
                     Próximamente
                   </button>
@@ -168,7 +168,7 @@ export default function SocialNetworksBoard({ networks, accounts, saasId, redire
                   <button
                     onClick={() => disconnect(network.key as SaasSocialProvider)}
                     disabled={isPending}
-                    className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/65 transition hover:border-red-500/30 hover:bg-red-500/8 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {pendingProvider === network.key && (
                       <span className="h-2 w-2 animate-pulse rounded-full bg-current" />
@@ -178,14 +178,14 @@ export default function SocialNetworksBoard({ networks, accounts, saasId, redire
                 ) : showExtraBadge ? (
                   <a
                     href="/socialflow/settings/billing"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/15"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
                   >
                     Actualizar plan para conectar
                   </a>
                 ) : connectHref ? (
                   <a
                     href={connectHref}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-4 py-2 text-sm font-semibold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110"
                   >
                     Conectar
                   </a>

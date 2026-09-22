@@ -219,14 +219,14 @@ export default function SocialFlowProfilePage() {
 
   if (loading && !profile) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm text-white/45">
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-gray-500">
         Cargando perfil del canal...
       </div>
     );
   }
 
   if (error && !profile) {
-    return <div className="p-6 text-sm text-red-300">{error}</div>;
+    return <div className="p-6 text-sm text-red-600">{error}</div>;
   }
 
   const p = profile || {};
@@ -234,10 +234,10 @@ export default function SocialFlowProfilePage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors · Perfil</div>
-        <h1 className="mt-2 text-2xl font-black tracking-tight text-white">Perfil del canal</h1>
-        <p className="mb-5 mt-2 text-sm text-white/45">
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">Socialcors · Perfil</div>
+        <h1 className="mt-2 text-2xl font-black tracking-tight text-gray-900">Perfil del canal</h1>
+        <p className="mb-5 mt-2 text-sm text-gray-500">
           Este perfil entrena a los agentes IA de Socialcors. Rellénalo con información real y estratégica sobre tu marca, audiencia y ofertas. La IA usará esto como su base de conocimiento principal.
         </p>
         <div className="flex flex-wrap items-center gap-3">
@@ -245,7 +245,7 @@ export default function SocialFlowProfilePage() {
             type="button"
             onClick={() => onSaveProfile()}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-4 py-2 text-sm font-semibold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving && <span className="h-2 w-2 animate-pulse rounded-full bg-white" />}
             {saving ? "Guardando..." : "Guardar perfil del canal"}
@@ -253,12 +253,12 @@ export default function SocialFlowProfilePage() {
           <button
             type="button"
             onClick={() => setAiChatOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 transition hover:bg-violet-500/20"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#3b82f6]/30 bg-[#3b82f6]/10 px-4 py-2 text-sm font-semibold text-[#3b82f6] transition hover:bg-[#3b82f6]/20"
           >
             ✨ Rellenar con IA
           </button>
         </div>
-        {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       </div>
 
       {aiChatOpen && (
@@ -275,8 +275,8 @@ export default function SocialFlowProfilePage() {
       {/* Brand identity */}
       <section className={sectionCls}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white/90">Identidad de marca</h2>
-          <span className="text-xs text-white/30">Quién eres y cómo suenas.</span>
+          <h2 className="text-base font-bold text-gray-900">Identidad de marca</h2>
+          <span className="text-xs text-gray-400">Quién eres y cómo suenas.</span>
         </div>
         <div className="grid gap-4 text-sm md:grid-cols-3">
           <Field label="Nombre de marca" value={p.brandName} onChange={(v) => setProfile({ ...p, brandName: v })} />
@@ -301,8 +301,8 @@ export default function SocialFlowProfilePage() {
       {/* Persona & growth goals */}
       <section className={sectionCls}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white/90">Perfil personal y objetivos de crecimiento</h2>
-          <span className="text-xs text-white/30">Ayuda a la IA a calibrar tono y a medir tu progreso.</span>
+          <h2 className="text-base font-bold text-gray-900">Perfil personal y objetivos de crecimiento</h2>
+          <span className="text-xs text-gray-400">Ayuda a la IA a calibrar tono y a medir tu progreso.</span>
         </div>
         <div className="grid gap-4 text-sm md:grid-cols-3">
           <SelectField
@@ -388,13 +388,13 @@ export default function SocialFlowProfilePage() {
         return (
           <section className={sectionCls}>
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-white/90">Perfil físico</h2>
+              <h2 className="text-base font-bold text-gray-900">Perfil físico</h2>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-white/30">Guía a la IA para generar imágenes que se parezcan a ti.</span>
+                <span className="text-xs text-gray-400">Guía a la IA para generar imágenes que se parezcan a ti.</span>
                 <button
                   type="button"
                   onClick={() => setPhysicalChatOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-200 transition hover:bg-violet-500/20"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#3b82f6]/30 bg-[#3b82f6]/10 px-3 py-1.5 text-xs font-semibold text-[#3b82f6] transition hover:bg-[#3b82f6]/20"
                 >
                   ✨ Rellenar con IA
                 </button>
@@ -433,8 +433,8 @@ export default function SocialFlowProfilePage() {
                 onChange={(v) => setPhysicalProfile({ ...physicalProfile, weightKg: v ? Number(v) : null })}
               />
               <div className="flex flex-col gap-1 text-sm">
-                <span className="text-xs font-medium text-white/45">IMC (calculado)</span>
-                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70">
+                <span className="text-xs font-medium text-gray-500">IMC (calculado)</span>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
                   {bmi != null ? `${bmi} — ${bmiCategory}` : "Introduce altura y peso"}
                 </div>
               </div>
@@ -602,7 +602,7 @@ export default function SocialFlowProfilePage() {
 
             {/* BLOQUE F — Estilo visual de contenido */}
             <div className="space-y-1.5">
-              <span className="text-xs font-medium text-white/45">Estilo visual de contenido</span>
+              <span className="text-xs font-medium text-gray-500">Estilo visual de contenido</span>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {[
                   { value: "minimalista", label: "Minimalista" },
@@ -615,7 +615,7 @@ export default function SocialFlowProfilePage() {
                 ].map((opt) => {
                   const checked = visualStyles.includes(opt.value);
                   return (
-                    <label key={opt.value} className="flex items-center gap-1.5 text-sm text-white/70">
+                    <label key={opt.value} className="flex items-center gap-1.5 text-sm text-gray-700">
                       <input
                         type="checkbox"
                         checked={checked}
@@ -627,7 +627,7 @@ export default function SocialFlowProfilePage() {
                               : visualStyles.filter((v) => v !== opt.value),
                           })
                         }
-                        className="h-4 w-4 rounded border-white/20 bg-white/5 text-violet-500 focus:ring-violet-500/40"
+                        className="h-4 w-4 rounded border-gray-300 bg-white text-[#3b82f6] focus:ring-[#3b82f6]/40"
                       />
                       {opt.label}
                     </label>
@@ -668,7 +668,7 @@ export default function SocialFlowProfilePage() {
 
             {/* BLOQUE H — Foto de rostro de referencia */}
             <div className="space-y-1.5">
-              <span className="text-xs font-medium text-white/45">
+              <span className="text-xs font-medium text-gray-500">
                 Foto de rostro de referencia — la IA usará esta imagen para mantener consistencia facial en las imágenes generadas
               </span>
               <div className="flex items-center gap-3">
@@ -676,7 +676,7 @@ export default function SocialFlowProfilePage() {
                   <img
                     src={physicalProfile.referenceImageUrl}
                     alt="Foto de rostro de referencia"
-                    className="h-16 w-16 rounded-lg border border-white/10 object-cover"
+                    className="h-16 w-16 rounded-lg border border-gray-200 object-cover"
                   />
                 )}
                 <input
@@ -688,15 +688,15 @@ export default function SocialFlowProfilePage() {
                     e.target.value = "";
                     if (file) void onUploadFacePhoto(file);
                   }}
-                  className="text-xs text-white/50 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-500/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-violet-200 hover:file:bg-violet-500/30"
+                  className="text-xs text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-[#3b82f6]/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#3b82f6] hover:file:bg-[#3b82f6]/20"
                 />
-                {faceUploading && <span className="text-xs text-white/40">Subiendo...</span>}
+                {faceUploading && <span className="text-xs text-gray-400">Subiendo...</span>}
               </div>
             </div>
 
             {/* BLOQUE I — Estilos fitness */}
             <div className="space-y-1.5">
-              <span className="text-xs font-medium text-white/45">Estilo fitness</span>
+              <span className="text-xs font-medium text-gray-500">Estilo fitness</span>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {[
                   { value: "fitness", label: "Fitness" },
@@ -712,7 +712,7 @@ export default function SocialFlowProfilePage() {
                 ].map((opt) => {
                   const checked = fitnessStyles.includes(opt.value);
                   return (
-                    <label key={opt.value} className="flex items-center gap-1.5 text-sm text-white/70">
+                    <label key={opt.value} className="flex items-center gap-1.5 text-sm text-gray-700">
                       <input
                         type="checkbox"
                         checked={checked}
@@ -724,7 +724,7 @@ export default function SocialFlowProfilePage() {
                               : fitnessStyles.filter((v) => v !== opt.value),
                           })
                         }
-                        className="h-4 w-4 rounded border-white/20 bg-white/5 text-violet-500 focus:ring-violet-500/40"
+                        className="h-4 w-4 rounded border-gray-300 bg-white text-[#3b82f6] focus:ring-[#3b82f6]/40"
                       />
                       {opt.label}
                     </label>
@@ -733,12 +733,12 @@ export default function SocialFlowProfilePage() {
               </div>
             </div>
 
-            {physicalError && <p className="text-sm text-red-300">{physicalError}</p>}
+            {physicalError && <p className="text-sm text-red-600">{physicalError}</p>}
             <button
               type="button"
               onClick={() => onSavePhysicalProfile()}
               disabled={physicalSaving}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-4 py-2 text-sm font-semibold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {physicalSaving && <span className="h-2 w-2 animate-pulse rounded-full bg-white" />}
               {physicalSaving ? "Guardando..." : "Guardar perfil físico"}
@@ -750,8 +750,8 @@ export default function SocialFlowProfilePage() {
       {/* Niche & topics */}
       <section className={sectionCls}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white/90">Nicho y temas</h2>
-          <span className="text-xs text-white/30">De qué habla tu canal y qué evita.</span>
+          <h2 className="text-base font-bold text-gray-900">Nicho y temas</h2>
+          <span className="text-xs text-gray-400">De qué habla tu canal y qué evita.</span>
         </div>
         <div className="grid gap-4 text-sm md:grid-cols-3">
           <Field label="Nicho principal" value={p.niche} onChange={(v) => setProfile({ ...p, niche: v })} />
@@ -776,8 +776,8 @@ export default function SocialFlowProfilePage() {
       {/* Audience */}
       <section className={sectionCls}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white/90">Audiencia</h2>
-          <span className="text-xs text-white/30">A quién hablas y qué les importa.</span>
+          <h2 className="text-base font-bold text-gray-900">Audiencia</h2>
+          <span className="text-xs text-gray-400">A quién hablas y qué les importa.</span>
         </div>
         <div className="grid gap-4 text-sm md:grid-cols-2">
           <TextareaField label="Descripción de audiencia" value={p.audienceDescription} onChange={(v) => setProfile({ ...p, audienceDescription: v })} />
@@ -793,8 +793,8 @@ export default function SocialFlowProfilePage() {
       {/* Business & offers */}
       <section className={sectionCls}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white/90">Negocio y ofertas</h2>
-          <span className="text-xs text-white/30">Cómo ganas dinero realmente.</span>
+          <h2 className="text-base font-bold text-gray-900">Negocio y ofertas</h2>
+          <span className="text-xs text-gray-400">Cómo ganas dinero realmente.</span>
         </div>
         <MonetizationSuggestionsPanel saasId="socialflow" onAdd={onAddMonetizationSuggestion} />
         <div className="grid gap-4 text-sm md:grid-cols-3">
@@ -812,8 +812,8 @@ export default function SocialFlowProfilePage() {
       {/* Keywords & hashtags */}
       <section className={sectionCls}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white/90">Keywords y hashtags</h2>
-          <span className="text-xs text-white/30">Por qué quieres rankear y ser encontrado.</span>
+          <h2 className="text-base font-bold text-gray-900">Keywords y hashtags</h2>
+          <span className="text-xs text-gray-400">Por qué quieres rankear y ser encontrado.</span>
         </div>
         <div className="grid gap-4 text-sm md:grid-cols-3">
           <TagField label="Keywords base" value={p.baseKeywords} onChange={(v) => setProfile({ ...p, baseKeywords: v })} />
@@ -830,34 +830,34 @@ export default function SocialFlowProfilePage() {
       {/* Competitors */}
       <section className={sectionCls}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white/90">Competidores</h2>
-          <span className="text-xs text-white/30">De quién aprendes y con quién te diferencias.</span>
+          <h2 className="text-base font-bold text-gray-900">Competidores</h2>
+          <span className="text-xs text-gray-400">De quién aprendes y con quién te diferencias.</span>
         </div>
         <div className="space-y-3 text-sm">
           {competitors.length === 0 && (
-            <p className="text-xs text-white/30">
+            <p className="text-xs text-gray-400">
               Sin competidores añadidos. Puedes generar campañas IA igualmente, pero el análisis será genérico.
             </p>
           )}
           <div className="grid gap-3 md:grid-cols-2">
             {competitors.map((c) => (
-              <div key={c.id} className="flex flex-col gap-1 rounded-lg border border-white/8 bg-white/4 p-3">
+              <div key={c.id} className="flex flex-col gap-1 rounded-lg border border-gray-200 bg-gray-50 p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-white/85">{c.name}</span>
-                  <span className="text-xs uppercase text-white/35">{c.platform}</span>
+                  <span className="text-sm font-medium text-gray-900">{c.name}</span>
+                  <span className="text-xs uppercase text-gray-400">{c.platform}</span>
                 </div>
-                <p className="text-xs text-white/45">Handle: {c.handle || "-"}</p>
-                <p className="text-xs text-white/45">Nicho: {c.niche || "-"}</p>
-                <p className="text-xs text-white/45">Fortalezas: {c.strengths?.join(", ")}</p>
-                <p className="text-xs text-white/45">Oportunidades: {c.differentiationOpportunities?.join(", ")}</p>
+                <p className="text-xs text-gray-500">Handle: {c.handle || "-"}</p>
+                <p className="text-xs text-gray-500">Nicho: {c.niche || "-"}</p>
+                <p className="text-xs text-gray-500">Fortalezas: {c.strengths?.join(", ")}</p>
+                <p className="text-xs text-gray-500">Oportunidades: {c.differentiationOpportunities?.join(", ")}</p>
                 {Array.isArray(c.patterns) && c.patterns.length > 0 && (
-                  <p className="text-xs text-white/45">Patrones: {c.patterns.join(", ")}</p>
+                  <p className="text-xs text-gray-500">Patrones: {c.patterns.join(", ")}</p>
                 )}
                 {Array.isArray(c.winningFormats) && c.winningFormats.length > 0 && (
-                  <p className="text-xs text-white/45">Formatos ganadores: {c.winningFormats.join(", ")}</p>
+                  <p className="text-xs text-gray-500">Formatos ganadores: {c.winningFormats.join(", ")}</p>
                 )}
                 {Array.isArray(c.hookStyles) && c.hookStyles.length > 0 && (
-                  <p className="text-xs text-white/45">Estilos de hook: {c.hookStyles.join(" | ")}</p>
+                  <p className="text-xs text-gray-500">Estilos de hook: {c.hookStyles.join(" | ")}</p>
                 )}
               </div>
             ))}
@@ -868,13 +868,13 @@ export default function SocialFlowProfilePage() {
       {/* Channel intelligence */}
       <section className={sectionCls}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white/90">Inteligencia del canal</h2>
-          <span className="text-xs text-white/30">Snapshot de cómo la IA ve tu mercado.</span>
+          <h2 className="text-base font-bold text-gray-900">Inteligencia del canal</h2>
+          <span className="text-xs text-gray-400">Snapshot de cómo la IA ve tu mercado.</span>
         </div>
         <div className="grid gap-4 text-sm md:grid-cols-2">
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-white/70">Señales de tendencia y mercado</h3>
-            <p className="text-xs text-white/30">Estas señales guían al TrendAgent y al KeywordAgent.</p>
+            <h3 className="text-sm font-medium text-gray-700">Señales de tendencia y mercado</h3>
+            <p className="text-xs text-gray-400">Estas señales guían al TrendAgent y al KeywordAgent.</p>
             <div className="grid gap-2 md:grid-cols-2">
               <MiniList title="Temas virales" items={p.viralThemes} />
               <MiniList title="Temas tendencia" items={p.trendingTopics} />
@@ -883,8 +883,8 @@ export default function SocialFlowProfilePage() {
             </div>
           </div>
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-white/70">Keywords y hashtags (motor IA)</h3>
-            <p className="text-xs text-white/30">
+            <h3 className="text-sm font-medium text-gray-700">Keywords y hashtags (motor IA)</h3>
+            <p className="text-xs text-gray-400">
               Datos base para el motor de keywords. Los clústeres se calculan al correr el pipeline IA.
             </p>
             <div className="grid gap-2 md:grid-cols-2">

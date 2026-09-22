@@ -92,8 +92,8 @@ const EMPRESA_STEP = { key: "empresa-checklist", title: "Primeros pasos" };
 
 // (checklist real reemplaza este array estático — ver useEffect de carga más abajo)
 
-const inputCls = "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20";
-const selectCls = "w-full rounded-xl border border-white/10 bg-[#0d0d1e] px-3 py-2 text-sm text-white/70 focus:border-violet-500/50 focus:outline-none";
+const inputCls = "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[#3b82f6]/50 focus:outline-none focus:ring-1 focus:ring-[#3b82f6]/20";
+const selectCls = "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#3b82f6]/50 focus:outline-none";
 
 export default function SocialFlowOnboardingPage() {
   const router = useRouter();
@@ -247,16 +247,16 @@ export default function SocialFlowOnboardingPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm text-white/45">Cargando onboarding...</div>
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-gray-500">Cargando onboarding...</div>
     );
   }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors Onboarding</div>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Configura tu marca en 2 minutos</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">Socialcors Onboarding</div>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-900">Configura tu marca en 2 minutos</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
           Con esta información, Socialcors construye tu perfil de marca, audita tu presencia social y genera tu primer feed de inteligencia accionable.
         </p>
       </div>
@@ -265,29 +265,29 @@ export default function SocialFlowOnboardingPage() {
       <div className="flex items-center gap-2">
         {steps.map((s, idx) => (
           <div key={s.key} className="flex flex-1 items-center gap-2">
-            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${idx <= step ? "bg-violet-500 text-white" : "bg-white/8 text-white/35"}`}>
+            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${idx <= step ? "bg-[#3b82f6] text-white" : "bg-gray-100 text-gray-400"}`}>
               {idx + 1}
             </div>
-            <span className={`text-xs font-semibold ${idx === step ? "text-white" : "text-white/35"}`}>{s.title}</span>
-            {idx < steps.length - 1 && <div className="h-px flex-1 bg-white/10" />}
+            <span className={`text-xs font-semibold ${idx === step ? "text-gray-900" : "text-gray-400"}`}>{s.title}</span>
+            {idx < steps.length - 1 && <div className="h-px flex-1 bg-gray-200" />}
           </div>
         ))}
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/8 px-4 py-3 text-sm text-red-300">{error}</div>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
       {/* Step: Brand */}
       {steps[step].key === "brand" && (
-        <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="space-y-4">
             <StepField label="Nombre de marca" required>
               <input className={inputCls} value={data.brandName} onChange={(e) => update("brandName", e.target.value)} placeholder="Acme Studio" />
             </StepField>
             <StepField label="URL web">
               <input className={inputCls} value={data.websiteUrl} onChange={(e) => update("websiteUrl", e.target.value)} placeholder="https://tumarca.com" />
-              <p className="mt-1 text-xs text-white/30">Socialcors analiza tu web para extraer descripción, productos y palabras clave automáticamente.</p>
+              <p className="mt-1 text-xs text-gray-400">Socialcors analiza tu web para extraer descripción, productos y palabras clave automáticamente.</p>
             </StepField>
             <StepField label="Nicho / sector" required>
               <input className={inputCls} value={data.niche} onChange={(e) => update("niche", e.target.value)} placeholder="Clínicas estéticas, moda sostenible, software B2B..." />
@@ -298,7 +298,7 @@ export default function SocialFlowOnboardingPage() {
 
       {/* Step: Audience */}
       {steps[step].key === "audience" && (
-        <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="space-y-4">
             <StepField label="Tono de comunicación">
               <textarea className={inputCls + " min-h-[80px]"} value={data.toneOfVoice} onChange={(e) => update("toneOfVoice", e.target.value)} placeholder="Cercano y experto, directo, con humor sutil..." />
@@ -317,8 +317,8 @@ export default function SocialFlowOnboardingPage() {
                       onClick={() => toggleNetwork(network.value)}
                       className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
                         active
-                          ? "border-violet-500/50 bg-violet-500/15 text-violet-300"
-                          : "border-white/10 text-white/45 hover:border-violet-500/30 hover:text-white/65"
+                          ? "border-[#3b82f6]/50 bg-[#3b82f6]/10 text-[#3b82f6]"
+                          : "border-gray-200 text-gray-500 hover:border-[#3b82f6]/30 hover:text-gray-700"
                       }`}
                     >
                       {network.label}
@@ -333,15 +333,15 @@ export default function SocialFlowOnboardingPage() {
 
       {/* Step: Competitors */}
       {steps[step].key === "competitors" && (
-        <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="space-y-4">
             <div>
-              <p className="text-sm font-semibold text-white/85">Competidores principales</p>
-              <p className="text-xs text-white/40">Añade al menos {MIN_COMPETITORS} competidores para que el audit pueda comparar tu presencia.</p>
+              <p className="text-sm font-semibold text-gray-900">Competidores principales</p>
+              <p className="text-xs text-gray-500">Añade al menos {MIN_COMPETITORS} competidores para que el audit pueda comparar tu presencia.</p>
             </div>
             <div className="space-y-3">
               {data.competitors.map((competitor, idx) => (
-                <div key={idx} className="grid gap-2 rounded-xl border border-white/8 bg-white/4 p-3 md:grid-cols-[2fr_1fr_1fr_auto]">
+                <div key={idx} className="grid gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3 md:grid-cols-[2fr_1fr_1fr_auto]">
                   <input className={inputCls} value={competitor.name} onChange={(e) => updateCompetitor(idx, { name: e.target.value })} placeholder={`Competidor ${idx + 1}`} />
                   <input className={inputCls} value={competitor.handle} onChange={(e) => updateCompetitor(idx, { handle: e.target.value })} placeholder="@handle" />
                   <select className={selectCls} value={competitor.platform} onChange={(e) => updateCompetitor(idx, { platform: e.target.value })}>
@@ -350,7 +350,7 @@ export default function SocialFlowOnboardingPage() {
                   <button
                     type="button"
                     onClick={() => removeCompetitor(idx)}
-                    className="rounded-xl border border-transparent px-3 py-2 text-xs font-semibold text-white/35 transition hover:border-red-500/30 hover:text-red-400"
+                    className="rounded-xl border border-transparent px-3 py-2 text-xs font-semibold text-gray-400 transition hover:border-red-300 hover:text-red-600"
                   >
                     Quitar
                   </button>
@@ -360,7 +360,7 @@ export default function SocialFlowOnboardingPage() {
             <button
               type="button"
               onClick={addCompetitor}
-              className="inline-flex items-center rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/55 transition hover:border-violet-500/30 hover:bg-violet-500/8 hover:text-violet-300"
+              className="inline-flex items-center rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:border-[#3b82f6]/30 hover:bg-[#3b82f6]/5 hover:text-[#3b82f6]"
             >
               + Añadir competidor
             </button>
@@ -370,9 +370,9 @@ export default function SocialFlowOnboardingPage() {
 
       {/* Step: Review */}
       {steps[step].key === "review" && (
-        <div className="rounded-2xl border border-violet-500/25 bg-violet-500/8 p-6">
-          <div className="space-y-3 text-sm text-white/65">
-            <p className="text-sm font-semibold text-white/90">Revisa tu perfil antes de continuar</p>
+        <div className="rounded-2xl border border-[#3b82f6]/20 bg-[#3b82f6]/5 p-6">
+          <div className="space-y-3 text-sm text-gray-600">
+            <p className="text-sm font-semibold text-gray-900">Revisa tu perfil antes de continuar</p>
             <ReviewRow label="Marca" value={data.brandName} />
             <ReviewRow label="Web" value={data.websiteUrl || "-"} />
             <ReviewRow label="Nicho" value={data.niche} />
@@ -380,7 +380,7 @@ export default function SocialFlowOnboardingPage() {
             <ReviewRow label="Audiencia" value={data.audienceDescription || "-"} />
             <ReviewRow label="Redes activas" value={data.activeSocialNetworks.length ? data.activeSocialNetworks.join(", ") : "-"} />
             <ReviewRow label="Competidores" value={filledCompetitors.map((c) => c.name).join(", ")} />
-            <p className="pt-2 text-xs text-white/35">
+            <p className="pt-2 text-xs text-gray-500">
               Al continuar, Socialcors analizará tu web, guardará tu perfil de marca y generará tu primera auditoría social.
             </p>
           </div>
@@ -391,10 +391,10 @@ export default function SocialFlowOnboardingPage() {
       {steps[step].key === "empresa-checklist" && (
         <div className="space-y-4">
           <div>
-            <p className="text-sm font-semibold text-white/85">
+            <p className="text-sm font-semibold text-gray-900">
               Tu perfil ya está listo. Completa estos pasos para que la IA trabaje con toda la información de tu negocio:
             </p>
-            <p className="text-xs text-white/40">Puedes hacerlo ahora o más tarde desde el menú lateral.</p>
+            <p className="text-xs text-gray-500">Puedes hacerlo ahora o más tarde desde el menú lateral.</p>
           </div>
           {checklistLoading || !checklist ? (
             <ChecklistLoadingSequence />
@@ -414,7 +414,7 @@ export default function SocialFlowOnboardingPage() {
           type="button"
           disabled={step === 0}
           onClick={() => setStep((s) => Math.max(0, s - 1))}
-          className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold text-white/45 transition hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold text-gray-400 transition hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Atrás
         </button>
@@ -422,7 +422,7 @@ export default function SocialFlowOnboardingPage() {
           <button
             type="button"
             onClick={() => router.replace("/socialflow/audit")}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110"
           >
             Ir a mi auditoría →
           </button>
@@ -431,7 +431,7 @@ export default function SocialFlowOnboardingPage() {
             type="button"
             disabled={submitting}
             onClick={handleSubmit}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting && <span className="h-2 w-2 animate-pulse rounded-full bg-white" />}
             {submitting ? "Guardando..." : "Generar mi auditoría"}
@@ -441,7 +441,7 @@ export default function SocialFlowOnboardingPage() {
             type="button"
             disabled={!stepValid}
             onClick={() => setStep((s) => Math.min(steps.length - 1, s + 1))}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Siguiente
           </button>
@@ -454,9 +454,9 @@ export default function SocialFlowOnboardingPage() {
 function StepField(props: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-white/40">
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
         {props.label}
-        {props.required && <span className="text-violet-400"> *</span>}
+        {props.required && <span className="text-[#3b82f6]"> *</span>}
       </span>
       {props.children}
     </label>
@@ -465,9 +465,9 @@ function StepField(props: { label: string; required?: boolean; children: React.R
 
 function ReviewRow(props: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-white/8 pb-2">
-      <span className="text-xs font-semibold uppercase tracking-wide text-white/35">{props.label}</span>
-      <span className="max-w-[60%] text-right text-sm text-white/70">{props.value}</span>
+    <div className="flex items-start justify-between gap-4 border-b border-gray-200 pb-2">
+      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{props.label}</span>
+      <span className="max-w-[60%] text-right text-sm text-gray-600">{props.value}</span>
     </div>
   );
 }

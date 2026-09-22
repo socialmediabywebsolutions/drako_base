@@ -45,9 +45,9 @@ export default async function SocialFlowInsightsPage() {
   return (
     <div className="space-y-7">
       <div>
-        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors · Insights</p>
-        <h1 className="mt-1.5 text-2xl font-black tracking-tight text-white">Insights</h1>
-        <p className="mt-1.5 max-w-xl text-sm text-white/50">
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">Socialcors · Insights</p>
+        <h1 className="mt-1.5 text-2xl font-black tracking-tight text-gray-900">Insights</h1>
+        <p className="mt-1.5 max-w-xl text-sm text-gray-500">
           Rendimiento real de tus redes: alcance, guardados, seguidores y tu mejor contenido de los últimos 30 días.
         </p>
       </div>
@@ -57,39 +57,39 @@ export default async function SocialFlowInsightsPage() {
           <InsightsSummaryCards summary={insights.summary} />
 
           <section>
-            <h2 className="mb-3 text-base font-bold text-white">Alcance por formato (últimas 4 semanas)</h2>
+            <h2 className="mb-3 text-base font-bold text-gray-900">Alcance por formato (últimas 4 semanas)</h2>
             <ReachByFormatChart data={insights.weeklyFormatBreakdown} />
           </section>
 
           <section>
-            <h2 className="mb-3 text-base font-bold text-white">Likes + comentarios por formato (últimas 4 semanas)</h2>
+            <h2 className="mb-3 text-base font-bold text-gray-900">Likes + comentarios por formato (últimas 4 semanas)</h2>
             <LikesCommentsByFormatChart data={insights.engagementByFormatBreakdown} />
           </section>
 
           <section>
-            <h2 className="mb-3 text-base font-bold text-white">Visualizaciones por formato (últimas 4 semanas)</h2>
+            <h2 className="mb-3 text-base font-bold text-gray-900">Visualizaciones por formato (últimas 4 semanas)</h2>
             <PlaysByFormatChart data={insights.playsByFormatBreakdown} />
           </section>
 
           {bestHourByFormat && (
             <section>
-              <h2 className="mb-3 text-base font-bold text-white">Mejores horas para publicar</h2>
+              <h2 className="mb-3 text-base font-bold text-gray-900">Mejores horas para publicar</h2>
               <BestTimeToPostCard bestHourByFormat={bestHourByFormat} />
             </section>
           )}
 
           <section>
-            <h2 className="mb-3 text-base font-bold text-white">Evolución de seguidores</h2>
+            <h2 className="mb-3 text-base font-bold text-gray-900">Evolución de seguidores</h2>
             <FollowerGrowthChart history={insights.followerHistory} />
           </section>
 
           <section>
-            <h2 className="mb-3 text-base font-bold text-white">Top 5 publicaciones (30 días)</h2>
+            <h2 className="mb-3 text-base font-bold text-gray-900">Top 5 publicaciones (30 días)</h2>
             <TopPostsList posts={insights.topPosts} />
           </section>
         </>
       ) : (
-        <div className="flex h-40 items-center justify-center rounded-2xl border border-white/8 bg-white/5 text-sm text-white/30">
+        <div className="flex h-40 items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 text-sm text-gray-400">
           Conecta una cuenta de Instagram para empezar a ver tus Insights.
         </div>
       )}

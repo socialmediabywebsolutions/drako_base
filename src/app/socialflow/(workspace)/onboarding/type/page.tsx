@@ -15,10 +15,10 @@ const CARDS = [
       "TikTok, Instagram, Facebook y YouTube",
       "La IA genera caption, hashtags y publica por ti",
     ],
-    checkColor: "text-violet-400",
-    borderBase: "border-violet-500/30",
-    bgBase: "from-violet-900/30 to-fuchsia-900/10",
-    borderHover: "hover:border-violet-400/70 hover:shadow-violet-500/20",
+    checkColor: "text-[#3b82f6]",
+    borderBase: "border-[#3b82f6]/25",
+    bgBase: "from-[#3b82f6]/5 to-white",
+    borderHover: "hover:border-[#3b82f6]/60 hover:shadow-[#3b82f6]/15",
     destination: "/socialflow/onboarding/plans",
   },
   {
@@ -31,10 +31,10 @@ const CARDS = [
       "Instagram, LinkedIn, Facebook y Pinterest",
       "La IA conoce tu catálogo y responde por tus clientes",
     ],
-    checkColor: "text-blue-400",
-    borderBase: "border-blue-500/30",
-    bgBase: "from-blue-900/30 to-sky-900/10",
-    borderHover: "hover:border-blue-400/70 hover:shadow-blue-500/20",
+    checkColor: "text-[#06b6d4]",
+    borderBase: "border-[#06b6d4]/25",
+    bgBase: "from-[#06b6d4]/5 to-white",
+    borderHover: "hover:border-[#06b6d4]/60 hover:shadow-[#06b6d4]/15",
     destination: "/socialflow/onboarding/plans-empresa",
   },
 ] as const;
@@ -59,13 +59,13 @@ export default function OnboardingTypePage() {
   return (
     <div className="py-6">
       {/* Header */}
-      <div className="mb-1 text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
+      <div className="mb-1 text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">
         Socialcors · Tu perfil
       </div>
-      <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
+      <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-900 sm:text-4xl">
         ¿Quién eres tú?
       </h1>
-      <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/50">
+      <p className="mt-3 max-w-lg text-sm leading-relaxed text-gray-500">
         Cuéntanos sobre ti para personalizar tu experiencia
       </p>
 
@@ -88,12 +88,12 @@ export default function OnboardingTypePage() {
           >
             <span className="mb-5 text-5xl leading-none">{card.icon}</span>
 
-            <h2 className="text-2xl font-black text-white">{card.title}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-white/50">{card.subtitle}</p>
+            <h2 className="text-2xl font-black text-gray-900">{card.title}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-500">{card.subtitle}</p>
 
             <ul className="mt-6 space-y-2.5">
               {card.features.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 text-sm text-white/65">
+                <li key={f} className="flex items-start gap-2.5 text-sm text-gray-600">
                   <span className={`mt-px shrink-0 font-black ${card.checkColor}`}>✓</span>
                   {f}
                 </li>
@@ -101,15 +101,15 @@ export default function OnboardingTypePage() {
             </ul>
 
             {loading === card.type && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/50">
-                <span className="text-sm font-bold text-white/80">Un momento…</span>
+              <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/70">
+                <span className="text-sm font-bold text-gray-700">Un momento…</span>
               </div>
             )}
           </button>
         ))}
       </div>
 
-      <p className="mt-8 text-xs text-white/25">
+      <p className="mt-8 text-xs text-gray-400">
         Puedes cambiar esto más adelante desde configuración
       </p>
     </div>

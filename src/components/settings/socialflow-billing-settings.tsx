@@ -31,7 +31,7 @@ function formatDate(value: string | null): string | null {
   return date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 }
 
-const panelCls = "rounded-xl border border-white/8 bg-white/4 p-5";
+const panelCls = "rounded-xl border border-gray-200 bg-gray-50 p-5";
 
 export default function SocialFlowBillingSettings({
   currentPlanCode,
@@ -92,18 +92,18 @@ export default function SocialFlowBillingSettings({
   return (
     <div className="space-y-6">
       {/* Plan actual */}
-      <section className="rounded-2xl border border-white/10 bg-white/4">
-        <header className="border-b border-white/8 px-6 py-5">
-          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Plan actual</p>
-          <h2 className="mt-1 text-lg font-black uppercase italic tracking-tight text-white">
+      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <header className="border-b border-gray-200 px-6 py-5">
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">Plan actual</p>
+          <h2 className="mt-1 text-lg font-black uppercase italic tracking-tight text-gray-900">
             Estado:{" "}
-            <span className="font-normal normal-case not-italic text-white/60">{statusLabel}</span>
+            <span className="font-normal normal-case not-italic text-gray-600">{statusLabel}</span>
           </h2>
         </header>
         <div className="space-y-3 px-6 py-6">
-          <div className="text-2xl font-black text-white">{currentPlanLabel}</div>
+          <div className="text-2xl font-black text-gray-900">{currentPlanLabel}</div>
           {periodEndLabel && (
-            <p className="text-sm text-white/45">
+            <p className="text-sm text-gray-500">
               {cancelAtPeriodEnd
                 ? `Tu plan se cancelará el ${periodEndLabel}.`
                 : `Se renueva el ${periodEndLabel}.`}
@@ -113,7 +113,7 @@ export default function SocialFlowBillingSettings({
             <button
               onClick={openPortal}
               disabled={isPending}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/70 transition hover:border-violet-500/30 hover:bg-violet-500/8 hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:border-[#3b82f6]/30 hover:bg-[#3b82f6]/5 hover:text-[#3b82f6] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {pendingAction === "portal" && <span className="h-2 w-2 animate-pulse rounded-full bg-current" />}
               Gestionar facturación
@@ -131,28 +131,28 @@ export default function SocialFlowBillingSettings({
               key={plan.code}
               className={
                 isCurrent
-                  ? "rounded-2xl border border-violet-500/30 bg-violet-500/8 p-5"
-                  : "rounded-2xl border border-white/10 bg-white/4 p-5"
+                  ? "rounded-2xl border border-[#3b82f6]/30 bg-[#3b82f6]/5 p-5"
+                  : "rounded-2xl border border-gray-200 bg-gray-50 p-5"
               }
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h3 className="text-base font-black uppercase italic tracking-tight text-white">{plan.label}</h3>
+                  <h3 className="text-base font-black uppercase italic tracking-tight text-gray-900">{plan.label}</h3>
                   {plan.priceEur && (
-                    <p className="mt-0.5 text-xs font-bold text-white/40">{plan.priceEur}€ / mes</p>
+                    <p className="mt-0.5 text-xs font-bold text-gray-500">{plan.priceEur}€ / mes</p>
                   )}
                 </div>
                 {isCurrent && (
-                  <span className="rounded-full bg-violet-500/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-violet-300">
+                  <span className="rounded-full bg-[#3b82f6]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-[#3b82f6]">
                     Plan actual
                   </span>
                 )}
               </div>
-              <p className="mt-3 text-sm text-white/45">{plan.description}</p>
-              <ul className="mt-3 space-y-1 text-sm text-white/45">
+              <p className="mt-3 text-sm text-gray-500">{plan.description}</p>
+              <ul className="mt-3 space-y-1 text-sm text-gray-500">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2">
-                    <span className="mt-0.5 text-violet-400">•</span>
+                    <span className="mt-0.5 text-[#3b82f6]">•</span>
                     {feature}
                   </li>
                 ))}
@@ -161,7 +161,7 @@ export default function SocialFlowBillingSettings({
                 <button
                   onClick={() => startCheckout(plan.code as Exclude<SocialFlowPlanCode, "free">)}
                   disabled={isPending}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-4 py-2 text-sm font-semibold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {pendingAction === `checkout:${plan.code}` && (
                     <span className="h-2 w-2 animate-pulse rounded-full bg-current" />
@@ -175,7 +175,7 @@ export default function SocialFlowBillingSettings({
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/8 p-4 text-sm text-red-300">{error}</div>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
       )}
     </div>
   );

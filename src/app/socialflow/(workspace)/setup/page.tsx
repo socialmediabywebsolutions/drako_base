@@ -80,10 +80,10 @@ export default function SocialFlowSetupPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <section className="rounded-2xl border border-white/10 bg-white/4 p-6">
-        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Socialcors Setup</p>
-        <h1 className="mt-2 text-2xl font-black tracking-tight text-white">Checklist minimo para piloto privado</h1>
-        <p className="mt-2 max-w-3xl text-sm text-white/45">
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">Socialcors Setup</p>
+        <h1 className="mt-2 text-2xl font-black tracking-tight text-gray-900">Checklist minimo para piloto privado</h1>
+        <p className="mt-2 max-w-3xl text-sm text-gray-500">
           Antes de cualquier publicación real, confirma perfil, cuenta social y revisión humana. Este flujo no publica contenido automáticamente.
         </p>
       </section>
@@ -96,17 +96,17 @@ export default function SocialFlowSetupPage() {
       </section>
 
       {/* Account status */}
-      <section className="rounded-xl border border-white/10 bg-white/4 p-5">
+      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold tracking-tight text-white">Estado de cuenta</h2>
-          <span className="rounded-full border border-white/10 bg-white/6 px-2.5 py-1 text-[11px] font-semibold text-white/55">
+          <h2 className="text-sm font-semibold tracking-tight text-gray-900">Estado de cuenta</h2>
+          <span className="rounded-full border border-gray-200 bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-600">
             {completed}/3 completado
           </span>
         </div>
 
-        {loading && <p className="mt-3 text-sm text-white/45">Cargando estado...</p>}
+        {loading && <p className="mt-3 text-sm text-gray-500">Cargando estado...</p>}
         {error && (
-          <div className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/8 p-3 text-xs text-amber-300">
+          <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
             No se pudo leer el estado mínimo de setup ({error}).
           </div>
         )}
@@ -114,16 +114,16 @@ export default function SocialFlowSetupPage() {
         {!loading && !error && (
           <div className="mt-4 space-y-3">
             {checklist.map((item) => (
-              <div key={item.key} className="flex items-center justify-between gap-3 rounded-lg border border-white/8 bg-white/4 p-3">
+              <div key={item.key} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-white/90">{item.label}</p>
-                  <p className={`text-xs ${item.done ? "text-emerald-400" : "text-white/35"}`}>
+                  <p className="text-sm font-medium text-gray-900">{item.label}</p>
+                  <p className={`text-xs ${item.done ? "text-emerald-600" : "text-gray-400"}`}>
                     {item.done ? "Listo" : "Pendiente"}
                   </p>
                 </div>
                 <Link
                   href={item.actionHref}
-                  className="inline-flex shrink-0 items-center rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/65 transition hover:border-violet-500/30 hover:bg-violet-500/8 hover:text-violet-300"
+                  className="inline-flex shrink-0 items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-[#3b82f6]/40 hover:bg-[#3b82f6]/5 hover:text-[#3b82f6]"
                 >
                   {item.actionLabel}
                 </Link>
@@ -134,12 +134,12 @@ export default function SocialFlowSetupPage() {
       </section>
 
       {/* Human review notice */}
-      <section className="rounded-xl border border-indigo-500/20 bg-indigo-500/8 p-4">
-        <h3 className="text-sm font-semibold text-indigo-300">Human review obligatorio</h3>
-        <p className="mt-1 text-xs text-indigo-300/70">
+      <section className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+        <h3 className="text-sm font-semibold text-indigo-700">Human review obligatorio</h3>
+        <p className="mt-1 text-xs text-indigo-700/80">
           Publicar en vivo requiere aprobación humana explícita (`confirmPublish=true`) y rol admin.
         </p>
-        <p className="mt-1 text-xs text-indigo-300/70">
+        <p className="mt-1 text-xs text-indigo-700/80">
           {status?.publishBlockedByPilotMode
             ? "Modo piloto privado activo: autopublish está bloqueado por política."
             : "El modo piloto privado no bloquea autopublish, pero la aprobación humana sigue siendo obligatoria."}
@@ -151,9 +151,9 @@ export default function SocialFlowSetupPage() {
 
 function StatusCard(props: { label: string; ok: boolean }) {
   return (
-    <div className="rounded-xl border border-white/8 bg-white/4 p-5">
-      <p className="text-xs font-medium uppercase tracking-wide text-white/35">{props.label}</p>
-      <p className={`mt-2 text-lg font-semibold ${props.ok ? "text-emerald-400" : "text-amber-400"}`}>
+    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{props.label}</p>
+      <p className={`mt-2 text-lg font-semibold ${props.ok ? "text-emerald-600" : "text-amber-600"}`}>
         {props.ok ? "Sí" : "No"}
       </p>
     </div>

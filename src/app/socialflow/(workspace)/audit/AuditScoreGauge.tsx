@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-const PURPLE = "#6c47ff";
+const PURPLE = "#3b82f6";
 const RADIUS = 90;
 const ARC_LENGTH = Math.PI * RADIUS;
 
 function scoreTextColor(score: number): string {
-  if (score >= 70) return "text-emerald-400";
-  if (score >= 40) return "text-amber-400";
-  return "text-rose-400";
+  if (score >= 70) return "text-emerald-600";
+  if (score >= 40) return "text-amber-600";
+  return "text-rose-600";
 }
 
 export default function AuditScoreGauge({ score }: { score: number }) {
@@ -28,7 +28,7 @@ export default function AuditScoreGauge({ score }: { score: number }) {
       <svg viewBox="0 0 200 110" className="w-full" aria-hidden="true">
         <path
           d="M10 100 A90 90 0 0 1 190 100"
-          stroke="rgba(255,255,255,0.08)"
+          stroke="rgba(17,24,39,0.08)"
           strokeWidth="14"
           fill="none"
           strokeLinecap="round"
@@ -46,7 +46,7 @@ export default function AuditScoreGauge({ score }: { score: number }) {
       </svg>
       <div className="absolute inset-x-0 bottom-1 flex flex-col items-center">
         <div className={`text-5xl font-black ${scoreTextColor(clamped)}`}>{clamped}</div>
-        <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.24em] text-white/35">Score global</div>
+        <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.24em] text-gray-500">Score global</div>
       </div>
     </div>
   );

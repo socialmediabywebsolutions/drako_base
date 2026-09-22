@@ -34,7 +34,7 @@ function LoadingDots() {
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className="h-1.5 w-1.5 rounded-full bg-violet-400/80"
+          className="h-1.5 w-1.5 rounded-full bg-[#3b82f6]/70"
           style={{ animation: `chat-dot-pulse 1.2s ease-in-out ${i * 0.2}s infinite` }}
         />
       ))}
@@ -104,28 +104,28 @@ export default function PhysicalProfileAiChat(props: PhysicalProfileAiChatProps)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4">
       <style>{`
         @keyframes chat-dot-pulse {
           0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
           40% { opacity: 1; transform: scale(1); }
         }
       `}</style>
-      <div className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d1a] shadow-2xl shadow-violet-900/40">
+      <div className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl shadow-black/10">
         <div
           className="flex items-center gap-3 px-5 py-4"
           style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.25) 0%, rgba(6,182,212,0.15) 100%)" }}
         >
           <div>
-            <p className="text-sm font-black text-white">✨ Rellenar perfil físico con IA</p>
-            <p className="text-[11px] text-white/40">
+            <p className="text-sm font-black text-gray-900">✨ Rellenar perfil físico con IA</p>
+            <p className="text-[11px] text-gray-500">
               {done ? "Listo — revisa y guarda." : `Pregunta ${questionIndex + 1} de ${QUESTIONS.length}`}
             </p>
           </div>
           <button
             type="button"
             onClick={props.onClose}
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white"
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900"
             aria-label="Cerrar"
           >
             ✕
@@ -138,7 +138,7 @@ export default function PhysicalProfileAiChat(props: PhysicalProfileAiChatProps)
               <div
                 className={[
                   "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
-                  msg.role === "user" ? "rounded-br-sm bg-violet-600/80 text-white" : "rounded-bl-sm bg-white/8 text-white/85",
+                  msg.role === "user" ? "rounded-br-sm bg-[#3b82f6] text-white" : "rounded-bl-sm bg-gray-100 text-gray-900",
                 ].join(" ")}
               >
                 {msg.content}
@@ -147,26 +147,26 @@ export default function PhysicalProfileAiChat(props: PhysicalProfileAiChatProps)
           ))}
           {loading && (
             <div className="flex items-start">
-              <div className="rounded-2xl rounded-bl-sm bg-white/8 px-3.5 py-2.5">
+              <div className="rounded-2xl rounded-bl-sm bg-gray-100 px-3.5 py-2.5">
                 <LoadingDots />
               </div>
             </div>
           )}
           <div ref={bottomRef} />
         </div>
-        {error && <p className="px-5 pb-2 text-xs text-red-300">{error}</p>}
+        {error && <p className="px-5 pb-2 text-xs text-red-600">{error}</p>}
         {done ? (
-          <div className="border-t border-white/8 bg-[#0a0a15] px-5 py-3">
+          <div className="border-t border-gray-200 bg-gray-50 px-5 py-3">
             <button
               type="button"
               onClick={props.onClose}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-4 py-2 text-sm font-semibold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110"
             >
               Ver perfil físico
             </button>
           </div>
         ) : (
-          <div className="flex items-end gap-2 border-t border-white/8 bg-[#0a0a15] px-4 py-3">
+          <div className="flex items-end gap-2 border-t border-gray-200 bg-gray-50 px-4 py-3">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -174,13 +174,13 @@ export default function PhysicalProfileAiChat(props: PhysicalProfileAiChatProps)
               disabled={loading}
               rows={2}
               placeholder="Escribe tu respuesta... (Enter para enviar, Shift+Enter para salto de línea)"
-              className="flex-1 resize-none rounded-xl bg-white/8 px-3 py-2 text-sm text-white placeholder-white/25 outline-none focus:bg-white/12 disabled:opacity-50"
+              className="flex-1 resize-none rounded-xl bg-gray-100 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:bg-gray-200 disabled:opacity-50"
             />
             <button
               type="button"
               onClick={handleSend}
               disabled={!input.trim() || loading}
-              className="inline-flex h-9 shrink-0 items-center rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:opacity-40"
+              className="inline-flex h-9 shrink-0 items-center rounded-xl bg-[#3b82f6] px-4 text-sm font-semibold text-white transition hover:bg-[#2563eb] disabled:opacity-40"
             >
               Enviar
             </button>

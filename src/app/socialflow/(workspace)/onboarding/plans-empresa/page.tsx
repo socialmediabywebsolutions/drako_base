@@ -104,13 +104,13 @@ export default function OnboardingPlansEmpresaPage() {
   return (
     <div className="py-6">
       {/* Header */}
-      <div className="mb-1 text-[11px] font-black uppercase tracking-[0.24em] text-blue-400">
+      <div className="mb-1 text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">
         Socialcors · Elige tu plan
       </div>
-      <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
+      <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-900 sm:text-4xl">
         Empieza gratis, crece sin límites
       </h1>
-      <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/50">
+      <p className="mt-3 max-w-lg text-sm leading-relaxed text-gray-500">
         15 días gratis sin tarjeta de crédito. O suscríbete ahora y activa todas las funciones de inmediato.
       </p>
 
@@ -122,26 +122,26 @@ export default function OnboardingPlansEmpresaPage() {
             className={[
               "group relative flex flex-col rounded-2xl border p-7 transition-all duration-300",
               plan.highlight
-                ? "border-blue-500/60 bg-blue-500/10 ring-1 ring-blue-500/30 hover:border-blue-400/80 hover:shadow-xl hover:shadow-blue-500/20 hover:-translate-y-1"
-                : "border-white/10 bg-white/5 hover:border-white/25 hover:bg-white/8 hover:shadow-lg hover:shadow-black/40 hover:-translate-y-1",
+                ? "border-[#3b82f6]/60 bg-[#3b82f6]/5 ring-1 ring-[#3b82f6]/25 hover:border-[#3b82f6]/80 hover:shadow-xl hover:shadow-[#3b82f6]/15 hover:-translate-y-1"
+                : "border-gray-200 bg-gray-50 hover:border-gray-300 hover:bg-gray-100 hover:shadow-lg hover:-translate-y-1",
             ].join(" ")}
           >
             {/* Popular badge */}
             {plan.badge && (
-              <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-500 to-sky-500 px-4 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-blue-500/40">
+              <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-4 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-[#3b82f6]/25">
                 {plan.badge}
               </span>
             )}
 
             {/* Plan header */}
             <div className="mb-6">
-              <h2 className="text-xl font-black text-white">{plan.name}</h2>
-              <p className="mt-1 text-xs font-semibold text-white/40">{plan.networks}</p>
+              <h2 className="text-xl font-black text-gray-900">{plan.name}</h2>
+              <p className="mt-1 text-xs font-semibold text-gray-500">{plan.networks}</p>
               <div className="mt-4 flex items-baseline gap-1.5">
-                <span className="text-5xl font-black text-white">{plan.price}€</span>
-                <span className="text-sm text-white/40">/mes</span>
+                <span className="text-5xl font-black text-gray-900">{plan.price}€</span>
+                <span className="text-sm text-gray-500">/mes</span>
               </div>
-              <p className="mt-1.5 text-sm font-semibold text-blue-300/80">
+              <p className="mt-1.5 text-sm font-semibold text-[#3b82f6]">
                 {plan.postsPerNetwork} posts/mes por red · {plan.users}
               </p>
             </div>
@@ -149,8 +149,8 @@ export default function OnboardingPlansEmpresaPage() {
             {/* Features list */}
             <ul className="mb-7 flex-1 space-y-3">
               {plan.features.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 text-sm text-white/65">
-                  <span className="mt-px shrink-0 text-[13px] font-black text-blue-400">✓</span>
+                <li key={f} className="flex items-start gap-2.5 text-sm text-gray-600">
+                  <span className="mt-px shrink-0 text-[13px] font-black text-[#3b82f6]">✓</span>
                   {f}
                 </li>
               ))}
@@ -161,11 +161,11 @@ export default function OnboardingPlansEmpresaPage() {
               onClick={() => handleSubscribe(plan)}
               disabled={isLoading}
               className={[
-                "w-full rounded-xl py-3.5 text-sm font-black tracking-wide text-white transition-all duration-200",
+                "w-full rounded-xl py-3.5 text-sm font-black tracking-wide transition-all duration-200",
                 "disabled:cursor-not-allowed disabled:opacity-50",
                 plan.highlight
-                  ? "bg-gradient-to-r from-blue-500 to-sky-500 shadow-lg shadow-blue-500/30 hover:brightness-110 hover:shadow-blue-500/50"
-                  : "border border-white/20 bg-white/10 hover:bg-white/18 hover:border-white/30",
+                  ? "text-white bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] shadow-lg shadow-[#3b82f6]/25 hover:brightness-110"
+                  : "text-gray-900 border border-gray-300 bg-gray-100 hover:bg-gray-200",
               ].join(" ")}
             >
               {loadingCheckout === plan.id ? "Redirigiendo…" : "Suscribirme ahora"}
@@ -174,7 +174,7 @@ export default function OnboardingPlansEmpresaPage() {
             {/* Secondary CTA — Start free trial */}
             <Link
               href="/socialflow/onboarding"
-              className="mt-3 block w-full rounded-xl py-3 text-center text-sm font-bold text-white/50 transition-colors hover:text-white/80"
+              className="mt-3 block w-full rounded-xl py-3 text-center text-sm font-bold text-gray-500 transition-colors hover:text-gray-800"
             >
               Empezar gratis 15 días →
             </Link>
@@ -183,12 +183,12 @@ export default function OnboardingPlansEmpresaPage() {
       </div>
 
       {error && (
-        <div className="mt-6 max-w-3xl rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="mt-6 max-w-3xl rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      <p className="mt-8 text-xs text-white/20">
+      <p className="mt-8 text-xs text-gray-400">
         Pago seguro con Stripe · Cancela en cualquier momento · Sin permanencia
       </p>
     </div>

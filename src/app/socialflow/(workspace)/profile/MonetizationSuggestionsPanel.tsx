@@ -49,36 +49,36 @@ export default function MonetizationSuggestionsPanel({
         type="button"
         onClick={loadSuggestions}
         disabled={loading}
-        className="inline-flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? "Generando..." : "💡 Sugerencias de monetización con IA"}
       </button>
 
       {open && (
         <div className="space-y-3">
-          {error && <p className="text-xs text-red-300">{error}</p>}
-          {loading && <p className="text-xs text-white/40">Analizando tu nicho y tu Knowledge Base...</p>}
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          {loading && <p className="text-xs text-gray-500">Analizando tu nicho y tu Knowledge Base...</p>}
           {!loading && suggestions.length > 0 && (
             <div className="grid gap-3 md:grid-cols-2">
               {suggestions.map((s) => {
                 const added = addedNames.has(s.name);
                 return (
-                  <div key={s.name} className="flex flex-col justify-between rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div key={s.name} className="flex flex-col justify-between rounded-xl border border-gray-200 bg-gray-50 p-4">
                     <div>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-white">{s.name}</p>
-                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/60">
+                        <p className="text-sm font-semibold text-gray-900">{s.name}</p>
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-600">
                           {MONETIZATION_TYPE_LABELS[s.type]}
                         </span>
                       </div>
-                      <p className="mt-1.5 text-xs text-white/55">{s.description}</p>
-                      <p className="mt-2 text-sm font-bold text-emerald-300">{s.priceRange}</p>
+                      <p className="mt-1.5 text-xs text-gray-600">{s.description}</p>
+                      <p className="mt-2 text-sm font-bold text-emerald-600">{s.priceRange}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleAdd(s)}
                       disabled={added}
-                      className="mt-3 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="mt-3 rounded-lg bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {added ? "✓ Añadido" : "Añadir este servicio"}
                     </button>

@@ -78,13 +78,13 @@ export default function ServiceForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="flex max-h-[88vh] w-full max-w-md flex-col overflow-y-auto rounded-2xl border border-white/10 bg-[#0d0d1a] shadow-2xl shadow-violet-900/40">
-        <div className="flex items-center justify-between border-b border-white/8 px-5 py-4">
-          <h3 className="text-sm font-black text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="flex max-h-[88vh] w-full max-w-md flex-col overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+          <h3 className="text-sm font-black text-gray-900">
             {isEdit ? "Editar servicio" : "Añadir servicio"}
           </h3>
-          <button type="button" onClick={onClose} className="text-white/40 transition hover:text-white/80">✕</button>
+          <button type="button" onClick={onClose} className="text-gray-400 transition hover:text-gray-700">✕</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
@@ -104,12 +104,12 @@ export default function ServiceForm({
             <input type="text" value={tarifa} onChange={(e) => setTarifa(e.target.value)} placeholder="Desde 30€" className={inputCls} />
           </Field>
           <div>
-            <label className="flex items-center gap-2 text-xs font-medium text-white/45">
+            <label className="flex items-center gap-2 text-xs font-medium text-gray-500">
               <input
                 type="checkbox"
                 checked={credentialDeclared}
                 onChange={(e) => setCredentialDeclared(e.target.checked)}
-                className="h-4 w-4 rounded border-white/20 bg-white/5 accent-violet-500"
+                className="h-4 w-4 rounded border-gray-300 bg-white accent-[#3b82f6]"
               />
               Tengo una credencial/certificación relevante
             </label>
@@ -126,13 +126,13 @@ export default function ServiceForm({
             )}
           </div>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium text-white/60 transition hover:bg-white/5">
+            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
               Cancelar
             </button>
-            <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:opacity-50">
+            <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:opacity-50">
               {saving ? "Guardando..." : "Guardar"}
             </button>
           </div>
@@ -142,12 +142,12 @@ export default function ServiceForm({
   );
 }
 
-const inputCls = "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20 transition backdrop-blur-sm";
+const inputCls = "w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[#3b82f6]/50 focus:outline-none focus:ring-1 focus:ring-[#3b82f6]/20 transition";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-white/45">{label}</label>
+      <label className="mb-1.5 block text-xs font-medium text-gray-500">{label}</label>
       {children}
     </div>
   );

@@ -128,7 +128,7 @@ type EditDraft = {
 // ---------------------------------------------------------------------------
 
 const inputCls =
-  "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20";
+  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[#3b82f6]/50 focus:outline-none focus:ring-1 focus:ring-[#3b82f6]/20";
 
 function extractModifyRequest(text: string): { postNumber: number; instruction: string } | null {
   const m1 = text.match(/(?:cambia|modifica|mejora|actualiza|hazlo|hazla|regenera)\s+(?:el\s+)?(?:post\s+)?(?:n[uú]mero\s+)?#?(\d+)/i);
@@ -199,10 +199,10 @@ function renderLiteMarkdown(content: string): React.ReactNode {
 // ---------------------------------------------------------------------------
 
 const PROGRESS_STEPS = [
-  { at:  0, label: "Analizando tu Knowledge Base…",    dot: "bg-violet-400" },
+  { at:  0, label: "Analizando tu Knowledge Base…",    dot: "bg-[#3b82f6]" },
   { at: 17, label: "Creando estrategia de contenido…", dot: "bg-indigo-400" },
   { at: 34, label: "Generando posts…",                 dot: "bg-blue-400"   },
-  { at: 52, label: "Optimizando hashtags y CTAs…",     dot: "bg-fuchsia-400"},
+  { at: 52, label: "Optimizando hashtags y CTAs…",     dot: "bg-[#06b6d4]"},
   { at: 70, label: "Generando imágenes con IA…",       dot: "bg-pink-400"   },
   { at: 87, label: "Preparando tu campaña…",           dot: "bg-emerald-400"},
 ] as const;
@@ -215,10 +215,10 @@ const PROVIDER_ICON: Record<string, string> = {
 };
 
 const PROVIDER_COLOR: Record<string, string> = {
-  INSTAGRAM: "bg-rose-500/20 text-rose-300",
-  LINKEDIN: "bg-sky-500/20 text-sky-300",
-  FACEBOOK_PAGE: "bg-blue-500/20 text-blue-300",
-  TIKTOK: "bg-white/10 text-white/60",
+  INSTAGRAM: "bg-rose-100 text-rose-700",
+  LINKEDIN: "bg-sky-100 text-sky-700",
+  FACEBOOK_PAGE: "bg-blue-100 text-blue-700",
+  TIKTOK: "bg-gray-100 text-gray-600",
 };
 
 function GeneratingProgress({ params }: { params?: CampaignParams }) {
@@ -238,43 +238,43 @@ function GeneratingProgress({ params }: { params?: CampaignParams }) {
   const pct = Math.round(progress);
 
   return (
-    <div className="mt-4 overflow-hidden rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/8 to-fuchsia-500/5 p-5">
+    <div className="mt-4 overflow-hidden rounded-2xl border border-[#3b82f6]/20 bg-gradient-to-br from-[#3b82f6]/8 to-[#06b6d4]/5 p-5">
       <div className="mb-4 flex items-center gap-3">
-        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/20">
-          <svg className="h-[18px] w-[18px] animate-spin text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#3b82f6]/15">
+          <svg className="h-[18px] w-[18px] animate-spin text-[#3b82f6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
           </svg>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-white/90">{step.label}</p>
+          <p className="text-sm font-semibold text-gray-900">{step.label}</p>
           {params?.dateLabel || params?.provider ? (
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               {params.provider && (
-                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${PROVIDER_COLOR[params.provider] ?? "bg-white/10 text-white/60"}`}>
+                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${PROVIDER_COLOR[params.provider] ?? "bg-gray-100 text-gray-600"}`}>
                   {PROVIDER_ICON[params.provider] ?? params.provider} · {params.frequencyPerWeek ?? "?"} posts
                 </span>
               )}
               {params.dateLabel && (
-                <span className="rounded-md bg-white/8 px-1.5 py-0.5 text-[10px] text-white/40">
+                <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
                   {params.dateLabel}
                 </span>
               )}
             </div>
           ) : (
-            <p className="text-xs text-white/35">La IA está trabajando en tu campaña personalizada</p>
+            <p className="text-xs text-gray-500">La IA está trabajando en tu campaña personalizada</p>
           )}
         </div>
-        <span className="shrink-0 font-mono text-lg font-bold text-white/50">{pct}%</span>
+        <span className="shrink-0 font-mono text-lg font-bold text-gray-500">{pct}%</span>
       </div>
 
-      <div className="relative h-2.5 overflow-hidden rounded-full bg-white/8">
+      <div className="relative h-2.5 overflow-hidden rounded-full bg-gray-200">
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-400 transition-[width] duration-500 ease-out"
+          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#3b82f6] via-[#06b6d4] to-teal-300 transition-[width] duration-500 ease-out"
           style={{ width: `${progress}%` }}
         />
         {progress > 0 && (
           <div className="pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-full" style={{ width: `${progress}%` }}>
-            <div className="progress-sweep h-full w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+            <div className="progress-sweep h-full w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent" />
           </div>
         )}
       </div>
@@ -282,8 +282,8 @@ function GeneratingProgress({ params }: { params?: CampaignParams }) {
       <div className="mt-3 flex items-center justify-between gap-1">
         {PROGRESS_STEPS.map((s, i) => (
           <div key={i} className="flex flex-1 flex-col items-center gap-1">
-            <div className={`h-1.5 w-1.5 rounded-full transition-all duration-500 ${progress >= s.at ? s.dot + " shadow-[0_0_4px_1px_currentColor]" : "bg-white/12"}`} />
-            <span className={`hidden text-[9px] leading-none sm:block transition-colors duration-300 ${progress >= s.at ? "text-white/50" : "text-white/15"}`}>
+            <div className={`h-1.5 w-1.5 rounded-full transition-all duration-500 ${progress >= s.at ? s.dot + " shadow-[0_0_4px_1px_currentColor]" : "bg-gray-200"}`} />
+            <span className={`hidden text-[9px] leading-none sm:block transition-colors duration-300 ${progress >= s.at ? "text-gray-600" : "text-gray-300"}`}>
               {s.label.replace("…", "").split(" ").slice(-1)[0]}
             </span>
           </div>
@@ -314,22 +314,22 @@ function BrainInsightsPanel({ insights }: { insights: BrainInsights }) {
   if (!hasAny) return null;
 
   return (
-    <div className="mt-4 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-violet-300">🧠 Tu cerebro</p>
+    <div className="mt-4 space-y-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-[#3b82f6]">🧠 Tu cerebro</p>
 
       {insights.nicheAnalysis && (
         <div>
-          <p className="text-xs font-semibold text-white/50">Análisis de tu nicho</p>
-          <p className="mt-1 text-sm leading-relaxed text-white/80">{insights.nicheAnalysis}</p>
+          <p className="text-xs font-semibold text-gray-500">Análisis de tu nicho</p>
+          <p className="mt-1 text-sm leading-relaxed text-gray-700">{insights.nicheAnalysis}</p>
         </div>
       )}
 
       {insights.trendingKeywords.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-white/50">Tendencias ahora</p>
+          <p className="text-xs font-semibold text-gray-500">Tendencias ahora</p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {insights.trendingKeywords.map((kw, i) => (
-              <span key={`${i}-${kw}`} className="rounded-full bg-violet-500/15 px-2.5 py-1 text-xs text-violet-200">
+              <span key={`${i}-${kw}`} className="rounded-full bg-[#3b82f6]/10 px-2.5 py-1 text-xs text-[#3b82f6]">
                 {kw}
               </span>
             ))}
@@ -339,8 +339,8 @@ function BrainInsightsPanel({ insights }: { insights: BrainInsights }) {
 
       {insights.youtubeHooks.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-white/50">Hooks que funcionan</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-white/80">
+          <p className="text-xs font-semibold text-gray-500">Hooks que funcionan</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-gray-700">
             {insights.youtubeHooks.map((hook, i) => (
               <li key={`${i}-${hook}`}>{hook}</li>
             ))}
@@ -350,8 +350,8 @@ function BrainInsightsPanel({ insights }: { insights: BrainInsights }) {
 
       {insights.redditTopics.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-white/50">Temas en Reddit</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-white/80">
+          <p className="text-xs font-semibold text-gray-500">Temas en Reddit</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-gray-700">
             {insights.redditTopics.map((topic, i) => (
               <li key={`${i}-${topic}`}>{topic}</li>
             ))}
@@ -361,15 +361,15 @@ function BrainInsightsPanel({ insights }: { insights: BrainInsights }) {
 
       {insights.bestHours.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-white/50">Mejores horarios</p>
-          <p className="mt-1 text-sm text-white/80">{insights.bestHours.join(" · ")}</p>
+          <p className="text-xs font-semibold text-gray-500">Mejores horarios</p>
+          <p className="mt-1 text-sm text-gray-700">{insights.bestHours.join(" · ")}</p>
         </div>
       )}
 
       {insights.fatigueAlerts.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-white/50">Formatos saturados</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-amber-200/90">
+          <p className="text-xs font-semibold text-gray-500">Formatos saturados</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-amber-700">
             {insights.fatigueAlerts.map((alert, i) => (
               <li key={`${i}-${alert}`}>{alert}</li>
             ))}
@@ -379,8 +379,8 @@ function BrainInsightsPanel({ insights }: { insights: BrainInsights }) {
 
       {insights.strategicPlan && (
         <div>
-          <p className="text-xs font-semibold text-white/50">Plan estratégico</p>
-          <p className="mt-1 text-sm leading-relaxed text-white/80">{insights.strategicPlan}</p>
+          <p className="text-xs font-semibold text-gray-500">Plan estratégico</p>
+          <p className="mt-1 text-sm leading-relaxed text-gray-700">{insights.strategicPlan}</p>
         </div>
       )}
     </div>
@@ -413,9 +413,9 @@ function ViralThemeCards({
     return (
       <div className="px-4 pb-8 md:px-8">
         <div className="flex items-center gap-1.5 pt-1">
-          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:0ms]" />
-          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:150ms]" />
-          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:300ms]" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#3b82f6] [animation-delay:0ms]" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#3b82f6] [animation-delay:150ms]" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#3b82f6] [animation-delay:300ms]" />
         </div>
       </div>
     );
@@ -425,30 +425,30 @@ function ViralThemeCards({
 
   return (
     <div className="px-4 pb-8 md:px-8">
-      <p className="mb-3 text-sm font-medium text-white/50">🔥 Temas virales de tu nicho ahora mismo</p>
+      <p className="mb-3 text-sm font-medium text-gray-500">🔥 Temas virales de tu nicho ahora mismo</p>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         {themes.map((theme, i) => (
           <div
             key={`${i}-${theme.tema}`}
-            className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/5 p-4"
+            className="flex flex-col justify-between rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
           >
             <div>
-              <span className="inline-block rounded-full bg-violet-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-300">
+              <span className="inline-block rounded-full bg-[#3b82f6]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#3b82f6]">
                 {VIRAL_FORMAT_LABEL[theme.formatoRecomendado]}
               </span>
               {typeof theme.score === "number" && (
-                <p className="mt-1.5 text-[11px] font-semibold text-orange-300">
+                <p className="mt-1.5 text-[11px] font-semibold text-orange-600">
                   🔥 Potencial viral: {theme.score}%
                 </p>
               )}
-              <p className="mt-2 text-base font-semibold leading-snug text-white">{theme.tema}</p>
-              <p className="mt-2 text-xs leading-relaxed text-white/60">
+              <p className="mt-2 text-base font-semibold leading-snug text-gray-900">{theme.tema}</p>
+              <p className="mt-2 text-xs leading-relaxed text-gray-600">
                 Por qué es viral ahora: {theme.porqueViral}
               </p>
               {theme.hashtags.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {theme.hashtags.map((h, hi) => (
-                    <span key={`${hi}-${h}`} className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/70">
+                    <span key={`${hi}-${h}`} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
                       {h}
                     </span>
                   ))}
@@ -458,7 +458,7 @@ function ViralThemeCards({
             <button
               type="button"
               onClick={() => onCreate(theme)}
-              className="mt-4 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+              className="mt-4 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90"
             >
               Crear este contenido
             </button>
@@ -488,10 +488,10 @@ const STATUS_RING: Record<string, string> = {
   SCHEDULED: "ring-amber-400/60",
   IN_REVIEW: "ring-amber-400/50",
   REJECTED:  "ring-rose-400/60",
-  POSTED:    "ring-violet-400/70",
-  PUBLISHED: "ring-violet-400/70",
-  IDEA:      "ring-white/8",
-  DRAFT:     "ring-white/8",
+  POSTED:    "ring-[#3b82f6]/70",
+  PUBLISHED: "ring-[#3b82f6]/70",
+  IDEA:      "ring-gray-200",
+  DRAFT:     "ring-gray-200",
 };
 
 const STATUS_DOT: Record<string, string> = {
@@ -499,24 +499,24 @@ const STATUS_DOT: Record<string, string> = {
   SCHEDULED: "bg-amber-400",
   IN_REVIEW: "bg-amber-300",
   REJECTED:  "bg-rose-400",
-  POSTED:    "bg-violet-400",
-  PUBLISHED: "bg-violet-400",
-  IDEA:      "bg-white/20",
-  DRAFT:     "bg-white/20",
+  POSTED:    "bg-[#3b82f6]",
+  PUBLISHED: "bg-[#3b82f6]",
+  IDEA:      "bg-gray-300",
+  DRAFT:     "bg-gray-300",
 };
 
 function PostThumbnail({ post, index, onClick }: { post: SocialPost; index: number; onClick: () => void }) {
   const [imageError, setImageError] = useState(false);
   const hasImage = !!post.imageHint && !imageError;
   const gradient = THUMB_GRADIENTS[index % THUMB_GRADIENTS.length];
-  const ring = STATUS_RING[post.status] ?? "ring-white/8";
-  const dot  = STATUS_DOT[post.status]  ?? "bg-white/20";
+  const ring = STATUS_RING[post.status] ?? "ring-gray-200";
+  const dot  = STATUS_DOT[post.status]  ?? "bg-gray-300";
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group relative aspect-square w-full overflow-hidden rounded-xl ring-2 ${ring} transition-all duration-150 hover:scale-[1.03] hover:ring-white/30 active:scale-[0.98]`}
+      className={`group relative aspect-square w-full overflow-hidden rounded-xl ring-2 ${ring} transition-all duration-150 hover:scale-[1.03] hover:ring-gray-400 active:scale-[0.98]`}
     >
       {hasImage ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -554,14 +554,14 @@ function PostThumbnail({ post, index, onClick }: { post: SocialPost; index: numb
 // ---------------------------------------------------------------------------
 
 const STATUS_COLORS: Record<string, string> = {
-  IDEA:      "bg-white/8 text-white/40",
-  DRAFT:     "bg-white/8 text-white/40",
-  IN_REVIEW: "bg-amber-500/15 text-amber-300",
-  SCHEDULED: "bg-amber-500/15 text-amber-300",
-  APPROVED:  "bg-emerald-500/15 text-emerald-300",
-  REJECTED:  "bg-rose-500/15 text-rose-300",
-  POSTED:    "bg-violet-500/15 text-violet-300",
-  PUBLISHED: "bg-violet-500/15 text-violet-300",
+  IDEA:      "bg-gray-100 text-gray-500",
+  DRAFT:     "bg-gray-100 text-gray-500",
+  IN_REVIEW: "bg-amber-50 text-amber-700",
+  SCHEDULED: "bg-amber-50 text-amber-700",
+  APPROVED:  "bg-emerald-50 text-emerald-700",
+  REJECTED:  "bg-rose-50 text-rose-700",
+  POSTED:    "bg-[#3b82f6]/10 text-[#3b82f6]",
+  PUBLISHED: "bg-[#3b82f6]/10 text-[#3b82f6]",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -734,12 +734,12 @@ function PostModal({
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="relative flex h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0d0d14] sm:h-[88vh] sm:rounded-2xl">
+      <div className="relative flex h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-white sm:h-[88vh] sm:rounded-2xl">
         {/* Close */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/8 text-white/50 transition hover:bg-white/15 hover:text-white/80"
+          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
           aria-label="Cerrar"
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -751,7 +751,7 @@ function PostModal({
         <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
 
           {/* Left: image */}
-          <div className="relative flex h-52 shrink-0 items-center justify-center bg-black/30 md:h-auto md:w-5/12">
+          <div className="relative flex h-52 shrink-0 items-center justify-center bg-gray-100 md:h-auto md:w-5/12">
             {hasImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imageUrl!} alt={post.title} className="h-full w-full object-cover" onError={() => setImageLoadError(true)} />
@@ -759,15 +759,15 @@ function PostModal({
               <div className="flex flex-col items-center gap-3 p-6">
                 {generatingImage ? (
                   <>
-                    <span className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-violet-400" />
-                    <span className="text-xs text-white/30">Generando imagen…</span>
+                    <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-[#3b82f6]" />
+                    <span className="text-xs text-gray-500">Generando imagen…</span>
                   </>
                 ) : (
                   <button
                     type="button"
                     disabled={isBusy && !generatingImage}
                     onClick={() => void handleGenerateImage()}
-                    className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/8 px-4 py-2 text-sm text-white/40 transition hover:border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-300 disabled:opacity-40"
+                    className="flex items-center gap-2 rounded-xl border border-gray-300 bg-gray-100 px-4 py-2 text-sm text-gray-500 transition hover:border-[#3b82f6]/40 hover:bg-[#3b82f6]/10 hover:text-[#3b82f6] disabled:opacity-40"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -787,7 +787,7 @@ function PostModal({
               {/* Header */}
               <div className="mb-3 flex items-start gap-2 pr-8">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-white/30">Post {index + 1}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Post {index + 1}</p>
                   {editing ? (
                     <input
                       className={inputCls + " mt-1"}
@@ -796,18 +796,18 @@ function PostModal({
                       placeholder="Título"
                     />
                   ) : (
-                    <h2 className="mt-0.5 text-base font-semibold leading-snug text-white/90">{post.title}</h2>
+                    <h2 className="mt-0.5 text-base font-semibold leading-snug text-gray-900">{post.title}</h2>
                   )}
                 </div>
-                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${STATUS_COLORS[post.status] ?? "bg-white/8 text-white/40"}`}>
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${STATUS_COLORS[post.status] ?? "bg-gray-100 text-gray-500"}`}>
                   {STATUS_LABEL[post.status] ?? post.status}
                 </span>
               </div>
 
               {/* Regen indicator */}
               {(isRegenerating || regening) && (
-                <div className="mb-3 flex items-center gap-2 rounded-lg bg-violet-500/10 px-3 py-2 text-xs text-violet-300">
-                  <span className="h-3 w-3 animate-spin rounded-full border border-violet-400/40 border-t-violet-400" />
+                <div className="mb-3 flex items-center gap-2 rounded-lg bg-[#3b82f6]/10 px-3 py-2 text-xs text-[#3b82f6]">
+                  <span className="h-3 w-3 animate-spin rounded-full border border-[#3b82f6]/40 border-t-[#3b82f6]" />
                   Regenerando post…
                 </div>
               )}
@@ -820,18 +820,18 @@ function PostModal({
                   <input className={inputCls} value={draft.cta} onChange={(e) => setDraft((p) => ({ ...p, cta: e.target.value }))} placeholder="CTA" />
                   <input className={inputCls} value={draft.hashtags} onChange={(e) => setDraft((p) => ({ ...p, hashtags: e.target.value }))} placeholder="Hashtags separados por espacio o coma" />
                   <input type="datetime-local" className={inputCls} value={draft.scheduledAt} onChange={(e) => setDraft((p) => ({ ...p, scheduledAt: e.target.value }))} />
-                  {saveError && <p className="text-xs text-red-300">{saveError}</p>}
+                  {saveError && <p className="text-xs text-red-600">{saveError}</p>}
                 </div>
               ) : (
                 <>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/75">{post.body}</p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">{post.body}</p>
                   {hashtags.length > 0 && (
-                    <p className="mt-3 text-xs leading-relaxed text-violet-300/70">
+                    <p className="mt-3 text-xs leading-relaxed text-[#3b82f6]">
                       {hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")}
                     </p>
                   )}
                   {post.scheduledAt && (
-                    <p className="mt-2 text-[11px] text-white/30">
+                    <p className="mt-2 text-[11px] text-gray-400">
                       Programado: {new Date(post.scheduledAt).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })}
                     </p>
                   )}
@@ -853,10 +853,10 @@ function PostModal({
                     }}
                   />
                   <div className="flex gap-2">
-                    <button type="button" disabled={!changeText.trim() || changing} onClick={() => void submitChange()} className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/15 disabled:opacity-50">
+                    <button type="button" disabled={!changeText.trim() || changing} onClick={() => void submitChange()} className="rounded-xl border border-[#3b82f6]/30 bg-[#3b82f6]/10 px-3 py-1.5 text-xs font-semibold text-[#3b82f6] transition hover:bg-[#3b82f6]/15 disabled:opacity-50">
                       {changing ? "Aplicando…" : "Aplicar cambio"}
                     </button>
-                    <button type="button" onClick={() => { setChangeMode(false); setChangeText(""); }} className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/40 transition hover:text-white/60">
+                    <button type="button" onClick={() => { setChangeMode(false); setChangeText(""); }} className="rounded-xl border border-gray-300 bg-gray-100 px-3 py-1.5 text-xs text-gray-500 transition hover:text-gray-700">
                       Cancelar
                     </button>
                   </div>
@@ -865,13 +865,13 @@ function PostModal({
             </div>
 
             {/* Action footer */}
-            <div className="shrink-0 border-t border-white/8 px-5 py-4">
+            <div className="shrink-0 border-t border-gray-200 px-5 py-4">
               {editing ? (
                 <div className="flex gap-2">
-                  <button type="button" disabled={saving} onClick={() => void saveEdits()} className="flex-1 rounded-xl border border-violet-500/30 bg-violet-500/10 py-2 text-sm font-semibold text-violet-300 transition hover:bg-violet-500/15 disabled:opacity-50">
+                  <button type="button" disabled={saving} onClick={() => void saveEdits()} className="flex-1 rounded-xl border border-[#3b82f6]/30 bg-[#3b82f6]/10 py-2 text-sm font-semibold text-[#3b82f6] transition hover:bg-[#3b82f6]/15 disabled:opacity-50">
                     {saving ? "Guardando…" : "Guardar"}
                   </button>
-                  <button type="button" onClick={() => setEditing(false)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/40 transition hover:text-white/60">
+                  <button type="button" onClick={() => setEditing(false)} className="rounded-xl border border-gray-300 bg-gray-100 px-4 py-2 text-sm text-gray-500 transition hover:text-gray-700">
                     Cancelar
                   </button>
                 </div>
@@ -879,14 +879,14 @@ function PostModal({
                 <div className="space-y-2.5">
                   {/* Primary CTA — always visible */}
                   {["APPROVED", "SCHEDULED"].includes(post.status) ? (
-                    <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/8 py-2.5 text-sm font-bold text-emerald-400/60">
+                    <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 py-2.5 text-sm font-bold text-emerald-700">
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                       </svg>
                       {post.status === "SCHEDULED" ? "Programado" : "Aprobado"}
                     </div>
                   ) : ["POSTED", "PUBLISHED"].includes(post.status) ? (
-                    <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/25 bg-violet-500/8 py-2.5 text-sm font-bold text-violet-400/60">
+                    <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#3b82f6]/25 bg-[#3b82f6]/8 py-2.5 text-sm font-bold text-[#3b82f6]">
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                       </svg>
@@ -906,24 +906,24 @@ function PostModal({
                   {/* Secondary actions */}
                   <div className="flex flex-wrap gap-2">
                     {!["REJECTED", "POSTED", "PUBLISHED"].includes(post.status) && (
-                      <button type="button" disabled={isBusy} onClick={() => onAction("reject", post.id)} className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50">
+                      <button type="button" disabled={isBusy} onClick={() => onAction("reject", post.id)} className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 transition hover:bg-rose-100 disabled:opacity-50">
                         Rechazar
                       </button>
                     )}
                     {!isFinished && (
                       <>
-                        <button type="button" disabled={isBusy} onClick={() => { setEditing(true); setChangeMode(false); }} className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/50 transition hover:border-violet-500/25 hover:text-violet-300 disabled:opacity-50">
+                        <button type="button" disabled={isBusy} onClick={() => { setEditing(true); setChangeMode(false); }} className="rounded-xl border border-gray-300 bg-gray-100 px-3 py-1.5 text-xs text-gray-600 transition hover:border-[#3b82f6]/30 hover:text-[#3b82f6] disabled:opacity-50">
                           Editar
                         </button>
                         <button
                           type="button"
                           disabled={isBusy}
                           onClick={() => { setChangeMode((v) => !v); setEditing(false); }}
-                          className={`rounded-xl border px-3 py-1.5 text-xs transition disabled:opacity-50 ${changeMode ? "border-violet-500/30 bg-violet-500/10 text-violet-300" : "border-white/10 bg-white/5 text-white/50 hover:border-violet-500/25 hover:text-violet-300"}`}
+                          className={`rounded-xl border px-3 py-1.5 text-xs transition disabled:opacity-50 ${changeMode ? "border-[#3b82f6]/30 bg-[#3b82f6]/10 text-[#3b82f6]" : "border-gray-300 bg-gray-100 text-gray-600 hover:border-[#3b82f6]/30 hover:text-[#3b82f6]"}`}
                         >
                           Pedir cambio
                         </button>
-                        <button type="button" disabled={isBusy} onClick={() => void handleRegen()} className="rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-3 py-1.5 text-xs text-indigo-300 transition hover:bg-indigo-500/20 disabled:opacity-50">
+                        <button type="button" disabled={isBusy} onClick={() => void handleRegen()} className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-50">
                           {regening ? "…" : "Regenerar"}
                         </button>
                       </>
@@ -1563,11 +1563,11 @@ export default function SocialFlowAIPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Top bar */}
-      <div className="shrink-0 flex items-center gap-3 border-b border-white/5 px-5 py-3">
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-black text-white">
+      <div className="shrink-0 flex items-center gap-3 border-b border-gray-200 px-5 py-3">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] text-[10px] font-black text-white">
           SF
         </div>
-        <span className="text-sm font-medium text-white/50">¿Qué creo hoy?</span>
+        <span className="text-sm font-medium text-gray-500">¿Qué creo hoy?</span>
       </div>
 
       {/* Messages — scrollable */}
@@ -1583,7 +1583,7 @@ export default function SocialFlowAIPage() {
                 <div key={msg.id} className="mb-6 flex justify-end px-4 md:px-8">
                   <div className="max-w-[72%] space-y-2">
                     {msg.attachment && (
-                      <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+                      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
                         {msg.attachment.type === "video" ? (
                           <video src={msg.attachment.url} className="max-h-64 w-full object-cover" controls />
                         ) : (
@@ -1593,7 +1593,7 @@ export default function SocialFlowAIPage() {
                       </div>
                     )}
                     {msg.content && (
-                      <div className="rounded-2xl bg-violet-500/15 px-4 py-3 text-sm leading-relaxed text-white/90">
+                      <div className="rounded-2xl bg-[#3b82f6]/10 px-4 py-3 text-sm leading-relaxed text-gray-900">
                         {msg.content}
                       </div>
                     )}
@@ -1605,19 +1605,19 @@ export default function SocialFlowAIPage() {
             return (
               <div key={msg.id} className="mb-8">
                 <div className="flex items-start gap-3 px-4 md:px-8">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[11px] font-black text-white">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] text-[11px] font-black text-white">
                     SF
                   </div>
                   <div className="min-w-0 flex-1 pt-0.5">
                     {msg.content === "…" && (
                       <div className="flex items-center gap-1.5 pt-1">
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:0ms]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:150ms]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-400 [animation-delay:300ms]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#3b82f6] [animation-delay:0ms]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#3b82f6] [animation-delay:150ms]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#3b82f6] [animation-delay:300ms]" />
                       </div>
                     )}
                     {msg.content !== "…" && (
-                      <div className="text-sm leading-relaxed text-white/80">{renderLiteMarkdown(msg.content)}</div>
+                      <div className="text-sm leading-relaxed text-gray-700">{renderLiteMarkdown(msg.content)}</div>
                     )}
                     {msg.brainInsights && <BrainInsightsPanel insights={msg.brainInsights} />}
                     {msg.actionCards && (
@@ -1628,7 +1628,7 @@ export default function SocialFlowAIPage() {
                             type="button"
                             disabled={thinking}
                             onClick={() => void sendMessage(card.message)}
-                            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-left text-sm text-white/80 transition hover:border-violet-500/40 hover:bg-violet-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-left text-sm text-gray-700 transition hover:border-[#3b82f6]/40 hover:bg-[#3b82f6]/10 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <span className="text-base">{card.icon}</span>
                             {card.label}
@@ -1645,7 +1645,7 @@ export default function SocialFlowAIPage() {
                           type="button"
                           disabled={thinking || msg.publishState === "working"}
                           onClick={() => void handlePublishAction(msg.id, "now")}
-                          className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {msg.publishState === "working" ? "…" : "📤 Publicar ahora"}
                         </button>
@@ -1653,19 +1653,19 @@ export default function SocialFlowAIPage() {
                           type="button"
                           disabled={thinking || msg.publishState === "working"}
                           onClick={() => void handlePublishAction(msg.id, "schedule")}
-                          className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-300 transition hover:bg-indigo-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           📅 Programar en el mejor momento
                         </button>
                         {msg.publishState === "error" && (
-                          <span className="flex items-center text-xs text-rose-300">No se pudo completar. Reintenta.</span>
+                          <span className="flex items-center text-xs text-rose-600">No se pudo completar. Reintenta.</span>
                         )}
                       </div>
                     )}
                     {msg.publishResult && (
-                      <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2.5 text-xs text-emerald-200">
+                      <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800">
                         <p>{msg.publishResult.reply}</p>
-                        <Link href="/socialflow/plan" className="mt-1 inline-block font-semibold text-emerald-300 underline hover:text-emerald-200">
+                        <Link href="/socialflow/plan" className="mt-1 inline-block font-semibold text-emerald-700 underline hover:text-emerald-600">
                           Ver en el calendario
                         </Link>
                       </div>
@@ -1686,7 +1686,7 @@ export default function SocialFlowAIPage() {
                         />
                       ))}
                     </div>
-                    <p className="mt-2 text-center text-[10px] text-white/25">
+                    <p className="mt-2 text-center text-[10px] text-gray-400">
                       Toca un post para ver detalles y acciones
                     </p>
                   </div>
@@ -1699,7 +1699,7 @@ export default function SocialFlowAIPage() {
                       type="button"
                       disabled={publishingMsgId === msg.id}
                       onClick={() => void handlePublishApproved(msg.id, msg.posts ?? [])}
-                      className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {publishingMsgId === msg.id ? (
                         <>
@@ -1725,8 +1725,8 @@ export default function SocialFlowAIPage() {
       </div>
 
       {/* Input */}
-      <div className="shrink-0 border-t border-white/5 px-4 py-4 md:px-8">
-        <div className="flex items-end gap-3 rounded-2xl border border-white/10 bg-white/4 px-4 py-3 focus-within:border-violet-500/40 focus-within:ring-1 focus-within:ring-violet-500/15">
+      <div className="shrink-0 border-t border-gray-200 px-4 py-4 md:px-8">
+        <div className="flex items-end gap-3 rounded-2xl border border-gray-300 bg-white px-4 py-3 shadow-sm focus-within:border-[#3b82f6]/50 focus-within:ring-1 focus-within:ring-[#3b82f6]/15">
           <input
             ref={fileInputRef}
             type="file"
@@ -1738,7 +1738,7 @@ export default function SocialFlowAIPage() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={thinking || uploadingAttachment}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/50 transition hover:border-violet-500/30 hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-gray-100 text-gray-500 transition hover:border-[#3b82f6]/40 hover:text-[#3b82f6] disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Adjuntar foto o vídeo"
           >
             <Paperclip className="h-4 w-4" />
@@ -1746,7 +1746,7 @@ export default function SocialFlowAIPage() {
           <textarea
             ref={inputRef}
             rows={1}
-            className="flex-1 resize-none bg-transparent text-sm text-white placeholder-white/25 outline-none"
+            className="flex-1 resize-none bg-transparent text-sm text-gray-900 placeholder-gray-400 outline-none"
             placeholder='Escribe tu solicitud… ej. "Crea 5 posts sobre fitness esta semana"'
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -1757,7 +1757,7 @@ export default function SocialFlowAIPage() {
             type="button"
             onClick={() => void sendMessage()}
             disabled={!input.trim() || thinking}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Enviar"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1765,7 +1765,7 @@ export default function SocialFlowAIPage() {
             </svg>
           </button>
         </div>
-        <p className="mt-1.5 text-center text-[10px] text-white/20">
+        <p className="mt-1.5 text-center text-[10px] text-gray-400">
           El asistente lee tu Knowledge Base · Enter para enviar
         </p>
       </div>

@@ -135,17 +135,17 @@ export default function LocalClient({
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">
           Socialcors · Mi Local
         </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Mi Local</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-900">Mi Local</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
           Cuéntale a la IA cómo es tu negocio y sube fotos de tu local para que el contenido encaje con tu identidad visual.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/4 p-5">
-        <h3 className="mb-4 text-sm font-semibold text-white">Información del negocio</h3>
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <h3 className="mb-4 text-sm font-semibold text-gray-900">Información del negocio</h3>
         <form onSubmit={handleSave} className="space-y-4">
           <Field label="Nombre del negocio">
             <input type="text" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Peluquería Bella Vista" className={inputCls} />
@@ -163,30 +163,30 @@ export default function LocalClient({
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Qué hace tu negocio, cómo lo hace, su estilo..." rows={4} className={inputCls} />
           </Field>
 
-          {saveError && <p className="text-sm text-red-400">{saveError}</p>}
-          {saved && <p className="text-sm text-emerald-400">Guardado.</p>}
+          {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+          {saved && <p className="text-sm text-emerald-600">Guardado.</p>}
 
-          <button type="submit" disabled={saving} className="inline-flex rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:opacity-50">
+          <button type="submit" disabled={saving} className="inline-flex rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:opacity-50">
             {saving ? "Guardando..." : "Guardar"}
           </button>
         </form>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/4 p-5">
-        <h3 className="mb-4 text-sm font-semibold text-white">Analizar competencia local</h3>
-        <p className="mb-4 text-xs text-white/40">
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <h3 className="mb-4 text-sm font-semibold text-gray-900">Analizar competencia local</h3>
+        <p className="mb-4 text-xs text-gray-500">
           La IA buscará negocios similares cerca de tu dirección en Google Maps y generará un informe de posicionamiento competitivo.
         </p>
 
         {competitorAnalysisError && (
-          <p className="mb-4 text-sm text-red-400">{competitorAnalysisError}</p>
+          <p className="mb-4 text-sm text-red-600">{competitorAnalysisError}</p>
         )}
 
         <button
           type="button"
           onClick={handleAnalyzeCompetitors}
           disabled={analyzingCompetitors}
-          className="inline-flex rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:opacity-50"
+          className="inline-flex rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:opacity-50"
         >
           {analyzingCompetitors ? "Analizando..." : "Analizar competencia local"}
         </button>
@@ -194,27 +194,27 @@ export default function LocalClient({
         {competitorAnalysisResult && (
           <div className="mt-5 space-y-5">
             <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Informe de posicionamiento
               </h4>
-              <p className="whitespace-pre-wrap rounded-xl border border-white/8 bg-white/3 p-4 text-sm leading-6 text-white/70">
+              <p className="whitespace-pre-wrap rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm leading-6 text-gray-600">
                 {competitorAnalysisResult.report}
               </p>
             </div>
 
             <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Competidores encontrados ({competitorAnalysisResult.competitors.length})
               </h4>
               {competitorAnalysisResult.competitors.length === 0 ? (
-                <p className="text-sm text-white/30">No se encontraron competidores en el radio analizado</p>
+                <p className="text-sm text-gray-400">No se encontraron competidores en el radio analizado</p>
               ) : (
                 <ul className="space-y-2.5">
                   {competitorAnalysisResult.competitors.map((c) => (
-                    <li key={c.placeId} className="rounded-xl border border-white/8 bg-white/4 p-4">
-                      <p className="text-sm font-semibold text-white/85">{c.name}</p>
-                      <p className="mt-0.5 text-xs text-white/40">{c.address}</p>
-                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/50">
+                    <li key={c.placeId} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-sm font-semibold text-gray-900">{c.name}</p>
+                      <p className="mt-0.5 text-xs text-gray-500">{c.address}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                         <span>⭐ {c.rating != null ? c.rating.toFixed(1) : "Sin valorar"}</span>
                         <span>{c.distanceKm} km</span>
                         <span>{priceLevelLabel(c.priceLevel)}</span>
@@ -229,7 +229,7 @@ export default function LocalClient({
       </div>
 
       {uploadError && (
-        <p className="rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-300">{uploadError}</p>
+        <p className="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{uploadError}</p>
       )}
 
       <div className="space-y-5">
@@ -282,16 +282,16 @@ function PhotoCategorySection({
   }
 
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/4 p-5">
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white">
-          {PHOTO_TYPE_LABEL[type]} <span className="ml-1.5 text-xs font-normal text-white/30">({photos.length})</span>
+        <h3 className="text-sm font-semibold text-gray-900">
+          {PHOTO_TYPE_LABEL[type]} <span className="ml-1.5 text-xs font-normal text-gray-400">({photos.length})</span>
         </h3>
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white/60 transition hover:border-violet-500/40 hover:text-white disabled:opacity-50"
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:border-[#3b82f6]/40 hover:text-gray-900 disabled:opacity-50"
         >
           {uploading ? "Subiendo..." : "+ Añadir foto"}
         </button>
@@ -299,17 +299,17 @@ function PhotoCategorySection({
       </div>
 
       {photos.length === 0 ? (
-        <p className="mt-4 text-sm text-white/30">Sin fotos de {PHOTO_TYPE_LABEL[type].toLowerCase()} todavía.</p>
+        <p className="mt-4 text-sm text-gray-400">Sin fotos de {PHOTO_TYPE_LABEL[type].toLowerCase()} todavía.</p>
       ) : (
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {photos.map((photo) => (
-            <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-white/5">
+            <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={photo.photoUrl} alt={PHOTO_TYPE_LABEL[type]} className="h-full w-full object-cover" />
               <button
                 type="button"
                 onClick={() => onDelete(photo.id)}
-                className="absolute right-1.5 top-1.5 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-medium text-white/70 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/80 hover:text-white"
+                className="absolute right-1.5 top-1.5 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-medium text-white/90 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/80 hover:text-white"
               >
                 Eliminar
               </button>
@@ -321,12 +321,12 @@ function PhotoCategorySection({
   );
 }
 
-const inputCls = "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20 transition backdrop-blur-sm";
+const inputCls = "w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[#3b82f6]/50 focus:outline-none focus:ring-1 focus:ring-[#3b82f6]/20 transition";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-white/45">{label}</label>
+      <label className="mb-1.5 block text-xs font-medium text-gray-500">{label}</label>
       {children}
     </div>
   );

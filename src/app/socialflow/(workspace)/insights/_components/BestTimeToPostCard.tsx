@@ -20,15 +20,15 @@ export default function BestTimeToPostCard({ bestHourByFormat }: { bestHourByFor
         return (
           <div
             key={key}
-            className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/5 p-4"
+            className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
           >
-            <div className="rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 p-2">
+            <div className="rounded-lg bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] p-2">
               <Icon size={16} className="text-white" />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/35">{label}</p>
-              <p className="mt-0.5 text-lg font-black text-white">
-                {hour !== null ? formatHour(hour) : <span className="text-sm font-medium text-white/30">Acumulando datos...</span>}
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">{label}</p>
+              <p className="mt-0.5 text-lg font-black text-gray-900">
+                {hour !== null ? formatHour(hour) : <span className="text-sm font-medium text-gray-400">Acumulando datos...</span>}
               </p>
             </div>
           </div>

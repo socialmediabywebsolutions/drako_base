@@ -19,18 +19,18 @@ export default async function SocialFlowTeamSettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Equipo Socialcors</div>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Usuarios del workspace</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">Equipo Socialcors</div>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-900">Usuarios del workspace</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
           Esta vista lee los usuarios de Socialcors directamente desde el perímetro de autenticación del producto. La invitación y gestión de roles requiere un flujo nativo antes de habilitar acciones de escritura aquí.
         </p>
       </div>
 
       {/* Stats */}
-      <section className="rounded-2xl border border-white/10 bg-white/4">
-        <header className="border-b border-white/8 px-6 py-5">
-          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Registro de autenticación del producto</p>
-          <h2 className="mt-1 text-lg font-black uppercase italic tracking-tight text-white">Usuarios registrados en Socialcors para este tenant</h2>
+      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <header className="border-b border-gray-200 px-6 py-5">
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">Registro de autenticación del producto</p>
+          <h2 className="mt-1 text-lg font-black uppercase italic tracking-tight text-gray-900">Usuarios registrados en Socialcors para este tenant</h2>
         </header>
         <div className="px-6 py-6">
           <div className="grid gap-4 md:grid-cols-3">
@@ -39,9 +39,9 @@ export default async function SocialFlowTeamSettingsPage() {
               { label: "Admins", value: admins.length },
               { label: "Miembros", value: nonAdmins.length },
             ].map((stat) => (
-              <div key={stat.label} className="rounded-xl border border-white/8 bg-white/4 p-5">
-                <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/35">{stat.label}</div>
-                <div className="mt-3 text-2xl font-black tracking-tight text-white">{stat.value}</div>
+              <div key={stat.label} className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+                <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">{stat.label}</div>
+                <div className="mt-3 text-2xl font-black tracking-tight text-gray-900">{stat.value}</div>
               </div>
             ))}
           </div>
@@ -49,29 +49,29 @@ export default async function SocialFlowTeamSettingsPage() {
       </section>
 
       {/* Lista de miembros */}
-      <section className="rounded-2xl border border-white/10 bg-white/4">
-        <header className="border-b border-white/8 px-6 py-5">
-          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">Usuarios registrados</p>
-          <h2 className="mt-1 text-lg font-black uppercase italic tracking-tight text-white">Solo lectura — el flujo de invitación nativo está pendiente</h2>
+      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <header className="border-b border-gray-200 px-6 py-5">
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">Usuarios registrados</p>
+          <h2 className="mt-1 text-lg font-black uppercase italic tracking-tight text-gray-900">Solo lectura — el flujo de invitación nativo está pendiente</h2>
         </header>
         <div className="px-6 py-6">
           {members.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-white/10 bg-white/3 p-6 text-sm text-white/35">
+            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-gray-400">
               No se encontraron usuarios de Socialcors para este tenant.
             </div>
           ) : (
             <div className="space-y-3">
               {members.map((member) => (
-                <div key={member.id} className="flex items-start justify-between gap-3 rounded-xl border border-white/8 bg-white/4 p-5">
+                <div key={member.id} className="flex items-start justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 p-5">
                   <div>
-                    <div className="text-base font-black tracking-tight text-white/90">{member.name ?? member.email}</div>
-                    <div className="mt-1 text-sm text-white/40">{member.email}</div>
+                    <div className="text-base font-black tracking-tight text-gray-900">{member.name ?? member.email}</div>
+                    <div className="mt-1 text-sm text-gray-500">{member.email}</div>
                   </div>
                   <span
                     className={`inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] ${
                       member.role === "admin"
-                        ? "bg-violet-500/15 text-violet-300 border border-violet-500/25"
-                        : "bg-white/8 text-white/45 border border-white/10"
+                        ? "bg-[#3b82f6]/10 text-[#3b82f6] border border-[#3b82f6]/25"
+                        : "bg-gray-100 text-gray-500 border border-gray-200"
                     }`}
                   >
                     {member.role}

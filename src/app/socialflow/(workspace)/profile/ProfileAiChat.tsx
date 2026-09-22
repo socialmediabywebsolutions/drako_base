@@ -51,7 +51,7 @@ function LoadingDots() {
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className="h-1.5 w-1.5 rounded-full bg-violet-400/80"
+          className="h-1.5 w-1.5 rounded-full bg-[#3b82f6]/70"
           style={{ animation: `chat-dot-pulse 1.2s ease-in-out ${i * 0.2}s infinite` }}
         />
       ))}
@@ -158,28 +158,28 @@ export default function ProfileAiChat(props: ProfileAiChatProps) {
   const p = draftProfile || {};
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4">
       <style>{`
         @keyframes chat-dot-pulse {
           0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
           40% { opacity: 1; transform: scale(1); }
         }
       `}</style>
-      <div className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d1a] shadow-2xl shadow-violet-900/40">
+      <div className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl shadow-black/10">
         <div
           className="flex items-center gap-3 px-5 py-4"
           style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.25) 0%, rgba(6,182,212,0.15) 100%)" }}
         >
           <div>
-            <p className="text-sm font-black text-white">✨ Rellenar perfil con IA</p>
-            <p className="text-[11px] text-white/40">
+            <p className="text-sm font-black text-gray-900">✨ Rellenar perfil con IA</p>
+            <p className="text-[11px] text-gray-400">
               {phase === "chat" ? "Cuéntame sobre tu marca en tus palabras." : "Revisa y ajusta antes de guardar."}
             </p>
           </div>
           <button
             type="button"
             onClick={props.onClose}
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white"
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900"
             aria-label="Cerrar"
           >
             ✕
@@ -195,8 +195,8 @@ export default function ProfileAiChat(props: ProfileAiChatProps) {
                     className={[
                       "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
                       msg.role === "user"
-                        ? "rounded-br-sm bg-violet-600/80 text-white"
-                        : "rounded-bl-sm bg-white/8 text-white/85",
+                        ? "rounded-br-sm bg-[#3b82f6] text-white"
+                        : "rounded-bl-sm bg-gray-100 text-gray-900",
                     ].join(" ")}
                   >
                     {msg.content}
@@ -205,15 +205,15 @@ export default function ProfileAiChat(props: ProfileAiChatProps) {
               ))}
               {loading && (
                 <div className="flex items-start">
-                  <div className="rounded-2xl rounded-bl-sm bg-white/8 px-3.5 py-2.5">
+                  <div className="rounded-2xl rounded-bl-sm bg-gray-100 px-3.5 py-2.5">
                     <LoadingDots />
                   </div>
                 </div>
               )}
               <div ref={bottomRef} />
             </div>
-            {error && <p className="px-5 pb-2 text-xs text-red-300">{error}</p>}
-            <div className="flex items-end gap-2 border-t border-white/8 bg-[#0a0a15] px-4 py-3">
+            {error && <p className="px-5 pb-2 text-xs text-red-600">{error}</p>}
+            <div className="flex items-end gap-2 border-t border-gray-200 bg-gray-50 px-4 py-3">
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -221,13 +221,13 @@ export default function ProfileAiChat(props: ProfileAiChatProps) {
                 disabled={loading}
                 rows={2}
                 placeholder="Escribe tu respuesta... (Enter para enviar, Shift+Enter para salto de línea)"
-                className="flex-1 resize-none rounded-xl bg-white/8 px-3 py-2 text-sm text-white placeholder-white/25 outline-none focus:bg-white/12 disabled:opacity-50"
+                className="flex-1 resize-none rounded-xl bg-gray-100 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:bg-gray-200 disabled:opacity-50"
               />
               <button
                 type="button"
                 onClick={handleSend}
                 disabled={!input.trim() || loading}
-                className="inline-flex h-9 shrink-0 items-center rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:opacity-40"
+                className="inline-flex h-9 shrink-0 items-center rounded-xl bg-[#3b82f6] px-4 text-sm font-semibold text-white transition hover:bg-[#2563eb] disabled:opacity-40"
               >
                 Enviar
               </button>
@@ -236,7 +236,7 @@ export default function ProfileAiChat(props: ProfileAiChatProps) {
         ) : (
           <>
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
-              <p className="text-xs text-white/40">
+              <p className="text-xs text-gray-400">
                 Esto es lo que voy a guardar. Puedes corregir cualquier campo antes de confirmar.
               </p>
 
@@ -339,7 +339,7 @@ export default function ProfileAiChat(props: ProfileAiChatProps) {
                 <ReviewSection title="Competidores sugeridos">
                   <div className="space-y-2">
                     {proposedCompetitors.map((c, i) => (
-                      <div key={`${c.name}-${i}`} className="grid gap-2 rounded-lg border border-white/8 bg-white/4 p-3 text-sm md:grid-cols-4">
+                      <div key={`${c.name}-${i}`} className="grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm md:grid-cols-4">
                         <Field
                           label="Nombre"
                           value={c.name}
@@ -358,7 +358,7 @@ export default function ProfileAiChat(props: ProfileAiChatProps) {
                         <button
                           type="button"
                           onClick={() => setProposedCompetitors((prev) => prev.filter((_, xi) => xi !== i))}
-                          className="mt-5 h-fit rounded-lg border border-white/10 px-2 py-1.5 text-xs text-white/50 hover:bg-white/10"
+                          className="mt-5 h-fit rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-gray-500 hover:bg-gray-100"
                         >
                           Quitar
                         </button>
@@ -370,12 +370,12 @@ export default function ProfileAiChat(props: ProfileAiChatProps) {
 
               <MiniList title="Keywords propuestas (referencia)" items={p.longTailKeywords} />
             </div>
-            {error && <p className="px-5 pb-2 text-xs text-red-300">{error}</p>}
-            <div className="flex items-center justify-between gap-3 border-t border-white/8 bg-[#0a0a15] px-5 py-3">
+            {error && <p className="px-5 pb-2 text-xs text-red-600">{error}</p>}
+            <div className="flex items-center justify-between gap-3 border-t border-gray-200 bg-gray-50 px-5 py-3">
               <button
                 type="button"
                 onClick={() => setPhase("chat")}
-                className="text-xs text-white/40 hover:text-white/70"
+                className="text-xs text-gray-400 hover:text-gray-700"
               >
                 ← Volver a la conversación
               </button>
@@ -383,7 +383,7 @@ export default function ProfileAiChat(props: ProfileAiChatProps) {
                 type="button"
                 onClick={handleConfirmSave}
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-4 py-2 text-sm font-semibold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? "Guardando..." : "Guardar perfil del canal"}
               </button>
@@ -397,8 +397,8 @@ export default function ProfileAiChat(props: ProfileAiChatProps) {
 
 function ReviewSection(props: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-3 rounded-xl border border-white/8 bg-white/4 p-4">
-      <h3 className="text-sm font-bold text-white/85">{props.title}</h3>
+    <section className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+      <h3 className="text-sm font-bold text-gray-900">{props.title}</h3>
       {props.children}
     </section>
   );

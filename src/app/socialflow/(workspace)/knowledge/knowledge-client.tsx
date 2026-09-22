@@ -31,13 +31,13 @@ const TYPE_LABEL: Record<DocType, string> = {
 };
 
 const TYPE_BG: Record<DocType, string> = {
-  pdf: "bg-orange-500/15 text-orange-300",
-  url: "bg-sky-500/15 text-sky-300",
-  text: "bg-white/8 text-white/60",
-  catalog: "bg-amber-500/15 text-amber-300",
-  competitor: "bg-purple-500/15 text-purple-300",
-  market_analysis: "bg-emerald-500/15 text-emerald-300",
-  auto_learned_style: "bg-fuchsia-500/15 text-fuchsia-300",
+  pdf: "bg-orange-100 text-orange-700",
+  url: "bg-sky-100 text-sky-700",
+  text: "bg-gray-100 text-gray-600",
+  catalog: "bg-amber-100 text-amber-700",
+  competitor: "bg-purple-100 text-purple-700",
+  market_analysis: "bg-emerald-100 text-emerald-700",
+  auto_learned_style: "bg-fuchsia-100 text-fuchsia-700",
 };
 
 export default function KnowledgeBaseClient({
@@ -132,13 +132,13 @@ export default function KnowledgeBaseClient({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">
           Socialcors · Base de conocimiento
         </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-900">
           Mi Cerebro IA
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
           Todo lo que la IA sabe sobre ti. Cuanto más le enseñes, mejor contenido genera.
         </p>
 
@@ -170,7 +170,7 @@ export default function KnowledgeBaseClient({
         </div>
 
         {error && (
-          <p className="mt-3 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>
+          <p className="mt-3 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
         )}
       </div>
 
@@ -249,22 +249,22 @@ function DocSection({
   onDelete: (id: string) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/4">
-      <div className="border-b border-white/8 px-6 py-4">
-        <h2 className="text-base font-semibold text-white">
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="border-b border-gray-200 px-6 py-4">
+        <h2 className="text-base font-semibold text-gray-900">
           {title}
           {!loading && (
-            <span className="ml-1.5 text-sm font-normal text-white/30">({docs.length})</span>
+            <span className="ml-1.5 text-sm font-normal text-gray-400">({docs.length})</span>
           )}
         </h2>
       </div>
 
       {loading ? (
-        <div className="px-6 py-8 text-center text-sm text-white/30 animate-pulse">Cargando...</div>
+        <div className="px-6 py-8 text-center text-sm text-gray-400 animate-pulse">Cargando...</div>
       ) : docs.length === 0 ? (
-        <div className="px-6 py-8 text-center text-sm text-white/30">{emptyText}</div>
+        <div className="px-6 py-8 text-center text-sm text-gray-400">{emptyText}</div>
       ) : (
-        <ul className="divide-y divide-white/5">
+        <ul className="divide-y divide-gray-200">
           {docs.map((doc) => (
             <DocRow key={doc.id} doc={doc} onDelete={onDelete} />
           ))}
@@ -296,25 +296,25 @@ function DocRow({ doc, onDelete }: { doc: Doc; onDelete: (id: string) => void })
           <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${TYPE_BG[doc.type]}`}>
             {TYPE_LABEL[doc.type]}
           </span>
-          <span className="truncate text-sm font-medium text-white/80">{doc.name}</span>
+          <span className="truncate text-sm font-medium text-gray-700">{doc.name}</span>
         </div>
         {doc.source_url && (
           <a
             href={doc.source_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-0.5 block truncate text-xs text-white/30 hover:text-violet-400 hover:underline transition-colors"
+            className="mt-0.5 block truncate text-xs text-gray-400 hover:text-[#3b82f6] hover:underline transition-colors"
           >
             {doc.source_url}
           </a>
         )}
-        <p className="mt-0.5 text-xs text-white/25">{date}</p>
+        <p className="mt-0.5 text-xs text-gray-400">{date}</p>
       </div>
       <button
         type="button"
         onClick={handleDelete}
         disabled={deleting}
-        className="flex-shrink-0 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-white/35 transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40"
+        className="flex-shrink-0 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-gray-400 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
       >
         {deleting ? "Eliminando..." : "Eliminar"}
       </button>
@@ -350,19 +350,19 @@ function CatalogPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
 
   return (
     <DarkPanel title="Subir catálogo de productos (CSV o Excel)">
-      <p className="mb-4 text-xs text-white/40">
+      <p className="mb-4 text-xs text-gray-400">
         Sube tu catálogo con nombres, precios y descripciones. La IA lo usará para responder consultas de clientes y generar contenido.
       </p>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Nombre personalizado (opcional)">
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Catálogo 2024" className={inputCls} />
         </Field>
-        <Field label={<>Archivo <span className="text-white/25">(CSV, XLSX — máx. 10 MB)</span></>}>
-          <div onClick={() => inputRef.current?.click()} className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/10 bg-white/3 px-6 py-8 text-center transition hover:border-violet-500/40 hover:bg-white/5">
+        <Field label={<>Archivo <span className="text-gray-400">(CSV, XLSX — máx. 10 MB)</span></>}>
+          <div onClick={() => inputRef.current?.click()} className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-8 text-center transition hover:border-[#3b82f6]/50 hover:bg-gray-100">
             {file ? (
-              <div><p className="text-sm font-medium text-white/80">{file.name}</p><p className="text-xs text-white/35">{(file.size / 1024).toFixed(0)} KB</p></div>
+              <div><p className="text-sm font-medium text-gray-700">{file.name}</p><p className="text-xs text-gray-400">{(file.size / 1024).toFixed(0)} KB</p></div>
             ) : (
-              <p className="text-sm text-white/40">Haz clic para seleccionar un archivo</p>
+              <p className="text-sm text-gray-400">Haz clic para seleccionar un archivo</p>
             )}
           </div>
           <input
@@ -377,7 +377,7 @@ function CatalogPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
             }}
           />
         </Field>
-        {localError && <p className="text-sm text-red-400">{localError}</p>}
+        {localError && <p className="text-sm text-red-600">{localError}</p>}
         <SubmitButton loading={uploading} disabled={!file}>{uploading ? "Subiendo..." : "Subir catálogo"}</SubmitButton>
       </form>
     </DarkPanel>
@@ -414,7 +414,7 @@ function UrlPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="URL"><input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://tu-web.com/servicios" className={inputCls} autoFocus /></Field>
         <Field label="Nombre personalizado (opcional)"><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Página de servicios" className={inputCls} /></Field>
-        {localError && <p className="text-sm text-red-400">{localError}</p>}
+        {localError && <p className="text-sm text-red-600">{localError}</p>}
         <SubmitButton loading={loading}>{loading ? "Procesando..." : "Guardar contenido"}</SubmitButton>
       </form>
     </DarkPanel>
@@ -492,7 +492,7 @@ function CompetitorPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
     <DarkPanel title="Analizar competidor con IA">
       {!loadingProfileCompetitors && profileCompetitors.length > 0 && (
         <div className="mb-5">
-          <p className="mb-2 text-xs font-medium text-white/45">
+          <p className="mb-2 text-xs font-medium text-gray-500">
             Competidores de tu perfil — analízalos con un clic:
           </p>
           <div className="flex flex-wrap gap-2">
@@ -502,7 +502,7 @@ function CompetitorPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
                 type="button"
                 onClick={() => void handleAnalyzeProfileCompetitor(competitor)}
                 disabled={analyzingId !== null}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-[#3b82f6]/40 hover:bg-[#3b82f6]/10 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {analyzingId === competitor.id ? "Analizando..." : competitor.name}
               </button>
@@ -510,13 +510,13 @@ function CompetitorPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
           </div>
         </div>
       )}
-      <p className="mb-4 text-xs text-white/40">
+      <p className="mb-4 text-xs text-gray-400">
         O introduce el nombre y/o la URL de otro competidor. La IA extraerá sus servicios, fortalezas, patrones de contenido y oportunidades de diferenciación.
       </p>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Nombre del competidor"><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Agencia XYZ" className={inputCls} /></Field>
         <Field label="URL de su web (opcional — mejora el análisis)"><input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://agenciaxyz.com" className={inputCls} /></Field>
-        {localError && <p className="text-sm text-red-400">{localError}</p>}
+        {localError && <p className="text-sm text-red-600">{localError}</p>}
         <SubmitButton loading={loading}>{loading ? "Analizando..." : "Analizar competidor"}</SubmitButton>
       </form>
     </DarkPanel>
@@ -543,13 +543,13 @@ function MarketPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
 
   return (
     <DarkPanel title="Análisis de mercado con IA">
-      <p className="mb-5 text-sm text-white/50">
+      <p className="mb-5 text-sm text-gray-500">
         La IA analizará el nicho de tu marca (configurado en el Perfil) y generará un informe con hashtags en tendencia, palabras clave virales, formatos que funcionan en tu sector y oportunidades de mercado.
       </p>
-      <p className="mb-5 text-xs text-white/30">
-        El análisis se basa en tu perfil de marca. Si no tienes nicho configurado aún, configúralo primero en <strong className="text-white/50">Perfil → Nicho principal</strong>.
+      <p className="mb-5 text-xs text-gray-400">
+        El análisis se basa en tu perfil de marca. Si no tienes nicho configurado aún, configúralo primero en <strong className="text-gray-500">Perfil → Nicho principal</strong>.
       </p>
-      {localError && <p className="mb-4 text-sm text-red-400">{localError}</p>}
+      {localError && <p className="mb-4 text-sm text-red-600">{localError}</p>}
       <SubmitButton loading={loading} onClick={handleRun} type="button">
         {loading ? "Generando análisis..." : "Generar análisis de mercado"}
       </SubmitButton>
@@ -559,7 +559,7 @@ function MarketPanel({ onSuccess }: { onSuccess: (doc: Doc) => void }) {
 
 /* ── Shared UI primitives ────────────────────────────────────────────────── */
 
-const inputCls = "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20 transition backdrop-blur-sm";
+const inputCls = "w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[#3b82f6]/60 focus:outline-none focus:ring-1 focus:ring-[#3b82f6]/20 transition";
 
 function ActionButton({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: string; children: React.ReactNode }) {
   const icons: Record<string, React.ReactNode> = {
@@ -576,8 +576,8 @@ function ActionButton({ active, onClick, icon, children }: { active: boolean; on
       onClick={onClick}
       className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition ${
         active
-          ? "border-violet-500/50 bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 text-white"
-          : "border-white/10 bg-white/5 text-white/60 hover:border-white/20 hover:text-white/80"
+          ? "border-[#3b82f6]/50 bg-gradient-to-r from-[#3b82f6]/10 to-[#06b6d4]/10 text-[#3b82f6]"
+          : "border-gray-300 bg-gray-50 text-gray-600 hover:border-gray-400 hover:text-gray-900"
       }`}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -590,8 +590,8 @@ function ActionButton({ active, onClick, icon, children }: { active: boolean; on
 
 function DarkPanel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/4 p-5">
-      <h3 className="mb-4 text-sm font-semibold text-white">{title}</h3>
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5">
+      <h3 className="mb-4 text-sm font-semibold text-gray-900">{title}</h3>
       {children}
     </div>
   );
@@ -600,7 +600,7 @@ function DarkPanel({ title, children }: { title: string; children: React.ReactNo
 function Field({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-white/45">{label}</label>
+      <label className="mb-1.5 block text-xs font-medium text-gray-500">{label}</label>
       {children}
     </div>
   );
@@ -618,7 +618,7 @@ function SubmitButton({ loading, disabled, onClick, type = "submit", children }:
       type={type}
       disabled={loading || disabled}
       onClick={onClick}
-      className="inline-flex rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+      className="inline-flex rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {children}
     </button>

@@ -19,7 +19,7 @@ export default async function SocialFlowPublicarReelPage() {
     <div className="space-y-6">
       <Link
         href="/socialflow/publicar"
-        className="flex items-center gap-1.5 text-sm font-medium text-white/50 transition hover:text-white"
+        className="flex items-center gap-1.5 text-sm font-medium text-gray-500 transition hover:text-gray-900"
       >
         <span aria-hidden>←</span> Volver
       </Link>

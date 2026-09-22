@@ -193,20 +193,20 @@ export default function EmployeeForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="flex max-h-[88vh] w-full max-w-md flex-col overflow-y-auto rounded-2xl border border-white/10 bg-[#0d0d1a] shadow-2xl shadow-violet-900/40">
-        <div className="flex items-center justify-between border-b border-white/8 px-5 py-4">
-          <h3 className="text-sm font-black text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="flex max-h-[88vh] w-full max-w-md flex-col overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+          <h3 className="text-sm font-black text-gray-900">
             {isEdit ? "Editar empleado" : "Añadir empleado"}
           </h3>
-          <button type="button" onClick={onClose} className="text-white/40 transition hover:text-white/80">✕</button>
+          <button type="button" onClick={onClose} className="text-gray-400 transition hover:text-gray-700">✕</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <div className="flex justify-center">
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-20 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-white/15 bg-white/5 text-white/30 transition hover:border-violet-500/40"
+              className="flex h-20 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400 transition hover:border-[#3b82f6]/40"
             >
               {photoPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -223,7 +223,7 @@ export default function EmployeeForm({
             className="hidden"
             onChange={handlePhotoChange}
           />
-          <p className="-mt-2 text-center text-[11px] text-white/30">
+          <p className="-mt-2 text-center text-[11px] text-gray-400">
             Foto de referencia (para que la IA lo reconozca)
           </p>
 
@@ -241,25 +241,25 @@ export default function EmployeeForm({
           </Field>
 
           <div className="space-y-1.5">
-            <span className="text-xs font-medium text-white/45">
+            <span className="text-xs font-medium text-gray-500">
               Foto de rostro de referencia — la IA usará esta imagen para reconocer a este empleado en las fotos
             </span>
             <div className="flex items-center gap-3">
               {facePreview && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={facePreview} alt="Foto de rostro de referencia" className="h-12 w-12 rounded-lg border border-white/10 object-cover" />
+                <img src={facePreview} alt="Foto de rostro de referencia" className="h-12 w-12 rounded-lg border border-gray-200 object-cover" />
               )}
               <input
                 type="file"
                 accept="image/jpeg,image/jpg,image/png"
                 onChange={handleFaceChange}
-                className="text-xs text-white/50 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-500/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-violet-200 hover:file:bg-violet-500/30"
+                className="text-xs text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-[#3b82f6]/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#3b82f6] hover:file:bg-[#3b82f6]/20"
               />
             </div>
           </div>
 
-          <div className="border-t border-white/8 pt-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/40">
+          <div className="border-t border-gray-200 pt-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
               Rasgos físicos — para que la IA genere imágenes precisas de este empleado
             </p>
             <div className="grid grid-cols-2 gap-3">
@@ -332,13 +332,13 @@ export default function EmployeeForm({
             </div>
           </div>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium text-white/60 transition hover:bg-white/5">
+            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
               Cancelar
             </button>
-            <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:opacity-50">
+            <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:opacity-50">
               {saving ? "Guardando..." : "Guardar"}
             </button>
           </div>
@@ -348,12 +348,12 @@ export default function EmployeeForm({
   );
 }
 
-const inputCls = "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20 transition backdrop-blur-sm";
+const inputCls = "w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-[#3b82f6]/50 focus:outline-none focus:ring-1 focus:ring-[#3b82f6]/20 transition";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-white/45">{label}</label>
+      <label className="mb-1.5 block text-xs font-medium text-gray-500">{label}</label>
       {children}
     </div>
   );

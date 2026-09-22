@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const PURPLE = "#6c47ff";
+const PURPLE = "#3b82f6";
 
 const MESSAGES = [
   "Escaneando tu presencia en Instagram...",
@@ -88,7 +88,7 @@ export default function AuditLoadingGraph() {
           />
         ))}
       </svg>
-      <p key={messageIndex} className="sf-fade-in text-sm text-white/50">
+      <p key={messageIndex} className="sf-fade-in text-sm text-gray-500">
         {MESSAGES[messageIndex]}
       </p>
     </div>

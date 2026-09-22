@@ -40,13 +40,13 @@ export default async function SocialFlowCrmPage({
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-violet-400">
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">
           Socialcors · CRM Social
         </div>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-900">
           CRM Social
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
           Comunidad, leads e inteligencia accionable en un solo lugar.
         </p>
       </div>

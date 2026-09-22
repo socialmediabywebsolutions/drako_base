@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const PURPLE = "#6c47ff";
+const PURPLE = "#3b82f6";
 
 const STEPS = [
   "🔍 Analizando tu web...",
@@ -29,7 +29,7 @@ export default function ChecklistLoadingSequence() {
   }, [visibleCount]);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
       <div className="space-y-3">
         {STEPS.slice(0, visibleCount).map((text, index) => {
           const isActive = index === visibleCount - 1;
@@ -43,7 +43,7 @@ export default function ChecklistLoadingSequence() {
                   boxShadow: isActive ? `0 0 8px ${PURPLE}` : "none",
                 }}
               />
-              <p className={`text-sm ${isActive ? "text-white/85" : "text-white/35"}`}>{text}</p>
+              <p className={`text-sm ${isActive ? "text-gray-900" : "text-gray-400"}`}>{text}</p>
             </div>
           );
         })}
