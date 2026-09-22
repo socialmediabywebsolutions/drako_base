@@ -104,10 +104,8 @@ const serviciosNavItem = { href: "/socialflow/empresa/servicios", label: "Servic
 const crmNavItem = { href: "/socialflow/crm", label: "CRM Social", icon: <IcoUsers /> };
 
 const settingsNav = [
-  { href: "/socialflow/settings/account",   label: "Mi cuenta" },
-  { href: "/socialflow/settings/team",      label: "Equipo" },
-  { href: "/socialflow/settings/billing",   label: "Facturación" },
-  { href: "/socialflow/settings/ownership", label: "Propiedad" },
+  { href: "/socialflow/settings/billing", label: "Facturación" },
+  { href: "/socialflow/settings/team",    label: "Equipo" },
 ];
 
 function renderMainNavItem(item: { href: string; label: string; icon: React.ReactNode }, active: boolean) {

@@ -23,6 +23,8 @@ type SocialFlowAccountSettingsProps = {
     plan: string;
     billingStatus: string;
     onboardingProgress: number;
+    periodEndLabel?: string | null;
+    cancelAtPeriodEnd?: boolean | null;
   };
   memberships: Membership[];
   allowWorkspaceSwitch?: boolean;
@@ -132,6 +134,12 @@ export default function SocialFlowAccountSettings({
                   <dt>Onboarding</dt>
                   <dd className="font-semibold text-gray-700">{workspace.onboardingProgress}%</dd>
                 </div>
+                {workspace.periodEndLabel && (
+                  <div className="flex items-center justify-between gap-3">
+                    <dt>{workspace.cancelAtPeriodEnd ? "Se cancela el" : "Renueva el"}</dt>
+                    <dd className="font-semibold text-gray-700">{workspace.periodEndLabel}</dd>
+                  </div>
+                )}
               </dl>
             </div>
           </div>

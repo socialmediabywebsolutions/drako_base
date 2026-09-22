@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Download, ShieldCheck } from "lucide-react";
 
 export default function SocialFlowOwnershipPage() {
   const [downloading, setDownloading] = useState(false);
@@ -26,9 +26,9 @@ export default function SocialFlowOwnershipPage() {
   return (
     <div className="animate-in fade-in space-y-8 duration-500">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">Propiedad &amp; Activos</div>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-900">Propiedad &amp; Activos</h1>
-        <p className="mt-2 text-sm text-gray-500">Gestiona la propiedad legal, exportaciones y derechos de propiedad intelectual.</p>
+        <div className="text-[11px] font-black uppercase tracking-[0.24em] text-[#3b82f6]">Mis datos</div>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-900">Mis datos</h1>
+        <p className="mt-2 text-sm text-gray-500">Descarga una copia completa de tus datos y activos en Socialcors.</p>
       </div>
 
       {/* Exportación */}
@@ -89,22 +89,6 @@ export default function SocialFlowOwnershipPage() {
               </>
             )}
           </button>
-        </div>
-      </section>
-
-      {/* Transferencia de propiedad */}
-      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm opacity-75">
-        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900">
-          <AlertTriangle className="h-5 w-5 text-amber-500" />
-          Transferir propiedad
-        </h2>
-        <p className="mb-4 text-sm text-gray-500">
-          Transferir la propiedad de esta infraestructura SaaS requiere validación legal y un nuevo contrato de facturación.
-          Este proceso es irreversible.
-        </p>
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-800">
-          <strong>Aviso:</strong> La transferencia automática de propiedad está desactivada por razones de seguridad.
-          Contacta con Soporte Enterprise para iniciar una transferencia de titularidad.
         </div>
       </section>
     </div>
