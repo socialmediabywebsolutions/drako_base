@@ -9,14 +9,14 @@ export default function TrialBanner({ daysLeft }: { daysLeft: number }) {
       : `Te quedan ${daysLeft} días de prueba gratuita`;
 
   return (
-    <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-3">
+    <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-[#3b82f6]/30 bg-[#3b82f6]/10 px-4 py-3">
       <div className="flex items-center gap-2.5">
-        <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-violet-400" />
-        <p className="text-sm font-semibold text-violet-200">{label}</p>
+        <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-[#3b82f6]" />
+        <p className="text-sm font-semibold text-blue-700">{label}</p>
       </div>
       <Link
         href="/socialflow/settings/billing"
-        className="shrink-0 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3.5 py-1.5 text-xs font-black tracking-wide text-white shadow shadow-violet-500/30 transition hover:brightness-110"
+        className="shrink-0 rounded-lg bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-3.5 py-1.5 text-xs font-black tracking-wide text-white shadow shadow-[#3b82f6]/20 transition hover:brightness-110"
       >
         Elegir plan
       </Link>

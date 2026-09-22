@@ -10,7 +10,7 @@ type CampaignsResponse = { items?: SocialCampaign[] };
 
 // ── Section wrapper ───────────────────────────────────────────────────────────
 
-function DarkSection({
+function PanelSection({
   title,
   subtitle,
   children,
@@ -20,10 +20,10 @@ function DarkSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-white/8 bg-white/4 p-5">
+    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4">
-        <h2 className="text-sm font-bold text-white">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-xs text-white/35">{subtitle}</p>}
+        <h2 className="text-sm font-bold text-gray-900">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>}
       </div>
       {children}
     </section>
@@ -78,22 +78,22 @@ export default function SocialFlowOperationsPanel() {
   return (
     <div className="space-y-5">
       {error && (
-        <div className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
 
       <button
         onClick={() => router.push("/socialflow/upload")}
-        className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition"
+        className="w-full py-3 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] text-white font-semibold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition"
       >
         ✦ Sube, analiza, publica y programa con IA
       </button>
 
       {/* ── Weekly calendar ──────────────────────────────────────────────── */}
-      <DarkSection title="Calendario semanal" subtitle="Visualiza tu contenido semanal">
+      <PanelSection title="Calendario semanal" subtitle="Visualiza tu contenido semanal">
         <Calendar posts={posts} campaigns={campaigns} />
-      </DarkSection>
+      </PanelSection>
     </div>
   );
 }

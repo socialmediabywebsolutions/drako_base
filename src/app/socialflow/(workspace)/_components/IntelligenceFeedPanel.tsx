@@ -26,9 +26,9 @@ const TYPE_ICON: Record<FeedType, string> = {
 };
 
 const PRIORITY_STYLE: Record<FeedPriority, string> = {
-  high:   "border-red-500/30 bg-red-500/10 text-red-300",
-  medium: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  low:    "border-white/15 bg-white/5 text-white/45",
+  high:   "border-red-300 bg-red-50 text-red-700",
+  medium: "border-amber-300 bg-amber-50 text-amber-700",
+  low:    "border-gray-200 bg-gray-100 text-gray-500",
 };
 
 // Franja lateral por tipo, independiente del badge de priority — sin esto, dos
@@ -36,7 +36,7 @@ const PRIORITY_STYLE: Record<FeedPriority, string> = {
 // "medium") se veían idénticas salvo por el emoji.
 const TYPE_ACCENT: Record<FeedType, string> = {
   alert: "border-l-4 border-l-rose-500",
-  opportunity: "border-l-4 border-l-violet-500",
+  opportunity: "border-l-4 border-l-[#3b82f6]",
   recommendation: "border-l-4 border-l-sky-500",
 };
 
@@ -92,35 +92,35 @@ export default function IntelligenceFeedPanel() {
   }
 
   return (
-    <section className="rounded-2xl border border-white/8 bg-white/4 p-6">
+    <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-bold text-white">Intelligence Feed</h2>
-          <p className="text-xs text-white/35 mt-0.5">Lo que necesitas saber ahora</p>
+          <h2 className="text-base font-bold text-gray-900">Intelligence Feed</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Lo que necesitas saber ahora</p>
         </div>
         {items.filter((i) => i.status === "new").length > 0 && (
-          <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-bold text-violet-300">
+          <span className="rounded-full border border-[#3b82f6]/30 bg-[#3b82f6]/10 px-2.5 py-1 text-[10px] font-bold text-[#3b82f6]">
             {items.filter((i) => i.status === "new").length} nuevo{items.filter((i) => i.status === "new").length > 1 ? "s" : ""}
           </span>
         )}
       </div>
 
       {loading && (
-        <p className="text-sm text-white/30 animate-pulse">Cargando inteligencia…</p>
+        <p className="text-sm text-gray-400 animate-pulse">Cargando inteligencia…</p>
       )}
 
       {error && (
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="text-sm text-red-600">{error}</p>
       )}
 
       {!loading && !error && items.length === 0 && (
-        <p className="text-sm text-white/35">
+        <p className="text-sm text-gray-500">
           Todo en orden. Vuelve a auditar tu presencia para generar nuevas recomendaciones.
         </p>
       )}
 
       {!loading && !error && items.length > 0 && (
-        <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 pr-1">
+        <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 pr-1">
           <div className="grid grid-cols-2 gap-3">
             {items.map((item) => {
               const isExpanded = expandedIds.has(item.id);
@@ -131,8 +131,8 @@ export default function IntelligenceFeedPanel() {
                 onClick={() => toggleExpanded(item.id)}
                 className={`group relative flex cursor-pointer flex-col gap-2 rounded-xl border p-3 transition ${TYPE_ACCENT[item.type]} ${
                   item.status === "new"
-                    ? "border-violet-500/20 bg-violet-500/8"
-                    : "border-white/6 bg-white/3"
+                    ? "border-[#3b82f6]/20 bg-[#3b82f6]/5"
+                    : "border-gray-200 bg-gray-50"
                 }`}
               >
                 {/* Header row: icon + priority badge */}
@@ -144,10 +144,10 @@ export default function IntelligenceFeedPanel() {
                 </div>
 
                 {/* Title */}
-                <p className="text-sm font-semibold leading-snug text-white">{item.title}</p>
+                <p className="text-sm font-semibold leading-snug text-gray-900">{item.title}</p>
 
                 {/* Description — clamp a 2 líneas hasta que se expande la tarjeta */}
-                <p className={`text-xs leading-relaxed text-white/45 ${isExpanded ? "" : "line-clamp-2"}`}>
+                <p className={`text-xs leading-relaxed text-gray-500 ${isExpanded ? "" : "line-clamp-2"}`}>
                   {item.description}
                 </p>
 
@@ -160,7 +160,7 @@ export default function IntelligenceFeedPanel() {
                   }`}
                 >
                   {item.actionHref && (
-                    <Link href={item.actionHref} className="text-violet-400 transition-colors hover:text-violet-300">
+                    <Link href={item.actionHref} className="text-[#3b82f6] transition-colors hover:text-[#06b6d4]">
                       {item.actionLabel ?? "Ver más"} →
                     </Link>
                   )}
@@ -168,7 +168,7 @@ export default function IntelligenceFeedPanel() {
                     <button
                       type="button"
                       onClick={() => void updateStatus(item.id, "read")}
-                      className="text-white/30 transition-colors hover:text-white/60"
+                      className="text-gray-400 transition-colors hover:text-gray-700"
                     >
                       Leído
                     </button>
@@ -176,7 +176,7 @@ export default function IntelligenceFeedPanel() {
                   <button
                     type="button"
                     onClick={() => void updateStatus(item.id, "dismissed")}
-                    className="text-white/20 transition-colors hover:text-red-400"
+                    className="text-gray-300 transition-colors hover:text-red-600"
                   >
                     Descartar
                   </button>

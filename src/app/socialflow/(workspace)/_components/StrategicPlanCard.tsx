@@ -44,25 +44,25 @@ export default function StrategicPlanCard({ saasId }: Props) {
 
   if (loading) {
     return (
-      <section className="rounded-2xl border border-white/8 bg-white/4 p-6">
-        <p className="text-sm text-white/30 animate-pulse">Cargando tu plan estratégico…</p>
+      <section className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
+        <p className="text-sm text-gray-400 animate-pulse">Cargando tu plan estratégico…</p>
       </section>
     );
   }
 
   if (error) {
     return (
-      <section className="rounded-2xl border border-white/8 bg-white/4 p-6">
-        <p className="text-sm text-red-400">{error}</p>
+      <section className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
+        <p className="text-sm text-red-600">{error}</p>
       </section>
     );
   }
 
   if (!plan) {
     return (
-      <section className="rounded-2xl border border-white/8 bg-white/4 p-6">
-        <h2 className="text-base font-bold text-white">Plan estratégico del mes</h2>
-        <p className="mt-2 text-sm text-white/35">
+      <section className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
+        <h2 className="text-base font-bold text-gray-900">Plan estratégico del mes</h2>
+        <p className="mt-2 text-sm text-gray-500">
           Todavía no se ha calculado — se genera cada lunes a partir de todo lo que el Cerebro haya aprendido de tu cuenta.
         </p>
       </section>
@@ -70,24 +70,24 @@ export default function StrategicPlanCard({ saasId }: Props) {
   }
 
   return (
-    <section className="rounded-2xl border border-violet-500/20 bg-violet-500/6 p-6 space-y-4">
+    <section className="rounded-2xl border border-[#3b82f6]/20 bg-[#3b82f6]/5 p-6 space-y-4">
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-wide text-violet-300/70">Plan estratégico del mes</p>
-        <h2 className="mt-1 text-base font-bold text-white">{plan.monthlyObjective}</h2>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-[#3b82f6]">Plan estratégico del mes</p>
+        <h2 className="mt-1 text-base font-bold text-gray-900">{plan.monthlyObjective}</h2>
       </div>
 
       {plan.alert && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3">
-          <p className="text-xs font-semibold text-red-300">⚠️ {plan.alert}</p>
+        <div className="rounded-xl border border-red-300 bg-red-50 p-3">
+          <p className="text-xs font-semibold text-red-700">⚠️ {plan.alert}</p>
         </div>
       )}
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/40">Prioridades del mes</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Prioridades del mes</p>
         <ul className="mt-2 space-y-1.5">
           {plan.priorities.map((p, i) => (
-            <li key={i} className="flex gap-2 text-sm text-white/70">
-              <span className="text-violet-400">{i + 1}.</span>
+            <li key={i} className="flex gap-2 text-sm text-gray-600">
+              <span className="text-[#3b82f6]">{i + 1}.</span>
               <span>{p}</span>
             </li>
           ))}
@@ -95,12 +95,12 @@ export default function StrategicPlanCard({ saasId }: Props) {
       </div>
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/40">Oportunidad clave</p>
-        <p className="mt-1 text-sm text-white/70">{plan.keyOpportunity}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Oportunidad clave</p>
+        <p className="mt-1 text-sm text-gray-600">{plan.keyOpportunity}</p>
       </div>
 
-      <div className="border-t border-white/8 pt-3">
-        <p className="text-xs text-white/40 italic">{plan.executiveSummary}</p>
+      <div className="border-t border-gray-200 pt-3">
+        <p className="text-xs text-gray-500 italic">{plan.executiveSummary}</p>
       </div>
     </section>
   );
