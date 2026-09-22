@@ -5,24 +5,24 @@ import type { ReactNode } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { EngagementWeekPoint, FollowerPoint, ViewsPoint } from "../_lib/dashboard-data";
 
-// Series de engagement — paleta categórica validada con validate_palette.js en modo dark
-// (lightness band, chroma, CVD ΔE ≥ 8 y contraste ≥ 3:1 sobre superficie oscura).
+// Series de engagement — paleta categórica validada con validate_palette.js
+// (lightness band, chroma, CVD ΔE ≥ 8 y contraste ≥ 3:1 sobre superficie clara).
 export const ENGAGEMENT_COLORS = { likes: "#7c5cff", comments: "#0891b2", shares: "#db2777" } as const;
 
-const BRAND = "#6c47ff";
-const CYAN = "#22d3ee";
-const AXIS = "rgba(255,255,255,0.4)";
-const GRID = "rgba(255,255,255,0.06)";
+const BRAND = "#3b82f6";
+const CYAN = "#06b6d4";
+const AXIS = "rgba(17,24,39,0.45)";
+const GRID = "rgba(17,24,39,0.08)";
 
 const nf = new Intl.NumberFormat("es-ES");
 
 function ChartCard({ title, subtitle, children, aside }: { title: string; subtitle: string; children: ReactNode; aside?: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-white/[0.07] bg-[#0d0d1a] p-5">
+    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="text-sm font-bold text-white">{title}</h3>
-          <p className="mt-0.5 text-xs text-white/40">{subtitle}</p>
+          <h3 className="text-sm font-bold text-gray-900">{title}</h3>
+          <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>
         </div>
         {aside}
       </div>
@@ -33,16 +33,16 @@ function ChartCard({ title, subtitle, children, aside }: { title: string; subtit
 
 function EmptyChart({ title, body, cta }: { title: string; body: string; cta?: { href: string; label: string } }) {
   return (
-    <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-6 text-center">
+    <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 text-center">
       <svg width="44" height="24" viewBox="0 0 44 24" fill="none" aria-hidden="true">
         <path d="M2 20 L12 12 L20 16 L32 5 L42 9" stroke={BRAND} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="3 4" opacity="0.7" />
       </svg>
       <div>
-        <p className="text-sm font-semibold text-white/80">{title}</p>
-        <p className="mt-1 max-w-xs text-xs leading-5 text-white/40">{body}</p>
+        <p className="text-sm font-semibold text-gray-700">{title}</p>
+        <p className="mt-1 max-w-xs text-xs leading-5 text-gray-500">{body}</p>
       </div>
       {cta && (
-        <Link href={cta.href} className="rounded-full bg-[#6c47ff] px-4 py-1.5 text-xs font-bold text-white transition hover:brightness-110">
+        <Link href={cta.href} className="rounded-full bg-[#3b82f6] px-4 py-1.5 text-xs font-bold text-white transition hover:brightness-110">
           {cta.label}
         </Link>
       )}
@@ -50,7 +50,7 @@ function EmptyChart({ title, body, cta }: { title: string; body: string; cta?: {
   );
 }
 
-const tooltipBox = "rounded-xl border border-white/12 bg-[#161221] px-3 py-2 text-xs shadow-xl";
+const tooltipBox = "rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs shadow-lg";
 
 // ── Gráfica 1 · Evolución de seguidores ──────────────────────────────────────
 
@@ -96,17 +96,17 @@ export function FollowersChart({ history, instagramConnected }: { history: Follo
             <XAxis dataKey="label" stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} minTickGap={24} />
             <YAxis stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} width={44} domain={[Math.max(0, min - pad), max + pad]} tickFormatter={(v: number) => nf.format(Math.round(v))} allowDecimals={false} />
             <Tooltip
-              cursor={{ stroke: "rgba(255,255,255,0.15)" }}
+              cursor={{ stroke: "rgba(17,24,39,0.15)" }}
               content={({ active, payload, label }) =>
                 active && payload?.length ? (
                   <div className={tooltipBox}>
-                    <p className="text-white/50">{label}</p>
-                    <p className="mt-0.5 font-bold text-white">{nf.format(Number(payload[0].value))} seguidores</p>
+                    <p className="text-gray-500">{label}</p>
+                    <p className="mt-0.5 font-bold text-gray-900">{nf.format(Number(payload[0].value))} seguidores</p>
                   </div>
                 ) : null
               }
             />
-            <Area type="monotone" dataKey="followers" stroke={BRAND} strokeWidth={2} fill="url(#dash-followers-fill)" activeDot={{ r: 5, fill: BRAND, stroke: "#0d0d1a", strokeWidth: 2 }} dot={false} />
+            <Area type="monotone" dataKey="followers" stroke={BRAND} strokeWidth={2} fill="url(#dash-followers-fill)" activeDot={{ r: 5, fill: BRAND, stroke: "#ffffff", strokeWidth: 2 }} dot={false} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -145,14 +145,14 @@ export function ViewsByPostChart({ posts }: { posts: ViewsPoint[] }) {
             <XAxis dataKey="label" stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} minTickGap={16} />
             <YAxis stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} width={44} allowDecimals={false} tickFormatter={(v: number) => nf.format(v)} />
             <Tooltip
-              cursor={{ fill: "rgba(255,255,255,0.05)" }}
+              cursor={{ fill: "rgba(17,24,39,0.04)" }}
               content={({ active, payload }) => {
                 const p = active && payload?.length ? (payload[0].payload as ViewsPoint) : null;
                 return p ? (
                   <div className={`${tooltipBox} max-w-[240px]`}>
-                    <p className="text-white/50">{p.type} · {p.dateLabel}</p>
-                    {p.excerpt && <p className="mt-1 leading-4 text-white/80">{p.excerpt}</p>}
-                    <p className="mt-1.5 font-bold text-white">{nf.format(p.views)} visualizaciones</p>
+                    <p className="text-gray-500">{p.type} · {p.dateLabel}</p>
+                    {p.excerpt && <p className="mt-1 leading-4 text-gray-700">{p.excerpt}</p>}
+                    <p className="mt-1.5 font-bold text-gray-900">{nf.format(p.views)} visualizaciones</p>
                   </div>
                 ) : null;
               }}
@@ -189,9 +189,9 @@ export function EngagementChart({ weeks, totals }: { weeks: EngagementWeekPoint[
   const legend = (
     <ul className="flex flex-wrap gap-x-4 gap-y-1">
       {ENGAGEMENT_SERIES.map((s) => (
-        <li key={s.key} className="flex items-center gap-1.5 text-xs text-white/60">
+        <li key={s.key} className="flex items-center gap-1.5 text-xs text-gray-600">
           <span className="h-2.5 w-2.5 rounded-sm" style={{ background: ENGAGEMENT_COLORS[s.key] }} aria-hidden="true" />
-          {s.label} <span className="font-semibold text-white/85">{nf.format(totals[s.key])}</span>
+          {s.label} <span className="font-semibold text-gray-900">{nf.format(totals[s.key])}</span>
         </li>
       ))}
     </ul>
@@ -206,15 +206,15 @@ export function EngagementChart({ weeks, totals }: { weeks: EngagementWeekPoint[
             <XAxis dataKey="label" stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
             <YAxis stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} width={44} allowDecimals={false} tickFormatter={(v: number) => nf.format(v)} />
             <Tooltip
-              cursor={{ stroke: "rgba(255,255,255,0.15)" }}
+              cursor={{ stroke: "rgba(17,24,39,0.15)" }}
               content={({ active, payload, label }) =>
                 active && payload?.length ? (
                   <div className={tooltipBox}>
-                    <p className="text-white/50">Semana {label}</p>
+                    <p className="text-gray-500">Semana {label}</p>
                     {ENGAGEMENT_SERIES.map((s) => (
-                      <p key={s.key} className="mt-0.5 flex items-center gap-1.5 text-white/80">
+                      <p key={s.key} className="mt-0.5 flex items-center gap-1.5 text-gray-700">
                         <span className="h-2 w-2 rounded-sm" style={{ background: ENGAGEMENT_COLORS[s.key] }} aria-hidden="true" />
-                        {s.label}: <span className="font-bold text-white">{nf.format(Number(payload.find((x) => x.dataKey === s.key)?.value ?? 0))}</span>
+                        {s.label}: <span className="font-bold text-gray-900">{nf.format(Number(payload.find((x) => x.dataKey === s.key)?.value ?? 0))}</span>
                       </p>
                     ))}
                   </div>
