@@ -26,9 +26,9 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 const PROVIDER_BG: Record<string, string> = {
-  INSTAGRAM: "bg-pink-500/15 text-pink-300",
-  FACEBOOK_PAGE: "bg-blue-500/15 text-blue-300",
-  LINKEDIN: "bg-sky-500/15 text-sky-300",
+  INSTAGRAM: "bg-pink-50 text-pink-700",
+  FACEBOOK_PAGE: "bg-blue-50 text-blue-700",
+  LINKEDIN: "bg-sky-50 text-sky-700",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -42,20 +42,20 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_BG: Record<string, string> = {
-  PENDING: "bg-amber-500/15 text-amber-300",
-  AUTO_APPROVED: "bg-sky-500/15 text-sky-300",
-  APPROVED: "bg-emerald-500/15 text-emerald-300",
-  SENT: "bg-white/8 text-white/50",
-  DISMISSED: "bg-rose-500/10 text-rose-400",
-  NEEDS_HUMAN: "bg-orange-500/15 text-orange-300",
-  DELIVERY_FAILED: "bg-red-500/15 text-red-300",
+  PENDING: "bg-amber-50 text-amber-700",
+  AUTO_APPROVED: "bg-sky-50 text-sky-700",
+  APPROVED: "bg-emerald-50 text-emerald-700",
+  SENT: "bg-gray-100 text-gray-500",
+  DISMISSED: "bg-rose-50 text-rose-600",
+  NEEDS_HUMAN: "bg-orange-50 text-orange-700",
+  DELIVERY_FAILED: "bg-red-50 text-red-700",
 };
 
 const SENTIMENT_BG: Record<string, string> = {
-  positive: "bg-emerald-500/15 text-emerald-300",
-  negative: "bg-red-500/15 text-red-300",
-  neutral: "bg-white/8 text-white/50",
-  lead: "bg-violet-500/15 text-violet-300",
+  positive: "bg-emerald-50 text-emerald-700",
+  negative: "bg-red-50 text-red-700",
+  neutral: "bg-gray-100 text-gray-500",
+  lead: "bg-blue-50 text-blue-700",
 };
 
 const SENTIMENT_LABEL: Record<string, string> = {
@@ -271,20 +271,20 @@ export default function ConversationInbox({
       </div>
 
       {/* Settings card */}
-      <div className="rounded-xl border border-white/8 bg-white/4">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
         <button
           type="button"
           onClick={() => setSettingsOpen((v) => !v)}
           className="flex w-full items-center justify-between px-5 py-4 text-left"
         >
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-white">Envío automático</span>
+            <span className="text-sm font-semibold text-gray-900">Envío automático</span>
             <span
               className={[
                 "rounded-full px-2 py-0.5 text-xs font-medium",
                 settings.autoSendEnabled
-                  ? "bg-emerald-500/15 text-emerald-300"
-                  : "bg-white/8 text-white/40",
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-gray-100 text-gray-400",
               ].join(" ")}
             >
               {settings.autoSendEnabled ? "Activado" : "Desactivado"}
@@ -294,11 +294,11 @@ export default function ConversationInbox({
         </button>
 
         {settingsOpen && (
-          <div className="border-t border-white/8 px-5 pb-5 pt-4 space-y-4">
+          <div className="border-t border-gray-200 px-5 pb-5 pt-4 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-white">Respuestas automáticas</p>
-                <p className="text-xs text-white/40 mt-0.5">
+                <p className="text-sm font-medium text-gray-900">Respuestas automáticas</p>
+                <p className="text-xs text-gray-400 mt-0.5">
                   Si está activo, las respuestas de IA se envían sin aprobación humana.
                 </p>
               </div>
@@ -307,7 +307,7 @@ export default function ConversationInbox({
 
             {settings.autoSendEnabled && (
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-white/30">Activo para</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Activo para</p>
                 <div className="flex flex-wrap gap-2">
                   {AUTO_SEND_PROVIDERS.map((p) => {
                     const on = settings.autoSendProviders.includes(p);
@@ -320,8 +320,8 @@ export default function ConversationInbox({
                         className={[
                           "rounded-lg border px-3 py-1.5 text-xs font-medium transition",
                           on
-                            ? "border-violet-500/50 bg-violet-500/15 text-violet-300"
-                            : "border-white/10 bg-white/4 text-white/45 hover:border-white/20",
+                            ? "border-blue-400 bg-blue-100 text-blue-700"
+                            : "border-gray-200 bg-white text-gray-500 hover:border-gray-300",
                         ].join(" ")}
                       >
                         {PROVIDER_LABELS[p]}
@@ -329,13 +329,13 @@ export default function ConversationInbox({
                     );
                   })}
                 </div>
-                <p className="text-xs text-amber-300/80 bg-amber-500/8 border border-amber-500/20 rounded-lg px-3 py-2">
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   Las respuestas se envían sin aprobación. Mantén actualizado el perfil de marca.
                 </p>
               </div>
             )}
 
-            {settingsError && <p className="text-xs text-red-400">{settingsError}</p>}
+            {settingsError && <p className="text-xs text-red-600">{settingsError}</p>}
           </div>
         )}
       </div>
@@ -349,7 +349,7 @@ export default function ConversationInbox({
       />
 
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-xl border border-white/8 bg-white/4 p-1">
+      <div className="flex gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
         {(
           [
             { id: "inbox" as Tab, label: "Todos", count: inboxThreads.length },
@@ -366,8 +366,8 @@ export default function ConversationInbox({
             className={[
               "flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
               tab === id
-                ? "bg-white/8 text-white shadow-sm"
-                : "text-white/40 hover:text-white/70",
+                ? "bg-gray-100 text-gray-900 shadow-sm"
+                : "text-gray-400 hover:text-gray-700",
             ].join(" ")}
           >
             {label}
@@ -375,7 +375,7 @@ export default function ConversationInbox({
               <span
                 className={[
                   "rounded-full px-1.5 py-0.5 text-xs font-bold leading-none",
-                  tab === id ? "bg-violet-500 text-white" : "bg-white/10 text-white/50",
+                  tab === id ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-500",
                 ].join(" ")}
               >
                 {count}
@@ -465,36 +465,36 @@ function ThreadCard({
   return (
     <div
       className={[
-        "rounded-xl border bg-white/4 transition",
+        "rounded-xl border bg-white shadow-sm transition",
         thread.status === "DISMISSED" ? "opacity-60" : "",
-        thread.status === "NEEDS_HUMAN" ? "border-orange-500/30"
-          : thread.status === "DELIVERY_FAILED" ? "border-red-500/30"
-          : "border-white/8",
+        thread.status === "NEEDS_HUMAN" ? "border-orange-300"
+          : thread.status === "DELIVERY_FAILED" ? "border-red-300"
+          : "border-gray-200",
       ].join(" ")}
     >
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/8 px-4 py-3">
-        <span className="text-sm font-semibold text-white">
+      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-3">
+        <span className="text-sm font-semibold text-gray-900">
           {thread.senderName ?? thread.senderHandle ?? "Anónimo"}
         </span>
         {thread.senderHandle && thread.senderHandle !== thread.senderName && (
-          <span className="text-xs text-white/35">@{thread.senderHandle}</span>
+          <span className="text-xs text-gray-400">@{thread.senderHandle}</span>
         )}
         <span
           className={[
             "rounded-full px-2 py-0.5 text-[11px] font-medium",
-            PROVIDER_BG[thread.provider] ?? "bg-white/8 text-white/50",
+            PROVIDER_BG[thread.provider] ?? "bg-gray-100 text-gray-500",
           ].join(" ")}
         >
           {PROVIDER_LABELS[thread.provider] ?? thread.provider}
         </span>
-        <span className="rounded-full bg-white/8 px-2 py-0.5 text-[11px] font-medium text-white/50">
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
           {thread.threadType === "COMMENT" ? "Comentario" : "DM"}
         </span>
         <span
           className={[
             "rounded-full px-2 py-0.5 text-[11px] font-medium",
-            STATUS_BG[thread.status] ?? "bg-white/8 text-white/40",
+            STATUS_BG[thread.status] ?? "bg-gray-100 text-gray-400",
           ].join(" ")}
         >
           {STATUS_LABEL[thread.status] ?? thread.status}
@@ -503,7 +503,7 @@ function ThreadCard({
           <span
             className={[
               "rounded-full px-2 py-0.5 text-[11px] font-medium",
-              SENTIMENT_BG[sentiment] ?? "bg-white/8 text-white/50",
+              SENTIMENT_BG[sentiment] ?? "bg-gray-100 text-gray-500",
             ].join(" ")}
           >
             {SENTIMENT_LABEL[sentiment] ?? sentiment}
@@ -521,18 +521,18 @@ function ThreadCard({
             {TEMP_META[leadTemperature].label} LEAD
           </span>
         )}
-        <span className="ml-auto text-[11px] text-white/25">{relativeTime(thread.createdAt)}</span>
+        <span className="ml-auto text-[11px] text-gray-400">{relativeTime(thread.createdAt)}</span>
       </div>
 
       <div className="px-4 py-3 space-y-3">
         {/* Incoming message */}
-        <div className="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-white/70">
+        <div className="rounded-lg bg-gray-50 px-3 py-2.5 text-sm text-gray-700">
           {thread.incomingMessage}
         </div>
 
         {/* NEEDS_HUMAN reason */}
         {thread.status === "NEEDS_HUMAN" && reason && (
-          <div className="flex items-start gap-2 rounded-lg border border-orange-500/20 bg-orange-500/8 px-3 py-2 text-xs text-orange-300">
+          <div className="flex items-start gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-700">
             <span className="mt-0.5 shrink-0">⚠</span>
             <span>{reason}</span>
           </div>
@@ -542,7 +542,7 @@ function ThreadCard({
             actionErrors (fallo del PATCH en sí), este es un fallo de entrega ya
             persistido en el hilo. */}
         {thread.status === "DELIVERY_FAILED" && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs text-red-300">
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
             <span className="mt-0.5 shrink-0">⚠</span>
             <span>Se aprobó pero Instagram rechazó el envío. El mensaje NO llegó al destinatario.</span>
           </div>
@@ -551,14 +551,14 @@ function ThreadCard({
         {/* Reply area */}
         {!isHistory && (thread.suggestedReply || isOverriding) && (
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               {thread.status === "NEEDS_HUMAN" && !isOverriding ? "Sin respuesta automática generada" : "Respuesta sugerida por IA"}
             </p>
             <textarea
               value={displayReply}
               onChange={(e) => onReplyChange(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
             />
           </div>
         )}
@@ -566,8 +566,8 @@ function ThreadCard({
         {/* History: final reply */}
         {isHistory && finalReplyText && (
           <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">Respuesta enviada</p>
-            <p className="rounded-lg border border-white/8 bg-white/4 px-3 py-2 text-sm text-white/55">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Respuesta enviada</p>
+            <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
               {finalReplyText}
             </p>
           </div>
@@ -575,7 +575,7 @@ function ThreadCard({
 
         {/* Envío fallido — no se marcó APPROVED, el hilo sigue pendiente para reintentar */}
         {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/8 px-3 py-2 text-xs text-red-300">
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
             <span className="mt-0.5 shrink-0">⚠</span>
             <span>No se pudo enviar: {error}</span>
           </div>
@@ -643,15 +643,15 @@ function StatCard({
   accent: "amber" | "orange" | "emerald";
 }) {
   const accentCls = {
-    amber: "text-amber-400",
-    orange: "text-orange-400",
-    emerald: "text-emerald-400",
+    amber: "text-amber-600",
+    orange: "text-orange-600",
+    emerald: "text-emerald-600",
   }[accent];
 
   return (
-    <div className="rounded-xl border border-white/8 bg-white/4 px-4 py-3">
+    <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
       <p className={["text-2xl font-black tabular-nums", accentCls].join(" ")}>{value}</p>
-      <p className="mt-0.5 text-xs text-white/40">{label}</p>
+      <p className="mt-0.5 text-xs text-gray-400">{label}</p>
     </div>
   );
 }
@@ -674,7 +674,7 @@ function Toggle({
       disabled={disabled}
       className={[
         "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
-        checked ? "bg-violet-500" : "bg-white/15",
+        checked ? "bg-blue-500" : "bg-gray-300",
         disabled ? "opacity-50" : "",
       ].join(" ")}
     >
@@ -699,7 +699,7 @@ function ChevronIcon({ open }: { open: boolean }) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={["text-white/30 transition-transform", open ? "rotate-180" : ""].join(" ")}
+      className={["text-gray-400 transition-transform", open ? "rotate-180" : ""].join(" ")}
     >
       <polyline points="6 9 12 15 18 9" />
     </svg>
@@ -719,11 +719,11 @@ function Btn({
 }) {
   const cls = {
     primary:
-      "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-500/20 hover:brightness-110",
+      "bg-blue-500 text-white shadow-md hover:bg-blue-600",
     secondary:
-      "border border-white/10 bg-white/6 text-white/70 hover:bg-white/10 hover:text-white",
+      "border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900",
     ghost:
-      "text-white/35 hover:text-white/60 hover:bg-white/6",
+      "text-gray-400 hover:text-gray-600 hover:bg-gray-50",
   }[variant];
 
   return (
@@ -750,8 +750,8 @@ function EmptyState({ tab }: { tab: Tab }) {
     automation: "",
   };
   return (
-    <div className="rounded-xl border border-dashed border-white/10 py-12 text-center">
-      <p className="text-sm text-white/35">{messages[tab]}</p>
+    <div className="rounded-xl border border-dashed border-gray-300 py-12 text-center">
+      <p className="text-sm text-gray-400">{messages[tab]}</p>
     </div>
   );
 }

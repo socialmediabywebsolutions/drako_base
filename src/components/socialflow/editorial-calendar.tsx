@@ -22,16 +22,16 @@ const MONTHS = [
 const DAYS = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
 
 const STATUS_CFG: Record<PostStatus, { label: string; chipBg: string; dotBg: string }> = {
-  IDEA:       { label: "Idea",       chipBg: "bg-white/6 text-white/45",           dotBg: "bg-white/30"    },
-  DRAFT:      { label: "Borrador",   chipBg: "bg-white/8 text-white/55",           dotBg: "bg-white/40"    },
-  IN_REVIEW:  { label: "En revisión",chipBg: "bg-amber-500/15 text-amber-300",     dotBg: "bg-amber-500"   },
-  APPROVED:   { label: "Aprobado",   chipBg: "bg-indigo-500/15 text-indigo-300",   dotBg: "bg-indigo-500"  },
-  REJECTED:   { label: "Rechazado",  chipBg: "bg-rose-500/15 text-rose-300",       dotBg: "bg-rose-400"    },
-  SCHEDULED:  { label: "Programado", chipBg: "bg-sky-500/15 text-sky-300",         dotBg: "bg-sky-500"     },
-  PUBLISHING: { label: "Publicando", chipBg: "bg-violet-500/15 text-violet-300",   dotBg: "bg-violet-500"  },
-  POSTED:     { label: "Publicado",  chipBg: "bg-emerald-500/15 text-emerald-300", dotBg: "bg-emerald-500" },
-  PUBLISHED:  { label: "Publicado",  chipBg: "bg-emerald-500/15 text-emerald-300", dotBg: "bg-emerald-500" },
-  FAILED:     { label: "Error",      chipBg: "bg-rose-500/15 text-rose-400",       dotBg: "bg-rose-500"    },
+  IDEA:       { label: "Idea",       chipBg: "bg-gray-100 text-gray-500",          dotBg: "bg-gray-300"    },
+  DRAFT:      { label: "Borrador",   chipBg: "bg-gray-100 text-gray-600",          dotBg: "bg-gray-400"    },
+  IN_REVIEW:  { label: "En revisión",chipBg: "bg-amber-50 text-amber-700",         dotBg: "bg-amber-500"   },
+  APPROVED:   { label: "Aprobado",   chipBg: "bg-indigo-50 text-indigo-700",       dotBg: "bg-indigo-500"  },
+  REJECTED:   { label: "Rechazado",  chipBg: "bg-rose-50 text-rose-700",           dotBg: "bg-rose-400"    },
+  SCHEDULED:  { label: "Programado", chipBg: "bg-sky-50 text-sky-700",             dotBg: "bg-sky-500"     },
+  PUBLISHING: { label: "Publicando", chipBg: "bg-blue-50 text-blue-700",           dotBg: "bg-blue-500"    },
+  POSTED:     { label: "Publicado",  chipBg: "bg-emerald-50 text-emerald-700",     dotBg: "bg-emerald-500" },
+  PUBLISHED:  { label: "Publicado",  chipBg: "bg-emerald-50 text-emerald-700",     dotBg: "bg-emerald-500" },
+  FAILED:     { label: "Error",      chipBg: "bg-rose-50 text-rose-700",           dotBg: "bg-rose-500"    },
 };
 
 const STATUS_RING: Record<string, string> = {
@@ -41,9 +41,9 @@ const STATUS_RING: Record<string, string> = {
   REJECTED:   "ring-rose-400/60",
   POSTED:     "ring-emerald-400/70",
   PUBLISHED:  "ring-emerald-400/70",
-  PUBLISHING: "ring-violet-400/60",
-  IDEA:       "ring-white/8",
-  DRAFT:      "ring-white/8",
+  PUBLISHING: "ring-blue-400/60",
+  IDEA:       "ring-gray-200",
+  DRAFT:      "ring-gray-200",
   FAILED:     "ring-rose-500/50",
 };
 
@@ -54,9 +54,9 @@ const STATUS_DOT: Record<string, string> = {
   REJECTED:   "bg-rose-400",
   POSTED:     "bg-emerald-400",
   PUBLISHED:  "bg-emerald-400",
-  PUBLISHING: "bg-violet-400",
-  IDEA:       "bg-white/20",
-  DRAFT:      "bg-white/20",
+  PUBLISHING: "bg-blue-400",
+  IDEA:       "bg-gray-300",
+  DRAFT:      "bg-gray-300",
   FAILED:     "bg-rose-500",
 };
 
@@ -67,16 +67,16 @@ const POST_TYPE_OPTIONS = [
 ] as const;
 
 const CONTENT_TYPE_CFG: Record<string, { label: string; icon: string; pill: string }> = {
-  FEED:     { label: "Post",     icon: "📸",  pill: "bg-blue-500/15 text-blue-300"     },
-  REEL:     { label: "Reel",     icon: "🎬",  pill: "bg-purple-500/15 text-purple-300"  },
-  STORY:    { label: "Historia", icon: "⭕",  pill: "bg-orange-500/15 text-orange-300"  },
-  SHORT:    { label: "Short",    icon: "▶️",  pill: "bg-red-500/15 text-red-300"        },
-  CAROUSEL: { label: "Carrusel", icon: "📑",  pill: "bg-teal-500/15 text-teal-300"     },
+  FEED:     { label: "Post",     icon: "📸",  pill: "bg-blue-50 text-blue-700"     },
+  REEL:     { label: "Reel",     icon: "🎬",  pill: "bg-purple-50 text-purple-700"  },
+  STORY:    { label: "Historia", icon: "⭕",  pill: "bg-orange-50 text-orange-700"  },
+  SHORT:    { label: "Short",    icon: "▶️",  pill: "bg-red-50 text-red-700"        },
+  CAROUSEL: { label: "Carrusel", icon: "📑",  pill: "bg-teal-50 text-teal-700"     },
 };
 
 const CREATION_MODE_CFG: Record<"AUTO" | "MANUAL", { label: string; color: string }> = {
-  AUTO:   { label: "✦ IA",     color: "bg-violet-500/15 text-violet-300" },
-  MANUAL: { label: "✎ Manual", color: "bg-slate-500/15 text-slate-300"   },
+  AUTO:   { label: "✦ IA",     color: "bg-blue-50 text-blue-700" },
+  MANUAL: { label: "✎ Manual", color: "bg-slate-100 text-slate-700"   },
 };
 
 const PROVIDER_ABBR: Record<string, string> = {
@@ -90,8 +90,8 @@ const PROVIDER_COLOR: Record<string, string> = {
   LINKEDIN: "bg-sky-600 text-white",
   INSTAGRAM: "bg-rose-500 text-white",
   FACEBOOK_PAGE: "bg-blue-600 text-white",
-  TWITTER_X: "bg-white/15 text-white",
-  TIKTOK: "bg-white/10 text-white",
+  TWITTER_X: "bg-gray-900 text-white",
+  TIKTOK: "bg-gray-800 text-white",
 };
 
 // Hardcoded so Tailwind's scanner sees the full class names
@@ -161,10 +161,10 @@ function formatMetricValue(n: number): string {
 
 function MetricCard({ icon, label, value }: { icon: string; label: string; value: number }) {
   return (
-    <div className="flex flex-col items-center gap-0.5 rounded-xl bg-white/5 px-2 py-2.5">
+    <div className="flex flex-col items-center gap-0.5 rounded-xl bg-gray-50 px-2 py-2.5">
       <span className="text-base leading-none">{icon}</span>
-      <span className="text-sm font-black text-white/90">{formatMetricValue(value)}</span>
-      <span className="text-[9px] font-semibold uppercase tracking-wide text-white/35">{label}</span>
+      <span className="text-sm font-black text-gray-900">{formatMetricValue(value)}</span>
+      <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-400">{label}</span>
     </div>
   );
 }
@@ -214,8 +214,8 @@ function PostChip({ post, today }: { post: SaasSocialPost; today: string }) {
   const title = post.title.length > 13 ? post.title.slice(0, 13) + "…" : post.title;
   const time = post.scheduledAt ? formatTime(post.scheduledAt) : null;
   return (
-    <div className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${overdue ? "bg-amber-500/20 text-amber-200" : cfg.chipBg}`}>
-      {overdue && <span className="shrink-0 font-black text-amber-400">!</span>}
+    <div className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${overdue ? "bg-amber-100 text-amber-800" : cfg.chipBg}`}>
+      {overdue && <span className="shrink-0 font-black text-amber-600">!</span>}
       <span className="shrink-0 text-[9px] leading-none">{typeIcon}</span>
       <span className={`shrink-0 rounded px-1 py-px text-[9px] font-black leading-none ${modeCfg.color}`}>
         {modeCfg.label}
@@ -254,15 +254,15 @@ function PostThumb({ post, onClick }: { post: SaasSocialPost; onClick: () => voi
   const hasVideo = isMediaUrl(postVideoUrl);
   const hasImage = !hasVideo && isMediaUrl(post.imageHint) && !imageError;
   const gradient = thumbGradient(post.id);
-  const ring = STATUS_RING[post.status] ?? "ring-white/8";
-  const dot  = STATUS_DOT[post.status]  ?? "bg-white/20";
+  const ring = STATUS_RING[post.status] ?? "ring-gray-200";
+  const dot  = STATUS_DOT[post.status]  ?? "bg-gray-300";
   const modeCfg = CREATION_MODE_CFG[post.creationMode ?? "AUTO"];
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group relative aspect-square w-full overflow-hidden rounded-xl ring-2 ${ring} transition-all duration-150 hover:scale-[1.03] hover:ring-white/30 active:scale-[0.98]`}
+      className={`group relative aspect-square w-full overflow-hidden rounded-xl ring-2 ${ring} transition-all duration-150 hover:scale-[1.03] hover:ring-gray-400 active:scale-[0.98]`}
     >
       {hasVideo ? (
         // Reel (imagen o vídeo del cliente) — mismo criterio que PostDetailModal:
@@ -347,12 +347,12 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="relative flex h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0d0d14] sm:h-[88vh] sm:rounded-2xl">
+      <div className="relative flex h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-white sm:h-[88vh] sm:rounded-2xl">
         {/* Close */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/8 text-white/50 transition hover:bg-white/15 hover:text-white/80"
+          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700"
           aria-label="Cerrar"
         >
           <IconX />
@@ -360,7 +360,7 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
 
         <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
           {/* Left: image/video */}
-          <div className="relative flex h-52 shrink-0 items-center justify-center bg-black/30 md:h-auto md:w-5/12">
+          <div className="relative flex h-52 shrink-0 items-center justify-center bg-gray-100 md:h-auto md:w-5/12">
             {isMediaUrl(postVideoUrl) ? (
               // Reel (imagen o vídeo del cliente) — el MP4 real, reproducible, en vez del
               // imageHint estático. postVideoUrl viene de metadata.videoUrl (ver approveReelItem
@@ -371,7 +371,7 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
               <img src={post.imageHint} alt={post.title} className="h-full w-full object-cover" onError={() => setModalImageError(true)} />
             ) : (
               <div className={`h-full w-full bg-gradient-to-br ${gradient} flex flex-col items-start justify-end p-5`}>
-                <p className="text-sm font-semibold leading-snug text-white/60 line-clamp-4">{post.title}</p>
+                <p className="text-sm font-semibold leading-snug text-white/80 line-clamp-4">{post.title}</p>
               </div>
             )}
           </div>
@@ -382,7 +382,7 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
             <div className="flex-1 overflow-y-auto p-5 pr-10">
               {/* Badges */}
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className={`rounded-md px-2 py-0.5 text-[10px] font-black ${PROVIDER_COLOR[post.provider] ?? "bg-white/10 text-white/70"}`}>
+                <span className={`rounded-md px-2 py-0.5 text-[10px] font-black ${PROVIDER_COLOR[post.provider] ?? "bg-gray-100 text-gray-600"}`}>
                   {PROVIDER_LABEL[post.provider] ?? post.provider}
                 </span>
                 {CONTENT_TYPE_CFG[post.contentType] && (
@@ -392,7 +392,7 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                 )}
                 <StatusBadge status={post.status} />
                 {campaign && (
-                  <span className="rounded-full bg-white/6 px-2 py-0.5 text-[10px] font-medium text-white/40">
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
                     {campaign.name}
                   </span>
                 )}
@@ -400,18 +400,18 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
 
               {/* Scheduled date */}
               {post.scheduledAt && (
-                <p className="mb-2 text-xs text-white/35">
+                <p className="mb-2 text-xs text-gray-500">
                   {formatDateLong(post.scheduledAt.slice(0, 10))} · {formatTime(post.scheduledAt)}
                 </p>
               )}
 
               {/* Title + body */}
-              <h2 className="mb-2 text-base font-semibold leading-snug text-white/90">{post.title}</h2>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/65">{post.body}</p>
+              <h2 className="mb-2 text-base font-semibold leading-snug text-gray-900">{post.title}</h2>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-600">{post.body}</p>
 
               {/* Metadata */}
               {Array.isArray((post.metadata as Record<string, unknown> | null)?.hashtags) && (
-                <p className="mt-3 text-xs leading-relaxed text-violet-300/65">
+                <p className="mt-3 text-xs leading-relaxed text-blue-600">
                   {((post.metadata as Record<string, unknown>).hashtags as string[]).map((h) => h.startsWith("#") ? h : `#${h}`).join(" ")}
                 </p>
               )}
@@ -421,16 +421,16 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                 const meta = post.analyticsMeta as AnalyticsMeta | undefined;
                 const hasData = meta && meta.source === "social_db";
                 return (
-                  <div className="mt-4 rounded-2xl border border-white/8 bg-white/4 p-4">
+                  <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
                     <div className="mb-3 flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
                         Métricas Instagram
                       </span>
                       <button
                         type="button"
                         onClick={onRefreshMetrics}
                         disabled={isRefreshingMetrics}
-                        className="rounded-lg border border-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/50 transition hover:border-violet-500/40 hover:text-violet-300 disabled:opacity-40"
+                        className="rounded-lg border border-gray-300 px-2.5 py-1 text-[10px] font-semibold text-gray-500 transition hover:border-blue-400 hover:text-blue-600 disabled:opacity-40"
                       >
                         {isRefreshingMetrics ? "Actualizando…" : "↺ Actualizar"}
                       </button>
@@ -446,13 +446,13 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                           <MetricCard icon="🔖" label="Guardados" value={meta.saved} />
                         </div>
                         {meta.lastFetchedAt && (
-                          <p className="mt-2.5 text-center text-[10px] text-white/25">
+                          <p className="mt-2.5 text-center text-[10px] text-gray-400">
                             Actualizado {formatRelativeTime(meta.lastFetchedAt)}
                           </p>
                         )}
                       </>
                     ) : (
-                      <p className="py-2 text-center text-xs text-white/35">
+                      <p className="py-2 text-center text-xs text-gray-500">
                         {isRefreshingMetrics ? "Obteniendo métricas de Instagram…" : "Sin datos aún — pulsa Actualizar."}
                       </p>
                     )}
@@ -461,13 +461,13 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
               })()}
 
               {isDone && post.externalPostId && (
-                <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-xs text-emerald-400 font-medium">
+                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 font-medium">
                   Publicado · ID externo: {post.externalPostId}
                 </div>
               )}
 
               {isFailed && (
-                <div className="mt-3 rounded-lg border border-rose-500/20 bg-rose-500/8 px-3 py-2 text-xs text-rose-400 font-medium">
+                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 font-medium">
                   Publicación fallida — revisa la cuenta conectada.
                 </div>
               )}
@@ -476,7 +476,7 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
             {/* Overdue warning */}
             {(post.status === "SCHEDULED" || post.status === "APPROVED") &&
               post.scheduledAt && post.scheduledAt < new Date().toISOString() && (
-              <div className="mx-5 mb-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-300">
+              <div className="mx-5 mb-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
                 <span className="font-black">⚠ Fecha pasada.</span>{" "}
                 {post.status === "APPROVED"
                   ? "Aprueba y reprograma este post para publicarlo."
@@ -485,9 +485,9 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
             )}
 
             {/* Action footer */}
-            <div className="shrink-0 border-t border-white/8 px-5 py-4">
+            <div className="shrink-0 border-t border-gray-200 px-5 py-4">
               {isDone || isRejected ? (
-                <p className="text-center text-xs text-white/30 italic">
+                <p className="text-center text-xs text-gray-400 italic">
                   {isDone ? "Publicado correctamente." : "Post rechazado."}
                 </p>
               ) : (
@@ -522,13 +522,13 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                           value={schedDate}
                           onChange={(e) => setSchedDate(e.target.value)}
                           min={todayStr()}
-                          className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
+                          className="flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
                         />
                         <input
                           type="time"
                           value={schedTime}
                           onChange={(e) => setSchedTime(e.target.value)}
-                          className="w-28 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
+                          className="w-28 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
                         />
                       </div>
                       <div className="flex gap-2">
@@ -540,7 +540,7 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                         >
                           {isPending ? "…" : "Confirmar"}
                         </button>
-                        <button type="button" onClick={() => setScheduling(false)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/40 transition hover:text-white/60">
+                        <button type="button" onClick={() => setScheduling(false)} className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-500 transition hover:text-gray-700">
                           Cancelar
                         </button>
                       </div>
@@ -550,21 +550,21 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                   {/* SCHEDULED: info + Editar / Reprogramar / Eliminar */}
                   {isScheduled && !scheduling && !editing && (
                     <>
-                      <p className="text-center text-xs text-white/35 italic">
+                      <p className="text-center text-xs text-gray-500 italic">
                         Será publicado automáticamente por el scheduler.
                       </p>
                       <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={() => { setEditTitle(post.title); setEditBody(post.body); setEditing(true); }}
-                          className="flex-1 rounded-xl border border-white/15 bg-white/5 py-2 text-sm text-white/60 transition hover:bg-white/10 hover:text-white/80"
+                          className="flex-1 rounded-xl border border-gray-300 bg-white py-2 text-sm text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
                         >
                           Editar
                         </button>
                         <button
                           type="button"
                           onClick={() => setScheduling(true)}
-                          className="flex-1 rounded-xl border border-sky-500/30 bg-sky-500/10 py-2 text-sm text-sky-300 transition hover:bg-sky-500/20"
+                          className="flex-1 rounded-xl border border-sky-300 bg-sky-50 py-2 text-sm text-sky-700 transition hover:bg-sky-100"
                         >
                           Reprogramar
                         </button>
@@ -572,7 +572,7 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                           type="button"
                           disabled={isPending}
                           onClick={onDelete}
-                          className="flex-1 rounded-xl border border-rose-500/25 bg-rose-500/10 py-2 text-sm text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+                          className="flex-1 rounded-xl border border-rose-300 bg-rose-50 py-2 text-sm text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
                         >
                           Eliminar
                         </button>
@@ -588,25 +588,25 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
                         placeholder="Título"
-                        className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                        className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                       />
                       <textarea
                         value={editBody}
                         onChange={(e) => setEditBody(e.target.value)}
                         rows={4}
                         placeholder="Contenido del post"
-                        className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                        className="w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                       />
                       <div className="flex gap-2">
                         <button
                           type="button"
                           disabled={isPending || !editTitle.trim() || !editBody.trim()}
                           onClick={() => { onSave(editTitle.trim(), editBody.trim()); setEditing(false); }}
-                          className="flex-1 rounded-xl bg-violet-500 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-400 disabled:opacity-50"
+                          className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-600 disabled:opacity-50"
                         >
                           {isPending ? "…" : "Guardar"}
                         </button>
-                        <button type="button" onClick={() => setEditing(false)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/40 transition hover:text-white/60">
+                        <button type="button" onClick={() => setEditing(false)} className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-500 transition hover:text-gray-700">
                           Cancelar
                         </button>
                       </div>
@@ -619,7 +619,7 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                       type="button"
                       disabled={isPending}
                       onClick={() => onAction("reject")}
-                      className="w-full rounded-xl border border-rose-500/25 bg-rose-500/10 py-2 text-sm text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+                      className="w-full rounded-xl border border-rose-300 bg-rose-50 py-2 text-sm text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
                     >
                       Rechazar
                     </button>
@@ -664,16 +664,16 @@ function CreatePostModal(p: CreateModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={p.onClose} />
-      <div className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-[#0d0d1e] shadow-2xl shadow-black/60">
+      <div className="relative w-full max-w-lg rounded-3xl border border-gray-200 bg-white shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/8 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-violet-400">Nuevo post</div>
-            <div className="mt-0.5 text-base font-black text-white">Crear publicación</div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-blue-500">Nuevo post</div>
+            <div className="mt-0.5 text-base font-black text-gray-900">Crear publicación</div>
           </div>
           <button
             onClick={p.onClose}
-            className="rounded-xl border border-white/10 p-1.5 text-white/40 transition hover:border-white/20 hover:text-white/70"
+            className="rounded-xl border border-gray-300 p-1.5 text-gray-500 transition hover:border-gray-400 hover:text-gray-700"
           >
             <IconX />
           </button>
@@ -682,13 +682,13 @@ function CreatePostModal(p: CreateModalProps) {
         <div className="max-h-[70vh] overflow-y-auto space-y-4 px-6 py-5">
           {/* Provider */}
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
               Red social
             </label>
             <select
               value={p.provider}
               onChange={(e) => p.onProviderChange(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-[#0d0d1e] px-3 py-2.5 text-sm font-semibold text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
             >
               <option value="LINKEDIN">LinkedIn</option>
               <option value="INSTAGRAM">Instagram</option>
@@ -697,7 +697,7 @@ function CreatePostModal(p: CreateModalProps) {
 
           {/* Content type */}
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
               Tipo de contenido
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -709,8 +709,8 @@ function CreatePostModal(p: CreateModalProps) {
                   className={[
                     "flex flex-col items-center gap-1 rounded-xl border py-3 text-sm font-semibold transition",
                     p.contentType === opt.value
-                      ? "border-violet-500 bg-violet-500/15 text-white"
-                      : "border-white/10 bg-white/3 text-white/45 hover:border-white/20 hover:text-white/70",
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-gray-700",
                   ].join(" ")}
                 >
                   <span className="text-lg leading-none">{opt.icon}</span>
@@ -722,7 +722,7 @@ function CreatePostModal(p: CreateModalProps) {
 
           {/* Content */}
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
               Contenido
             </label>
             <textarea
@@ -731,19 +731,19 @@ function CreatePostModal(p: CreateModalProps) {
               placeholder="Escribe el contenido del post aquí…"
               rows={5}
               maxLength={MAX}
-              className="w-full resize-none rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/25 focus:bg-white/6 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+              className="w-full resize-none rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
             />
-            <div className="mt-1 text-right text-[10px] text-white/25">
+            <div className="mt-1 text-right text-[10px] text-gray-400">
               {p.content.length}/{MAX}
             </div>
           </div>
 
           {/* Media */}
           <div>
-            <label className="mb-1.5 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-white/40">
+            <label className="mb-1.5 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-gray-500">
               Imagen / Vídeo
-              {p.provider === "INSTAGRAM" && <span className="text-rose-400">*</span>}
-              {p.provider !== "INSTAGRAM" && <span className="font-normal normal-case text-white/25">(opcional)</span>}
+              {p.provider === "INSTAGRAM" && <span className="text-rose-500">*</span>}
+              {p.provider !== "INSTAGRAM" && <span className="font-normal normal-case text-gray-400">(opcional)</span>}
             </label>
             <div className="flex gap-2">
               <input
@@ -751,13 +751,13 @@ function CreatePostModal(p: CreateModalProps) {
                 value={p.imageUrl}
                 onChange={(e) => p.onImageUrlChange(e.target.value)}
                 placeholder="https://ejemplo.com/media.jpg"
-                className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:bg-white/6 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
               />
               <label className={[
                 "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold transition",
                 p.imageUploading
-                  ? "border-white/8 bg-white/4 text-white/25 cursor-not-allowed"
-                  : "border-white/10 bg-white/5 text-white/60 hover:border-violet-500/40 hover:text-violet-300",
+                  ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                  : "border-gray-300 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600",
               ].join(" ")}>
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -775,22 +775,22 @@ function CreatePostModal(p: CreateModalProps) {
             {p.imageUrl.startsWith("http") && (
               <div className="mt-2 flex items-start gap-2">
                 {/\.(mp4|mov)(\?|$)/i.test(p.imageUrl) ? (
-                  <video src={p.imageUrl} className="h-20 w-20 rounded-xl border border-white/10 object-cover" muted playsInline />
+                  <video src={p.imageUrl} className="h-20 w-20 rounded-xl border border-gray-200 object-cover" muted playsInline />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.imageUrl} alt="Preview" className="h-20 w-20 rounded-xl border border-white/10 object-cover" />
+                  <img src={p.imageUrl} alt="Preview" className="h-20 w-20 rounded-xl border border-gray-200 object-cover" />
                 )}
                 <button
                   type="button"
                   onClick={() => p.onImageUrlChange("")}
-                  className="rounded-lg border border-white/10 p-1 text-white/35 transition hover:border-rose-500/30 hover:text-rose-400"
+                  className="rounded-lg border border-gray-300 p-1 text-gray-500 transition hover:border-rose-300 hover:text-rose-600"
                 >
                   <IconX />
                 </button>
               </div>
             )}
             {p.provider === "INSTAGRAM" && !p.imageUrl.startsWith("http") && (
-              <p className="mt-1.5 text-xs text-amber-300/80">
+              <p className="mt-1.5 text-xs text-amber-700">
                 Instagram requiere una imagen o vídeo público. Pega una URL o sube un archivo.
               </p>
             )}
@@ -798,7 +798,7 @@ function CreatePostModal(p: CreateModalProps) {
 
           {/* Schedule toggle */}
           <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
               Publicación
             </label>
             <div className="flex gap-2">
@@ -808,8 +808,8 @@ function CreatePostModal(p: CreateModalProps) {
                 className={[
                   "flex-1 rounded-xl border py-2.5 text-sm font-semibold transition",
                   !p.schedule
-                    ? "border-white/20 bg-white/10 text-white"
-                    : "border-white/8 bg-transparent text-white/45 hover:border-white/15",
+                    ? "border-gray-300 bg-gray-100 text-gray-900"
+                    : "border-gray-200 bg-transparent text-gray-500 hover:border-gray-300",
                 ].join(" ")}
               >
                 Guardar borrador
@@ -820,8 +820,8 @@ function CreatePostModal(p: CreateModalProps) {
                 className={[
                   "flex-1 rounded-xl border py-2.5 text-sm font-semibold transition",
                   p.schedule
-                    ? "border-violet-500 bg-violet-500 text-white"
-                    : "border-white/8 bg-transparent text-white/45 hover:border-white/15",
+                    ? "border-blue-500 bg-blue-500 text-white"
+                    : "border-gray-200 bg-transparent text-gray-500 hover:border-gray-300",
                 ].join(" ")}
               >
                 Programar
@@ -833,40 +833,40 @@ function CreatePostModal(p: CreateModalProps) {
           {p.schedule && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">Fecha</label>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">Fecha</label>
                 <input
                   type="date"
                   value={p.date}
                   min={todayStr()}
                   onChange={(e) => p.onDateChange(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-white/40">Hora</label>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">Hora</label>
                 <input
                   type="time"
                   value={p.time}
                   onChange={(e) => p.onTimeChange(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
                 />
               </div>
             </div>
           )}
 
           {p.error && (
-            <div className="rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-sm text-rose-300">
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {p.error}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 border-t border-white/8 px-6 py-4">
+        <div className="flex gap-3 border-t border-gray-200 px-6 py-4">
           <button
             onClick={p.onClose}
             disabled={p.saving}
-            className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-white/55 transition hover:bg-white/5 disabled:opacity-50"
+            className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -874,10 +874,10 @@ function CreatePostModal(p: CreateModalProps) {
             onClick={p.onSubmit}
             disabled={p.saving || !p.content.trim() || (p.provider === "INSTAGRAM" && !p.imageUrl.startsWith("http"))}
             className={[
-              "flex-1 rounded-xl py-2.5 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0",
+              "flex-1 rounded-xl py-2.5 text-sm font-bold shadow-lg transition hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0",
               p.schedule
-                ? "bg-violet-500 shadow-violet-500/25 hover:bg-violet-600"
-                : "bg-white/10 hover:bg-white/15",
+                ? "bg-blue-500 text-white shadow-blue-500/25 hover:bg-blue-600"
+                : "bg-gray-100 text-gray-900 hover:bg-gray-200",
             ].join(" ")}
           >
             {p.saving ? "Guardando…" : p.schedule ? "Programar post" : "Guardar borrador"}
@@ -1095,35 +1095,35 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="rounded-xl border border-white/10 bg-white/4 p-2 text-white/50 transition hover:border-white/20 hover:text-white">
+          <button onClick={prevMonth} className="rounded-xl border border-gray-200 bg-white p-2 text-gray-500 transition hover:border-gray-300 hover:text-gray-900">
             <IconChevronLeft />
           </button>
-          <h2 className="min-w-[190px] text-center text-xl font-black text-white">
+          <h2 className="min-w-[190px] text-center text-xl font-black text-gray-900">
             {MONTHS[viewMonth]} {viewYear}
           </h2>
-          <button onClick={nextMonth} className="rounded-xl border border-white/10 bg-white/4 p-2 text-white/50 transition hover:border-white/20 hover:text-white">
+          <button onClick={nextMonth} className="rounded-xl border border-gray-200 bg-white p-2 text-gray-500 transition hover:border-gray-300 hover:text-gray-900">
             <IconChevronRight />
           </button>
           <button
             onClick={() => { setViewYear(now.getFullYear()); setViewMonth(now.getMonth()); setSelectedDate(today); }}
-            className="rounded-xl border border-white/10 bg-white/4 px-3 py-2 text-sm font-semibold text-white/50 transition hover:bg-white/8 hover:text-white"
+            className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
           >
             Hoy
           </button>
         </div>
         <button
           onClick={() => router.push("/socialflow/upload")}
-          className="rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110"
+          className="rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:-translate-y-0.5 hover:bg-blue-600"
         >
           ✦ Subir foto
         </button>
       </div>
 
       {/* ── Calendar grid ────────────────────────────────────────────────── */}
-      <div className="overflow-hidden rounded-3xl border border-white/8 bg-white/3">
-        <div className="grid grid-cols-7 border-b border-white/8 bg-white/3">
+      <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white">
+        <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
           {DAYS.map((d) => (
-            <div key={d} className="py-3 text-center text-[11px] font-bold uppercase tracking-widest text-white/30">
+            <div key={d} className="py-3 text-center text-[11px] font-bold uppercase tracking-widest text-gray-400">
               {d}
             </div>
           ))}
@@ -1139,9 +1139,9 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
                 <div
                   key={`empty-${idx}`}
                   className={[
-                    "min-h-[96px] bg-white/2",
-                    !isLastRow && "border-b border-white/6",
-                    !isLastCol && "border-r border-white/6",
+                    "min-h-[96px] bg-gray-50",
+                    !isLastRow && "border-b border-gray-100",
+                    !isLastCol && "border-r border-gray-100",
                   ].filter(Boolean).join(" ")}
                 />
               );
@@ -1159,29 +1159,29 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
                 onClick={() => setSelectedDate(isSelected ? null : dateStr)}
                 className={[
                   "group min-h-[96px] cursor-pointer p-2 transition",
-                  !isLastRow && "border-b border-white/6",
-                  !isLastCol && "border-r border-white/6",
+                  !isLastRow && "border-b border-gray-100",
+                  !isLastCol && "border-r border-gray-100",
                   isSelected
-                    ? "bg-violet-500/20 ring-2 ring-inset ring-violet-500/65"
+                    ? "bg-blue-50 ring-2 ring-inset ring-blue-400"
                     : isPast && !isToday
-                    ? "bg-white/2 hover:bg-white/4"
-                    : "hover:bg-white/4",
+                    ? "bg-gray-50 hover:bg-gray-100"
+                    : "hover:bg-gray-50",
                 ].filter(Boolean).join(" ")}
               >
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className={[
                     "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
-                    isToday ? "bg-violet-500 text-white"
-                      : isSelected ? "bg-violet-500/60 text-white"
-                      : isPast ? "text-white/20"
-                      : "text-white/60",
+                    isToday ? "bg-blue-500 text-white"
+                      : isSelected ? "bg-blue-400 text-white"
+                      : isPast ? "text-gray-300"
+                      : "text-gray-600",
                   ].join(" ")}>
                     {dayNum}
                   </span>
                   {!isPast && (
                     <button
                       onClick={(e) => { e.stopPropagation(); openCreate(dateStr); }}
-                      className="rounded-md p-0.5 text-white/15 opacity-0 transition hover:text-violet-400 group-hover:opacity-100"
+                      className="rounded-md p-0.5 text-gray-300 opacity-0 transition hover:text-blue-500 group-hover:opacity-100"
                     >
                       <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" />
@@ -1192,7 +1192,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
                 <div className="space-y-0.5">
                   {dayPosts.slice(0, 3).map((p) => <PostChip key={p.id} post={p} today={today} />)}
                   {dayPosts.length > 3 && (
-                    <div className="pl-1 text-[9px] font-bold text-white/30">+{dayPosts.length - 3} más</div>
+                    <div className="pl-1 text-[9px] font-bold text-gray-400">+{dayPosts.length - 3} más</div>
                   )}
                 </div>
               </div>
@@ -1208,7 +1208,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
           return (
             <div key={s} className="flex items-center gap-1.5">
               <span className={`h-2 w-2 rounded-full ${cfg.dotBg}`} />
-              <span className="text-xs text-white/35">{cfg.label}</span>
+              <span className="text-xs text-gray-500">{cfg.label}</span>
             </div>
           );
         })}
@@ -1216,14 +1216,14 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
 
       {/* ── Selected day panel ────────────────────────────────────────────── */}
       {selectedDate && (
-        <div ref={selectedDayRef} className="rounded-3xl border border-white/8 bg-white/4 p-6">
+        <div ref={selectedDayRef} className="rounded-3xl border border-gray-200 bg-white p-6">
           <div className="mb-5 flex items-start justify-between">
             <div>
               {selectedDate === today && (
-                <div className="mb-0.5 text-[11px] font-black uppercase tracking-widest text-violet-400">Hoy</div>
+                <div className="mb-0.5 text-[11px] font-black uppercase tracking-widest text-blue-500">Hoy</div>
               )}
-              <h3 className="text-xl font-black capitalize text-white">{formatDateLong(selectedDate)}</h3>
-              <p className="mt-0.5 text-sm text-white/45">
+              <h3 className="text-xl font-black capitalize text-gray-900">{formatDateLong(selectedDate)}</h3>
+              <p className="mt-0.5 text-sm text-gray-500">
                 {selectedPosts.length === 0
                   ? "Sin posts programados"
                   : `${selectedPosts.length} post${selectedPosts.length !== 1 ? "s" : ""} programado${selectedPosts.length !== 1 ? "s" : ""}`}
@@ -1231,19 +1231,19 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
             </div>
             <button
               onClick={() => router.push("/socialflow/upload")}
-              className="rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-sm font-bold text-violet-300 transition hover:bg-violet-500/15"
+              className="rounded-xl border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 transition hover:bg-blue-100"
             >
               + Subir foto
             </button>
           </div>
 
           {selectedPosts.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/10 py-10 text-center">
+            <div className="rounded-2xl border border-dashed border-gray-300 py-10 text-center">
               <div className="mb-2 text-2xl">📅</div>
-              <p className="text-sm text-white/35">Sin publicaciones para este día.</p>
+              <p className="text-sm text-gray-500">Sin publicaciones para este día.</p>
               <button
                 onClick={() => router.push("/socialflow/upload")}
-                className="mt-3 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110"
+                className="mt-3 rounded-xl bg-blue-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:-translate-y-0.5 hover:bg-blue-600"
               >
                 Subir tu primera foto
               </button>
@@ -1255,7 +1255,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
                   <PostThumb key={p.id} post={p} onClick={() => setSelectedPostId(p.id)} />
                 ))}
               </div>
-              <p className="mt-2 text-center text-[10px] text-white/25">Toca un post para ver detalles</p>
+              <p className="mt-2 text-center text-[10px] text-gray-400">Toca un post para ver detalles</p>
             </>
           )}
         </div>
@@ -1263,22 +1263,22 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
 
       {/* ── Backlog ───────────────────────────────────────────────────────── */}
       {backlog.length > 0 && (
-        <div className="rounded-3xl border border-white/8 bg-white/4 p-6">
+        <div className="rounded-3xl border border-gray-200 bg-white p-6">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="font-black text-white">Sin programar</h3>
-              <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-black text-amber-300">
+              <h3 className="font-black text-gray-900">Sin programar</h3>
+              <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-black text-amber-700">
                 {backlog.length}
               </span>
             </div>
-            <p className="text-xs text-white/30">Aprueba estos posts y asígnales una fecha.</p>
+            <p className="text-xs text-gray-400">Aprueba estos posts y asígnales una fecha.</p>
           </div>
           <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-5 md:gap-2">
             {backlog.map((p) => (
               <PostThumb key={p.id} post={p} onClick={() => setSelectedPostId(p.id)} />
             ))}
           </div>
-          <p className="mt-2 text-center text-[10px] text-white/25">Toca un post para aprobar o programar</p>
+          <p className="mt-2 text-center text-[10px] text-gray-400">Toca un post para aprobar o programar</p>
         </div>
       )}
 

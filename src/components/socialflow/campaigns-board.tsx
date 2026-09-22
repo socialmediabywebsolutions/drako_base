@@ -23,13 +23,13 @@ const OBJECTIVE_OPTIONS: { value: CampaignObjective; icon: string; label: string
 ];
 
 const STATUS_CFG: Record<SaasSocialCampaignStatus, { label: string; chipBg: string; dotBg: string }> = {
-  DRAFT:      { label: "Borrador",       chipBg: "bg-white/8 text-white/55",           dotBg: "bg-white/40"    },
-  GENERATING: { label: "Generando (IA)", chipBg: "bg-violet-500/15 text-violet-300",   dotBg: "bg-violet-500"  },
-  ACTIVE:     { label: "Activa",         chipBg: "bg-emerald-500/15 text-emerald-300", dotBg: "bg-emerald-500" },
-  PAUSED:     { label: "Pausada",        chipBg: "bg-amber-500/15 text-amber-300",     dotBg: "bg-amber-500"   },
-  FINISHED:   { label: "Terminada",      chipBg: "bg-indigo-500/15 text-indigo-300",   dotBg: "bg-indigo-500"  },
-  ARCHIVED:   { label: "Archivada",      chipBg: "bg-white/6 text-white/40",           dotBg: "bg-white/25"    },
-  FAILED:     { label: "Error IA",       chipBg: "bg-rose-500/15 text-rose-400",       dotBg: "bg-rose-500"    },
+  DRAFT:      { label: "Borrador",       chipBg: "bg-gray-100 text-gray-600",   dotBg: "bg-gray-400"    },
+  GENERATING: { label: "Generando (IA)", chipBg: "bg-blue-50 text-blue-700",    dotBg: "bg-blue-500"    },
+  ACTIVE:     { label: "Activa",         chipBg: "bg-emerald-50 text-emerald-700", dotBg: "bg-emerald-500" },
+  PAUSED:     { label: "Pausada",        chipBg: "bg-amber-50 text-amber-700",  dotBg: "bg-amber-500"   },
+  FINISHED:   { label: "Terminada",      chipBg: "bg-indigo-50 text-indigo-700",   dotBg: "bg-indigo-500"  },
+  ARCHIVED:   { label: "Archivada",      chipBg: "bg-gray-100 text-gray-400",   dotBg: "bg-gray-300"    },
+  FAILED:     { label: "Error IA",       chipBg: "bg-rose-50 text-rose-700",    dotBg: "bg-rose-500"    },
 };
 
 // Solo se listan como sección aparte si tienen al menos una campaña — así GENERATING/FAILED
@@ -51,12 +51,12 @@ function formatDate(iso: string | null) {
 
 function actionBtnClass(tone: "emerald" | "amber" | "indigo" | "rose" | "rose-ghost" | "neutral") {
   const toneClass: Record<typeof tone, string> = {
-    emerald: "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25",
-    amber: "bg-amber-500/15 text-amber-300 hover:bg-amber-500/25",
-    indigo: "bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25",
-    rose: "bg-rose-500/20 text-rose-200 hover:bg-rose-500/30",
-    "rose-ghost": "bg-white/5 text-rose-300/70 hover:bg-rose-500/15 hover:text-rose-300",
-    neutral: "bg-white/6 text-white/60 hover:bg-white/10 hover:text-white",
+    emerald: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+    amber: "bg-amber-50 text-amber-700 hover:bg-amber-100",
+    indigo: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100",
+    rose: "bg-rose-100 text-rose-700 hover:bg-rose-200",
+    "rose-ghost": "bg-gray-50 text-rose-500 hover:bg-rose-50 hover:text-rose-700",
+    neutral: "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900",
   };
   return `rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${toneClass[tone]}`;
 }
@@ -107,25 +107,25 @@ function CampaignDraftPosts({ campaignId, saasId }: { campaignId: string; saasId
   }
 
   if (error) {
-    return <p className="px-4 pb-4 text-xs text-rose-300">{error}</p>;
+    return <p className="px-4 pb-4 text-xs text-rose-600">{error}</p>;
   }
   if (posts === null) {
-    return <p className="px-4 pb-4 text-xs text-white/40">Cargando posts…</p>;
+    return <p className="px-4 pb-4 text-xs text-gray-400">Cargando posts…</p>;
   }
   if (posts.length === 0) {
-    return <p className="px-4 pb-4 text-xs text-white/35">No hay posts en borrador para esta campaña.</p>;
+    return <p className="px-4 pb-4 text-xs text-gray-400">No hay posts en borrador para esta campaña.</p>;
   }
 
   return (
     <div className="space-y-2 px-4 pb-4">
       {posts.map((post) => (
-        <div key={post.id} className="rounded-xl border border-white/8 bg-white/3 p-3">
+        <div key={post.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-white">{post.title}</p>
-              <p className="mt-1 line-clamp-2 text-xs text-white/45">{post.body}</p>
+              <p className="truncate text-sm font-semibold text-gray-900">{post.title}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-gray-500">{post.body}</p>
               {post.scheduledAt && (
-                <p className="mt-1 text-[11px] text-white/30">Programado: {formatDate(post.scheduledAt)}</p>
+                <p className="mt-1 text-[11px] text-gray-400">Programado: {formatDate(post.scheduledAt)}</p>
               )}
             </div>
             <div className="flex shrink-0 gap-1.5">
@@ -279,7 +279,7 @@ function CreateCampaignWizard({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110"
+        className="rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-600"
       >
         + Nueva campaña
       </button>
@@ -287,13 +287,13 @@ function CreateCampaignWizard({
   }
 
   return (
-    <div className="w-full space-y-3 rounded-2xl border border-white/8 bg-white/4 p-4">
-      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-white/30">
-        <span className={step === 1 ? "text-violet-300" : ""}>1. Datos</span>
+    <div className="w-full space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+        <span className={step === 1 ? "text-blue-600" : ""}>1. Datos</span>
         <span>→</span>
-        <span className={step === 2 ? "text-violet-300" : ""}>2. Fotos</span>
+        <span className={step === 2 ? "text-blue-600" : ""}>2. Fotos</span>
         <span>→</span>
-        <span className={step === 3 ? "text-violet-300" : ""}>3. Confirmar</span>
+        <span className={step === 3 ? "text-blue-600" : ""}>3. Confirmar</span>
       </div>
 
       {step === 1 && (
@@ -303,12 +303,12 @@ function CreateCampaignWizard({
             onChange={(e) => setName(e.target.value)}
             placeholder="Nombre de campaña"
             required
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           />
 
           <div className="space-y-1.5">
-            <p className="text-xs font-semibold text-white/60">
-              Objetivo de esta campaña <span className="font-normal text-white/30">(opcional — si no eliges, hereda el del perfil)</span>
+            <p className="text-xs font-semibold text-gray-600">
+              Objetivo de esta campaña <span className="font-normal text-gray-400">(opcional — si no eliges, hereda el del perfil)</span>
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {OBJECTIVE_OPTIONS.map((opt) => (
@@ -318,14 +318,14 @@ function CreateCampaignWizard({
                   onClick={() => setObjective((prev) => (prev === opt.value ? "" : opt.value))}
                   className={`flex flex-col items-start gap-0.5 rounded-xl border px-3 py-2 text-left transition ${
                     objective === opt.value
-                      ? "border-violet-500/60 bg-violet-500/15"
-                      : "border-white/10 bg-white/5 hover:bg-white/8"
+                      ? "border-blue-500/60 bg-blue-50"
+                      : "border-gray-200 bg-gray-50 hover:bg-gray-100"
                   }`}
                 >
-                  <span className="text-sm font-semibold text-white">
+                  <span className="text-sm font-semibold text-gray-900">
                     {opt.icon} {opt.label}
                   </span>
-                  <span className="text-[11px] text-white/40">{opt.description}</span>
+                  <span className="text-[11px] text-gray-500">{opt.description}</span>
                 </button>
               ))}
             </div>
@@ -336,108 +336,108 @@ function CreateCampaignWizard({
               value={targetSegment}
               onChange={(e) => setTargetSegment(e.target.value)}
               placeholder="Audiencia objetivo"
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+              className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
             />
             <input
               value={budgetEstimate}
               onChange={(e) => setBudgetEstimate(e.target.value)}
               placeholder="Presupuesto estimado (€)"
               inputMode="numeric"
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+              className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
             />
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Fecha de inicio</label>
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Fecha de inicio</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 required
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Fecha de fin</label>
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Fecha de fin</label>
               <input
                 type="date"
                 value={endDate}
                 min={startDate || undefined}
                 onChange={(e) => setEndDate(e.target.value)}
                 required
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
               />
             </div>
           </div>
           {startDate && endDate && (
-            <p className={`text-xs ${exceedsPlan ? "text-rose-300" : "text-white/40"}`}>
+            <p className={`text-xs ${exceedsPlan ? "text-rose-600" : "text-gray-500"}`}>
               Esta campaña dura {minPhotos} día{minPhotos === 1 ? "" : "s"} → necesitarás al menos {minPhotos} foto
               {minPhotos === 1 ? "" : "s"} (máximo de tu plan: {maxImages}).
             </p>
           )}
           {startDate && endDate && (
-            <div className="space-y-2 rounded-xl border border-white/8 bg-white/3 p-3">
-              <p className="text-xs font-semibold text-white/60">¿Qué tipo de contenido quieres en esta campaña?</p>
+            <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs font-semibold text-gray-600">¿Qué tipo de contenido quieres en esta campaña?</p>
               <div className="grid grid-cols-4 gap-2">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Posts 📸</label>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Posts 📸</label>
                   <input
                     type="number"
                     min={0}
                     max={50}
                     value={postCount}
                     onChange={(e) => setPostCount(Number(e.target.value))}
-                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                    className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Reels 🎬</label>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Reels 🎬</label>
                   <input
                     type="number"
                     min={0}
                     max={50}
                     value={reelCount}
                     onChange={(e) => setReelCount(Number(e.target.value))}
-                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                    className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Historias ⭕</label>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Historias ⭕</label>
                   <input
                     type="number"
                     min={0}
                     max={50}
                     value={historiaCount}
                     onChange={(e) => setHistoriaCount(Number(e.target.value))}
-                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                    className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-semibold uppercase tracking-wide text-white/30">Carrusel 📑</label>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Carrusel 📑</label>
                   <input
                     type="number"
                     min={0}
                     max={50}
                     value={carouselCount}
                     onChange={(e) => setCarouselCount(Number(e.target.value))}
-                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                    className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                   />
                 </div>
               </div>
-              <p className="text-xs text-white/40">Total: {postCount + reelCount + historiaCount + carouselCount} piezas de contenido</p>
+              <p className="text-xs text-gray-500">Total: {postCount + reelCount + historiaCount + carouselCount} piezas de contenido</p>
             </div>
           )}
-          {error && <p className="text-xs text-rose-300">{error}</p>}
+          {error && <p className="text-xs text-rose-600">{error}</p>}
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={submitting || !name.trim()}
-              className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-400 disabled:opacity-50"
+              className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-600 disabled:opacity-50"
             >
               {submitting ? "Creando…" : "Siguiente →"}
             </button>
             <button
               type="button"
               onClick={resetAll}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/50 transition hover:text-white/70"
+              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm text-gray-500 transition hover:text-gray-700"
             >
               Cancelar
             </button>
@@ -447,21 +447,21 @@ function CreateCampaignWizard({
 
       {step === 2 && createdCampaign && (
         <div className="space-y-3">
-          <p className="text-sm text-white/60">
+          <p className="text-sm text-gray-600">
             &ldquo;{createdCampaign.name}&rdquo; dura {minPhotos} día{minPhotos === 1 ? "" : "s"} → sube al menos {minPhotos} foto
             {minPhotos === 1 ? "" : "s"} (1 por día).
           </p>
           {batch.globalError && (
-            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
               {batch.globalError}
             </div>
           )}
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-white/12 bg-white/3 p-8 text-center transition hover:border-violet-500/40 hover:bg-violet-500/5"
+            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center transition hover:border-blue-400 hover:bg-blue-50"
           >
-            <p className="text-sm font-semibold text-white/70">Arrastra o haz click para subir las fotos de la campaña</p>
-            <p className="text-xs text-white/30">
+            <p className="text-sm font-semibold text-gray-600">Arrastra o haz click para subir las fotos de la campaña</p>
+            <p className="text-xs text-gray-400">
               {batch.uploadedCount}/{minPhotos} fotos subidas · máximo {maxImages}
             </p>
             <input
@@ -483,14 +483,14 @@ function CreateCampaignWizard({
               type="button"
               disabled={batch.uploadedCount < minPhotos}
               onClick={() => setStep(3)}
-              className="rounded-xl bg-violet-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Continuar →
             </button>
             <button
               type="button"
               onClick={resetAll}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/50 transition hover:text-white/70"
+              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm text-gray-500 transition hover:text-gray-700"
             >
               Cerrar y continuar más tarde
             </button>
@@ -502,14 +502,14 @@ function CreateCampaignWizard({
         <div className="space-y-3">
           {batch.readyCount === 0 && batch.savedCount === 0 ? (
             <>
-              <p className="text-sm text-white/60">
+              <p className="text-sm text-gray-600">
                 Vas a generar {batch.uploadedCount} posts coordinados para &ldquo;{createdCampaign.name}&rdquo;.
               </p>
               <button
                 type="button"
                 disabled={batch.confirming}
                 onClick={() => void batch.confirmAndGenerate()}
-                className="rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:brightness-110 disabled:opacity-50"
+                className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:bg-blue-600 disabled:opacity-50"
               >
                 {batch.confirming ? "Generando con IA…" : "Confirmar y generar con IA"}
               </button>
@@ -517,28 +517,28 @@ function CreateCampaignWizard({
           ) : (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-white/40">
+                <p className="text-xs text-gray-500">
                   {batch.savedCount} programada{batch.savedCount !== 1 ? "s" : ""} de {batch.activeCount}
                 </p>
                 {batch.approvableCount >= 1 && (
                   <button
                     type="button"
                     onClick={() => void batch.approveAll()}
-                    className="rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+                    className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
                   >
                     Aprobar todo ({batch.approvableCount})
                   </button>
                 )}
               </div>
               {batch.skippedReelsCount > 0 && (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-violet-500/25 bg-violet-500/10 px-3 py-2 text-xs text-violet-300">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
                   <span>
                     {batch.skippedReelsCount} Reel{batch.skippedReelsCount !== 1 ? "s" : ""} pendiente{batch.skippedReelsCount !== 1 ? "s" : ""} — genera y revisa cada uno con ▶ Ver Reel
                   </span>
                   <button
                     type="button"
                     onClick={batch.clearSkippedReels}
-                    className="text-violet-300/60 transition hover:text-violet-200"
+                    className="text-blue-500 transition hover:text-blue-700"
                   >
                     ✕
                   </button>
@@ -553,7 +553,7 @@ function CreateCampaignWizard({
                 onCreateReel={setReelsPhotoId}
               />
               {batch.savedCount === batch.activeCount && batch.activeCount > 0 && (
-                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                   Campaña lista ✓
                 </div>
               )}
@@ -562,7 +562,7 @@ function CreateCampaignWizard({
           <button
             type="button"
             onClick={resetAll}
-            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/50 transition hover:text-white/70"
+            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm text-gray-500 transition hover:text-gray-700"
           >
             Cerrar
           </button>
@@ -579,19 +579,19 @@ function CreateCampaignWizard({
         return (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
-            style={{ background: "rgba(0,0,0,0.75)" }}
+            style={{ background: "rgba(0,0,0,0.6)" }}
             onClick={() => setReelsPhotoId(null)}
           >
             <div
-              className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-y-auto rounded-3xl border border-white/10 bg-[#0d0d1e] p-5 shadow-2xl"
+              className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-y-auto rounded-3xl border border-gray-200 bg-white p-5 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-black uppercase tracking-widest text-violet-400">Crear Reel</h3>
+                <h3 className="text-sm font-black uppercase tracking-widest text-blue-600">Crear Reel</h3>
                 <button
                   type="button"
                   onClick={() => setReelsPhotoId(null)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900"
                 >
                   ✕
                 </button>
@@ -692,18 +692,18 @@ export default function CampaignsBoard({ campaigns: initialCampaigns, saasId, ma
       </div>
 
       {error && (
-        <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
       )}
 
       {campaigns.length === 0 ? (
-        <div className="rounded-2xl border border-white/8 bg-white/4 p-8 text-center">
-          <p className="text-sm text-white/50">Todavía no hay campañas. Crea la primera para empezar a organizar tu contenido.</p>
+        <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <p className="text-sm text-gray-500">Todavía no hay campañas. Crea la primera para empezar a organizar tu contenido.</p>
         </div>
       ) : (
         grouped.map((section) => (
           <div key={section.key} className="space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">
-              {section.label} <span className="text-white/20">· {section.items.length}</span>
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
+              {section.label} <span className="text-gray-400">· {section.items.length}</span>
             </h2>
             <div className="space-y-3">
               {section.items.map((campaign) => {
@@ -715,30 +715,30 @@ export default function CampaignsBoard({ campaigns: initialCampaigns, saasId, ma
                 const canDelete = campaign.status !== "GENERATING";
 
                 return (
-                  <div key={campaign.id} className="rounded-2xl border border-white/8 bg-white/4">
+                  <div key={campaign.id} className="rounded-2xl border border-gray-200 bg-white shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-3 p-4">
                       <div className="min-w-0 space-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-base font-bold text-white">{campaign.name}</h3>
+                          <h3 className="text-base font-bold text-gray-900">{campaign.name}</h3>
                           <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${cfg.chipBg}`}>
                             <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotBg}`} />
                             {cfg.label}
                           </span>
                         </div>
                         {campaign.objective && (
-                          <p className="text-sm text-white/50">
+                          <p className="text-sm text-gray-500">
                             {OBJECTIVE_OPTIONS.find((o) => o.value === campaign.objective)?.icon}{" "}
                             {OBJECTIVE_OPTIONS.find((o) => o.value === campaign.objective)?.label}
                           </p>
                         )}
-                        <p className="text-xs text-white/35">
+                        <p className="text-xs text-gray-400">
                           Audiencia: {campaign.targetSegment}
                           {campaign.budgetEstimate != null ? ` · Presupuesto: ${campaign.budgetEstimate}€` : ""}
                           {formatDate(campaign.startDate) ? ` · Desde ${formatDate(campaign.startDate)}` : ""}
                           {formatDate(campaign.endDate) ? ` hasta ${formatDate(campaign.endDate)}` : ""}
                         </p>
                         {campaign.status === "FAILED" && campaign.notes && (
-                          <p className="text-xs text-rose-300/80">{campaign.notes}</p>
+                          <p className="text-xs text-rose-600">{campaign.notes}</p>
                         )}
                       </div>
 
@@ -797,13 +797,13 @@ export default function CampaignsBoard({ campaigns: initialCampaigns, saasId, ma
                     </div>
 
                     {isUploadingPhotos && (
-                      <div className="border-t border-white/8">
+                      <div className="border-t border-gray-200">
                         <CampaignPhotoUpload campaignId={campaign.id} saasId={saasId} maxImages={maxImages} />
                       </div>
                     )}
 
                     {isExpanded && (
-                      <div className="border-t border-white/8">
+                      <div className="border-t border-gray-200">
                         <CampaignDraftPosts campaignId={campaign.id} saasId={saasId} />
                       </div>
                     )}

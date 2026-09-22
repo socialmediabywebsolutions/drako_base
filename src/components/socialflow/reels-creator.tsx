@@ -448,30 +448,30 @@ export default function ReelsCreator({
   }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-violet-500/20 bg-white/3 p-4">
+    <div className="space-y-3 rounded-2xl border border-blue-200 bg-white p-4">
       {selectedMode === "choosing" && (
         <div className="space-y-3">
-          <p className="text-center text-xs font-semibold text-white/60">¿Cómo quieres crear este Reel?</p>
+          <p className="text-center text-xs font-semibold text-gray-600">¿Cómo quieres crear este Reel?</p>
           <div className="grid gap-2 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => chooseMode("effects")}
-              className="rounded-xl border border-violet-500/25 bg-violet-500/10 p-4 text-left transition hover:bg-violet-500/20"
+              className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-left transition hover:bg-blue-100"
             >
-              <div className="text-sm font-bold text-violet-300">⚡ Reel con efectos</div>
-              <p className="mt-1 text-xs text-white/50">Listo en segundos. Imagen animada con música y narración IA.</p>
+              <div className="text-sm font-bold text-blue-600">⚡ Reel con efectos</div>
+              <p className="mt-1 text-xs text-gray-500">Listo en segundos. Imagen animada con música y narración IA.</p>
             </button>
             <button
               type="button"
               onClick={() => chooseMode("ai-video")}
-              className="rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/10 p-4 text-left transition hover:bg-fuchsia-500/20"
+              className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 text-left transition hover:bg-cyan-100"
             >
-              <div className="text-sm font-bold text-fuchsia-300">✨ Vídeo IA</div>
-              <p className="mt-1 text-xs text-white/50">2-3 minutos. Movimiento real generado por IA.</p>
+              <div className="text-sm font-bold text-cyan-700">✨ Vídeo IA</div>
+              <p className="mt-1 text-xs text-gray-500">2-3 minutos. Movimiento real generado por IA.</p>
             </button>
           </div>
           {(totalImagesInBatch ?? 1) > 1 && (
-            <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-300">
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
               El Vídeo IA procesa una imagen a la vez. Se usará la primera foto seleccionada.
             </p>
           )}
@@ -482,16 +482,16 @@ export default function ReelsCreator({
       <>
       {(phase === "deciding" || phase === "rendering" || phase === "uploading") && (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <span className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-violet-400" />
-          <p className="text-sm text-white/60">
+          <span className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-blue-500" />
+          <p className="text-sm text-gray-600">
             {phase === "deciding" && "Decidiendo plantilla y efectos con IA…"}
             {phase === "rendering" && "Renderizando el vídeo en tu navegador…"}
             {phase === "uploading" && "Subiendo el vídeo…"}
           </p>
           {phase === "rendering" && (
-            <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-white/10">
+            <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-gray-200">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all"
+                className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all"
                 style={{ width: `${Math.round(progress * 100)}%` }}
               />
             </div>
@@ -501,12 +501,12 @@ export default function ReelsCreator({
 
       {phase === "error" && (
         <div className="space-y-3">
-          <p className="text-xs text-rose-300">{error}</p>
+          <p className="text-xs text-rose-600">{error}</p>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => void run()}
-              className="rounded-lg bg-violet-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-violet-400"
+              className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-blue-600"
             >
               Reintentar
             </button>
@@ -514,7 +514,7 @@ export default function ReelsCreator({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50 transition hover:text-white/70"
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition hover:text-gray-700"
               >
                 Cancelar
               </button>
@@ -530,18 +530,18 @@ export default function ReelsCreator({
             src={previewUrl}
             controls
             playsInline
-            className="mx-auto h-96 max-w-full rounded-xl border border-white/10 bg-black"
+            className="mx-auto h-96 max-w-full rounded-xl border border-gray-200 bg-black"
           />
           {config?.narrationTrackUrl && (
             <div className="flex justify-center">
-              <span className="rounded-full border border-violet-500/25 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-300">
+              <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-medium text-blue-600">
                 🎙 Narración IA
               </span>
             </div>
           )}
-          {error && <p className="text-xs text-rose-300">{error}</p>}
+          {error && <p className="text-xs text-rose-600">{error}</p>}
           {suggestedPost?.degraded && (
-            <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
               ⚠️ No pudimos analizar bien el contenido de este archivo — revisa el texto generado antes de aprobar.
             </p>
           )}
@@ -550,7 +550,7 @@ export default function ReelsCreator({
               type="button"
               disabled={phase === "saving"}
               onClick={() => void approve()}
-              className="flex-1 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2 text-xs font-bold text-white shadow-sm transition hover:brightness-110 disabled:opacity-50"
+              className="flex-1 rounded-lg bg-blue-500 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-600 disabled:opacity-50"
             >
               {phase === "saving" ? "Programando…" : "Aprobar y programar"}
             </button>
@@ -559,7 +559,7 @@ export default function ReelsCreator({
                 type="button"
                 onClick={onClose}
                 disabled={phase === "saving"}
-                className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/50 transition hover:text-white/70 disabled:opacity-50"
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-500 transition hover:text-gray-700 disabled:opacity-50"
               >
                 Descartar
               </button>
@@ -570,14 +570,14 @@ export default function ReelsCreator({
 
       {phase === "saved" && (
         <div className="flex flex-col items-center gap-2 py-6 text-center">
-          <span className="rounded-full border border-emerald-500/40 bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300">
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
             ✓ Reel programado
           </span>
           {onClose && (
             <button
               type="button"
               onClick={onClose}
-              className="mt-2 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50 transition hover:text-white/70"
+              className="mt-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition hover:text-gray-700"
             >
               Cerrar
             </button>
@@ -592,19 +592,19 @@ export default function ReelsCreator({
           que se salta esa pantalla), dispara startAiVideoGeneration() desde chooseMode();
           nunca queda en "idle" visible. */}
       {selectedMode === "ai-video" && (
-      <div className="space-y-2 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-3">
+      <div className="space-y-2 rounded-xl border border-cyan-200 bg-cyan-50 p-3">
         {/* Mismo aviso que en la pantalla de elección — necesario aquí también porque
             initialMode="ai-video" se la salta y este es el único punto donde el cliente
             ve el aviso en ese caso. */}
         {(totalImagesInBatch ?? 1) > 1 && (
-          <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-300">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
             El Vídeo IA procesa una imagen a la vez. Se usará la primera foto seleccionada.
           </p>
         )}
         {aiVideoPhase === "generating" && (
           <div className="flex items-center justify-center gap-2 py-3 text-center">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-fuchsia-300/30 border-t-fuchsia-300" />
-            <p className="text-xs text-white/60">Generando vídeo IA…</p>
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-200 border-t-cyan-600" />
+            <p className="text-xs text-gray-600">Generando vídeo IA…</p>
           </div>
         )}
 
@@ -615,30 +615,30 @@ export default function ReelsCreator({
               src={aiVideoResultUrl}
               controls
               playsInline
-              className="mx-auto h-72 max-w-full rounded-xl border border-white/10 bg-black"
+              className="mx-auto h-72 max-w-full rounded-xl border border-gray-200 bg-black"
             />
 
             {aiVideoNarrationUrl && (
               <div className="flex justify-center">
-                <span className="rounded-full border border-violet-500/25 bg-violet-500/10 px-3 py-1 text-[11px] font-medium text-violet-300">
+                <span className="rounded-full border border-cyan-200 bg-white px-3 py-1 text-[11px] font-medium text-cyan-700">
                   🎙 Narración IA
                 </span>
               </div>
             )}
 
             <div>
-              <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-white/25">Caption</p>
+              <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Caption</p>
               <textarea
                 value={aiVideoCaption}
                 onChange={(e) => setAiVideoCaption(e.target.value)}
                 rows={4}
                 disabled={aiVideoPhase === "saving"}
-                className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm leading-relaxed text-white/80 focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50 disabled:opacity-50"
+                className="w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm leading-relaxed text-gray-800 focus:outline-none focus:ring-1 focus:ring-cyan-400/50 disabled:opacity-50"
               />
             </div>
 
             <div>
-              <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-white/25">
+              <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-400">
                 Hashtags ({aiVideoHashtags.length}/15)
               </p>
               <textarea
@@ -651,18 +651,18 @@ export default function ReelsCreator({
                 rows={2}
                 placeholder="#hashtag1 #hashtag2 …"
                 disabled={aiVideoPhase === "saving"}
-                className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-fuchsia-500/50 disabled:opacity-50"
+                className="w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-cyan-400/50 disabled:opacity-50"
               />
             </div>
 
-            {aiVideoError && <p className="text-xs text-rose-300">{aiVideoError}</p>}
+            {aiVideoError && <p className="text-xs text-rose-600">{aiVideoError}</p>}
 
             <div className="flex gap-2">
               <button
                 type="button"
                 disabled={aiVideoPhase === "saving"}
                 onClick={() => void publishAiVideo()}
-                className="flex-1 rounded-lg bg-gradient-to-r from-fuchsia-500 to-violet-500 py-2 text-xs font-bold text-white shadow-sm transition hover:brightness-110 disabled:opacity-50"
+                className="flex-1 rounded-lg bg-cyan-600 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-cyan-700 disabled:opacity-50"
               >
                 {aiVideoPhase === "saving" ? "Programando…" : "Aprobar y programar"}
               </button>
@@ -670,7 +670,7 @@ export default function ReelsCreator({
                 type="button"
                 onClick={() => void discardAiVideo()}
                 disabled={aiVideoPhase === "saving"}
-                className="rounded-lg border border-white/10 px-3 py-2 text-xs text-white/50 transition hover:text-white/70 disabled:opacity-50"
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-500 transition hover:text-gray-700 disabled:opacity-50"
               >
                 Descartar
               </button>
@@ -680,14 +680,14 @@ export default function ReelsCreator({
 
         {aiVideoPhase === "saved" && (
           <div className="flex flex-col items-center gap-2 py-6 text-center">
-            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300">
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
               ✓ Reel programado
             </span>
             {onClose && (
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-2 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50 transition hover:text-white/70"
+                className="mt-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition hover:text-gray-700"
               >
                 Cerrar
               </button>
@@ -697,12 +697,12 @@ export default function ReelsCreator({
 
         {aiVideoPhase === "failed" && (
           <div className="space-y-2 text-center">
-            <p className="text-xs text-rose-300">{aiVideoError}</p>
+            <p className="text-xs text-rose-600">{aiVideoError}</p>
             <div className="flex justify-center gap-2">
               <button
                 type="button"
                 onClick={() => void startAiVideoGeneration()}
-                className="rounded-lg bg-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-fuchsia-400"
+                className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-cyan-700"
               >
                 Reintentar
               </button>
@@ -710,7 +710,7 @@ export default function ReelsCreator({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50 transition hover:text-white/70"
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition hover:text-gray-700"
                 >
                   Cancelar
                 </button>

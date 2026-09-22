@@ -15,16 +15,16 @@ type Props = {
 // Exportado — reutilizado por conversation-inbox.tsx para el badge de temperatura de
 // lead en las tarjetas de Comunidad, mismos colores que aquí.
 export const TEMP_META: Record<LeadTemperature, { label: string; bg: string; dot: string; border: string }> = {
-  HOT:  { label: "HOT",  bg: "bg-rose-500/15 text-rose-300",   dot: "bg-rose-500",   border: "border-rose-500/25" },
-  WARM: { label: "WARM", bg: "bg-amber-500/15 text-amber-300", dot: "bg-amber-400",  border: "border-amber-500/25" },
-  COLD: { label: "COLD", bg: "bg-sky-500/15 text-sky-300",     dot: "bg-sky-400",    border: "border-sky-500/25" },
+  HOT:  { label: "HOT",  bg: "bg-rose-50 text-rose-700",   dot: "bg-rose-500",   border: "border-rose-200" },
+  WARM: { label: "WARM", bg: "bg-amber-50 text-amber-700", dot: "bg-amber-400",  border: "border-amber-200" },
+  COLD: { label: "COLD", bg: "bg-sky-50 text-sky-700",     dot: "bg-sky-400",    border: "border-sky-200" },
 };
 
 const STATUS_META: Record<LeadStatus, { label: string; bg: string }> = {
-  NEW:       { label: "Nuevo",      bg: "bg-white/8 text-white/50" },
-  CONTACTED: { label: "Contactado", bg: "bg-indigo-500/15 text-indigo-300" },
-  CONVERTED: { label: "Convertido", bg: "bg-emerald-500/15 text-emerald-300" },
-  LOST:      { label: "Perdido",    bg: "bg-rose-500/10 text-rose-400" },
+  NEW:       { label: "Nuevo",      bg: "bg-gray-100 text-gray-500" },
+  CONTACTED: { label: "Contactado", bg: "bg-indigo-50 text-indigo-700" },
+  CONVERTED: { label: "Convertido", bg: "bg-emerald-50 text-emerald-700" },
+  LOST:      { label: "Perdido",    bg: "bg-rose-50 text-rose-600" },
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -34,9 +34,9 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 const PROVIDER_BG: Record<string, string> = {
-  INSTAGRAM: "bg-pink-500/15 text-pink-300",
-  FACEBOOK_PAGE: "bg-blue-500/15 text-blue-300",
-  LINKEDIN: "bg-sky-500/15 text-sky-300",
+  INSTAGRAM: "bg-pink-50 text-pink-700",
+  FACEBOOK_PAGE: "bg-blue-50 text-blue-700",
+  LINKEDIN: "bg-sky-50 text-sky-700",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -58,10 +58,10 @@ function ScoreBar({ score, temp }: { score: number; temp: LeadTemperature }) {
   const fill = temp === "HOT" ? "bg-rose-500" : temp === "WARM" ? "bg-amber-400" : "bg-sky-400";
   return (
     <div className="flex items-center gap-2.5">
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/8">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">
         <div className={`h-1.5 rounded-full ${fill} transition-all`} style={{ width: `${score}%` }} />
       </div>
-      <span className="w-6 text-right text-xs font-bold tabular-nums text-white/35">{score}</span>
+      <span className="w-6 text-right text-xs font-bold tabular-nums text-gray-400">{score}</span>
     </div>
   );
 }
@@ -135,7 +135,7 @@ export default function LeadsPanel({ leads: initialLeads, saasId, accountType }:
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-48">
           <svg
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           >
@@ -146,7 +146,7 @@ export default function LeadsPanel({ leads: initialLeads, saasId, accountType }:
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nombre o mensaje…"
-            className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-8 pr-3 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-8 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400/40"
           />
         </div>
 
@@ -171,13 +171,13 @@ export default function LeadsPanel({ leads: initialLeads, saasId, accountType }:
       </div>
 
       {(filterTemp || filterStatus || search) && (
-        <p className="text-xs text-white/30">
+        <p className="text-xs text-gray-400">
           {visible.length} resultado{visible.length !== 1 ? "s" : ""}
           {" · "}
           <button
             type="button"
             onClick={() => { setFilterTemp(null); setFilterStatus(null); setSearch(""); }}
-            className="text-violet-400 hover:underline"
+            className="text-blue-600 hover:underline"
           >
             Limpiar filtros
           </button>
@@ -207,9 +207,9 @@ export default function LeadsPanel({ leads: initialLeads, saasId, accountType }:
 // ── Lead card ─────────────────────────────────────────────────────────────────
 
 const TEMP_BADGE: Record<LeadTemperature, string> = {
-  HOT:  "bg-red-500/20 text-red-400",
-  WARM: "bg-amber-500/20 text-amber-400",
-  COLD: "bg-blue-500/20 text-blue-400",
+  HOT:  "bg-red-50 text-red-700",
+  WARM: "bg-amber-50 text-amber-700",
+  COLD: "bg-blue-50 text-blue-700",
 };
 
 function detectOpportunityType(
@@ -221,15 +221,17 @@ function detectOpportunityType(
   // negocio, así que para empresa ese mismo patrón cae a "Consulta" en su lugar.
   if (/colabor|collab|sponsor|patrocinio/.test(m)) {
     if (accountType === "empresa") {
-      return { label: "💬 Consulta", cls: "bg-gray-500/20 text-gray-400" };
+      return { label: "💬 Consulta", cls: "bg-gray-100 text-gray-700" };
     }
-    return { label: "🤝 Colaboración", cls: "bg-purple-500/20 text-purple-400" };
+    // Indigo en vez de blue liso para que siga distinguiéndose de "🛒 Venta" (también
+    // azul) ahora que el violeta original ya no está disponible como acento distintivo.
+    return { label: "🤝 Colaboración", cls: "bg-indigo-50 text-indigo-700" };
   }
   if (/coach|entrena|rutina|plan/.test(m))
-    return { label: "💪 Servicio", cls: "bg-green-500/20 text-green-400" };
+    return { label: "💪 Servicio", cls: "bg-green-50 text-green-700" };
   if (/precio|comprar|adquirir|pagar/.test(m))
-    return { label: "🛒 Venta", cls: "bg-blue-500/20 text-blue-400" };
-  return { label: "💬 Consulta", cls: "bg-gray-500/20 text-gray-400" };
+    return { label: "🛒 Venta", cls: "bg-blue-50 text-blue-700" };
+  return { label: "💬 Consulta", cls: "bg-gray-100 text-gray-700" };
 }
 
 function initials(name: string | null, handle: string | null): string {
@@ -254,22 +256,22 @@ function LeadCard({
   return (
     <div
       className={[
-        "rounded-xl border bg-white/4 transition hover:bg-white/6",
-        lead.temperature === "HOT" ? "border-rose-500/30" : "border-white/8",
+        "rounded-xl border bg-white shadow-sm transition hover:bg-gray-50",
+        lead.temperature === "HOT" ? "border-rose-300" : "border-gray-200",
         isDone ? "opacity-60" : "",
       ].join(" ")}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-bold text-white">
           {initials(lead.senderName, lead.senderHandle)}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-white">
+          <p className="truncate text-sm font-semibold text-gray-900">
             {lead.senderName ?? lead.senderHandle ?? "Anónimo"}
           </p>
           {lead.senderHandle && (
-            <p className="truncate text-xs text-white/40">@{lead.senderHandle}</p>
+            <p className="truncate text-xs text-gray-400">@{lead.senderHandle}</p>
           )}
         </div>
         <span className={["rounded-full px-2.5 py-0.5 text-[11px] font-bold", TEMP_BADGE[lead.temperature]].join(" ")}>
@@ -283,14 +285,14 @@ function LeadCard({
           <span className={["rounded-full px-2.5 py-0.5 text-[11px] font-medium", opportunity.cls].join(" ")}>
             {opportunity.label}
           </span>
-          <span className={["rounded-full px-2 py-0.5 text-[11px] font-medium", PROVIDER_BG[lead.provider] ?? "bg-white/8 text-white/50"].join(" ")}>
+          <span className={["rounded-full px-2 py-0.5 text-[11px] font-medium", PROVIDER_BG[lead.provider] ?? "bg-gray-100 text-gray-500"].join(" ")}>
             {PROVIDER_LABELS[lead.provider] ?? lead.provider}
           </span>
-          <span className="ml-auto text-xs text-white/30">{relativeTime(lead.createdAt)}</span>
+          <span className="ml-auto text-xs text-gray-400">{relativeTime(lead.createdAt)}</span>
         </div>
 
         {/* Message */}
-        <p className="rounded-lg bg-white/5 px-3 py-2.5 text-sm italic text-white/60 line-clamp-3">
+        <p className="rounded-lg bg-gray-50 px-3 py-2.5 text-sm italic text-gray-600 line-clamp-3">
           "{lead.incomingMessage}"
         </p>
 
@@ -298,14 +300,14 @@ function LeadCard({
         <ScoreBar score={lead.intentScore} temp={lead.temperature} />
 
         {/* Footer actions */}
-        <div className="flex flex-wrap items-center gap-2 border-t border-white/8 pt-3">
+        <div className="flex flex-wrap items-center gap-2 border-t border-gray-200 pt-3">
           {!isDone ? (
             <>
               <button
                 type="button"
                 onClick={() => onStatusChange("CONTACTED")}
                 disabled={isPending}
-                className="rounded-lg bg-violet-600 px-3 py-1 text-xs font-medium text-white transition hover:bg-violet-500 disabled:opacity-40"
+                className="rounded-lg bg-blue-500 px-3 py-1 text-xs font-medium text-white transition hover:bg-blue-600 disabled:opacity-40"
               >
                 Contactar
               </button>
@@ -313,7 +315,7 @@ function LeadCard({
                 type="button"
                 onClick={() => onStatusChange("CONVERTED")}
                 disabled={isPending}
-                className="rounded-lg bg-green-600/20 px-3 py-1 text-xs font-medium text-green-400 transition hover:bg-green-600/30 disabled:opacity-40"
+                className="rounded-lg bg-green-50 px-3 py-1 text-xs font-medium text-green-700 transition hover:bg-green-100 disabled:opacity-40"
               >
                 Convertido ✓
               </button>
@@ -321,7 +323,7 @@ function LeadCard({
                 type="button"
                 onClick={() => onStatusChange("LOST")}
                 disabled={isPending}
-                className="px-3 py-1 text-xs text-white/30 transition hover:text-white/55 disabled:opacity-40"
+                className="px-3 py-1 text-xs text-gray-400 transition hover:text-gray-600 disabled:opacity-40"
               >
                 Descartar
               </button>
@@ -329,16 +331,16 @@ function LeadCard({
           ) : (
             <>
               {lead.status === "CONVERTED" && (
-                <span className="text-xs font-medium text-emerald-400">✓ Convertido</span>
+                <span className="text-xs font-medium text-emerald-600">✓ Convertido</span>
               )}
               {lead.status === "LOST" && (
-                <span className="text-xs text-white/30">Descartado</span>
+                <span className="text-xs text-gray-400">Descartado</span>
               )}
               <button
                 type="button"
                 onClick={() => onStatusChange("NEW")}
                 disabled={isPending}
-                className="ml-auto px-3 py-1 text-xs text-white/30 transition hover:text-white/55 disabled:opacity-40"
+                className="ml-auto px-3 py-1 text-xs text-gray-400 transition hover:text-gray-600 disabled:opacity-40"
               >
                 Reactivar
               </button>
@@ -370,11 +372,11 @@ function PipelineCard({
   onClick?: () => void;
 }) {
   const valueCls = muted
-    ? "text-white/30"
-    : { slate: "text-white", rose: "text-rose-400", emerald: "text-emerald-400" }[accent];
+    ? "text-gray-400"
+    : { slate: "text-gray-900", rose: "text-rose-600", emerald: "text-emerald-600" }[accent];
   const borderCls = active
-    ? { slate: "border-white/25", rose: "border-rose-500/40", emerald: "border-emerald-500/40" }[accent]
-    : "border-white/8";
+    ? { slate: "border-gray-300", rose: "border-rose-300", emerald: "border-emerald-300" }[accent]
+    : "border-gray-200";
 
   const Tag = onClick ? "button" : "div";
 
@@ -382,21 +384,21 @@ function PipelineCard({
     <Tag
       {...(onClick ? { type: "button" as const, onClick } : {})}
       className={[
-        "rounded-xl border bg-white/4 px-4 py-3 text-left transition",
-        onClick ? "cursor-pointer hover:bg-white/6" : "",
+        "rounded-xl border bg-white px-4 py-3 text-left shadow-sm transition",
+        onClick ? "cursor-pointer hover:bg-gray-50" : "",
         borderCls,
       ].join(" ")}
     >
       <p className={["text-2xl font-black tabular-nums", valueCls].join(" ")}>{value}</p>
-      <p className="mt-0.5 text-xs font-semibold text-white/60">{label}</p>
-      <p className="mt-0.5 text-[11px] text-white/30">{sub}</p>
+      <p className="mt-0.5 text-xs font-semibold text-gray-600">{label}</p>
+      <p className="mt-0.5 text-[11px] text-gray-400">{sub}</p>
     </Tag>
   );
 }
 
 function FilterGroup({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-0.5 rounded-lg border border-white/10 bg-white/4 p-0.5">
+    <div className="flex gap-0.5 rounded-lg border border-gray-200 bg-white p-0.5">
       {children}
     </div>
   );
@@ -417,7 +419,7 @@ function FilterBtn({
       onClick={onClick}
       className={[
         "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition",
-        active ? "bg-violet-500 text-white" : "text-white/45 hover:text-white",
+        active ? "bg-blue-500 text-white" : "text-gray-500 hover:text-gray-900",
       ].join(" ")}
     >
       {children}
@@ -435,22 +437,22 @@ function EmptyState({
 }) {
   const isEmpresa = accountType === "empresa";
   return (
-    <div className="rounded-xl border border-dashed border-white/10 py-16 text-center">
+    <div className="rounded-xl border border-dashed border-gray-300 py-16 text-center">
       {hasLeads ? (
-        <p className="text-sm text-white/35">No hay leads con esos filtros.</p>
+        <p className="text-sm text-gray-400">No hay leads con esos filtros.</p>
       ) : (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-white/60">
+          <p className="text-sm font-medium text-gray-600">
             {isEmpresa ? "Sin clientes potenciales todavía" : "Sin oportunidades aún"}
           </p>
-          <p className="mx-auto max-w-xs text-xs text-white/35">
+          <p className="mx-auto max-w-xs text-xs text-gray-400">
             {isEmpresa
               ? "Cuando alguien pregunte por tus servicios o productos, aparecerá aquí automáticamente."
               : "Cuando un seguidor pregunte por colaboraciones, servicios o productos, aparecerá aquí automáticamente."}
           </p>
           <Link
             href="/socialflow/conversations"
-            className="mt-3 inline-block rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-medium text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+            className="mt-3 inline-block rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
           >
             {isEmpresa ? "Ver mis clientes" : "Ver mi comunidad"}
           </Link>

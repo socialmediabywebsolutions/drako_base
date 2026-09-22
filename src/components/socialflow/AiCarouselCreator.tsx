@@ -63,15 +63,15 @@ type ViralScoreState = {
 };
 
 const VIRAL_SCORE_STYLES: Record<ViralScoreState["label"], string> = {
-  Bajo: "border-rose-500/25 bg-rose-500/8 text-rose-300",
-  Medio: "border-amber-500/25 bg-amber-500/8 text-amber-300",
-  Alto: "border-emerald-500/25 bg-emerald-500/8 text-emerald-300",
-  Viral: "border-purple-500/25 bg-purple-500/8 text-purple-300",
+  Bajo: "border-rose-200 bg-rose-50 text-rose-700",
+  Medio: "border-amber-200 bg-amber-50 text-amber-700",
+  Alto: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  Viral: "border-blue-200 bg-blue-50 text-blue-700",
 };
 
 function Spinner() {
   return (
-    <svg className="h-5 w-5 animate-spin text-violet-400" viewBox="0 0 24 24" fill="none">
+    <svg className="h-5 w-5 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
@@ -325,7 +325,7 @@ export default function AiCarouselCreator({
 
   if (phase === "saved") {
     return (
-      <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
         Carrusel programado ✓
       </div>
     );
@@ -335,15 +335,15 @@ export default function AiCarouselCreator({
     return (
       <div className="space-y-5">
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-white/60">Elige el tema del carrusel</p>
+          <p className="text-xs font-semibold text-gray-600">Elige el tema del carrusel</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setSelectedTopic(AUTO_TOPIC)}
               className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                 selectedTopic === AUTO_TOPIC
-                  ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                  : "border-white/10 text-white/50 hover:bg-white/5 hover:text-white/70"
+                  ? "border-blue-400 bg-blue-100 text-blue-700"
+                  : "border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
               }`}
             >
               ✨ La IA decide el tema
@@ -355,8 +355,8 @@ export default function AiCarouselCreator({
                 onClick={() => setSelectedTopic(topic)}
                 className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                   selectedTopic === topic
-                    ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                    : "border-white/10 text-white/50 hover:bg-white/5 hover:text-white/70"
+                    ? "border-blue-400 bg-blue-100 text-blue-700"
+                    : "border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                 }`}
               >
                 {topic}
@@ -365,14 +365,14 @@ export default function AiCarouselCreator({
           </div>
         </div>
 
-        {!canGenerate && <p className="text-xs text-amber-300">Tu plan no incluye el formato Carrusel.</p>}
-        {error && <p className="text-xs text-rose-300">{error}</p>}
+        {!canGenerate && <p className="text-xs text-amber-700">Tu plan no incluye el formato Carrusel.</p>}
+        {error && <p className="text-xs text-rose-600">{error}</p>}
 
         <button
           type="button"
           disabled={!canGenerate || phase === "generating"}
           onClick={() => void generateCarousel()}
-          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "generating" ? (
             <>
@@ -390,10 +390,10 @@ export default function AiCarouselCreator({
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-white/40">{styleLabel}</p>
+        <p className="text-xs text-gray-500">{styleLabel}</p>
         <div className="flex flex-wrap gap-1.5">
           {hashtags.slice(0, 6).map((h) => (
-            <span key={h} className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
+            <span key={h} className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600">
               {h}
             </span>
           ))}
@@ -402,8 +402,8 @@ export default function AiCarouselCreator({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {slides.map((slide) => (
-          <div key={slide.order} className="flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/3">
-            <div className="relative aspect-[4/5] overflow-hidden bg-black/30">
+          <div key={slide.order} className="flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            <div className="relative aspect-[4/5] overflow-hidden bg-gray-100">
               {slide.renderedImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={slide.renderedImageUrl} alt="" className="h-full w-full object-cover" />
@@ -426,15 +426,15 @@ export default function AiCarouselCreator({
                 value={slide.draftText}
                 onChange={(e) => updateDraft(slide.order, e.target.value)}
                 rows={3}
-                className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                className="w-full resize-none rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-400/50"
               />
-              {slide.error && <p className="text-[11px] text-rose-300">{slide.error}</p>}
+              {slide.error && <p className="text-[11px] text-rose-600">{slide.error}</p>}
               {slide.draftText.trim() !== slide.text && (
                 <button
                   type="button"
                   disabled={slide.status === "rendering"}
                   onClick={() => void applySlideEdit(slide.order)}
-                  className="self-start rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-[11px] font-semibold text-violet-300 transition hover:bg-violet-500/20 disabled:opacity-50"
+                  className="self-start rounded-lg border border-blue-300 bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-600 transition hover:bg-blue-100 disabled:opacity-50"
                 >
                   {slide.status === "rendering" ? "Aplicando…" : "Aplicar cambio"}
                 </button>
@@ -451,14 +451,14 @@ export default function AiCarouselCreator({
         </div>
       )}
 
-      {saveError && <p className="text-xs text-rose-300">{saveError}</p>}
+      {saveError && <p className="text-xs text-rose-600">{saveError}</p>}
 
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={regenerate}
           disabled={phase === "saving"}
-          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/60 transition hover:text-white disabled:opacity-50"
+          className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-600 transition hover:text-gray-900 disabled:opacity-50"
         >
           ↻ Regenerar
         </button>
@@ -466,7 +466,7 @@ export default function AiCarouselCreator({
           type="button"
           disabled={!allSlidesReady || phase === "saving"}
           onClick={() => void approveAndSchedule()}
-          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl bg-blue-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "saving" ? (
             <>

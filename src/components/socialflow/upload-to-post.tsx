@@ -89,7 +89,7 @@ const PROVIDER_LABELS: Record<string, string> = { INSTAGRAM: "Instagram", LINKED
 // indicador fiable del formato; distinto del botón manual "Convertir a Reel" de abajo.
 const CONTENT_TYPE_PILL: Record<string, { label: string; badge: string }> = {
   FEED: { label: "📸 Post", badge: "bg-emerald-500 text-white" },
-  REEL: { label: "🎬 Reel", badge: "bg-violet-500 text-white" },
+  REEL: { label: "🎬 Reel", badge: "bg-blue-500 text-white" },
   STORY: { label: "⭕ Historia", badge: "bg-sky-500 text-white" },
 };
 
@@ -162,7 +162,7 @@ function IcoReset() {
 function Spinner({ sm }: { sm?: boolean }) {
   return (
     <svg
-      className={`animate-spin text-violet-400 ${sm ? "h-4 w-4" : "h-5 w-5"}`}
+      className={`animate-spin text-blue-600 ${sm ? "h-4 w-4" : "h-5 w-5"}`}
       viewBox="0 0 24 24"
       fill="none"
     >
@@ -203,13 +203,13 @@ function ItemCard({
   // ── uploading ──────────────────────────────────────────────────────────────
   if (item.step === "uploading") {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
-        <div className="flex h-40 items-center justify-center bg-white/4">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        <div className="flex h-40 items-center justify-center bg-white">
           <Spinner />
         </div>
         <div className="px-4 py-3">
-          <p className="text-sm font-medium text-white/50">Subiendo imagen…</p>
-          <p className="mt-0.5 truncate text-xs text-white/25">{item.file.name}</p>
+          <p className="text-sm font-medium text-gray-500">Subiendo imagen…</p>
+          <p className="mt-0.5 truncate text-xs text-gray-400">{item.file.name}</p>
         </div>
       </div>
     );
@@ -218,7 +218,7 @@ function ItemCard({
   // ── analyzing ──────────────────────────────────────────────────────────────
   if (item.step === "analyzing") {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white">
         <div className="relative h-40 overflow-hidden bg-black/20">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
@@ -227,7 +227,7 @@ function ItemCard({
           </div>
         </div>
         <div className="px-4 py-3">
-          <p className="text-sm font-medium text-white/50">Analizando tu foto…</p>
+          <p className="text-sm font-medium text-gray-500">Analizando tu foto…</p>
         </div>
       </div>
     );
@@ -236,20 +236,20 @@ function ItemCard({
   // ── awaiting_employee (solo empresa) ──────────────────────────────────────
   if (item.step === "awaiting_employee") {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-violet-500/25 bg-white/3">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-blue-200 bg-white">
         <div className="relative h-40 overflow-hidden bg-black/20">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
         </div>
         <div className="flex flex-col gap-2.5 px-4 py-3">
-          <p className="text-sm font-medium text-white/70">¿Quién aparece en esta foto?</p>
+          <p className="text-sm font-medium text-gray-600">¿Quién aparece en esta foto?</p>
           <div className="flex flex-wrap gap-2">
             {employees.map((employee) => (
               <button
                 key={employee.id}
                 type="button"
                 onClick={() => onConfirmSubject(item.id, "employee", employee.id)}
-                className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-violet-500/40 hover:bg-violet-500/10"
+                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-blue-400 hover:bg-blue-50"
               >
                 {employee.name}
               </button>
@@ -257,14 +257,14 @@ function ItemCard({
             <button
               type="button"
               onClick={() => onConfirmSubject(item.id, "cliente", null)}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-violet-500/40 hover:bg-violet-500/10"
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-blue-400 hover:bg-blue-50"
             >
               Cliente
             </button>
             <button
               type="button"
               onClick={() => onConfirmSubject(item.id, "none", null)}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/45 transition hover:border-white/20 hover:bg-white/8"
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:border-gray-300 hover:bg-gray-100"
             >
               Nadie / No aplica
             </button>
@@ -277,17 +277,17 @@ function ItemCard({
   // ── error ──────────────────────────────────────────────────────────────────
   if (item.step === "error") {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-rose-500/20 bg-rose-500/5">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-rose-500/20 bg-rose-50">
         <div className="relative h-40 overflow-hidden bg-black/20">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover opacity-40" />
         </div>
         <div className="flex flex-col gap-3 px-4 py-3">
-          <p className="text-xs leading-relaxed text-rose-300">{item.error}</p>
+          <p className="text-xs leading-relaxed text-rose-700">{item.error}</p>
           <button
             type="button"
             onClick={() => onRemove(item.id)}
-            className="flex items-center gap-1.5 self-start rounded-lg border border-rose-500/25 px-3 py-1.5 text-xs text-rose-400 transition hover:bg-rose-500/10"
+            className="flex items-center gap-1.5 self-start rounded-lg border border-rose-500/25 px-3 py-1.5 text-xs text-rose-600 transition hover:bg-rose-50"
           >
             <IcoX /> Eliminar
           </button>
@@ -299,20 +299,20 @@ function ItemCard({
   // ── saved ──────────────────────────────────────────────────────────────────
   if (item.step === "saved") {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-emerald-500/20 bg-emerald-500/5">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-emerald-500/20 bg-emerald-50">
         <div className="relative h-40 overflow-hidden bg-black/20">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover opacity-60" />
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/20 text-emerald-400">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-100 text-emerald-600">
               <IcoCheck />
             </div>
           </div>
         </div>
         <div className="px-4 py-3">
-          <p className="text-sm font-semibold text-emerald-300">Programado</p>
+          <p className="text-sm font-semibold text-emerald-700">Programado</p>
           {item.savedAt && (
-            <p className="mt-0.5 text-xs text-white/35">
+            <p className="mt-0.5 text-xs text-gray-400">
               {displayDate(item.savedAt)} · {item.savedAt.slice(11, 16)}
             </p>
           )}
@@ -324,7 +324,7 @@ function ItemCard({
   // ── saving ─────────────────────────────────────────────────────────────────
   if (item.step === "saving") {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white">
         <div className="relative h-40 overflow-hidden bg-black/20">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover opacity-50" />
@@ -333,7 +333,7 @@ function ItemCard({
           </div>
         </div>
         <div className="px-4 py-3">
-          <p className="text-sm font-medium text-white/50">Programando…</p>
+          <p className="text-sm font-medium text-gray-500">Programando…</p>
         </div>
       </div>
     );
@@ -342,7 +342,7 @@ function ItemCard({
   // ── ready (compact view) ───────────────────────────────────────────────────
   if (!item.isEditing) {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white">
         {/* Thumbnail — click opens preview modal */}
         <button
           type="button"
@@ -353,7 +353,7 @@ function ItemCard({
           <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
           <span
             className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-xs font-black shadow-md ${
-              CONTENT_TYPE_PILL[item.editContentType]?.badge ?? "bg-white/20 text-white"
+              CONTENT_TYPE_PILL[item.editContentType]?.badge ?? "bg-gray-700 text-white"
             }`}
           >
             {CONTENT_TYPE_PILL[item.editContentType]?.label ?? item.editContentType}
@@ -369,38 +369,38 @@ function ItemCard({
           onClick={() => onPreview(item.id)}
         >
           {item.error && (
-            <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{item.error}</p>
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{item.error}</p>
           )}
 
           {item.imageAnalysis?.degraded && (
-            <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+            <p className="rounded-lg border border-amber-500/25 bg-amber-50 px-3 py-2 text-xs text-amber-700">
               ⚠️ No pudimos analizar bien el contenido de este archivo — revisa el texto generado antes de aprobar.
             </p>
           )}
 
           {/* Reel pendiente de revisión — no es aprobable hasta generar el vídeo */}
           {item.editContentType === "REEL" && item.step !== "reel_ready" && (
-            <div className="flex flex-col gap-0.5 rounded-lg border border-orange-500/50 bg-orange-500/15 px-3 py-2">
-              <span className="text-xs font-black text-orange-300">🎬 Pendiente de revisión</span>
-              <span className="text-[11px] text-orange-200/70">Genera el vídeo para poder programarlo</span>
+            <div className="flex flex-col gap-0.5 rounded-lg border border-orange-500/50 bg-orange-50 px-3 py-2">
+              <span className="text-xs font-black text-orange-700">🎬 Pendiente de revisión</span>
+              <span className="text-[11px] text-orange-600">Genera el vídeo para poder programarlo</span>
             </div>
           )}
 
-          <p className="line-clamp-3 text-sm leading-relaxed text-white/70">{item.editBody}</p>
+          <p className="line-clamp-3 text-sm leading-relaxed text-gray-600">{item.editBody}</p>
 
           <div className="flex flex-wrap gap-1.5">
             {item.editHashtags.length > 0 && (
-              <span className="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-[11px] font-medium text-violet-300">
+              <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-blue-700">
                 {item.editHashtags.length} hashtags
               </span>
             )}
-            <span className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-medium text-white/40">
+            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-medium text-gray-400">
               {PROVIDER_LABELS[item.editProvider] ?? item.editProvider}
             </span>
           </div>
 
           {item.editDate && (
-            <p className="flex items-center gap-1.5 text-xs text-white/35">
+            <p className="flex items-center gap-1.5 text-xs text-gray-400">
               <IcoCalendar />
               {displayDate(item.editDate)} · {item.editTime || "09:00"}
             </p>
@@ -413,8 +413,8 @@ function ItemCard({
               onClick={() => onUpdate(item.id, { editContentType: "FEED" })}
               className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
                 item.editContentType === "FEED"
-                  ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                  : "border-white/10 text-white/40 hover:bg-white/5 hover:text-white/60"
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600"
               }`}
             >
               📸 Post
@@ -424,8 +424,8 @@ function ItemCard({
               onClick={() => onUpdate(item.id, { editContentType: "STORY" })}
               className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
                 item.editContentType === "STORY"
-                  ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                  : "border-white/10 text-white/40 hover:bg-white/5 hover:text-white/60"
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600"
               }`}
             >
               ⭕ Historia
@@ -435,8 +435,8 @@ function ItemCard({
               onClick={() => onCreateReel(item.id)}
               className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
                 item.editContentType === "REEL"
-                  ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                  : "border-white/10 text-white/40 hover:bg-white/5 hover:text-white/60"
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600"
               }`}
             >
               🎬 Reel
@@ -444,7 +444,7 @@ function ItemCard({
             <button
               type="button"
               onClick={() => onCreateAiVideo(item.id)}
-              className="flex items-center justify-center gap-1 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/5 px-2 py-1.5 text-xs font-semibold text-fuchsia-300 transition hover:bg-fuchsia-500/15"
+              className="flex items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-xs font-semibold text-blue-600 transition hover:bg-blue-100"
             >
               🤖 Vídeo IA
             </button>
@@ -455,14 +455,14 @@ function ItemCard({
             <button
               type="button"
               onClick={() => onRemove(item.id)}
-              className="flex items-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/35 transition hover:border-rose-500/30 hover:text-rose-400"
+              className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-400 transition hover:border-rose-500/30 hover:text-rose-600"
             >
               <IcoX />
             </button>
             <button
               type="button"
               onClick={() => onUpdate(item.id, { isEditing: true })}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/45 transition hover:bg-white/5 hover:text-white/70"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition hover:bg-gray-50 hover:text-gray-600"
             >
               <IcoPencil /> Editar
             </button>
@@ -470,7 +470,7 @@ function ItemCard({
               <button
                 type="button"
                 onClick={() => onCreateReel(item.id)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg border-2 border-orange-500/60 bg-orange-500/20 px-3 py-2.5 text-sm font-black text-orange-300 shadow-md shadow-orange-500/10 transition hover:bg-orange-500/30"
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg border-2 border-orange-500/60 bg-orange-100 px-3 py-2.5 text-sm font-black text-orange-700 shadow-md shadow-orange-500/10 transition hover:bg-orange-200"
               >
                 ▶ Ver Reel
               </button>
@@ -478,7 +478,7 @@ function ItemCard({
               <button
                 type="button"
                 onClick={() => onPreview(item.id)}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
               >
                 <IcoCheck sm /> Aprobar
               </button>
@@ -491,7 +491,7 @@ function ItemCard({
 
   // ── ready (edit view) ──────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-violet-500/20 bg-white/3">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-blue-200 bg-white">
       {/* Thumbnail small */}
       <div className="relative h-24 overflow-hidden bg-black/20">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -499,7 +499,7 @@ function ItemCard({
         <button
           type="button"
           onClick={() => onUpdate(item.id, { isEditing: false })}
-          className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-white/60 backdrop-blur-sm transition hover:bg-white/20"
+          className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-white backdrop-blur-sm transition hover:bg-black/80"
         >
           <IcoX /> Cerrar
         </button>
@@ -508,22 +508,22 @@ function ItemCard({
       {/* Edit form */}
       <div className="flex flex-col gap-3 p-4">
         {item.imageAnalysis?.degraded && (
-          <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+          <p className="rounded-lg border border-amber-500/25 bg-amber-50 px-3 py-2 text-xs text-amber-700">
             ⚠️ No pudimos analizar bien el contenido de este archivo — revisa el texto generado antes de aprobar.
           </p>
         )}
         <div>
-          <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-white/25">Caption</p>
+          <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Caption</p>
           <textarea
             value={item.editBody}
             onChange={(e) => onUpdate(item.id, { editBody: e.target.value })}
             rows={5}
-            className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm leading-relaxed text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm leading-relaxed text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           />
         </div>
 
         <div>
-          <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-white/25">
+          <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-400">
             Hashtags ({item.editHashtags.length}/15)
           </p>
           <textarea
@@ -536,7 +536,7 @@ function ItemCard({
             }}
             rows={2}
             placeholder="#hashtag1 #hashtag2 …"
-            className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           />
         </div>
 
@@ -546,18 +546,18 @@ function ItemCard({
             value={item.editDate}
             min={todayStr()}
             onChange={(e) => onUpdate(item.id, { editDate: e.target.value })}
-            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           />
           <input
             type="time"
             value={item.editTime}
             onChange={(e) => onUpdate(item.id, { editTime: e.target.value })}
-            className="w-28 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="w-28 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           />
           <select
             value={item.editProvider}
             onChange={(e) => onUpdate(item.id, { editProvider: e.target.value })}
-            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           >
             <option value="INSTAGRAM">Instagram</option>
             <option value="LINKEDIN">LinkedIn</option>
@@ -565,7 +565,7 @@ function ItemCard({
           <select
             value={item.editContentType}
             onChange={(e) => onUpdate(item.id, { editContentType: e.target.value })}
-            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           >
             <option value="FEED">Feed</option>
             <option value="REEL">Reel</option>
@@ -577,7 +577,7 @@ function ItemCard({
           <button
             type="button"
             onClick={() => onUpdate(item.id, { isEditing: false })}
-            className="flex-1 rounded-lg border border-white/10 py-2 text-xs text-white/40 transition hover:bg-white/5"
+            className="flex-1 rounded-lg border border-gray-200 py-2 text-xs text-gray-400 transition hover:bg-gray-50"
           >
             Cancelar
           </button>
@@ -585,7 +585,7 @@ function ItemCard({
             <button
               type="button"
               onClick={() => { onUpdate(item.id, { isEditing: false }); onCreateReel(item.id); }}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border-2 border-orange-500/60 bg-orange-500/20 py-2.5 text-sm font-black text-orange-300 shadow-md shadow-orange-500/10 transition hover:bg-orange-500/30"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border-2 border-orange-500/60 bg-orange-100 py-2.5 text-sm font-black text-orange-700 shadow-md shadow-orange-500/10 transition hover:bg-orange-200"
             >
               ▶ Ver Reel
             </button>
@@ -594,7 +594,7 @@ function ItemCard({
               type="button"
               onClick={() => { onUpdate(item.id, { isEditing: false }); onPreview(item.id); }}
               disabled={!item.editDate || !item.editBody.trim()}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-500 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <IcoCheck sm /> Aprobar
             </button>
@@ -625,19 +625,19 @@ function BulkPreviewModal({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d1e] shadow-2xl"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/8 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-widest text-violet-400">Confirmación</p>
-            <h3 className="text-lg font-black text-white">Programar {items.length} posts</h3>
+            <p className="text-[11px] font-black uppercase tracking-widest text-blue-600">Confirmación</p>
+            <h3 className="text-lg font-black text-gray-900">Programar {items.length} posts</h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200 hover:text-gray-900"
           >
             <IcoX />
           </button>
@@ -651,14 +651,14 @@ function BulkPreviewModal({
                 key={item.id}
                 type="button"
                 onClick={() => onPreviewOne(item.id)}
-                className="group flex flex-col overflow-hidden rounded-xl border border-white/8 bg-white/3 text-left transition hover:border-violet-500/40 hover:bg-white/6"
+                className="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white text-left transition hover:border-blue-400 hover:bg-gray-50"
               >
                 <div className="relative aspect-square w-full overflow-hidden bg-black/20">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
                   <span
                     className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-xs font-black shadow-md ${
-                      CONTENT_TYPE_PILL[item.editContentType]?.badge ?? "bg-white/20 text-white"
+                      CONTENT_TYPE_PILL[item.editContentType]?.badge ?? "bg-gray-700 text-white"
                     }`}
                   >
                     {CONTENT_TYPE_PILL[item.editContentType]?.label ?? item.editContentType}
@@ -668,10 +668,10 @@ function BulkPreviewModal({
                   </div>
                 </div>
                 <div className="px-2 py-1.5">
-                  <p className="text-[10px] font-semibold text-white/60">
+                  <p className="text-[10px] font-semibold text-gray-600">
                     {item.editDate ? displayDate(item.editDate) : "—"}
                   </p>
-                  <p className="text-[10px] text-white/35">{item.editTime || "09:00"}</p>
+                  <p className="text-[10px] text-gray-400">{item.editTime || "09:00"}</p>
                 </div>
               </button>
             ))}
@@ -679,18 +679,18 @@ function BulkPreviewModal({
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 border-t border-white/8 px-6 py-4">
+        <div className="flex gap-3 border-t border-gray-200 px-6 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-white/45 transition hover:bg-white/5 hover:text-white/70"
+            className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm text-gray-500 transition hover:bg-gray-50 hover:text-gray-600"
           >
             Cancelar
           </button>
           <button
             type="button"
             onClick={onConfirmAll}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-500 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
           >
             <IcoCheck /> Confirmar todos ({items.length})
           </button>
@@ -703,10 +703,10 @@ function BulkPreviewModal({
 // ── Preview modal ─────────────────────────────────────────────────────────────
 
 const VIRAL_SCORE_COLORS: Record<ViralScore["label"], { text: string; bg: string }> = {
-  Bajo: { text: "text-red-400", bg: "bg-red-500/10" },
-  Medio: { text: "text-amber-400", bg: "bg-amber-500/10" },
-  Alto: { text: "text-emerald-400", bg: "bg-emerald-500/10" },
-  Viral: { text: "text-fuchsia-300", bg: "bg-fuchsia-500/10" },
+  Bajo: { text: "text-red-600", bg: "bg-red-50" },
+  Medio: { text: "text-amber-600", bg: "bg-amber-50" },
+  Alto: { text: "text-emerald-600", bg: "bg-emerald-50" },
+  Viral: { text: "text-blue-600", bg: "bg-blue-50" },
 };
 
 const VIRAL_SCORE_TITLES: Record<ViralScore["label"], string> = {
@@ -724,7 +724,7 @@ function ViralScoreCard({ viralScore }: { viralScore: ViralScore }) {
   const colors = VIRAL_SCORE_COLORS[viralScore.label];
 
   return (
-    <div className={`rounded-2xl border border-white/10 ${colors.bg} p-4`}>
+    <div className={`rounded-2xl border border-gray-200 ${colors.bg} p-4`}>
       <div className="flex items-center gap-3">
         <span
           className={`text-3xl font-black tabular-nums ${colors.text} ${viralScore.label === "Viral" ? "animate-pulse" : ""}`}
@@ -733,26 +733,26 @@ function ViralScoreCard({ viralScore }: { viralScore: ViralScore }) {
         </span>
         <div className="flex flex-col">
           <span className={`text-sm font-bold ${colors.text}`}>{VIRAL_SCORE_TITLES[viralScore.label]}</span>
-          <span className="text-[11px] text-white/40">Puntuación de potencial viral (1-10)</span>
+          <span className="text-[11px] text-gray-400">Puntuación de potencial viral (1-10)</span>
         </div>
       </div>
       {viralScore.explanation && (
-        <p className="mt-2 text-xs leading-relaxed text-white/60">{viralScore.explanation}</p>
+        <p className="mt-2 text-xs leading-relaxed text-gray-600">{viralScore.explanation}</p>
       )}
       {viralScore.improvements.length > 0 && (
         <div className="mt-2">
           <button
             type="button"
             onClick={() => setShowImprovements((v) => !v)}
-            className="text-[11px] font-semibold text-white/50 underline decoration-dotted underline-offset-2 transition hover:text-white/80"
+            className="text-[11px] font-semibold text-gray-500 underline decoration-dotted underline-offset-2 transition hover:text-gray-600"
           >
             {showImprovements ? "Ocultar sugerencias" : `Ver ${viralScore.improvements.length} sugerencias para mejorar`}
           </button>
           {showImprovements && (
-            <ul className="mt-2 space-y-1 text-xs text-white/60">
+            <ul className="mt-2 space-y-1 text-xs text-gray-600">
               {viralScore.improvements.map((tip, i) => (
                 <li key={i} className="flex gap-1.5">
-                  <span className="text-white/30">•</span>
+                  <span className="text-gray-400">•</span>
                   <span>{tip}</span>
                 </li>
               ))}
@@ -780,14 +780,14 @@ function PreviewModal({
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d1e] shadow-2xl"
+        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white"
+          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200 hover:text-gray-900"
         >
           <IcoX />
         </button>
@@ -803,14 +803,14 @@ function PreviewModal({
           <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
             {/* Meta pills */}
             <div className="flex flex-wrap gap-1.5">
-              <span className="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-violet-300">
+              <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
                 {PROVIDER_LABELS[item.editProvider] ?? item.editProvider}
               </span>
-              <span className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-medium text-white/50">
+              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-medium text-gray-500">
                 {CONTENT_TYPE_LABELS[item.editContentType] ?? item.editContentType}
               </span>
               {item.editDate && (
-                <span className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-medium text-white/50">
+                <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-medium text-gray-500">
                   {displayDate(item.editDate)} · {item.editTime || "09:00"}
                 </span>
               )}
@@ -820,7 +820,7 @@ function PreviewModal({
             {item.viralScore && <ViralScoreCard viralScore={item.viralScore} />}
 
             {/* Caption completo */}
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/80">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-600">
               {item.editBody}
             </p>
 
@@ -828,7 +828,7 @@ function PreviewModal({
             {item.editHashtags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {item.editHashtags.map((h) => (
-                  <span key={h} className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">
+                  <span key={h} className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">
                     {h}
                   </span>
                 ))}
@@ -838,18 +838,18 @@ function PreviewModal({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 border-t border-white/8 px-6 py-4">
+        <div className="flex gap-3 border-t border-gray-200 px-6 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-white/45 transition hover:bg-white/5 hover:text-white/70"
+            className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm text-gray-500 transition hover:bg-gray-50 hover:text-gray-600"
           >
             Volver a editar
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-500 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
           >
             <IcoCheck /> Confirmar y programar
           </button>
@@ -1308,29 +1308,29 @@ export default function UploadToPost({
 
   if (allSaved && items.length > 0) {
     return (
-      <div className="flex flex-col items-center gap-6 rounded-3xl border border-emerald-500/20 bg-emerald-500/5 py-16">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">
+      <div className="flex flex-col items-center gap-6 rounded-3xl border border-emerald-500/20 bg-emerald-50 py-16">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-50 text-emerald-600">
           <IcoCheck />
         </div>
         <div className="text-center">
-          <p className="text-xl font-black text-emerald-300">
+          <p className="text-xl font-black text-emerald-700">
             {items.length === 1 ? "Post programado" : `${items.length} posts programados`}
           </p>
-          <p className="mt-1 text-sm text-white/40">Redirigiendo al calendario…</p>
+          <p className="mt-1 text-sm text-gray-400">Redirigiendo al calendario…</p>
         </div>
         <div className="w-full max-w-sm space-y-2 px-6">
           {items.map((item) => (
             <div
               key={item.id}
-              className="flex items-center gap-3 rounded-xl bg-white/6 px-3 py-2.5"
+              className="flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-2.5"
             >
-              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-white/10">
+              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-gray-200">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
               </div>
-              <p className="flex-1 truncate text-xs text-white/50">{item.editBody.slice(0, 50)}…</p>
+              <p className="flex-1 truncate text-xs text-gray-500">{item.editBody.slice(0, 50)}…</p>
               {item.savedAt && (
-                <span className="shrink-0 text-xs font-semibold text-emerald-400">
+                <span className="shrink-0 text-xs font-semibold text-emerald-600">
                   {displayDate(item.savedAt)}
                 </span>
               )}
@@ -1347,12 +1347,12 @@ export default function UploadToPost({
     return (
       <div className="space-y-4">
         {globalError && (
-          <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+          <div className="rounded-xl border border-rose-500/25 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {globalError}
           </div>
         )}
         <div className="space-y-1.5">
-          <label htmlFor="batch-user-note" className="text-xs font-semibold text-white/50">
+          <label htmlFor="batch-user-note" className="text-xs font-semibold text-gray-500">
             ¿Qué estás haciendo en estas fotos? (opcional)
           </label>
           <textarea
@@ -1362,12 +1362,12 @@ export default function UploadToPost({
             maxLength={200}
             rows={2}
             placeholder="Ej: sentadilla búlgara con mancuerna de 15kg"
-            className="w-full resize-none rounded-xl border border-white/10 bg-white/3 px-3 py-2 text-sm text-white/80 placeholder:text-white/20 outline-none transition focus:border-violet-400/40"
+            className="w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 placeholder:text-gray-400 outline-none transition focus:border-blue-400/50"
           />
-          <p className="text-right text-[11px] text-white/25">{batchUserNote.length}/200</p>
+          <p className="text-right text-[11px] text-gray-400">{batchUserNote.length}/200</p>
         </div>
         <div className="space-y-1.5">
-          <p className="text-xs font-semibold text-white/50">Tema (opcional)</p>
+          <p className="text-xs font-semibold text-gray-500">Tema (opcional)</p>
           <div className="flex flex-wrap gap-1.5">
             {THEME_OPTIONS.map((opt) => (
               <button
@@ -1376,8 +1376,8 @@ export default function UploadToPost({
                 onClick={() => setSelectedTheme(opt.value)}
                 className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                   selectedTheme === opt.value
-                    ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                    : "border-white/10 text-white/50 hover:bg-white/5 hover:text-white/70"
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-600"
                 }`}
               >
                 {opt.label}
@@ -1397,17 +1397,17 @@ export default function UploadToPost({
           className={[
             "flex cursor-pointer flex-col items-center justify-center gap-4 rounded-3xl border-2 border-dashed p-16 text-center transition-all",
             isDragging
-              ? "border-violet-500/60 bg-violet-500/10"
-              : "border-white/12 bg-white/3 hover:border-violet-500/40 hover:bg-violet-500/5",
+              ? "border-blue-500 bg-blue-50"
+              : "border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50",
           ].join(" ")}
         >
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 text-violet-400">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/10 text-blue-600">
             <IcoUpload />
           </div>
           <div>
-            <p className="text-base font-bold text-white/80">Arrastra tus fotos aquí</p>
-            <p className="mt-1 text-sm text-white/40">o haz click para seleccionar</p>
-            <p className="mt-3 text-xs text-white/25">Hasta {maxImages} fotos · JPEG, PNG, WebP, GIF · máx. 200 MB</p>
+            <p className="text-base font-bold text-gray-600">Arrastra tus fotos aquí</p>
+            <p className="mt-1 text-sm text-gray-400">o haz click para seleccionar</p>
+            <p className="mt-3 text-xs text-gray-400">Hasta {maxImages} fotos · JPEG, PNG, WebP, GIF · máx. 200 MB</p>
           </div>
           <input
             ref={fileInputRef}
@@ -1419,8 +1419,8 @@ export default function UploadToPost({
           />
         </div>
 
-        <div className="rounded-2xl border border-white/6 bg-white/3 px-5 py-4">
-          <p className="mb-2 text-xs font-black uppercase tracking-widest text-white/25">Cómo funciona</p>
+        <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4">
+          <p className="mb-2 text-xs font-black uppercase tracking-widest text-gray-400">Cómo funciona</p>
           <ol className="space-y-2">
             {[
               `Sube hasta ${maxImages} fotos y la IA decide el formato automáticamente.`,
@@ -1428,8 +1428,8 @@ export default function UploadToPost({
               "Genera el caption, hashtags, formato (Post/Reel/Historia) y hora óptima para cada una.",
               "Aprueba todas de un click o edita individualmente antes de programar.",
             ].map((s, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm text-white/45">
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-[10px] font-black text-violet-400">
+              <li key={i} className="flex items-start gap-3 text-sm text-gray-500">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[10px] font-black text-blue-600">
                   {i + 1}
                 </span>
                 {s}
@@ -1446,20 +1446,20 @@ export default function UploadToPost({
   return (
     <div className="space-y-5">
       {globalError && (
-        <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+        <div className="rounded-xl border border-amber-500/25 bg-amber-50 px-4 py-3 text-sm text-amber-700">
           {globalError}
         </div>
       )}
 
       {skippedReelsCount > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-violet-500/25 bg-violet-500/10 px-4 py-3 text-sm text-violet-300">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
           <span>
             {skippedReelsCount} Reel{skippedReelsCount !== 1 ? "s" : ""} pendiente{skippedReelsCount !== 1 ? "s" : ""} — genera y revisa cada uno con ▶ Ver Reel
           </span>
           <button
             type="button"
             onClick={() => setSkippedReelsCount(0)}
-            className="text-violet-300/60 transition hover:text-violet-200"
+            className="text-blue-400 transition hover:text-blue-700"
           >
             <IcoX />
           </button>
@@ -1468,10 +1468,10 @@ export default function UploadToPost({
 
       {/* Action bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-white/40">
+        <p className="text-sm text-gray-400">
           {activeCount} foto{activeCount !== 1 ? "s" : ""}
           {savedCount > 0 && (
-            <span className="ml-2 text-emerald-400">
+            <span className="ml-2 text-emerald-600">
               · {savedCount} programada{savedCount !== 1 ? "s" : ""}
             </span>
           )}
@@ -1481,7 +1481,7 @@ export default function UploadToPost({
             <button
               type="button"
               onClick={() => addMoreRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/4 px-3 py-2 text-xs text-white/50 transition hover:bg-white/8 hover:text-white/70"
+              className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 transition hover:bg-gray-100 hover:text-gray-600"
             >
               <IcoPlus />
               Añadir fotos ({activeCount}/{maxImages})
@@ -1491,7 +1491,7 @@ export default function UploadToPost({
             <button
               type="button"
               onClick={() => setBulkPreviewOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+              className="flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
             >
               <IcoCheck sm />
               Aprobar todo ({approvableCount})
@@ -1501,7 +1501,7 @@ export default function UploadToPost({
             <button
               type="button"
               onClick={() => router.push("/socialflow/plan")}
-              className="flex items-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/15"
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-600 transition hover:bg-emerald-50"
             >
               <IcoCalendar />
               Ver en calendario
@@ -1510,7 +1510,7 @@ export default function UploadToPost({
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/4 px-3 py-2 text-xs text-white/35 transition hover:bg-white/8"
+            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-400 transition hover:bg-gray-100"
           >
             <IcoReset />
           </button>
@@ -1563,17 +1563,17 @@ export default function UploadToPost({
             onClick={closeReelsCreator}
           >
             <div
-              className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-y-auto rounded-3xl border border-white/10 bg-[#0d0d1e] p-5 shadow-2xl"
+              className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-y-auto rounded-3xl border border-gray-200 bg-white p-5 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-black uppercase tracking-widest text-violet-400">
+                <h3 className="text-sm font-black uppercase tracking-widest text-blue-600">
                   {reelsInitialMode === "ai-video" ? "Vídeo IA" : "Crear Reel"}
                 </h3>
                 <button
                   type="button"
                   onClick={closeReelsCreator}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200 hover:text-gray-900"
                 >
                   <IcoX />
                 </button>
@@ -1637,15 +1637,15 @@ export default function UploadToPost({
             className={[
               "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-all",
               isDragging
-                ? "border-violet-500/50 bg-violet-500/8"
-                : "border-white/10 hover:border-violet-500/30 hover:bg-white/3",
+                ? "border-blue-500 bg-blue-50"
+                : "border-gray-200 hover:border-blue-400 hover:bg-white",
             ].join(" ")}
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/6 text-white/30">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-50 text-gray-400">
               <IcoPlus />
             </div>
-            <p className="text-xs text-white/30">Añadir más fotos</p>
-            <p className="text-[10px] text-white/20">{maxImages - activeCount} disponible{maxImages - activeCount !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-gray-400">Añadir más fotos</p>
+            <p className="text-[10px] text-gray-400">{maxImages - activeCount} disponible{maxImages - activeCount !== 1 ? "s" : ""}</p>
           </div>
         )}
       </div>

@@ -65,7 +65,7 @@ function IcoUpload() {
 }
 function Spinner({ sm }: { sm?: boolean }) {
   return (
-    <svg className={`animate-spin text-violet-400 ${sm ? "h-4 w-4" : "h-6 w-6"}`} viewBox="0 0 24 24" fill="none">
+    <svg className={`animate-spin text-blue-500 ${sm ? "h-4 w-4" : "h-6 w-6"}`} viewBox="0 0 24 24" fill="none">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
@@ -229,15 +229,15 @@ function ReelItemCard({
 }) {
   if (item.step === "queued" || item.step === "generating") {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
-        <div className="relative h-40 overflow-hidden bg-black/20">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        <div className="relative h-40 overflow-hidden bg-gray-100">
           <ItemThumbnail item={item} className="h-full w-full object-cover opacity-40" />
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
             <Spinner />
           </div>
         </div>
         <div className="px-4 py-3">
-          <p className="text-sm font-medium text-white/50">
+          <p className="text-sm font-medium text-gray-500">
             {item.step === "queued" ? "En cola…" : "Generando Reel…"}
           </p>
         </div>
@@ -247,16 +247,16 @@ function ReelItemCard({
 
   if (item.step === "error") {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-rose-500/20 bg-rose-500/5">
-        <div className="relative h-40 overflow-hidden bg-black/20">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-rose-200 bg-rose-50">
+        <div className="relative h-40 overflow-hidden bg-gray-100">
           <ItemThumbnail item={item} className="h-full w-full object-cover opacity-40" />
         </div>
         <div className="flex flex-col gap-3 px-4 py-3">
-          <p className="text-xs leading-relaxed text-rose-300">{item.error}</p>
+          <p className="text-xs leading-relaxed text-rose-700">{item.error}</p>
           <button
             type="button"
             onClick={() => onRemove(item.id)}
-            className="flex items-center gap-1.5 self-start rounded-lg border border-rose-500/25 px-3 py-1.5 text-xs text-rose-400 transition hover:bg-rose-500/10"
+            className="flex items-center gap-1.5 self-start rounded-lg border border-rose-300 px-3 py-1.5 text-xs text-rose-700 transition hover:bg-rose-100"
           >
             <IcoX /> Eliminar
           </button>
@@ -269,27 +269,27 @@ function ReelItemCard({
     return (
       <div
         className={`flex flex-col overflow-hidden rounded-2xl border ${
-          item.step === "saved" ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/8 bg-white/3"
+          item.step === "saved" ? "border-emerald-200 bg-emerald-50" : "border-gray-200 bg-white"
         }`}
       >
-        <div className="relative h-40 overflow-hidden bg-black/20">
+        <div className="relative h-40 overflow-hidden bg-gray-100">
           <video src={item.videoBlobUrl ?? undefined} className="h-full w-full object-cover opacity-60" muted />
           <div className="absolute inset-0 flex items-center justify-center">
             {item.step === "saving" ? (
               <Spinner />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/20 text-emerald-400">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-300 bg-emerald-100 text-emerald-700">
                 <IcoCheck />
               </div>
             )}
           </div>
         </div>
         <div className="px-4 py-3">
-          <p className={`text-sm font-semibold ${item.step === "saved" ? "text-emerald-300" : "text-white/50"}`}>
+          <p className={`text-sm font-semibold ${item.step === "saved" ? "text-emerald-700" : "text-gray-500"}`}>
             {item.step === "saved" ? "Programado" : "Programando…"}
           </p>
           {item.savedAt && (
-            <p className="mt-0.5 text-xs text-white/35">
+            <p className="mt-0.5 text-xs text-gray-500">
               {displayDate(item.savedAt)} · {item.savedAt.slice(11, 16)}
             </p>
           )}
@@ -301,14 +301,14 @@ function ReelItemCard({
   // ── ready (compact view) ───────────────────────────────────────────────────
   if (!item.isEditing) {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/3">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white">
         {/* Thumbnail — click abre el preview completo (ReelPreviewModal) en vez de
             reproducir inline, así el click siempre lleva a la vista con caption/hashtags
             completos en vez de dejar al usuario en la card recortada. */}
         <button
           type="button"
           onClick={() => onPreview(item.id)}
-          className="group relative h-40 w-full overflow-hidden bg-black/20 focus:outline-none"
+          className="group relative h-40 w-full overflow-hidden bg-gray-100 focus:outline-none"
         >
           <video src={item.videoBlobUrl ?? undefined} muted playsInline className="h-full w-full object-cover" />
           <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/35">
@@ -323,23 +323,23 @@ function ReelItemCard({
           className="flex flex-1 cursor-pointer flex-col gap-3 p-4"
           onClick={() => onPreview(item.id)}
         >
-          {item.error && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{item.error}</p>}
+          {item.error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{item.error}</p>}
           {item.degraded && (
-            <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
               ⚠️ No pudimos analizar bien el contenido de este archivo — revisa el texto generado antes de aprobar.
             </p>
           )}
 
-          <p className="line-clamp-3 text-sm leading-relaxed text-white/70">{item.editBody}</p>
+          <p className="line-clamp-3 text-sm leading-relaxed text-gray-600">{item.editBody}</p>
 
           {item.editHashtags.length > 0 && (
-            <span className="w-fit rounded-full bg-violet-500/15 px-2.5 py-0.5 text-[11px] font-medium text-violet-300">
+            <span className="w-fit rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-blue-700">
               {item.editHashtags.length} hashtags
             </span>
           )}
 
           {item.editDate && (
-            <p className="flex items-center gap-1.5 text-xs text-white/35">
+            <p className="flex items-center gap-1.5 text-xs text-gray-500">
               <IcoCalendar />
               {displayDate(item.editDate)} · {item.editTime || "09:00"}
             </p>
@@ -349,21 +349,21 @@ function ReelItemCard({
             <button
               type="button"
               onClick={() => onRemove(item.id)}
-              className="flex items-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/35 transition hover:border-rose-500/30 hover:text-rose-400"
+              className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-500 transition hover:border-rose-300 hover:text-rose-600"
             >
               <IcoX />
             </button>
             <button
               type="button"
               onClick={() => onUpdate(item.id, { isEditing: true })}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/45 transition hover:bg-white/5 hover:text-white/70"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
             >
               <IcoPencil /> Editar
             </button>
             <button
               type="button"
               onClick={() => onApprove(item.id)}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
             >
               <IcoCheck sm /> Aprobar
             </button>
@@ -375,13 +375,13 @@ function ReelItemCard({
 
   // ── ready (edit view) ──────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-violet-500/20 bg-white/3">
-      <div className="relative h-24 overflow-hidden bg-black/20">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-blue-200 bg-white">
+      <div className="relative h-24 overflow-hidden bg-gray-100">
         <video src={item.videoBlobUrl ?? undefined} className="h-full w-full object-cover opacity-70" muted />
         <button
           type="button"
           onClick={() => onUpdate(item.id, { isEditing: false })}
-          className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-white/60 backdrop-blur-sm transition hover:bg-white/20"
+          className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-white/80 backdrop-blur-sm transition hover:bg-black/75"
         >
           <IcoX /> Cerrar
         </button>
@@ -389,22 +389,22 @@ function ReelItemCard({
 
       <div className="flex flex-col gap-3 p-4">
         {item.degraded && (
-          <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
             ⚠️ No pudimos analizar bien el contenido de este archivo — revisa el texto generado antes de aprobar.
           </p>
         )}
         <div>
-          <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-white/25">Caption</p>
+          <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-400">Caption</p>
           <textarea
             value={item.editBody}
             onChange={(e) => onUpdate(item.id, { editBody: e.target.value })}
             rows={5}
-            className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm leading-relaxed text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm leading-relaxed text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           />
         </div>
 
         <div>
-          <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-white/25">
+          <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-gray-400">
             Hashtags ({item.editHashtags.length}/15)
           </p>
           <textarea
@@ -417,7 +417,7 @@ function ReelItemCard({
             }}
             rows={2}
             placeholder="#hashtag1 #hashtag2 …"
-            className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 placeholder:text-white/20 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           />
         </div>
 
@@ -427,13 +427,13 @@ function ReelItemCard({
             value={item.editDate}
             min={todayStr()}
             onChange={(e) => onUpdate(item.id, { editDate: e.target.value })}
-            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           />
           <input
             type="time"
             value={item.editTime}
             onChange={(e) => onUpdate(item.id, { editTime: e.target.value })}
-            className="w-28 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+            className="w-28 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           />
         </div>
 
@@ -441,7 +441,7 @@ function ReelItemCard({
           <button
             type="button"
             onClick={() => onUpdate(item.id, { isEditing: false })}
-            className="flex-1 rounded-lg border border-white/10 py-2 text-xs text-white/40 transition hover:bg-white/5"
+            className="flex-1 rounded-lg border border-gray-300 py-2 text-xs text-gray-500 transition hover:bg-gray-50"
           >
             Cancelar
           </button>
@@ -449,7 +449,7 @@ function ReelItemCard({
             type="button"
             onClick={() => onApprove(item.id)}
             disabled={!item.editDate || !item.editBody.trim()}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-500 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <IcoCheck sm /> Aprobar
           </button>
@@ -483,50 +483,50 @@ function ReelPreviewModal({
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0d0d1e] shadow-2xl"
+        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white"
+          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900"
         >
           <IcoX />
         </button>
 
         <div className="flex flex-col overflow-y-auto sm:flex-row">
           {/* Video — reproducible, tamaño grande, sin recortar */}
-          <div className="flex h-64 shrink-0 items-center justify-center overflow-hidden bg-black/40 sm:h-auto sm:w-72">
+          <div className="flex h-64 shrink-0 items-center justify-center overflow-hidden bg-black/85 sm:h-auto sm:w-72">
             <video src={item.videoBlobUrl ?? undefined} controls playsInline className="h-full w-full object-contain" />
           </div>
 
           {/* Content */}
           <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
             {item.error && (
-              <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{item.error}</p>
+              <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{item.error}</p>
             )}
             {item.degraded && (
-              <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                 ⚠️ No pudimos analizar bien el contenido de este archivo — revisa el texto generado antes de aprobar.
               </p>
             )}
 
             {item.editDate && (
-              <p className="flex items-center gap-1.5 text-xs text-white/40">
+              <p className="flex items-center gap-1.5 text-xs text-gray-500">
                 <IcoCalendar />
                 {displayDate(item.editDate)} · {item.editTime || "09:00"}
               </p>
             )}
 
             {/* Caption completo — sin line-clamp */}
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/80">{item.editBody}</p>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">{item.editBody}</p>
 
             {/* Hashtags completos — chips individuales, no solo el conteo */}
             {item.editHashtags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {item.editHashtags.map((h) => (
-                  <span key={h} className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-300">
+                  <span key={h} className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">
                     {h}
                   </span>
                 ))}
@@ -536,18 +536,18 @@ function ReelPreviewModal({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 border-t border-white/8 px-6 py-4">
+        <div className="flex gap-3 border-t border-gray-200 px-6 py-4">
           <button
             type="button"
             onClick={onEdit}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 py-2.5 text-sm text-white/45 transition hover:bg-white/5 hover:text-white/70"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-gray-300 py-2.5 text-sm text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
           >
             <IcoPencil /> Editar
           </button>
           <button
             type="button"
             onClick={onApprove}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-500 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
           >
             <IcoCheck /> Aprobar
           </button>
@@ -819,15 +819,15 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
   if (phase === "batch-review") {
     return (
       <div className="space-y-4">
-        <div className="rounded-2xl border border-violet-500/20 bg-white/3 p-6 text-center">
-          <p className="text-lg font-bold text-white">
+        <div className="rounded-2xl border border-blue-200 bg-white p-6 text-center">
+          <p className="text-lg font-bold text-gray-900">
             {pendingFiles.length} fotos seleccionadas → se generarán {pendingFiles.length} Reels
           </p>
-          <p className="mt-1 text-sm text-white/50">
+          <p className="mt-1 text-sm text-gray-500">
             Cada Reel se genera en secuencia y podrás revisar caption, hashtags y hora antes de programarlo.
           </p>
           <div className="mt-4 space-y-1.5 text-left">
-            <p className="text-xs font-semibold text-white/50">Tema (opcional)</p>
+            <p className="text-xs font-semibold text-gray-500">Tema (opcional)</p>
             <div className="flex flex-wrap justify-center gap-1.5">
               {THEME_OPTIONS.map((opt) => (
                 <button
@@ -836,8 +836,8 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
                   onClick={() => setSelectedTheme(opt.value)}
                   className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                     selectedTheme === opt.value
-                      ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                      : "border-white/10 text-white/50 hover:bg-white/5 hover:text-white/70"
+                      ? "border-blue-400 bg-blue-50 text-blue-700"
+                      : "border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                   }`}
                 >
                   {opt.label}
@@ -849,14 +849,14 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
             <button
               type="button"
               onClick={() => void runBatch(pendingFiles.map((file) => buildReelItem(file, "image")))}
-              className="rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+              className="rounded-lg bg-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
             >
               Generar {pendingFiles.length} Reels
             </button>
             <button
               type="button"
               onClick={reset}
-              className="rounded-lg border border-white/10 px-5 py-2.5 text-sm text-white/50 transition hover:text-white/70"
+              className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm text-gray-500 transition hover:text-gray-900"
             >
               Cancelar
             </button>
@@ -869,15 +869,15 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
   if (phase === "batch-items") {
     if (allSaved) {
       return (
-        <div className="flex flex-col items-center gap-6 rounded-3xl border border-emerald-500/20 bg-emerald-500/5 py-16">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-400">
+        <div className="flex flex-col items-center gap-6 rounded-3xl border border-emerald-200 bg-emerald-50 py-16">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-300 bg-emerald-100 text-emerald-700">
             <IcoCheck />
           </div>
           <div className="text-center">
-            <p className="text-xl font-black text-emerald-300">
+            <p className="text-xl font-black text-emerald-700">
               {reelItems.length === 1 ? "Reel programado" : `${reelItems.length} Reels programados`}
             </p>
-            <p className="mt-1 text-sm text-white/40">Redirigiendo al calendario…</p>
+            <p className="mt-1 text-sm text-gray-500">Redirigiendo al calendario…</p>
           </div>
         </div>
       );
@@ -888,8 +888,8 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
 
     return (
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
-          <p className="text-sm text-white/60">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+          <p className="text-sm text-gray-600">
             {generatingIndex === -1
               ? `${generatedCount} de ${reelItems.length} Reels generados`
               : `Generando Reel ${generatingIndex + 1} de ${reelItems.length}…`}
@@ -898,7 +898,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
             <button
               type="button"
               onClick={() => void approveAllReels()}
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+              className="flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
             >
               <IcoCheck sm /> Aprobar todos ({readyCount})
             </button>
@@ -943,13 +943,13 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
   return (
     <div className="space-y-4">
       {error && (
-        <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
         </div>
       )}
 
       <div className="space-y-1.5">
-        <label htmlFor="reel-batch-user-note" className="text-xs font-semibold text-white/50">
+        <label htmlFor="reel-batch-user-note" className="text-xs font-semibold text-gray-500">
           ¿Qué estás haciendo en estas fotos? (opcional)
         </label>
         <textarea
@@ -959,13 +959,13 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
           maxLength={200}
           rows={2}
           placeholder="Ej: sentadilla búlgara con mancuerna de 15kg"
-          className="w-full resize-none rounded-xl border border-white/10 bg-white/3 px-3 py-2 text-sm text-white/80 placeholder:text-white/20 outline-none transition focus:border-violet-400/40"
+          className="w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 outline-none transition focus:border-blue-400"
         />
-        <p className="text-right text-[11px] text-white/25">{batchUserNote.length}/200</p>
+        <p className="text-right text-[11px] text-gray-400">{batchUserNote.length}/200</p>
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-xs font-semibold text-white/50">Tema (opcional)</p>
+        <p className="text-xs font-semibold text-gray-500">Tema (opcional)</p>
         <div className="flex flex-wrap gap-1.5">
           {THEME_OPTIONS.map((opt) => (
             <button
@@ -974,8 +974,8 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
               onClick={() => setSelectedTheme(opt.value)}
               className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                 selectedTheme === opt.value
-                  ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                  : "border-white/10 text-white/50 hover:bg-white/5 hover:text-white/70"
+                  ? "border-blue-400 bg-blue-50 text-blue-700"
+                  : "border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-gray-900"
               }`}
             >
               {opt.label}
@@ -996,21 +996,21 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
         className={[
           "flex cursor-pointer flex-col items-center justify-center gap-4 rounded-3xl border-2 border-dashed p-16 text-center transition-all",
           isDragging
-            ? "border-violet-500/60 bg-violet-500/10"
-            : "border-white/12 bg-white/3 hover:border-violet-500/40 hover:bg-violet-500/5",
+            ? "border-blue-400 bg-blue-50"
+            : "border-gray-300 bg-white hover:border-blue-400 hover:bg-blue-50",
         ].join(" ")}
       >
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 text-violet-400">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-500">
           {phase === "uploading" ? <Spinner /> : <IcoUpload />}
         </div>
         <div>
-          <p className="text-base font-bold text-white/80">
+          <p className="text-base font-bold text-gray-700">
             {phase === "uploading" ? "Subiendo imagen…" : "Arrastra tus fotos o un vídeo aquí"}
           </p>
           {phase !== "uploading" && (
             <>
-              <p className="mt-1 text-sm text-white/40">o haz click para seleccionar</p>
-              <p className="mt-3 text-xs text-white/25">
+              <p className="mt-1 text-sm text-gray-500">o haz click para seleccionar</p>
+              <p className="mt-3 text-xs text-gray-400">
                 Hasta {maxImages} fotos (JPEG, PNG, WebP, GIF) o 1 vídeo (MP4, MOV) · máx. 200 MB
               </p>
             </>

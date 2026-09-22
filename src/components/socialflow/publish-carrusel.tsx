@@ -81,7 +81,7 @@ function IcoUpload() {
 }
 function Spinner() {
   return (
-    <svg className="h-5 w-5 animate-spin text-violet-400" viewBox="0 0 24 24" fill="none">
+    <svg className="h-5 w-5 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
@@ -132,10 +132,10 @@ type ViralScoreState = {
 };
 
 const VIRAL_SCORE_STYLES: Record<ViralScoreState["label"], string> = {
-  Bajo: "border-rose-500/25 bg-rose-500/8 text-rose-300",
-  Medio: "border-amber-500/25 bg-amber-500/8 text-amber-300",
-  Alto: "border-emerald-500/25 bg-emerald-500/8 text-emerald-300",
-  Viral: "border-purple-500/25 bg-purple-500/8 text-purple-300",
+  Bajo: "border-rose-200 bg-rose-50 text-rose-700",
+  Medio: "border-amber-200 bg-amber-50 text-amber-700",
+  Alto: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  Viral: "border-blue-200 bg-blue-50 text-blue-700",
 };
 
 type SuggestedCarouselPost = {
@@ -186,7 +186,7 @@ function CarouselSlideCard({
   const isRegenerating = slide.status === "regenerating";
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/8 bg-white/3">
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <div className="relative">
         {slide.renderedImageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -221,7 +221,7 @@ function CarouselSlideCard({
               <>
                 <span className="text-2xl">🔄</span>
                 <p className="text-xs font-semibold text-white">Sube una foto de reemplazo para este slide</p>
-                <label className="cursor-pointer rounded-lg bg-violet-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-violet-400">
+                <label className="cursor-pointer rounded-lg bg-blue-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-blue-600">
                   Elegir foto
                   <input
                     type="file"
@@ -233,7 +233,7 @@ function CarouselSlideCard({
                 <button
                   type="button"
                   onClick={onUndoReject}
-                  className="text-[11px] text-white/50 underline transition hover:text-white/80"
+                  className="text-[11px] text-white underline transition hover:text-white/80"
                 >
                   Deshacer rechazo
                 </button>
@@ -244,12 +244,12 @@ function CarouselSlideCard({
       </div>
 
       <div className="space-y-2 px-3 py-3">
-        <span className="text-[10px] font-black uppercase tracking-wide text-violet-400">
+        <span className="text-[10px] font-black uppercase tracking-wide text-blue-600">
           {ROLE_LABEL[slide.role]}
         </span>
 
         {needsReplacement && slide.error && (
-          <p className="text-[11px] text-rose-400">{slide.error}</p>
+          <p className="text-[11px] text-rose-600">{slide.error}</p>
         )}
 
         {needsReplacement ? null : isEditing ? (
@@ -259,15 +259,15 @@ function CarouselSlideCard({
               onChange={(e) => onDraftChange(e.target.value)}
               disabled={isApplying}
               rows={4}
-              className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/80 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/50 disabled:opacity-50"
+              className="w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50 disabled:opacity-50"
             />
-            {slide.error && <p className="text-[11px] text-rose-400">{slide.error}</p>}
+            {slide.error && <p className="text-[11px] text-rose-600">{slide.error}</p>}
             <div className="flex gap-2">
               <button
                 type="button"
                 disabled={isApplying || !slide.draftText.trim()}
                 onClick={onApplyEdit}
-                className="flex-1 rounded-lg bg-violet-500 py-1.5 text-[11px] font-bold text-white transition hover:bg-violet-400 disabled:opacity-50"
+                className="flex-1 rounded-lg bg-blue-500 py-1.5 text-[11px] font-bold text-white transition hover:bg-blue-600 disabled:opacity-50"
               >
                 {isApplying ? "Aplicando…" : "Aplicar cambios"}
               </button>
@@ -275,7 +275,7 @@ function CarouselSlideCard({
                 type="button"
                 disabled={isApplying}
                 onClick={onCancelEdit}
-                className="rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/50 transition hover:text-white/80 disabled:opacity-50"
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-[11px] text-gray-500 transition hover:text-gray-800 disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -283,7 +283,7 @@ function CarouselSlideCard({
           </>
         ) : (
           <>
-            <p className="text-xs leading-snug text-white/70">{slide.text}</p>
+            <p className="text-xs leading-snug text-gray-600">{slide.text}</p>
             <div className="flex gap-2">
               {slide.status !== "approved" && (
                 <button
@@ -300,7 +300,7 @@ function CarouselSlideCard({
                 disabled={isRegenerating}
                 onClick={onStartEdit}
                 className={[
-                  "flex items-center justify-center gap-1 rounded-lg border border-white/10 py-1.5 text-[11px] text-white/60 transition hover:text-white/90 disabled:opacity-50",
+                  "flex items-center justify-center gap-1 rounded-lg border border-gray-300 py-1.5 text-[11px] text-gray-600 transition hover:text-gray-900 disabled:opacity-50",
                   slide.status === "approved" ? "flex-1" : "px-3",
                 ].join(" ")}
               >
@@ -311,7 +311,7 @@ function CarouselSlideCard({
                   type="button"
                   disabled={isRegenerating}
                   onClick={onRegenerate}
-                  className="flex items-center justify-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/60 transition hover:text-white/90 disabled:opacity-50"
+                  className="flex items-center justify-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-[11px] text-gray-600 transition hover:text-gray-900 disabled:opacity-50"
                 >
                   ↺ Regenerar
                 </button>
@@ -321,7 +321,7 @@ function CarouselSlideCard({
               <button
                 type="button"
                 onClick={onReject}
-                className="w-full rounded-lg border border-rose-500/25 bg-rose-500/10 py-1.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/20"
+                className="w-full rounded-lg border border-rose-200 bg-rose-50 py-1.5 text-[11px] font-semibold text-rose-700 transition hover:bg-rose-100"
               >
                 Rechazar
               </button>
@@ -759,25 +759,25 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   if (phase === "idle") {
     return (
       <div className="space-y-6">
-        <p className="text-sm leading-6 text-white/50">
+        <p className="text-sm leading-6 text-gray-500">
           Sube tus fotos y la IA generará el texto de cada slide. Revisa y aprueba cada slide antes de publicar.
         </p>
 
         <div
-          className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-white/15 bg-white/3 px-6 py-14 text-center transition hover:border-violet-500/40"
+          className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-gray-300 bg-gray-50 px-6 py-14 text-center transition hover:border-blue-400"
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => { e.preventDefault(); void handleFileSelect(e.dataTransfer.files); }}
         >
           <IcoUpload />
-          <p className="text-sm font-semibold text-white/70">Arrastra tus fotos aquí o</p>
+          <p className="text-sm font-semibold text-gray-600">Arrastra tus fotos aquí o</p>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110"
+            className="rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-600"
           >
             Elegir fotos
           </button>
-          <p className="mt-1 text-xs text-white/30">
+          <p className="mt-1 text-xs text-gray-400">
             Entre {CAROUSEL_MIN_SLIDES} y {maxSlides} fotos según tu plan · JPEG, PNG, WebP
           </p>
           <input
@@ -791,14 +791,14 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         </div>
 
         {error && (
-          <div className="rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-sm text-rose-300">{error}</div>
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
         )}
 
         {photos.length > 0 && (
           <>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
               {photos.map((p, i) => (
-                <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl ring-2 ring-white/8">
+                <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl ring-2 ring-gray-200">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.previewUrl} alt="" className="h-full w-full object-cover" />
                   <span className="absolute left-1 top-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">
@@ -816,20 +816,20 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
             </div>
 
             {canGenerate && aiSlides > 0 && (
-              <p className="flex items-center gap-2 rounded-2xl border border-violet-500/25 bg-violet-500/10 px-4 py-3 text-sm font-semibold text-violet-200">
+              <p className="flex items-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
                 <span className="text-lg" aria-hidden>✦</span>
                 La IA completará {aiSlides} slide{aiSlides !== 1 ? "s" : ""} de texto para llegar a las {maxSlides} slides de tu plan.
               </p>
             )}
 
-            <p className="text-sm font-medium text-white/60">{photoCounterLabel()}</p>
+            <p className="text-sm font-medium text-gray-600">{photoCounterLabel()}</p>
           </>
         )}
 
         {photos.length > 0 && (
-          <div className="sticky bottom-0 z-10 -mx-1 space-y-3 rounded-2xl border border-white/10 bg-[#050510]/95 p-3 shadow-2xl shadow-black/40 backdrop-blur-md">
+          <div className="sticky bottom-0 z-10 -mx-1 space-y-3 rounded-2xl border border-gray-200 bg-white/95 p-3 shadow-2xl backdrop-blur-md">
             <div className="space-y-1.5">
-              <p className="text-[11px] font-semibold text-white/50">Tema del carrusel</p>
+              <p className="text-[11px] font-semibold text-gray-500">Tema del carrusel</p>
               <div className="flex flex-wrap gap-1.5">
                 {THEME_OPTIONS.map((opt) => (
                   <button
@@ -838,8 +838,8 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
                     onClick={() => setCarouselTheme(opt.value)}
                     className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                       carouselTheme === opt.value
-                        ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                        : "border-white/10 text-white/50 hover:bg-white/5 hover:text-white/70"
+                        ? "border-blue-500/60 bg-blue-50 text-blue-700"
+                        : "border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                     }`}
                   >
                     {opt.label}
@@ -851,7 +851,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
               type="button"
               disabled={!canGenerate}
               onClick={generateCarousel}
-              className="w-full rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-40 disabled:hover:translate-y-0"
+              className="w-full rounded-xl bg-blue-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-600 disabled:opacity-40 disabled:hover:translate-y-0"
             >
               Generar carrusel
             </button>
@@ -868,9 +868,9 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
       phase === "composing" ? "Analizando fotos y componiendo el carrusel…" :
       "Renderizando slides…";
     return (
-      <div className="flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/3 py-20 text-center">
+      <div className="flex flex-col items-center gap-4 rounded-3xl border border-gray-200 bg-gray-50 py-20 text-center">
         <Spinner />
-        <p className="text-sm font-semibold text-white/70">{label}</p>
+        <p className="text-sm font-semibold text-gray-600">{label}</p>
       </div>
     );
   }
@@ -878,14 +878,14 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   // ── saved: confirmación tras guardar ──────────────────────────────────────
   if (phase === "saved") {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-3xl border border-emerald-500/20 bg-emerald-500/5 py-16 text-center">
+      <div className="flex flex-col items-center gap-4 rounded-3xl border border-emerald-200 bg-emerald-50 py-16 text-center">
         <span className="text-4xl">✅</span>
-        <p className="text-lg font-black text-white">Carrusel guardado</p>
-        <p className="max-w-sm text-sm text-white/50">Se publicará automáticamente en la fecha programada.</p>
+        <p className="text-lg font-black text-gray-900">Carrusel guardado</p>
+        <p className="max-w-sm text-sm text-gray-500">Se publicará automáticamente en la fecha programada.</p>
         <button
           type="button"
           onClick={() => router.push("/socialflow/plan")}
-          className="rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110"
+          className="rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-600"
         >
           Ver en el calendario
         </button>
@@ -897,11 +897,11 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   if (phase === "error") {
     return (
       <div className="space-y-4">
-        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-sm text-rose-300">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
         </div>
         {failedSlides.length > 0 && (
-          <ul className="space-y-1 text-xs text-rose-300/80">
+          <ul className="space-y-1 text-xs text-rose-600">
             {failedSlides.map((f) => (
               <li key={f.order}>Foto {f.order + 1}: {f.message}</li>
             ))}
@@ -910,7 +910,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         <button
           type="button"
           onClick={() => setPhase("idle")}
-          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/60 transition hover:bg-white/10"
+          className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
         >
           Volver a intentar
         </button>
@@ -926,14 +926,14 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
   const canSave = slides.length > 0 && pendingReplacements === 0 && approvedCount === slides.length;
   return (
     <div className="space-y-6">
-      <p className="text-xs text-white/40">
+      <p className="text-xs text-gray-500">
         {approvedCount}/{slides.length} slides aprobados
       </p>
       {styleLabel && (
-        <p className="text-[11px] text-white/25">Estilo visual: {styleLabel}</p>
+        <p className="text-[11px] text-gray-400">Estilo visual: {styleLabel}</p>
       )}
       {pendingReplacements > 0 && (
-        <p className="text-xs font-semibold text-amber-400">
+        <p className="text-xs font-semibold text-amber-600">
           Falta reemplazar {pendingReplacements} foto{pendingReplacements !== 1 ? "s" : ""} antes de poder guardar.
         </p>
       )}
@@ -961,10 +961,10 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         ))}
       </div>
       {!canSave && pendingReplacements === 0 && (
-        <p className="text-center text-xs text-white/30">Aprueba todos los slides para poder guardar.</p>
+        <p className="text-center text-xs text-gray-400">Aprueba todos los slides para poder guardar.</p>
       )}
       <div className="space-y-1.5">
-        <label htmlFor="carousel-caption" className="text-xs font-semibold text-white/50">
+        <label htmlFor="carousel-caption" className="text-xs font-semibold text-gray-500">
           Descripción de Instagram (editable)
         </label>
         <textarea
@@ -973,18 +973,18 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
           onChange={(e) => setCaption(e.target.value)}
           maxLength={CAROUSEL_CAPTION_MAX_LENGTH}
           rows={5}
-          className="w-full resize-y rounded-xl border border-white/10 bg-white/3 px-3 py-2.5 text-sm text-white/80 outline-none transition focus:border-violet-400/40"
+          className="w-full resize-y rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none transition focus:border-blue-400"
         />
-        <p className="text-right text-[11px] text-white/25">{caption.length}/{CAROUSEL_CAPTION_MAX_LENGTH}</p>
+        <p className="text-right text-[11px] text-gray-400">{caption.length}/{CAROUSEL_CAPTION_MAX_LENGTH}</p>
       </div>
       {saveError && (
-        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-sm text-rose-300">{saveError}</div>
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{saveError}</div>
       )}
       <button
         type="button"
         disabled={!canSave || isSaving}
         onClick={saveCarousel}
-        className="w-full rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-40 disabled:hover:translate-y-0"
+        className="w-full rounded-xl bg-blue-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-600 disabled:opacity-40 disabled:hover:translate-y-0"
       >
         {isSaving ? "Guardando…" : "Guardar carrusel"}
       </button>

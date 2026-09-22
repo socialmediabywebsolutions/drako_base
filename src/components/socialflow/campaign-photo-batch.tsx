@@ -608,41 +608,41 @@ export function PhotoBatchGrid({
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {items.map((item) => (
-        <div key={item.id} className="flex flex-col overflow-hidden rounded-xl border border-white/8 bg-white/3">
-          <div className="relative h-32 overflow-hidden bg-black/20">
+        <div key={item.id} className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="relative h-32 overflow-hidden bg-gray-100">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={item.localPreviewUrl} alt="" className="h-full w-full object-cover" />
             {(item.step === "uploading" || item.step === "analyzing" || item.step === "saving") && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-violet-400" />
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-blue-400" />
               </div>
             )}
             {item.step === "uploaded" && (
               <div className="absolute bottom-1.5 right-1.5">
-                <span className="rounded-full border border-violet-500/40 bg-violet-500/20 px-2 py-0.5 text-[10px] font-bold text-violet-300">
+                <span className="rounded-full border border-blue-400 bg-blue-500 px-2 py-0.5 text-[10px] font-bold text-white">
                   ✓ Subida
                 </span>
               </div>
             )}
             {item.step === "saved" && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                <span className="rounded-full border border-emerald-500/40 bg-emerald-500/20 px-2 py-1 text-[11px] font-bold text-emerald-300">
+                <span className="rounded-full border border-emerald-400 bg-emerald-500 px-2 py-1 text-[11px] font-bold text-white">
                   ✓ Programado
                 </span>
               </div>
             )}
           </div>
           <div className="flex flex-1 flex-col gap-2 p-3">
-            {item.step === "uploading" && <p className="text-xs text-white/40">Subiendo…</p>}
-            {item.step === "uploaded" && <p className="text-xs text-white/40">Esperando confirmación…</p>}
-            {item.step === "analyzing" && <p className="text-xs text-white/40">Analizando…</p>}
+            {item.step === "uploading" && <p className="text-xs text-gray-400">Subiendo…</p>}
+            {item.step === "uploaded" && <p className="text-xs text-gray-400">Esperando confirmación…</p>}
+            {item.step === "analyzing" && <p className="text-xs text-gray-400">Analizando…</p>}
             {item.step === "error" && (
               <>
-                <p className="text-xs text-rose-300">{item.error}</p>
+                <p className="text-xs text-red-600">{item.error}</p>
                 <button
                   type="button"
                   onClick={() => onRemove(item.id)}
-                  className="self-start rounded-lg border border-rose-500/25 px-2 py-1 text-xs text-rose-400 transition hover:bg-rose-500/10"
+                  className="self-start rounded-lg border border-red-300 px-2 py-1 text-xs text-red-600 transition hover:bg-red-50"
                 >
                   Eliminar
                 </button>
@@ -655,7 +655,7 @@ export function PhotoBatchGrid({
               // fecha/proveedor y Aprobar, igual que el resto de items en su forma final.
               <>
                 <div className="flex items-center gap-1.5">
-                  <span className="rounded-full border border-fuchsia-500/40 bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-bold text-fuchsia-300">
+                  <span className="rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
                     📑 Carrusel ({item.carouselSlideCount} fotos)
                   </span>
                 </div>
@@ -663,17 +663,17 @@ export function PhotoBatchGrid({
                   value={item.editBody}
                   onChange={(e) => onEditBody(item.id, e.target.value)}
                   rows={3}
-                  className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                  className="w-full resize-none rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                 />
                 <div className="flex flex-wrap gap-1">
                   {item.editHashtags.slice(0, 4).map((h) => (
-                    <span key={h} className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">{h}</span>
+                    <span key={h} className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-700">{h}</span>
                   ))}
                   {item.editHashtags.length > 4 && (
-                    <span className="text-[10px] text-white/30">+{item.editHashtags.length - 4}</span>
+                    <span className="text-[10px] text-gray-400">+{item.editHashtags.length - 4}</span>
                   )}
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/40">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
                   <span>{displayDate(item.editDate)} · {item.editTime}</span>
                   <span>{PROVIDER_LABELS[item.editProvider] ?? item.editProvider}</span>
                 </div>
@@ -681,14 +681,14 @@ export function PhotoBatchGrid({
                   <button
                     type="button"
                     onClick={() => onRemove(item.id)}
-                    className="rounded-lg border border-white/10 px-2 py-1.5 text-xs text-white/35 transition hover:border-rose-500/30 hover:text-rose-400"
+                    className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-400 transition hover:border-red-300 hover:text-red-600"
                   >
                     ✕
                   </button>
                   <button
                     type="button"
                     onClick={() => onApprove(item.id)}
-                    className="flex-1 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-1.5 text-xs font-bold text-white shadow-sm transition hover:brightness-110"
+                    className="flex-1 rounded-lg bg-blue-500 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-600"
                   >
                     Aprobar carrusel
                   </button>
@@ -700,17 +700,17 @@ export function PhotoBatchGrid({
                   value={item.editBody}
                   onChange={(e) => onEditBody(item.id, e.target.value)}
                   rows={3}
-                  className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/80 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                  className="w-full resize-none rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                 />
                 <div className="flex flex-wrap gap-1">
                   {item.editHashtags.slice(0, 4).map((h) => (
-                    <span key={h} className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">{h}</span>
+                    <span key={h} className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-700">{h}</span>
                   ))}
                   {item.editHashtags.length > 4 && (
-                    <span className="text-[10px] text-white/30">+{item.editHashtags.length - 4}</span>
+                    <span className="text-[10px] text-gray-400">+{item.editHashtags.length - 4}</span>
                   )}
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/40">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
                   <span>{displayDate(item.editDate)} · {item.editTime}</span>
                   <span>{PROVIDER_LABELS[item.editProvider] ?? item.editProvider}</span>
                 </div>
@@ -720,8 +720,8 @@ export function PhotoBatchGrid({
                     onClick={() => onEditContentType(item.id, "FEED")}
                     className={`flex-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
                       item.editContentType === "FEED"
-                        ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                        : "border-white/10 text-white/35 hover:bg-white/5 hover:text-white/55"
+                        ? "border-blue-400 bg-blue-100 text-blue-700"
+                        : "border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600"
                     }`}
                   >
                     📸 Post
@@ -731,8 +731,8 @@ export function PhotoBatchGrid({
                     onClick={() => onEditContentType(item.id, "STORY")}
                     className={`flex-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
                       item.editContentType === "STORY"
-                        ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                        : "border-white/10 text-white/35 hover:bg-white/5 hover:text-white/55"
+                        ? "border-blue-400 bg-blue-100 text-blue-700"
+                        : "border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600"
                     }`}
                   >
                     ⭕ Historia
@@ -743,8 +743,8 @@ export function PhotoBatchGrid({
                       onClick={() => onCreateReel(item.id)}
                       className={`flex-1 rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
                         item.editContentType === "REEL"
-                          ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                          : "border-white/10 text-white/35 hover:bg-white/5 hover:text-white/55"
+                          ? "border-blue-400 bg-blue-100 text-blue-700"
+                          : "border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600"
                       }`}
                     >
                       🎬 Reel
@@ -755,7 +755,7 @@ export function PhotoBatchGrid({
                   <button
                     type="button"
                     onClick={() => onRemove(item.id)}
-                    className="rounded-lg border border-white/10 px-2 py-1.5 text-xs text-white/35 transition hover:border-rose-500/30 hover:text-rose-400"
+                    className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-400 transition hover:border-red-300 hover:text-red-600"
                   >
                     ✕
                   </button>
@@ -764,12 +764,12 @@ export function PhotoBatchGrid({
                       <button
                         type="button"
                         onClick={() => onCreateReel(item.id)}
-                        className="flex-1 rounded-lg border border-violet-500/40 bg-violet-500/10 py-1.5 text-xs font-bold text-violet-300 transition hover:bg-violet-500/20"
+                        className="flex-1 rounded-lg border border-blue-300 bg-blue-50 py-1.5 text-xs font-bold text-blue-700 transition hover:bg-blue-100"
                       >
                         ▶ Ver Reel
                       </button>
                     ) : (
-                      <span className="flex-1 rounded-lg border border-white/10 py-1.5 text-center text-[11px] text-white/30">
+                      <span className="flex-1 rounded-lg border border-gray-200 py-1.5 text-center text-[11px] text-gray-400">
                         Revisión de Reel requerida
                       </span>
                     )
@@ -777,7 +777,7 @@ export function PhotoBatchGrid({
                     <button
                       type="button"
                       onClick={() => onApprove(item.id)}
-                      className="flex-1 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-1.5 text-xs font-bold text-white shadow-sm transition hover:brightness-110"
+                      className="flex-1 rounded-lg bg-blue-500 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-600"
                     >
                       Aprobar
                     </button>

@@ -112,9 +112,9 @@ export default function KeywordDmAutomationPanel({ saasId }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3 rounded-xl border border-white/8 bg-white/4 p-5">
-        <p className="text-sm font-semibold text-white">Nueva palabra clave</p>
-        <p className="text-xs text-white/40">
+      <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-5">
+        <p className="text-sm font-semibold text-gray-900">Nueva palabra clave</p>
+        <p className="text-xs text-gray-400">
           Cuando alguien comente esta palabra en cualquiera de tus posts, le enviamos automáticamente un DM
           privado (respuesta privada al comentario). Aplica a todos tus posts.
         </p>
@@ -124,12 +124,12 @@ export default function KeywordDmAutomationPanel({ saasId }: Props) {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="Ej: RECETA"
-            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+            className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
           />
           <select
             value={matchType}
             onChange={(e) => setMatchType(e.target.value as KeywordMatchType)}
-            className="rounded-lg border border-white/10 bg-[#0d0d1e] px-2 py-2 text-sm text-white/70 focus:outline-none"
+            className="rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 focus:outline-none"
           >
             <option value="contains">Contiene</option>
             <option value="exact">Exacto</option>
@@ -141,10 +141,10 @@ export default function KeywordDmAutomationPanel({ saasId }: Props) {
           onChange={(e) => setDmMessage(e.target.value)}
           placeholder="Mensaje que recibirá por DM…"
           rows={3}
-          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
         />
 
-        {formError && <p className="text-xs text-red-400">{formError}</p>}
+        {formError && <p className="text-xs text-red-600">{formError}</p>}
 
         <Btn onClick={createTrigger} disabled={isPendingCreate || !keyword.trim() || !dmMessage.trim()} variant="primary">
           {isPendingCreate ? "Creando…" : "Crear palabra clave"}
@@ -153,34 +153,34 @@ export default function KeywordDmAutomationPanel({ saasId }: Props) {
 
       <div className="space-y-3">
         {loading ? (
-          <p className="py-8 text-center text-sm text-white/35">Cargando…</p>
+          <p className="py-8 text-center text-sm text-gray-400">Cargando…</p>
         ) : loadError ? (
-          <p className="py-8 text-center text-sm text-red-400">{loadError}</p>
+          <p className="py-8 text-center text-sm text-red-600">{loadError}</p>
         ) : triggers.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/10 py-12 text-center">
-            <p className="text-sm text-white/35">Aún no tienes palabras clave configuradas.</p>
+          <div className="rounded-xl border border-dashed border-gray-300 py-12 text-center">
+            <p className="text-sm text-gray-400">Aún no tienes palabras clave configuradas.</p>
           </div>
         ) : (
           triggers.map((trigger) => (
-            <div key={trigger.id} className="space-y-2 rounded-xl border border-white/8 bg-white/4 px-4 py-3">
+            <div key={trigger.id} className="space-y-2 rounded-xl border border-gray-200 bg-white px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-semibold text-white">{trigger.keyword}</span>
-                <span className="rounded-full bg-white/8 px-2 py-0.5 text-[11px] font-medium text-white/50">
+                <span className="text-sm font-semibold text-gray-900">{trigger.keyword}</span>
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
                   {trigger.matchType === "exact" ? "Exacto" : "Contiene"}
                 </span>
                 <span
                   className={[
                     "rounded-full px-2 py-0.5 text-[11px] font-medium",
-                    trigger.active ? "bg-emerald-500/15 text-emerald-300" : "bg-white/8 text-white/40",
+                    trigger.active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500",
                   ].join(" ")}
                 >
                   {trigger.active ? "Activo" : "Pausado"}
                 </span>
-                <span className="ml-auto text-[11px] text-white/25">
+                <span className="ml-auto text-[11px] text-gray-400">
                   {trigger.targetPostId ? "Post específico" : "Todos los posts"}
                 </span>
               </div>
-              <p className="whitespace-pre-wrap rounded-lg bg-white/5 px-3 py-2 text-sm text-white/60">
+              <p className="whitespace-pre-wrap rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
                 {trigger.dmMessage}
               </p>
               <div className="flex gap-2">
@@ -215,10 +215,9 @@ function Btn({
   variant: "primary" | "secondary" | "ghost";
 }) {
   const cls = {
-    primary:
-      "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-500/20 hover:brightness-110",
-    secondary: "border border-white/10 bg-white/6 text-white/70 hover:bg-white/10 hover:text-white",
-    ghost: "text-white/35 hover:text-white/60 hover:bg-white/6",
+    primary: "bg-blue-500 text-white shadow-md shadow-blue-500/20 hover:bg-blue-600",
+    secondary: "border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+    ghost: "text-gray-400 hover:text-gray-600 hover:bg-gray-100",
   }[variant];
 
   return (

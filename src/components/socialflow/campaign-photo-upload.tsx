@@ -33,15 +33,15 @@ export default function CampaignPhotoUpload({
   return (
     <div className="space-y-4 p-4">
       {globalError && (
-        <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">{globalError}</div>
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">{globalError}</div>
       )}
 
       <div
         onClick={() => fileInputRef.current?.click()}
-        className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-white/12 bg-white/3 p-8 text-center transition hover:border-violet-500/40 hover:bg-violet-500/5"
+        className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center transition hover:border-blue-400 hover:bg-blue-50"
       >
-        <p className="text-sm font-semibold text-white/70">Arrastra o haz click para subir fotos de esta campaña</p>
-        <p className="text-xs text-white/30">Hasta {maxImages} fotos · JPEG, PNG, WebP, GIF</p>
+        <p className="text-sm font-semibold text-gray-600">Arrastra o haz click para subir fotos de esta campaña</p>
+        <p className="text-xs text-gray-400">Hasta {maxImages} fotos · JPEG, PNG, WebP, GIF</p>
         <input
           ref={fileInputRef}
           type="file"
@@ -55,17 +55,17 @@ export default function CampaignPhotoUpload({
       {items.length > 0 && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-white/40">
+            <p className="text-xs text-gray-400">
               {activeCount} foto{activeCount !== 1 ? "s" : ""}
               {savedCount > 0 && (
-                <span className="ml-2 text-emerald-400">· {savedCount} programada{savedCount !== 1 ? "s" : ""}</span>
+                <span className="ml-2 text-emerald-600">· {savedCount} programada{savedCount !== 1 ? "s" : ""}</span>
               )}
             </p>
             {approvableCount >= 1 && (
               <button
                 type="button"
                 onClick={() => void approveAll()}
-                className="rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:brightness-110"
+                className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-md transition hover:bg-blue-600"
               >
                 Aprobar todo ({approvableCount})
               </button>
@@ -73,14 +73,14 @@ export default function CampaignPhotoUpload({
           </div>
 
           {skippedReelsCount > 0 && (
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-violet-500/25 bg-violet-500/10 px-3 py-2 text-xs text-violet-300">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
               <span>
                 {skippedReelsCount} Reel{skippedReelsCount !== 1 ? "s" : ""} pendiente{skippedReelsCount !== 1 ? "s" : ""} — genera y revisa cada uno con ▶ Ver Reel
               </span>
               <button
                 type="button"
                 onClick={clearSkippedReels}
-                className="text-violet-300/60 transition hover:text-violet-200"
+                className="text-blue-400 transition hover:text-blue-600"
               >
                 ✕
               </button>
@@ -112,15 +112,15 @@ export default function CampaignPhotoUpload({
             onClick={() => setReelsPhotoId(null)}
           >
             <div
-              className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-y-auto rounded-3xl border border-white/10 bg-[#0d0d1e] p-5 shadow-2xl"
+              className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-y-auto rounded-3xl border border-gray-200 bg-white p-5 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-black uppercase tracking-widest text-violet-400">Crear Reel</h3>
+                <h3 className="text-sm font-black uppercase tracking-widest text-blue-600">Crear Reel</h3>
                 <button
                   type="button"
                   onClick={() => setReelsPhotoId(null)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white/60 transition hover:bg-white/20 hover:text-white"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900"
                 >
                   ✕
                 </button>

@@ -173,12 +173,12 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
 
   if (savedAt) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/4 p-8 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-600/15 text-sky-400">
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
           <IcoLinkedIn />
         </div>
-        <p className="text-lg font-bold text-white">Post de LinkedIn programado</p>
-        <p className="mt-1 text-sm text-white/45">
+        <p className="text-lg font-bold text-gray-900">Post de LinkedIn programado</p>
+        <p className="mt-1 text-sm text-gray-500">
           Se publicará el {new Date(savedAt).toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short" })}.
         </p>
         <div className="mt-6 flex justify-center gap-3">
@@ -190,7 +190,7 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
               removeImage();
               setSavedAt(null);
             }}
-            className="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-white/60 transition hover:bg-white/5"
+            className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
           >
             Crear otro post
           </button>
@@ -209,24 +209,24 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-600/15 text-sky-400">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
           <IcoLinkedIn />
         </div>
         <div>
-          <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-400">Socialcors · LinkedIn</div>
-          <h1 className="text-2xl font-black tracking-tight text-white">Crear Post para LinkedIn</h1>
+          <div className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600">Socialcors · LinkedIn</div>
+          <h1 className="text-2xl font-black tracking-tight text-gray-900">Crear Post para LinkedIn</h1>
         </div>
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/8 p-4 text-sm text-red-300">{error}</div>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
       )}
 
-      <div className="space-y-4 rounded-2xl border border-white/10 bg-white/4 p-5">
+      <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <p className="text-xs font-semibold text-white/50">Texto del post</p>
-            <span className={`text-[11px] ${text.length > MAX_CHARS ? "text-red-400" : "text-white/30"}`}>
+            <p className="text-xs font-semibold text-gray-500">Texto del post</p>
+            <span className={`text-[11px] ${text.length > MAX_CHARS ? "text-red-600" : "text-gray-400"}`}>
               {text.length}/{MAX_CHARS}
             </span>
           </div>
@@ -235,7 +235,7 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
             onChange={(e) => setText(e.target.value.slice(0, MAX_CHARS))}
             rows={3}
             placeholder="¿Qué quieres compartir con tu red profesional?"
-            className="w-full resize-y rounded-xl border border-white/10 bg-white/3 px-3 py-2.5 text-sm text-white/85 placeholder:text-white/25 outline-none transition focus:border-sky-400/40"
+            className="w-full resize-y rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-sky-400"
           />
         </div>
 
@@ -243,20 +243,20 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
           type="button"
           onClick={() => void generateWithAi()}
           disabled={generating || uploadingImage}
-          className="flex items-center gap-2 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-300 transition hover:bg-sky-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <IcoSparkles />
           {generating ? "Generando…" : "Generar con IA"}
         </button>
 
         <div>
-          <p className="mb-1.5 text-xs font-semibold text-white/50">Imagen (opcional)</p>
+          <p className="mb-1.5 text-xs font-semibold text-gray-500">Imagen (opcional)</p>
           {imagePreviewUrl ? (
             <div className="relative inline-block">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={imagePreviewUrl} alt="" className="h-32 w-32 rounded-xl object-cover" />
               {uploadingImage && (
-                <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50 text-xs text-white/70">
+                <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50 text-xs text-white/90">
                   Subiendo…
                 </div>
               )}
@@ -272,7 +272,7 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 rounded-xl border border-dashed border-white/15 px-4 py-2.5 text-sm text-white/45 transition hover:border-sky-400/40 hover:text-white/70"
+              className="flex items-center gap-2 rounded-xl border border-dashed border-gray-300 px-4 py-2.5 text-sm text-gray-500 transition hover:border-sky-400 hover:text-gray-700"
             >
               <IcoImage />
               Añadir imagen
@@ -288,17 +288,17 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
         </div>
 
         <div>
-          <p className="mb-1.5 text-xs font-semibold text-white/50">
+          <p className="mb-1.5 text-xs font-semibold text-gray-500">
             Hashtags ({hashtags.length}/{MAX_HASHTAGS})
           </p>
           <div className="flex flex-wrap items-center gap-1.5">
             {hashtags.map((tag) => (
               <span
                 key={tag}
-                className="flex items-center gap-1.5 rounded-full bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-300"
+                className="flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
               >
                 {tag}
-                <button type="button" onClick={() => removeHashtag(tag)} className="text-sky-300/60 hover:text-sky-200">
+                <button type="button" onClick={() => removeHashtag(tag)} className="text-sky-700/60 hover:text-sky-900">
                   <IcoX />
                 </button>
               </span>
@@ -315,25 +315,25 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
                 }}
                 onBlur={addHashtag}
                 placeholder="Añadir hashtag…"
-                className="min-w-[120px] flex-1 rounded-full border border-white/10 bg-white/3 px-3 py-1 text-xs text-white/70 placeholder:text-white/25 outline-none focus:border-sky-400/40"
+                className="min-w-[120px] flex-1 rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 placeholder:text-gray-400 outline-none focus:border-sky-400"
               />
             )}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 border-t border-white/6 pt-4">
+        <div className="flex flex-wrap gap-2 border-t border-gray-200 pt-4">
           <input
             type="date"
             value={date}
             min={todayStr()}
             onChange={(e) => setDate(e.target.value)}
-            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
+            className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
           />
           <input
             type="time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
-            className="w-28 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
+            className="w-28 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
           />
         </div>
 
