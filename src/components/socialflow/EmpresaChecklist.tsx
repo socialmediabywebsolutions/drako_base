@@ -14,18 +14,18 @@ export default function EmpresaChecklist({
   const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/4 p-6">
+    <section className="rounded-2xl border border-white/[0.07] bg-[#0d0d1a] p-6">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-white/90">Primeros pasos</p>
-          <p className="text-xs text-white/40">{completedCount}/{totalCount} tareas completadas</p>
+          <p className="mt-0.5 text-[11px] text-white/35">{completedCount}/{totalCount} tareas completadas</p>
         </div>
-        <span className="text-2xl font-black text-violet-400">{pct}%</span>
+        <span className="text-2xl font-black text-[#6c47ff]">{pct}%</span>
       </div>
 
-      <div className="mb-5 h-2 w-full overflow-hidden rounded-full bg-white/8">
+      <div className="mb-5 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all"
+          className="h-full rounded-full bg-gradient-to-r from-[#6c47ff] to-cyan-400 transition-all"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -35,23 +35,28 @@ export default function EmpresaChecklist({
           ¡Tu negocio está listo para publicar con IA! 🎉
         </div>
       ) : (
-        <ul className="space-y-2.5">
+        <ul className="divide-y divide-white/[0.07]">
           {items.map((item) => (
-            <li
-              key={item.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/4 p-4"
-            >
+            <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3.5 first:pt-0 last:pb-0">
               <div className="flex items-start gap-3">
-                <span className="mt-0.5 text-lg">{item.completed ? "✅" : "⭕"}</span>
+                {item.completed ? (
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                      <path fillRule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0l-3.5-3.5a1 1 0 1 1 1.4-1.4l2.8 2.8 6.8-6.8a1 1 0 0 1 1.4 0Z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                ) : (
+                  <span className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-dashed border-[#6c47ff]/50" aria-hidden="true" />
+                )}
                 <div>
-                  <p className="text-sm font-semibold text-white/85">{item.label}</p>
+                  <p className={`text-sm font-semibold ${item.completed ? "text-white/60" : "text-white/90"}`}>{item.label}</p>
                   <p className="mt-0.5 text-xs text-white/40">{item.description}</p>
                 </div>
               </div>
               {!item.completed && (
                 <Link
                   href={item.href}
-                  className="inline-flex shrink-0 items-center rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/20"
+                  className="inline-flex shrink-0 items-center rounded-xl border border-[#6c47ff]/30 bg-[#6c47ff]/10 px-4 py-2 text-xs font-semibold text-violet-300 transition hover:bg-[#6c47ff]/20"
                 >
                   Completar →
                 </Link>
@@ -60,6 +65,6 @@ export default function EmpresaChecklist({
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
