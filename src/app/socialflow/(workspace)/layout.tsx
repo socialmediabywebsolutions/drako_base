@@ -77,13 +77,7 @@ export default async function SocialFlowWorkspaceLayout({
   const showPaywall = !hasPaidAccess && isTrialExpired;
 
   return (
-    <div className="min-h-screen bg-[#030312] text-white">
-      {/* Subtle gradient orbs — fixed so they don't scroll */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-[-5%] top-[-5%] h-[400px] w-[400px] rounded-full bg-violet-600/10 blur-[120px]" />
-        <div className="absolute right-[-5%] bottom-[-5%] h-[350px] w-[350px] rounded-full bg-fuchsia-600/8 blur-[100px]" />
-      </div>
-
+    <div className="min-h-screen bg-[#f8f9fc] text-gray-900">
       <div className="relative flex min-h-screen">
         {/* Sidebar — hidden on mobile, shown on lg */}
         <div className="hidden lg:flex">

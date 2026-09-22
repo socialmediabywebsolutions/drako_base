@@ -117,11 +117,11 @@ function renderMainNavItem(item: { href: string; label: string; icon: React.Reac
       href={item.href}
       className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
         active
-          ? "bg-gradient-to-r from-violet-500/20 to-fuchsia-500/10 text-white border border-violet-500/25"
-          : "text-white/45 hover:bg-white/5 hover:text-white/80 border border-transparent"
+          ? "bg-blue-50 text-blue-600 border border-blue-100"
+          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent"
       }`}
     >
-      <span className={active ? "text-violet-400" : "text-white/30"}>{item.icon}</span>
+      <span className={active ? "text-blue-600" : "text-gray-400"}>{item.icon}</span>
       {item.label}
     </Link>
   );
@@ -170,26 +170,26 @@ export default function SidebarNav({
   }
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-white/8 bg-[#06060f]">
+    <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
       <div className="flex flex-col gap-5 p-5 flex-1 overflow-y-auto">
 
         {/* Logo */}
         <div className="flex items-center gap-2.5 pt-1 pb-1">
           <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-perfil.png" alt="Socialcors" className="h-10 w-10 object-contain" />
-          <span className="text-base font-black tracking-tight text-white">
-            Social<span className="sf-shimmer-text">cors</span>
+          <span className="text-base font-black tracking-tight text-gray-900">
+            Social<span className="text-blue-500">cors</span>
           </span>
         </div>
 
         {/* User card */}
-        <div className="rounded-xl border border-white/8 bg-white/5 px-4 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-600 text-xs font-black text-white mb-2">
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-xs font-black text-white mb-2">
             {(session.name ?? session.email).charAt(0).toUpperCase()}
           </div>
-          <p className="truncate text-sm font-semibold text-white leading-tight">
+          <p className="truncate text-sm font-semibold text-gray-900 leading-tight">
             {session.name ?? session.email}
           </p>
-          <p className="truncate text-xs text-white/35 mt-0.5">{session.email}</p>
+          <p className="truncate text-xs text-gray-500 mt-0.5">{session.email}</p>
         </div>
 
         {/* Main nav */}
@@ -203,7 +203,7 @@ export default function SidebarNav({
                 <button
                   type="button"
                   onClick={() => toggleNetwork(block.provider)}
-                  className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-white/45 hover:bg-white/5 hover:text-white/80 transition-all border border-transparent"
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all border border-transparent"
                 >
                   <span className="flex items-center gap-3">
                     <span className="text-base leading-none">{block.emoji}</span>
@@ -212,7 +212,7 @@ export default function SidebarNav({
                   <IcoChevron open={open} />
                 </button>
                 {open && (
-                  <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/8 pl-3">
+                  <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-gray-200 pl-3">
                     {block.items.map((item) => renderMainNavItem(item, isActive(item.href)))}
                   </div>
                 )}
@@ -233,24 +233,24 @@ export default function SidebarNav({
         </nav>
 
         {/* Separator */}
-        <div className="h-px bg-white/6" />
+        <div className="h-px bg-gray-200" />
 
         {/* Settings collapsible */}
         <div className="flex flex-col gap-0.5">
           <button
             type="button"
             onClick={() => setSettingsOpen((v) => !v)}
-            className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-white/45 hover:bg-white/5 hover:text-white/80 transition-all border border-transparent"
+            className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all border border-transparent"
           >
             <span className="flex items-center gap-3">
-              <span className="text-white/30"><IcoCog /></span>
+              <span className="text-gray-400"><IcoCog /></span>
               Configuración
             </span>
             <IcoChevron open={settingsOpen} />
           </button>
 
           {settingsOpen && (
-            <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/8 pl-3">
+            <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-gray-200 pl-3">
               {settingsNav.map((item) => {
                 const active = pathname.startsWith(item.href);
                 return (
@@ -259,8 +259,8 @@ export default function SidebarNav({
                     href={item.href}
                     className={`rounded-lg px-3 py-2 text-xs font-medium transition-all ${
                       active
-                        ? "bg-violet-500/15 text-violet-300"
-                        : "text-white/40 hover:text-white/70 hover:bg-white/5"
+                        ? "bg-blue-50 text-blue-600"
+                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
                     }`}
                   >
                     {item.label}
@@ -273,12 +273,12 @@ export default function SidebarNav({
       </div>
 
       {/* Logout footer */}
-      <div className="border-t border-white/6 p-4">
+      <div className="border-t border-gray-200 p-4">
         <button
           type="button"
           onClick={() => void handleLogout()}
           disabled={loggingOut}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/35 transition hover:bg-white/5 hover:text-white/60 disabled:opacity-40"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-500 transition hover:bg-gray-50 hover:text-gray-700 disabled:opacity-40"
         >
           <IcoLogout />
           {loggingOut ? "Cerrando sesión…" : "Cerrar sesión"}

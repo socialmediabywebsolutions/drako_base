@@ -174,9 +174,9 @@ export default async function SocialFlowDashboardPage() {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Greeting name={firstName} />
-          <p className="mt-2 text-sm text-white/50">Esto es lo que está pasando hoy con tus redes.</p>
+          <p className="mt-2 text-sm text-gray-500">Esto es lo que está pasando hoy con tus redes.</p>
         </div>
-        <span className="rounded-full border border-[#6c47ff]/40 bg-[#6c47ff]/10 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-violet-300">
+        <span className="rounded-full border border-[#3b82f6]/40 bg-[#3b82f6]/10 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-[#3b82f6]">
           Plan {planDefinition.label}
         </span>
       </header>

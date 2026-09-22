@@ -19,7 +19,7 @@ export function Greeting({ name }: { name: string | null }) {
   useEffect(() => setGreeting(greetingFor(new Date().getHours())), []);
   const text = greeting ?? "Hola";
   return (
-    <h1 className="text-3xl font-black tracking-tight text-white">
+    <h1 className="text-3xl font-black tracking-tight text-gray-900">
       {text}
       {name ? `, ${name}` : ""}
     </h1>
@@ -35,11 +35,11 @@ function Thumb({ post }: { post: ScheduledPostItem }) {
   if (post.thumbnail && !failed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={post.thumbnail} alt="" onError={() => setFailed(true)} className="h-9 w-9 rounded-md border border-white/10 object-cover" />
+      <img src={post.thumbnail} alt="" onError={() => setFailed(true)} className="h-9 w-9 rounded-md border border-gray-200 object-cover" />
     );
   }
   return (
-    <span className="flex h-9 w-9 items-center justify-center rounded-md border border-[#6c47ff]/30 bg-[#6c47ff]/15 text-[9px] font-bold uppercase text-violet-200">
+    <span className="flex h-9 w-9 items-center justify-center rounded-md border border-[#3b82f6]/30 bg-[#3b82f6]/10 text-[9px] font-bold uppercase text-[#3b82f6]">
       {post.type.slice(0, 4)}
     </span>
   );
@@ -54,7 +54,7 @@ export function WeekCalendar({ posts }: { posts: ScheduledPostItem[] }) {
   }, []);
 
   if (!today) {
-    return <div className="grid grid-cols-7 gap-2" aria-hidden="true">{Array.from({ length: 7 }, (_, i) => <div key={i} className="h-28 rounded-xl bg-white/[0.03]" />)}</div>;
+    return <div className="grid grid-cols-7 gap-2" aria-hidden="true">{Array.from({ length: 7 }, (_, i) => <div key={i} className="h-28 rounded-xl bg-gray-100" />)}</div>;
   }
 
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -77,14 +77,14 @@ export function WeekCalendar({ posts }: { posts: ScheduledPostItem[] }) {
           <div
             key={day.key}
             className={`flex min-h-[7rem] flex-col rounded-xl border p-2.5 ${
-              day.items.length > 0 ? "border-[#6c47ff]/35 bg-[#6c47ff]/[0.07]" : "border-white/[0.06] bg-white/[0.02]"
+              day.items.length > 0 ? "border-[#3b82f6]/35 bg-[#3b82f6]/[0.06]" : "border-gray-200 bg-gray-50"
             }`}
           >
             <div className="flex items-baseline justify-between">
-              <span className={`text-[10px] font-bold uppercase tracking-wider ${day.isToday ? "text-violet-300" : "text-white/40"}`}>
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${day.isToday ? "text-[#3b82f6]" : "text-gray-400"}`}>
                 {day.isToday ? "Hoy" : day.date.toLocaleDateString("es-ES", { weekday: "short" })}
               </span>
-              <span className="text-xs font-semibold text-white/70">{day.date.getDate()}</span>
+              <span className="text-xs font-semibold text-gray-600">{day.date.getDate()}</span>
             </div>
             {day.items.length > 0 ? (
               <div className="mt-2 flex flex-1 flex-col justify-between gap-2">
@@ -93,25 +93,25 @@ export function WeekCalendar({ posts }: { posts: ScheduledPostItem[] }) {
                     <Thumb key={post.id} post={post} />
                   ))}
                 </div>
-                <p className="text-[11px] font-semibold text-violet-200">
+                <p className="text-[11px] font-semibold text-[#3b82f6]">
                   {day.items.length} {day.items.length === 1 ? "post" : "posts"}
                 </p>
               </div>
             ) : (
               <div className="flex flex-1 items-center justify-center">
-                <span className="h-px w-5 bg-white/15" aria-label="Sin publicaciones" />
+                <span className="h-px w-5 bg-gray-300" aria-label="Sin publicaciones" />
               </div>
             )}
           </div>
         ))}
       </div>
       {total === 0 && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-3">
-          <p className="flex items-center gap-2 text-sm text-white/55">
-            <CalendarDays className="h-4 w-4 text-violet-300" aria-hidden="true" />
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-3">
+          <p className="flex items-center gap-2 text-sm text-gray-600">
+            <CalendarDays className="h-4 w-4 text-[#3b82f6]" aria-hidden="true" />
             No tienes nada programado esta semana.
           </p>
-          <Link href="/socialflow/upload" className="text-xs font-bold text-violet-300 transition hover:text-violet-200">
+          <Link href="/socialflow/upload" className="text-xs font-bold text-[#3b82f6] transition hover:text-[#06b6d4]">
             Programar contenido →
           </Link>
         </div>
