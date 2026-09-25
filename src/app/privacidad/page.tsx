@@ -79,6 +79,7 @@ export default function PrivacidadPage() {
           <li><strong>Resend</strong> — envío de correos electrónicos de servicio.</li>
           <li><strong>Stripe</strong> — procesamiento de pagos.</li>
           <li><strong>Google</strong> — geocodificación de direcciones (Google Maps).</li>
+          <li><strong>YouTube Data API</strong> — análisis de tendencias y canales públicos de YouTube para orientar la estrategia de contenido. Solo se accede a datos públicos; no se gestionan cuentas de YouTube de los usuarios.</li>
           <li><strong>Plataformas que tú conectas</strong> (Meta, para Instagram y Facebook, y LinkedIn) — para publicar, leer comentarios y mensajes y consultar métricas en tu nombre, dentro de los permisos que apruebas al conectar tu cuenta.</li>
         </LegalList>
       </LegalSection>
@@ -88,6 +89,7 @@ export default function PrivacidadPage() {
           <li><strong>Instagram:</strong> integración activa.</li>
           <li><strong>LinkedIn:</strong> en desarrollo.</li>
           <li><strong>Facebook:</strong> preparada, pero no activa.</li>
+          <li><strong>YouTube:</strong> análisis de canales y tendencias públicas (sin gestión de cuenta).</li>
         </LegalList>
       </LegalSection>
 
