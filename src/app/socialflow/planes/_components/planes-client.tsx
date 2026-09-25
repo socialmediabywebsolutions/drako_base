@@ -221,6 +221,7 @@ function PlanCard({ plan, kind, config }: { plan: PlanDetail; kind: PlanKind; co
         <span className="font-black" style={{ fontSize: "26px", color: config.networkColor }}>{plan.price}</span>
         <span className="text-sm" style={{ color: MUTED }}>{plan.period}</span>
       </div>
+      <p className="mt-0.5 text-xs" style={{ color: MUTED }}>IVA no incluido</p>
 
       <ul className="mt-6 flex-1 space-y-2.5">
         {plan.checks.map((f) => (
