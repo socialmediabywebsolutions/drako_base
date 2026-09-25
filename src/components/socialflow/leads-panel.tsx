@@ -307,7 +307,7 @@ function LeadCard({
                 type="button"
                 onClick={() => onStatusChange("CONTACTED")}
                 disabled={isPending}
-                className="rounded-lg bg-blue-500 px-3 py-1 text-xs font-medium text-white transition hover:bg-blue-600 disabled:opacity-40"
+                className="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-3 py-1 text-xs font-medium text-white transition hover:from-blue-600 hover:to-cyan-600 disabled:opacity-40"
               >
                 Contactar
               </button>
@@ -452,7 +452,7 @@ function EmptyState({
           </p>
           <Link
             href="/socialflow/conversations"
-            className="mt-3 inline-block rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
+            className="mt-3 inline-block rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600"
           >
             {isEmpresa ? "Ver mis clientes" : "Ver mi comunidad"}
           </Link>

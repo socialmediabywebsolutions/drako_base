@@ -478,7 +478,7 @@ function ItemCard({
               <button
                 type="button"
                 onClick={() => onPreview(item.id)}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600"
               >
                 <IcoCheck sm /> Aprobar
               </button>
@@ -594,7 +594,7 @@ function ItemCard({
               type="button"
               onClick={() => { onUpdate(item.id, { isEditing: false }); onPreview(item.id); }}
               disabled={!item.editDate || !item.editBody.trim()}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-500 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <IcoCheck sm /> Aprobar
             </button>
@@ -690,7 +690,7 @@ function BulkPreviewModal({
           <button
             type="button"
             onClick={onConfirmAll}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-500 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600"
           >
             <IcoCheck /> Confirmar todos ({items.length})
           </button>
@@ -849,7 +849,7 @@ function PreviewModal({
           <button
             type="button"
             onClick={onConfirm}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-500 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600"
           >
             <IcoCheck /> Confirmar y programar
           </button>
@@ -1491,7 +1491,7 @@ export default function UploadToPost({
             <button
               type="button"
               onClick={() => setBulkPreviewOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600"
             >
               <IcoCheck sm />
               Aprobar todo ({approvableCount})

@@ -602,7 +602,7 @@ function PostDetailModal({ post, campaigns, isPending, isRefreshingMetrics, onAc
                           type="button"
                           disabled={isPending || !editTitle.trim() || !editBody.trim()}
                           onClick={() => { onSave(editTitle.trim(), editBody.trim()); setEditing(false); }}
-                          className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-600 disabled:opacity-50"
+                          className="flex-1 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 py-2.5 text-sm font-bold text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50"
                         >
                           {isPending ? "…" : "Guardar"}
                         </button>
@@ -876,7 +876,7 @@ function CreatePostModal(p: CreateModalProps) {
             className={[
               "flex-1 rounded-xl py-2.5 text-sm font-bold shadow-lg transition hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0",
               p.schedule
-                ? "bg-blue-500 text-white shadow-blue-500/25 hover:bg-blue-600"
+                ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-blue-500/25 hover:from-blue-600 hover:to-cyan-600"
                 : "bg-gray-100 text-gray-900 hover:bg-gray-200",
             ].join(" ")}
           >
@@ -1113,7 +1113,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
         </div>
         <button
           onClick={() => router.push("/socialflow/upload")}
-          className="rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:-translate-y-0.5 hover:bg-blue-600"
+          className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:-translate-y-0.5 hover:from-blue-600 hover:to-cyan-600"
         >
           ✦ Subir foto
         </button>
@@ -1243,7 +1243,7 @@ export default function EditorialCalendar({ posts: initialPosts, campaigns, saas
               <p className="text-sm text-gray-500">Sin publicaciones para este día.</p>
               <button
                 onClick={() => router.push("/socialflow/upload")}
-                className="mt-3 rounded-xl bg-blue-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:-translate-y-0.5 hover:bg-blue-600"
+                className="mt-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:-translate-y-0.5 hover:from-blue-600 hover:to-cyan-600"
               >
                 Subir tu primera foto
               </button>

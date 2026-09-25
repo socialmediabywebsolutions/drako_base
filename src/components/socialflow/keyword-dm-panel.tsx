@@ -215,7 +215,7 @@ function Btn({
   variant: "primary" | "secondary" | "ghost";
 }) {
   const cls = {
-    primary: "bg-blue-500 text-white shadow-md shadow-blue-500/20 hover:bg-blue-600",
+    primary: "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-cyan-600",
     secondary: "border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-900",
     ghost: "text-gray-400 hover:text-gray-600 hover:bg-gray-100",
   }[variant];

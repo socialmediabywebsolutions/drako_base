@@ -279,7 +279,7 @@ function CreateCampaignWizard({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-600"
+        className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:from-blue-600 hover:to-cyan-600"
       >
         + Nueva campaña
       </button>
@@ -430,7 +430,7 @@ function CreateCampaignWizard({
             <button
               type="submit"
               disabled={submitting || !name.trim()}
-              className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-600 disabled:opacity-50"
+              className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-bold text-white transition hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50"
             >
               {submitting ? "Creando…" : "Siguiente →"}
             </button>
@@ -483,7 +483,7 @@ function CreateCampaignWizard({
               type="button"
               disabled={batch.uploadedCount < minPhotos}
               onClick={() => setStep(3)}
-              className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-bold text-white transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Continuar →
             </button>
@@ -509,7 +509,7 @@ function CreateCampaignWizard({
                 type="button"
                 disabled={batch.confirming}
                 onClick={() => void batch.confirmAndGenerate()}
-                className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:bg-blue-600 disabled:opacity-50"
+                className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50"
               >
                 {batch.confirming ? "Generando con IA…" : "Confirmar y generar con IA"}
               </button>
@@ -524,7 +524,7 @@ function CreateCampaignWizard({
                   <button
                     type="button"
                     onClick={() => void batch.approveAll()}
-                    className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
+                    className="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600"
                   >
                     Aprobar todo ({batch.approvableCount})
                   </button>

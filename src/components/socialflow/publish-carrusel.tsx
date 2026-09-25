@@ -221,7 +221,7 @@ function CarouselSlideCard({
               <>
                 <span className="text-2xl">🔄</span>
                 <p className="text-xs font-semibold text-white">Sube una foto de reemplazo para este slide</p>
-                <label className="cursor-pointer rounded-lg bg-blue-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-blue-600">
+                <label className="cursor-pointer rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:from-blue-600 hover:to-cyan-600">
                   Elegir foto
                   <input
                     type="file"
@@ -267,7 +267,7 @@ function CarouselSlideCard({
                 type="button"
                 disabled={isApplying || !slide.draftText.trim()}
                 onClick={onApplyEdit}
-                className="flex-1 rounded-lg bg-blue-500 py-1.5 text-[11px] font-bold text-white transition hover:bg-blue-600 disabled:opacity-50"
+                className="flex-1 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 py-1.5 text-[11px] font-bold text-white transition hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50"
               >
                 {isApplying ? "Aplicando…" : "Aplicar cambios"}
               </button>
@@ -773,7 +773,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-600"
+            className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:from-blue-600 hover:to-cyan-600"
           >
             Elegir fotos
           </button>
@@ -851,7 +851,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
               type="button"
               disabled={!canGenerate}
               onClick={generateCarousel}
-              className="w-full rounded-xl bg-blue-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-600 disabled:opacity-40 disabled:hover:translate-y-0"
+              className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-40 disabled:hover:translate-y-0"
             >
               Generar carrusel
             </button>
@@ -885,7 +885,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         <button
           type="button"
           onClick={() => router.push("/socialflow/plan")}
-          className="rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-600"
+          className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:from-blue-600 hover:to-cyan-600"
         >
           Ver en el calendario
         </button>
@@ -984,7 +984,7 @@ export default function PublishCarrusel({ saasId, maxSlides = 6 }: { saasId: str
         type="button"
         disabled={!canSave || isSaving}
         onClick={saveCarousel}
-        className="w-full rounded-xl bg-blue-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-600 disabled:opacity-40 disabled:hover:translate-y-0"
+        className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-40 disabled:hover:translate-y-0"
       >
         {isSaving ? "Guardando…" : "Guardar carrusel"}
       </button>

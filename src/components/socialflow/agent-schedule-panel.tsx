@@ -280,7 +280,7 @@ export default function AgentSchedulePanel({ saasId, autoSendEnabled, initialAct
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? "Guardando…" : "Guardar horario"}
           </button>

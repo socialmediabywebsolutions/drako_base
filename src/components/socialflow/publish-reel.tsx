@@ -363,7 +363,7 @@ function ReelItemCard({
             <button
               type="button"
               onClick={() => onApprove(item.id)}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600"
             >
               <IcoCheck sm /> Aprobar
             </button>
@@ -449,7 +449,7 @@ function ReelItemCard({
             type="button"
             onClick={() => onApprove(item.id)}
             disabled={!item.editDate || !item.editBody.trim()}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-500 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <IcoCheck sm /> Aprobar
           </button>
@@ -547,7 +547,7 @@ function ReelPreviewModal({
           <button
             type="button"
             onClick={onApprove}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-500 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600"
           >
             <IcoCheck /> Aprobar
           </button>
@@ -849,7 +849,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
             <button
               type="button"
               onClick={() => void runBatch(pendingFiles.map((file) => buildReelItem(file, "image")))}
-              className="rounded-lg bg-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
+              className="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600"
             >
               Generar {pendingFiles.length} Reels
             </button>
@@ -898,7 +898,7 @@ export default function PublishReel({ saasId, maxImages }: { saasId: string; max
             <button
               type="button"
               onClick={() => void approveAllReels()}
-              className="flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-600"
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition hover:from-blue-600 hover:to-cyan-600"
             >
               <IcoCheck sm /> Aprobar todos ({readyCount})
             </button>

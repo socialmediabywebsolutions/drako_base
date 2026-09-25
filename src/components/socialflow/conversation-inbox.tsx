@@ -719,7 +719,7 @@ function Btn({
 }) {
   const cls = {
     primary:
-      "bg-blue-500 text-white shadow-md hover:bg-blue-600",
+      "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md hover:from-blue-600 hover:to-cyan-600",
     secondary:
       "border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900",
     ghost:

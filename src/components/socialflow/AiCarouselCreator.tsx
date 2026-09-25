@@ -372,7 +372,7 @@ export default function AiCarouselCreator({
           type="button"
           disabled={!canGenerate || phase === "generating"}
           onClick={() => void generateCarousel()}
-          className="flex items-center gap-2 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "generating" ? (
             <>
@@ -466,7 +466,7 @@ export default function AiCarouselCreator({
           type="button"
           disabled={!allSlidesReady || phase === "saving"}
           onClick={() => void approveAndSchedule()}
-          className="flex items-center gap-2 rounded-xl bg-blue-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "saving" ? (
             <>

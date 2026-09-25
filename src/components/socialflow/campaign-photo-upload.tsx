@@ -65,7 +65,7 @@ export default function CampaignPhotoUpload({
               <button
                 type="button"
                 onClick={() => void approveAll()}
-                className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-md transition hover:bg-blue-600"
+                className="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-3 py-1.5 text-xs font-bold text-white shadow-md transition hover:from-blue-600 hover:to-cyan-600"
               >
                 Aprobar todo ({approvableCount})
               </button>

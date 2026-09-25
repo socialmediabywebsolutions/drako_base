@@ -688,7 +688,7 @@ export function PhotoBatchGrid({
                   <button
                     type="button"
                     onClick={() => onApprove(item.id)}
-                    className="flex-1 rounded-lg bg-blue-500 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-600"
+                    className="flex-1 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 py-1.5 text-xs font-bold text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600"
                   >
                     Aprobar carrusel
                   </button>
@@ -777,7 +777,7 @@ export function PhotoBatchGrid({
                     <button
                       type="button"
                       onClick={() => onApprove(item.id)}
-                      className="flex-1 rounded-lg bg-blue-500 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-600"
+                      className="flex-1 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 py-1.5 text-xs font-bold text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600"
                     >
                       Aprobar
                     </button>
