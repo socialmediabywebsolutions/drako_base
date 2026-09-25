@@ -7,6 +7,8 @@ import {
   fetchInstagramRecentMedia,
   fetchInstagramMediaInsights,
   fetchInstagramMediaEngagement,
+  instagramMediaInsightsMetadata,
+  instagramMediaKind,
   resolveMetaApiBase,
   MetaIntegrationError,
 } from "@/lib/socialflow/meta/core";
@@ -93,10 +95,9 @@ export async function processDeferredInstagramMetrics(): Promise<{ processed: nu
       if (!pageToken) { errors++; continue; }
 
       const apiBase = resolveMetaApiBase(authType);
-      const isReel = post.content_type === "REEL";
       const [recentMedia, mediaInsights] = await Promise.all([
         fetchInstagramRecentMedia(pageToken, igUserId, apiBase).catch(() => []),
-        fetchInstagramMediaInsights(pageToken, post.external_post_id, apiBase, isReel),
+        fetchInstagramMediaInsights(pageToken, post.external_post_id, apiBase, instagramMediaKind(post.content_type)),
       ]);
 
       const mediaItem = recentMedia.find((m) => m.id === post.external_post_id);
@@ -117,17 +118,13 @@ export async function processDeferredInstagramMetrics(): Promise<{ processed: nu
         metadata: {
           type: "media_deferred",
           mediaId: post.external_post_id,
-          reach: mediaInsights.reach,
-          saved: mediaInsights.saved,
-          ...(isReel
-            ? { videoViews: mediaInsights.videoViews, plays: mediaInsights.plays, avgWatchTimeMs: mediaInsights.avgWatchTimeMs }
-            : {}),
+          ...instagramMediaInsightsMetadata(mediaInsights),
         },
       });
 
       processed++;
     } catch (err) {
-      console.warn(`[MetricsDeferred] Post ${post.id} error:`, err instanceof Error ? err.message : String(err));
+      console.warn(`[MetricsDeferred] Post ${post.id} error:`, err instanceof MetaIntegrationError ? `${err.code} ${err.message}` : err instanceof Error ? err.message : String(err));
       errors++;
     }
   }
@@ -160,7 +157,18 @@ export type InstagramMetricsResult = {
   processed: number;
   errors: number;
   mediaProcessed: number;
+  // Filas insertadas en saas_social_metrics (cuenta + posts) — lo que /api/cron/social/metrics
+  // registra en agent_execution_log.
+  rowsWritten: number;
+  firstError: string | null;
 };
+
+function describeMetricsError(endpoint: string, accountId: string, error: unknown): string {
+  const detail = error instanceof MetaIntegrationError
+    ? `${error.code}: ${error.message}`
+    : error instanceof Error ? error.message : String(error);
+  return `${endpoint} account=${accountId} ${detail}`;
+}
 
 export async function processInstagramMetrics(): Promise<InstagramMetricsResult> {
   const bindings = env();
@@ -177,12 +185,18 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
     .all<AccountRow>();
 
   if (!accounts?.length) {
-    return { processed: 0, errors: 0, mediaProcessed: 0 };
+    return { processed: 0, errors: 0, mediaProcessed: 0, rowsWritten: 0, firstError: null };
   }
 
   let processed = 0;
   let errors = 0;
   let mediaProcessed = 0;
+  let rowsWritten = 0;
+  let firstError: string | null = null;
+  const recordError = (endpoint: string, accountId: string, accountType: string | null, error: unknown, extra?: string) => {
+    logMetaMetricsError(endpoint, accountId, accountType, error, extra);
+    firstError ??= describeMetricsError(endpoint, accountId, error).slice(0, 500);
+  };
 
   for (const account of accounts) {
     let accountType: string | null = null;
@@ -201,6 +215,7 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
 
       if (!encryptedToken || !igUserId) {
         console.warn(`[MetricsCron] Account ${account.id}: missing token or igUserId`);
+        firstError ??= `account=${account.id} missing token or igUserId`;
         errors++;
         continue;
       }
@@ -208,6 +223,7 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
       const pageToken = await decryptToken(encryptedToken);
       if (!pageToken) {
         console.warn(`[MetricsCron] Account ${account.id}: decryption returned null`);
+        firstError ??= `account=${account.id} token decryption returned null`;
         errors++;
         continue;
       }
@@ -218,12 +234,15 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
         saasId: account.saas_id,
       });
 
-      let insights;
+      // Un fallo de las métricas de cuenta ya no aborta la cuenta entera: se registra y se
+      // sigue con las métricas por post, que son independientes. Sin insights no se
+      // escribe la fila account:<id> de este ciclo.
+      let insights: Awaited<ReturnType<typeof fetchInstagramAccountInsights>> | null = null;
       try {
         insights = await fetchInstagramAccountInsights(pageToken, igUserId, apiBase, accountType);
       } catch (accountInsightsError) {
-        logMetaMetricsError("account_insights", account.id, accountType, accountInsightsError);
-        throw accountInsightsError;
+        recordError("account_insights", account.id, accountType, accountInsightsError);
+        errors++;
       }
 
       // For Business/legacy accounts, impressions/reach come straight from account
@@ -231,7 +250,7 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
       // and reach are 0 here by design (fetchInstagramAccountInsights skipped that call)
       // — the account-level row is written further down instead, once the per-media loop
       // has summed real numbers from each post's own insights.
-      if (!isCreator) {
+      if (insights && !isCreator) {
         await upsertSaasSocialMetrics(ctx, {
           postId: `account:${account.id}`,
           provider: "INSTAGRAM",
@@ -252,11 +271,12 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
             reachSource: "account_insights",
           },
         });
+        rowsWritten++;
       }
 
       // Per-media insights — only for posts SocialFlow published (have externalPostId match)
       const media = await fetchInstagramRecentMedia(pageToken, igUserId, apiBase).catch((recentMediaError) => {
-        logMetaMetricsError("recent_media", account.id, accountType, recentMediaError);
+        recordError("recent_media", account.id, accountType, recentMediaError);
         return [];
       });
 
@@ -279,8 +299,7 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
           matchedExternalIds.add(item.id);
 
           const matchingPost = matchingPosts[0];
-          const isMediaReel = matchingPost.content_type === "REEL";
-          const mediaInsights = await fetchInstagramMediaInsights(pageToken, item.id, apiBase, isMediaReel);
+          const mediaInsights = await fetchInstagramMediaInsights(pageToken, item.id, apiBase, instagramMediaKind(matchingPost.content_type));
           let mediaCtx = contextBySaasId.get(matchingPost.saas_id);
           if (!mediaCtx) {
             mediaCtx = await resolveSocialContext({ tenantId: account.tenant_id, saasId: matchingPost.saas_id });
@@ -307,18 +326,15 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
             metadata: {
               type: "media",
               mediaId: item.id,
-              reach: mediaInsights.reach,
-              saved: mediaInsights.saved,
               timestamp: item.timestamp,
-              ...(isMediaReel
-                ? { videoViews: mediaInsights.videoViews, plays: mediaInsights.plays, avgWatchTimeMs: mediaInsights.avgWatchTimeMs }
-                : {}),
+              ...instagramMediaInsightsMetadata(mediaInsights),
             },
           });
 
           mediaProcessed++;
+          rowsWritten++;
         } catch (mediaError) {
-          logMetaMetricsError("media_insights", account.id, accountType, mediaError, item.id);
+          recordError("media_insights", account.id, accountType, mediaError, item.id);
         }
       }
 
@@ -352,11 +368,23 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
       for (const post of uncapturedPosts ?? []) {
         if (matchedExternalIds.has(post.external_post_id)) continue;
         try {
-          const isBackfillReel = post.content_type === "REEL";
-          const [mediaInsights, engagement] = await Promise.all([
-            fetchInstagramMediaInsights(pageToken, post.external_post_id, apiBase, isBackfillReel),
+          // allSettled: insights y likes/comentarios son llamadas independientes — si una
+          // falla (p.ej. insights de una Story caducada) se guarda igual lo que sí llegó.
+          const [insightsResult, engagementResult] = await Promise.allSettled([
+            fetchInstagramMediaInsights(pageToken, post.external_post_id, apiBase, instagramMediaKind(post.content_type)),
             fetchInstagramMediaEngagement(pageToken, post.external_post_id, apiBase),
           ]);
+
+          if (insightsResult.status === "rejected") {
+            recordError("media_insights_backfill", account.id, accountType, insightsResult.reason, post.external_post_id);
+          }
+          if (engagementResult.status === "rejected") {
+            recordError("media_engagement_backfill", account.id, accountType, engagementResult.reason, post.external_post_id);
+          }
+          if (insightsResult.status === "rejected" && engagementResult.status === "rejected") continue;
+
+          const mediaInsights = insightsResult.status === "fulfilled" ? insightsResult.value : null;
+          const engagement = engagementResult.status === "fulfilled" ? engagementResult.value : null;
 
           let backfillCtx = contextBySaasId.get(post.saas_id);
           if (!backfillCtx) {
@@ -364,7 +392,7 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
             contextBySaasId.set(post.saas_id, backfillCtx);
           }
 
-          if (isCreator) {
+          if (isCreator && mediaInsights) {
             creatorReachSum += mediaInsights.reach;
             creatorImpressionsSum += mediaInsights.impressions;
           }
@@ -372,33 +400,31 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
           await upsertSaasSocialMetrics(backfillCtx, {
             postId: post.id,
             provider: "INSTAGRAM",
-            impressions: mediaInsights.impressions,
-            likes: engagement.likeCount,
-            comments: engagement.commentsCount,
-            shares: mediaInsights.shares,
+            impressions: mediaInsights?.impressions ?? 0,
+            likes: engagement?.likeCount ?? 0,
+            comments: engagement?.commentsCount ?? 0,
+            shares: mediaInsights?.shares ?? 0,
             clicks: 0,
             leadsGenerated: 0,
-            reach: mediaInsights.reach,
-            saved: mediaInsights.saved,
+            reach: mediaInsights?.reach ?? 0,
+            saved: mediaInsights?.saved ?? 0,
             capturedAt: new Date().toISOString(),
             metadata: {
               type: "media_backfill",
               mediaId: post.external_post_id,
-              reach: mediaInsights.reach,
-              saved: mediaInsights.saved,
-              ...(isBackfillReel
-                ? { videoViews: mediaInsights.videoViews, plays: mediaInsights.plays, avgWatchTimeMs: mediaInsights.avgWatchTimeMs }
-                : {}),
+              ...(mediaInsights ? instagramMediaInsightsMetadata(mediaInsights) : { insightsUnavailable: true }),
+              ...(engagement ? {} : { engagementUnavailable: true }),
             },
           });
 
           mediaProcessed++;
+          rowsWritten++;
         } catch (backfillError) {
-          logMetaMetricsError("media_insights_backfill", account.id, accountType, backfillError, post.external_post_id);
+          recordError("media_backfill", account.id, accountType, backfillError, post.external_post_id);
         }
       }
 
-      if (isCreator) {
+      if (isCreator && insights) {
         await upsertSaasSocialMetrics(ctx, {
           postId: `account:${account.id}`,
           provider: "INSTAGRAM",
@@ -419,6 +445,7 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
             reachSource: "media_insights_sum",
           },
         });
+        rowsWritten++;
       }
 
       processed++;
@@ -430,10 +457,10 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
         await checkAndRefreshInstagramToken(socialDb, { id: account.id, tenantId: account.tenant_id, saasId: account.saas_id }, authMeta);
       }
     } catch (error) {
-      logMetaMetricsError("account_processing", account.id, accountType, error);
+      recordError("account_processing", account.id, accountType, error);
       errors++;
     }
   }
 
-  return { processed, errors, mediaProcessed };
+  return { processed, errors, mediaProcessed, rowsWritten, firstError };
 }

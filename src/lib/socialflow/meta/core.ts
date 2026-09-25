@@ -456,22 +456,43 @@ export type InstagramMediaItem = {
 };
 
 export type InstagramMediaInsights = {
+  // Desde Graph API v22.0 `impressions` ya no existe (ni en media ni en cuenta) — Meta la
+  // sustituyó por `views`. Se sigue exponiendo `impressions` (= views) porque es lo que la
+  // columna saas_social_metrics.impressions y todos sus lectores esperan.
   impressions: number;
+  views: number;
   reach: number;
   saved: number;
   shares: number;
-  // Solo presentes cuando isReel=true — video_views/plays/ig_reels_avg_watch_time no son
-  // métricas válidas para foto/carrusel, la Insights API rechaza la petición entera si se
-  // piden fuera de un Reel. undefined (no 0) para no fingir un dato que no se pidió.
+  // Solo FEED/CAROUSEL — total_interactions no se pide para Reels ni Stories.
+  totalInteractions?: number;
+  // Solo Reels. `video_views` y `plays` están retiradas en v22.0: videoViews/plays se
+  // rellenan con `views` para que los lectores existentes (metadata.plays/videoViews en
+  // dashboard-data.ts y repository.ts) sigan funcionando sin cambios.
   videoViews?: number;
   plays?: number;
   avgWatchTimeMs?: number;
 };
 
+export type InstagramMediaKind = "FEED" | "REEL" | "STORY";
+
+// CAROUSEL/SHORT/cualquier otro content_type usan el set de FEED — la Insights API
+// solo distingue Reels y Stories del resto.
+export function instagramMediaKind(contentType: string | null | undefined): InstagramMediaKind {
+  if (contentType === "REEL") return "REEL";
+  if (contentType === "STORY") return "STORY";
+  return "FEED";
+}
+
+// Admite las dos formas de respuesta de la Insights API: series temporales
+// (`values: [{ value }]`, se suman) y métricas agregadas con metric_type=total_value
+// (`total_value: { value }`).
 function sumInsightMetric(data: unknown[], metricName: string): number {
   if (!Array.isArray(data)) return 0;
-  const metric = data.find((d) => toMetaRecord(d)?.name === metricName);
-  const values = toMetaRecord(metric)?.values;
+  const metric = toMetaRecord(data.find((d) => toMetaRecord(d)?.name === metricName));
+  const totalValue = toMetaRecord(metric?.total_value)?.value;
+  if (typeof totalValue === "number") return totalValue;
+  const values = metric?.values;
   if (!Array.isArray(values)) return 0;
   return values.reduce((sum, v) => {
     const val = toMetaRecord(v)?.value;
@@ -504,11 +525,15 @@ export async function fetchInstagramAccountInsights(
   const until = Math.floor(Date.now() / 1000);
   const isCreator = accountType === "MEDIA_CREATOR";
 
+  // reach,views con metric_type=total_value — `views` solo admite total_value (no serie
+  // diaria), y `impressions` ya no existe en v22.0: pedirla hacía que Meta rechazara la
+  // petición entera con 400, y como antes no se comprobaba response.ok el alcance salía
+  // 0 sin ningún error visible.
   const [insightsResponse, profileResponse] = await Promise.all([
     isCreator
       ? Promise.resolve(null)
       : fetch(
-          `${apiBase}/${normalizedId}/insights?metric=impressions,reach&period=day&since=${since}&until=${until}&access_token=${normalizedToken}`,
+          `${apiBase}/${normalizedId}/insights?metric=reach,views&metric_type=total_value&period=day&since=${since}&until=${until}&access_token=${normalizedToken}`,
           { method: "GET" },
         ),
     fetch(
@@ -520,12 +545,16 @@ export async function fetchInstagramAccountInsights(
   const insightsPayload = insightsResponse ? await parseMetaJson(insightsResponse) : null;
   const profilePayload = await parseMetaJson(profileResponse);
 
+  if (insightsResponse && !insightsResponse.ok) {
+    throw buildMetaApiError("META_ACCOUNT_INSIGHTS_FAILED", normalizeMetaApiMessage(insightsPayload, "Instagram account insights fetch failed."), { status: insightsResponse.status, payload: insightsPayload });
+  }
+
   const data = Array.isArray(insightsPayload?.data) ? insightsPayload.data : [];
   const followersCount = typeof profilePayload?.followers_count === "number" ? profilePayload.followers_count : 0;
 
   return {
     followersCount,
-    impressions: isCreator ? 0 : sumInsightMetric(data, "impressions"),
+    impressions: isCreator ? 0 : sumInsightMetric(data, "views"),
     reach: isCreator ? 0 : sumInsightMetric(data, "reach"),
     capturedAt: new Date().toISOString(),
   };
@@ -601,15 +630,39 @@ export async function fetchInstagramMediaEngagement(
   };
 }
 
-// isReel selects which metric set to request — the Insights API rejects the ENTIRE
-// request with a 400 if any metric in the list doesn't apply to that media's type
-// (video_views/plays/ig_reels_avg_watch_time only exist for Reels; impressions is
-// deprecated for Reels), so the two sets can never be concatenated into one call.
+// The Insights API rejects the ENTIRE request with a 400 if any metric in the list
+// doesn't apply to that media's type or no longer exists (impressions, video_views and
+// plays were all removed in v22.0 — requesting any of them was why no per-post metrics
+// were ever stored), so each kind gets its own set:
+//   FEED/CAROUSEL: total_interactions is feed-only.
+//   REEL: ig_reels_avg_watch_time is reel-only.
+//   STORY: no `saved` — stories can't be saved, and the metric isn't valid for them.
+const MEDIA_INSIGHT_METRICS: Record<InstagramMediaKind, string> = {
+  FEED: "reach,saved,shares,views,total_interactions",
+  REEL: "reach,saved,shares,views,ig_reels_avg_watch_time",
+  STORY: "reach,shares,views",
+};
+
+// Campos de metadata que cada fila de saas_social_metrics por post guarda a partir de
+// sus insights — compartido por el cron, el camino diferido, el backfill y el refresh
+// manual para que no diverjan.
+export function instagramMediaInsightsMetadata(insights: InstagramMediaInsights): Record<string, number> {
+  return {
+    reach: insights.reach,
+    saved: insights.saved,
+    views: insights.views,
+    ...(insights.totalInteractions !== undefined ? { totalInteractions: insights.totalInteractions } : {}),
+    ...(insights.videoViews !== undefined ? { videoViews: insights.videoViews } : {}),
+    ...(insights.plays !== undefined ? { plays: insights.plays } : {}),
+    ...(insights.avgWatchTimeMs !== undefined ? { avgWatchTimeMs: insights.avgWatchTimeMs } : {}),
+  };
+}
+
 export async function fetchInstagramMediaInsights(
   pageToken: string,
   mediaId: string,
   apiBase: string,
-  isReel: boolean,
+  kind: InstagramMediaKind,
 ): Promise<InstagramMediaInsights> {
   const normalizedToken = pageToken.trim();
   const normalizedMediaId = mediaId.trim();
@@ -617,9 +670,7 @@ export async function fetchInstagramMediaInsights(
     throw buildMetaApiError("META_ACCESS_TOKEN_MISSING", "Page token and media ID are required.", { accountStatus: "INVALID_CREDENTIALS" });
   }
 
-  const metric = isReel
-    ? "reach,saved,shares,video_views,plays,ig_reels_avg_watch_time"
-    : "impressions,reach,saved,shares";
+  const metric = MEDIA_INSIGHT_METRICS[kind];
 
   const url = new URL(`${apiBase}/${normalizedMediaId}/insights`);
   url.searchParams.set("metric", metric);
@@ -632,15 +683,18 @@ export async function fetchInstagramMediaInsights(
   }
 
   const data = Array.isArray(payload?.data) ? payload.data : [];
+  const views = sumInsightMetric(data, "views");
   return {
-    impressions: isReel ? 0 : sumInsightMetric(data, "impressions"),
+    impressions: views,
+    views,
     reach: sumInsightMetric(data, "reach"),
     saved: sumInsightMetric(data, "saved"),
     shares: sumInsightMetric(data, "shares"),
-    ...(isReel
+    ...(kind === "FEED" ? { totalInteractions: sumInsightMetric(data, "total_interactions") } : {}),
+    ...(kind === "REEL"
       ? {
-          videoViews: sumInsightMetric(data, "video_views"),
-          plays: sumInsightMetric(data, "plays"),
+          videoViews: views,
+          plays: views,
           avgWatchTimeMs: sumInsightMetric(data, "ig_reels_avg_watch_time"),
         }
       : {}),

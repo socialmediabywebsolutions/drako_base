@@ -10,7 +10,7 @@ import {
   SocialContextError,
   upsertSaasSocialMetrics,
 } from "@/lib/socialflow/repository";
-import { fetchInstagramMediaInsights, fetchInstagramRecentMedia } from "@/lib/socialflow/meta/core";
+import { fetchInstagramMediaInsights, fetchInstagramRecentMedia, instagramMediaInsightsMetadata, instagramMediaKind } from "@/lib/socialflow/meta/core";
 import { requireInstagramCredentials } from "@/lib/socialflow/meta/publishing";
 
 export async function POST(
@@ -56,10 +56,9 @@ export async function POST(
       return NextResponse.json({ code: "INVALID_CREDENTIALS", message: err instanceof Error ? err.message : "Instagram account credentials are incomplete" }, { status: 422 });
     }
 
-    const isReel = post.contentType === "REEL";
     const [recentMedia, mediaInsights] = await Promise.all([
       fetchInstagramRecentMedia(creds.accessToken, creds.igUserId, creds.apiBase).catch(() => []),
-      fetchInstagramMediaInsights(creds.accessToken, post.externalPostId, creds.apiBase, isReel),
+      fetchInstagramMediaInsights(creds.accessToken, post.externalPostId, creds.apiBase, instagramMediaKind(post.contentType)),
     ]);
 
     const mediaItem = recentMedia.find((m) => m.id === post.externalPostId);
@@ -78,12 +77,8 @@ export async function POST(
       metadata: {
         type: "media_manual_refresh",
         mediaId: post.externalPostId,
-        reach: mediaInsights.reach,
-        saved: mediaInsights.saved,
         timestamp: mediaItem?.timestamp ?? null,
-        ...(isReel
-          ? { videoViews: mediaInsights.videoViews, plays: mediaInsights.plays, avgWatchTimeMs: mediaInsights.avgWatchTimeMs }
-          : {}),
+        ...instagramMediaInsightsMetadata(mediaInsights),
       },
     });
 
@@ -101,9 +96,7 @@ export async function POST(
         reach: mediaInsights.reach,
         saved: mediaInsights.saved,
         capturedAt,
-        ...(isReel
-          ? { videoViews: mediaInsights.videoViews, plays: mediaInsights.plays, avgWatchTimeMs: mediaInsights.avgWatchTimeMs }
-          : {}),
+        ...instagramMediaInsightsMetadata(mediaInsights),
       },
     });
   } catch (error) {

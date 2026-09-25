@@ -3,8 +3,28 @@ import { verifyCronAuth, CronAuthError } from "@/lib/security/cron-auth";
 import { processInstagramMetrics } from "@/lib/socialflow/meta/metrics-collector";
 import { processLinkedInMetrics } from "@/lib/socialflow/linkedin/metrics-collector";
 import { checkAllLinkedInAccountTokens } from "@/lib/socialflow/linkedin/token-health";
+import { insertAgentExecutionLog } from "@/lib/socialflow/intelligence/agent-execution-log";
+import { env } from "@/lib/cf";
 
 export const dynamic = "force-dynamic";
+
+// Una fila por ejecución en agent_execution_log (agent_name='MetricsCron') — hasta ahora
+// los fallos del recolector solo iban a console.error y eran invisibles salvo con
+// `wrangler tail` en directo. Un fallo al escribir el log nunca tumba el cron.
+async function logMetricsCronExecution(startedAt: string, rowsWritten: number | null, errorMessage: string | null): Promise<void> {
+  const db = env()?.SOCIAL_DB;
+  if (!db) return;
+  await insertAgentExecutionLog(db, {
+    agentName: "MetricsCron",
+    tenantId: null,
+    saasId: null,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    status: errorMessage ? "error" : "success",
+    rowsWritten,
+    errorMessage: errorMessage ? errorMessage.slice(0, 500) : null,
+  }).catch((err) => console.error("[SocialMetricsCron] agent_execution_log insert failed", err));
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,6 +36,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const startedAt = new Date().toISOString();
   try {
     const instagram = await processInstagramMetrics();
     // Independiente del resultado de Instagram — un fallo de LinkedIn no debe
@@ -42,9 +63,12 @@ export async function GET(req: NextRequest) {
       linkedinTokenHealth = { checked: 0, errors: 1 };
     }
 
+    await logMetricsCronExecution(startedAt, instagram.rowsWritten, instagram.firstError);
+
     return NextResponse.json({ success: true, instagram, linkedin, linkedinTokenHealth });
   } catch (error) {
     console.error("[SocialMetricsCron] Failed", error);
+    await logMetricsCronExecution(startedAt, null, error instanceof Error ? error.message : String(error));
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
   }
 }
