@@ -633,7 +633,10 @@ jobs:
           # transient Cloudflare D1 error (the Durable Object hosting the DB restarts
           # mid-request — cold start / internal reset) that hits a random migration on
           # any given run, not a real SQL problem — retried up to 3 times per file with a
-          # 5s pause before giving up and blocking the deploy for real.
+          # 5s pause before giving up and blocking the deploy for real. Same for the
+          # generic "internal error; reference = ..." the D1 import API returns on its own
+          # hiccups (run #951, 0215). Not matched by code 7500 alone: D1 also uses 7500 for
+          # real SQL errors ("no such column ... [code: 7500]"), which must still block.
           for migration in \
             migrations/0184_socialflow_runtime_social_db.sql \
             migrations/0185_socialflow_profiles.sql \
@@ -674,9 +677,9 @@ jobs:
                 break
               fi
 
-              if echo "$OUTPUT" | grep -qi "D1_RESET_DO" && [ "$attempt" -lt "$max_attempts" ]; then
+              if echo "$OUTPUT" | grep -Eqi "D1_RESET_DO|internal error; reference" && [ "$attempt" -lt "$max_attempts" ]; then
                 attempt=$((attempt + 1))
-                echo "Transient D1_RESET_DO on ${migration} — retrying (attempt ${attempt}/${max_attempts}) in 5s..."
+                echo "Transient D1 error on ${migration} — retrying (attempt ${attempt}/${max_attempts}) in 5s..."
                 sleep 5
                 continue
               fi
