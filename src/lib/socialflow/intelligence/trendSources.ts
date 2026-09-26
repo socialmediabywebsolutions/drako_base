@@ -4,10 +4,15 @@
 // estructurado, mismo criterio que el resto del código (ej. extractHashtags en
 // contentHeuristics.ts) — evita meter una dependencia nueva solo para leer 2-3 campos.
 
+import { cleanYoutubeTitle, looksSpanish } from "./languageFilter";
+
 const YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
 const YOUTUBE_CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels";
 const GOOGLE_TRENDS_RSS_URL = "https://trends.google.com/trending/rss?geo=ES";
-const MAX_YOUTUBE_RESULTS = 10;
+// 50 = máximo de search.list, mismo coste (100 unidades) que 10 — hace falta margen
+// porque el filtro de idioma (languageFilter.ts) descarta la mayoría de resultados.
+const MAX_YOUTUBE_RESULTS = 50;
+const MAX_YOUTUBE_HOOKS = 10;
 const MAX_REDDIT_RESULTS = 10;
 const MAX_TRENDS_RESULTS = 15;
 const TOP_CHANNELS_N = 3;
@@ -43,25 +48,37 @@ export const NICHE_TO_SUBREDDIT: Record<string, string> = {
 
 // Queries en español para los nichos más comunes — para el resto de los 55, a diferencia
 // de Reddit, siempre hay una query genérica derivable del slug (YouTube es la fuente
-// principal, tiene que cubrir los 55, no solo un subconjunto).
+// principal, tiene que cubrir los 55, no solo un subconjunto). Sin "virales"/"reels":
+// con order=viewCount esas palabras casaban sobre todo con Shorts de cualquier país
+// rellenos de #viral #reels, no con contenido del nicho en español.
 const NICHE_TO_YOUTUBE_QUERY: Record<string, string> = {
-  fitness: "fitness reels virales",
-  nutricion: "nutrición tips virales",
-  cocina_recetas: "recetas virales España",
-  viajes: "viajes reels virales",
-  yoga: "yoga reels virales",
-  running: "running tips virales",
-  crossfit: "crossfit reels virales",
-  mindfulness: "mindfulness meditación virales",
-  finanzas_personales: "finanzas personales tips virales",
-  emprendimiento: "emprendimiento reels virales",
-  tecnologia: "tecnología tips virales",
-  gaming: "gaming reels virales",
-  musica: "música reels virales",
+  fitness: "rutina fitness en casa",
+  nutricion: "nutrición consejos",
+  cocina_recetas: "recetas fáciles",
+  viajes: "viajes consejos",
+  yoga: "yoga en casa",
+  running: "running consejos",
+  crossfit: "crossfit entrenamiento",
+  mindfulness: "meditación mindfulness",
+  finanzas_personales: "finanzas personales consejos",
+  emprendimiento: "emprendimiento consejos",
+  tecnologia: "tecnología novedades",
+  gaming: "gaming en español",
+  musica: "música novedades",
 };
 
 export function buildYoutubeQuery(niche: string): string {
-  return NICHE_TO_YOUTUBE_QUERY[niche] ?? `${niche.replace(/_/g, " ")} reels virales España`;
+  return NICHE_TO_YOUTUBE_QUERY[niche] ?? `${niche.replace(/_/g, " ")} en español`;
+}
+
+// Solo títulos que parecen español, ya limpios de hashtags/entidades HTML.
+function spanishTitles(items: YoutubeSearchItem[]): Array<{ title: string; channelId?: string }> {
+  return items.flatMap((item) => {
+    const raw = item.snippet?.title;
+    if (!raw || !looksSpanish(raw)) return [];
+    const title = cleanYoutubeTitle(raw);
+    return title ? [{ title, channelId: item.snippet?.channelId }] : [];
+  });
 }
 
 type YoutubeSearchItem = { snippet?: { title?: string; channelTitle?: string; channelId?: string } };
@@ -88,8 +105,7 @@ export async function fetchYoutubeHooks(query: string, apiKey: string): Promise<
     if (!res.ok) return { hooks: [], ok: false };
 
     const data = (await res.json()) as { items?: YoutubeSearchItem[] };
-    const hooks = (data.items ?? [])
-      .flatMap((item) => (item.snippet?.title ? [item.snippet.title] : []));
+    const hooks = spanishTitles(data.items ?? []).map((t) => t.title).slice(0, MAX_YOUTUBE_HOOKS);
     return { hooks, ok: true };
   } catch {
     return { hooks: [], ok: false };
@@ -141,10 +157,8 @@ export async function fetchTopYoutubeChannels(niche: string, apiKey: string): Pr
 
     const searchData = (await searchRes.json()) as { items?: YoutubeSearchItem[] };
     const titlesByChannel = new Map<string, string[]>();
-    for (const item of searchData.items ?? []) {
-      const channelId = item.snippet?.channelId;
-      const title = item.snippet?.title;
-      if (!channelId || !title) continue;
+    for (const { title, channelId } of spanishTitles(searchData.items ?? [])) {
+      if (!channelId) continue;
       const titles = titlesByChannel.get(channelId) ?? [];
       titles.push(title);
       titlesByChannel.set(channelId, titles);

@@ -3,6 +3,7 @@ import { getInfluencerBenchmarkAnyAge, type InfluencerBenchmarkWithFreshness } f
 import { getLatestViralMoments, type ViralMomentResult } from "@/lib/socialflow/ai/agents/ViralMomentAgent";
 import { getLatestStrategicPlan, type StrategicPlanResult } from "@/lib/socialflow/ai/agents/StrategicPlanningAgent";
 import { getLatestBestPractices, type BestPracticesResult } from "@/lib/socialflow/ai/agents/BestPracticesAgent";
+import { cleanYoutubeTitle, looksSpanish } from "./languageFilter";
 
 const TOP_CHANNELS = 3;
 const HOOKS_PER_CHANNEL = 3;
@@ -43,8 +44,14 @@ export async function buildGeneratorCerebroSection(input: {
   return `\n## Inteligencia del Cerebro Socialcors\n${blocks.join("\n")}`;
 }
 
+// Los snapshots guardados antes del filtro de idioma en trendSources.ts pueden traer
+// canales con títulos en hindi/inglés — se filtran también aquí al leer, y un canal sin
+// ningún título en español no se muestra.
 function formatBenchmark(data: InfluencerBenchmarkWithFreshness | null): string {
-  const channels = data?.benchmark.topChannels?.slice(0, TOP_CHANNELS) ?? [];
+  const channels = (data?.benchmark.topChannels ?? [])
+    .map((c) => ({ ...c, topHooks: (c.topHooks ?? []).filter(looksSpanish).map(cleanYoutubeTitle) }))
+    .filter((c) => c.topHooks.length > 0)
+    .slice(0, TOP_CHANNELS);
   if (!data || !channels.length) return "";
 
   const ageDays = Math.max(0, Math.round((Date.now() - new Date(data.updatedAt).getTime()) / DAY_MS));
@@ -52,7 +59,7 @@ function formatBenchmark(data: InfluencerBenchmarkWithFreshness | null): string 
     ? `Creadores top del nicho en YouTube — referencia aproximada (datos de hace ${ageDays} días, úsalos como inspiración de estilo, no como tendencia actual):`
     : "Creadores top del nicho en YouTube esta semana:";
   const lines = channels.map((c) => {
-    const hooks = (c.topHooks ?? []).slice(0, HOOKS_PER_CHANNEL).map((h) => `"${h}"`).join(" | ");
+    const hooks = c.topHooks.slice(0, HOOKS_PER_CHANNEL).map((h) => `"${h}"`).join(" | ");
     return `- ${c.name} (${Number(c.subscribers ?? 0).toLocaleString("es-ES")} suscriptores, ~${Number(c.avgViews ?? 0).toLocaleString("es-ES")} vistas/vídeo)${hooks ? ` — hooks reales: ${hooks}` : ""}`;
   });
   const commonHooks = data.benchmark.patterns?.commonHooks ?? [];
