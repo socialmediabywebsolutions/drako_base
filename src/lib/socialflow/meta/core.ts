@@ -453,7 +453,34 @@ export type InstagramMediaItem = {
   timestamp: string;
   likeCount: number;
   commentsCount: number;
+  // Para importar a saas_social_posts los posts publicados fuera de la app (ver
+  // instagram-import.ts). null cuando Meta no lo devuelve (p. ej. post sin caption).
+  caption: string | null;
+  mediaType: string | null;
+  mediaProductType: string | null;
+  permalink: string | null;
 };
+
+const INSTAGRAM_MEDIA_FIELDS = "id,timestamp,like_count,comments_count,caption,media_type,media_product_type,permalink";
+
+function parseInstagramMediaItems(payload: Record<string, unknown> | null): InstagramMediaItem[] {
+  const data = Array.isArray(payload?.data) ? payload.data : [];
+  const str = (v: unknown) => (typeof v === "string" ? v : null);
+  return data.flatMap((entry) => {
+    const record = toMetaRecord(entry);
+    if (!record || typeof record.id !== "string" || typeof record.timestamp !== "string") return [];
+    return [{
+      id: record.id,
+      timestamp: record.timestamp,
+      likeCount: typeof record.like_count === "number" ? record.like_count : 0,
+      commentsCount: typeof record.comments_count === "number" ? record.comments_count : 0,
+      caption: str(record.caption),
+      mediaType: str(record.media_type),
+      mediaProductType: str(record.media_product_type),
+      permalink: str(record.permalink),
+    }];
+  });
+}
 
 export type InstagramMediaInsights = {
   // Desde Graph API v22.0 `impressions` ya no existe (ni en media ni en cuenta) — Meta la
@@ -572,7 +599,7 @@ export async function fetchInstagramRecentMedia(
   }
 
   const url = new URL(`${apiBase}/${normalizedId}/media`);
-  url.searchParams.set("fields", "id,timestamp,like_count,comments_count");
+  url.searchParams.set("fields", INSTAGRAM_MEDIA_FIELDS);
   url.searchParams.set("limit", "25");
   url.searchParams.set("access_token", normalizedToken);
 
@@ -582,17 +609,54 @@ export async function fetchInstagramRecentMedia(
     throw buildMetaApiError("META_MEDIA_FETCH_FAILED", normalizeMetaApiMessage(payload, "Instagram media fetch failed."), { status: response.status, payload });
   }
 
-  const data = Array.isArray(payload?.data) ? payload.data : [];
-  return data.flatMap((entry) => {
-    const record = toMetaRecord(entry);
-    if (!record || typeof record.id !== "string" || typeof record.timestamp !== "string") return [];
-    return [{
-      id: record.id,
-      timestamp: record.timestamp,
-      likeCount: typeof record.like_count === "number" ? record.like_count : 0,
-      commentsCount: typeof record.comments_count === "number" ? record.comments_count : 0,
-    }];
-  });
+  return parseInstagramMediaItems(payload);
+}
+
+const MEDIA_HISTORY_PAGE_SIZE = 50;
+const MEDIA_HISTORY_MAX_PAGES = 40;
+
+// Histórico paginado de /{ig-user-id}/media, del más reciente al más antiguo (orden en
+// que lo devuelve Meta), hasta el primer post anterior a sinceIso o hasta agotar las
+// páginas. MEDIA_HISTORY_MAX_PAGES (2.000 posts) es solo un tope de seguridad.
+export async function fetchInstagramMediaSince(
+  pageToken: string,
+  igUserId: string,
+  apiBase: string,
+  sinceIso: string,
+): Promise<InstagramMediaItem[]> {
+  const normalizedToken = pageToken.trim();
+  const normalizedId = igUserId.trim();
+  if (!normalizedToken || !normalizedId) {
+    throw buildMetaApiError("META_ACCESS_TOKEN_MISSING", "Page token and IG user ID are required.", { accountStatus: "INVALID_CREDENTIALS" });
+  }
+
+  const items: InstagramMediaItem[] = [];
+  let after: string | null = null;
+  for (let page = 0; page < MEDIA_HISTORY_MAX_PAGES; page++) {
+    const url = new URL(`${apiBase}/${normalizedId}/media`);
+    url.searchParams.set("fields", INSTAGRAM_MEDIA_FIELDS);
+    url.searchParams.set("limit", String(MEDIA_HISTORY_PAGE_SIZE));
+    url.searchParams.set("access_token", normalizedToken);
+    if (after) url.searchParams.set("after", after);
+
+    const response = await fetch(url.toString(), { method: "GET" });
+    const payload = await parseMetaJson(response);
+    if (!response.ok) {
+      throw buildMetaApiError("META_MEDIA_FETCH_FAILED", normalizeMetaApiMessage(payload, "Instagram media history fetch failed."), { status: response.status, payload });
+    }
+
+    const pageItems = parseInstagramMediaItems(payload);
+    const sinceMs = Date.parse(sinceIso);
+    const inRange = pageItems.filter((item) => Date.parse(item.timestamp) >= sinceMs);
+    items.push(...inRange);
+    if (inRange.length < pageItems.length) break;
+
+    const paging = toMetaRecord(payload?.paging);
+    const cursors = toMetaRecord(paging?.cursors);
+    after = typeof paging?.next === "string" && typeof cursors?.after === "string" ? cursors.after : null;
+    if (!after) break;
+  }
+  return items;
 }
 
 // Cubre los posts que fetchInstagramRecentMedia no devuelve (fuera del top-25, o Stories,

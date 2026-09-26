@@ -74,9 +74,12 @@ const CONTENT_TYPE_CFG: Record<string, { label: string; icon: string; pill: stri
   CAROUSEL: { label: "Carrusel", icon: "📑",  pill: "bg-teal-50 text-teal-700"     },
 };
 
-const CREATION_MODE_CFG: Record<"AUTO" | "MANUAL", { label: string; color: string }> = {
-  AUTO:   { label: "✦ IA",     color: "bg-blue-50 text-blue-700" },
-  MANUAL: { label: "✎ Manual", color: "bg-slate-100 text-slate-700"   },
+// IMPORTED (publicado directamente en Instagram) se muestra igual que MANUAL — sin
+// distinción visual respecto a los posts nativos, por decisión de producto.
+const CREATION_MODE_CFG: Record<"AUTO" | "MANUAL" | "IMPORTED", { label: string; color: string }> = {
+  AUTO:     { label: "✦ IA",     color: "bg-blue-50 text-blue-700" },
+  MANUAL:   { label: "✎ Manual", color: "bg-slate-100 text-slate-700"   },
+  IMPORTED: { label: "✎ Manual", color: "bg-slate-100 text-slate-700"   },
 };
 
 const PROVIDER_ABBR: Record<string, string> = {

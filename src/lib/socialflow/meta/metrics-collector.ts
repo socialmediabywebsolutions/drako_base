@@ -2,6 +2,7 @@ import { env } from "@/lib/cf";
 import { decryptToken } from "@/lib/socialflow/token-encryption";
 import { resolveSocialContext, upsertSaasSocialMetrics, type SocialContext } from "@/lib/socialflow/repository";
 import { checkAndRefreshInstagramToken } from "@/lib/socialflow/instagram/token-health";
+import { importInstagramMediaItems } from "@/lib/socialflow/meta/instagram-import";
 import {
   fetchInstagramAccountInsights,
   fetchInstagramRecentMedia,
@@ -160,6 +161,9 @@ export type InstagramMetricsResult = {
   // Filas insertadas en saas_social_metrics (cuenta + posts) — lo que /api/cron/social/metrics
   // registra en agent_execution_log.
   rowsWritten: number;
+  // Posts publicados fuera de la app encontrados en /media y creados en saas_social_posts
+  // como IMPORTED (ver instagram-import.ts).
+  postsImported: number;
   firstError: string | null;
 };
 
@@ -185,13 +189,14 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
     .all<AccountRow>();
 
   if (!accounts?.length) {
-    return { processed: 0, errors: 0, mediaProcessed: 0, rowsWritten: 0, firstError: null };
+    return { processed: 0, errors: 0, mediaProcessed: 0, rowsWritten: 0, postsImported: 0, firstError: null };
   }
 
   let processed = 0;
   let errors = 0;
   let mediaProcessed = 0;
   let rowsWritten = 0;
+  let postsImported = 0;
   let firstError: string | null = null;
   const recordError = (endpoint: string, accountId: string, accountType: string | null, error: unknown, extra?: string) => {
     logMetaMetricsError(endpoint, accountId, accountType, error, extra);
@@ -279,6 +284,16 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
         recordError("recent_media", account.id, accountType, recentMediaError);
         return [];
       });
+
+      // Antes de emparejar: los posts publicados directamente en Instagram se crean como
+      // IMPORTED, así el bucle de abajo ya los encuentra y recoge sus métricas en este
+      // mismo ciclo.
+      try {
+        const { imported } = await importInstagramMediaItems(socialDb, account, media);
+        postsImported += imported;
+      } catch (importError) {
+        recordError("media_import", account.id, accountType, importError);
+      }
 
       let creatorReachSum = 0;
       let creatorImpressionsSum = 0;
@@ -462,5 +477,5 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
     }
   }
 
-  return { processed, errors, mediaProcessed, rowsWritten, firstError };
+  return { processed, errors, mediaProcessed, rowsWritten, postsImported, firstError };
 }

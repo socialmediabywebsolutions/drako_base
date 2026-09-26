@@ -153,9 +153,11 @@ export type SaasSocialPost = {
   analyticsMeta?: AnalyticsMeta;
   // AUTO = created by SocialFlowOrchestrator (botón central "modo automático");
   // MANUAL = created through the vertical menu (Post/Reel/Historia/Carrusel).
+  // IMPORTED = publicado directamente en Instagram y traído desde /media (ver
+  // src/lib/socialflow/meta/instagram-import.ts).
   // Optional for backward compat with any code path constructing this type without
   // a DB row (e.g. tests) — DB rows always have it (DEFAULT 'AUTO', see migration 0211).
-  creationMode?: "AUTO" | "MANUAL";
+  creationMode?: "AUTO" | "MANUAL" | "IMPORTED";
   createdAt: string;
   updatedAt: string;
 };
