@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
+import { guardCronTurn } from "@/lib/security/cron-lock";
 import { processScheduledPosts } from "@/lib/socialflow/scheduler";
 
 const SOCIAL_DB_LOCAL_HINT = "Run `npm run build:worker && npx wrangler dev --config wrangler.workers.toml` to load D1 bindings in local.";
@@ -19,6 +20,9 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const locked = await guardCronTurn(request, "social-publish", 5);
+  if (locked) return locked;
 
   try {
     const batch = await processScheduledPosts();

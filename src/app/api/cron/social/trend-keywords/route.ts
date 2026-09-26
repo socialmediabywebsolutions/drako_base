@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
+import { guardCronTurn } from "@/lib/security/cron-lock";
 import { env } from "@/lib/cf";
 import { runTrendKeywordCron } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
 import { runTrendTriggerConnector } from "@/lib/socialflow/intelligence/TrendTriggerConnector";
@@ -16,6 +17,9 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const locked = await guardCronTurn(request, "trend-keywords", 20);
+  if (locked) return locked;
 
   const bindings = env();
   if (!bindings?.SOCIAL_DB) {

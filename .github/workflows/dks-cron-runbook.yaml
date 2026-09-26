@@ -2,13 +2,15 @@ name: 🔁 DKS Cron Runbook
 
 on:
   workflow_dispatch:
+  # Los crons de /api/cron/social/* los dispara el trigger nativo de Cloudflare
+  # (workers/socialflows/wrangler.workers.toml + scripts/patch-socialflow-cron-handler.mjs).
+  # Este runbook los llamaba además en los mismos horarios, duplicando cada ejecución
+  # (IA y filas repetidas). Ahora esos jobs son solo manuales (workflow_dispatch, con
+  # ?force=1 para saltar el bloqueo por turno de src/lib/security/cron-lock.ts); el único
+  # schedule que queda es para los jobs exclusivos de GitHub (alerts-check,
+  # purge-old-runs, cleanup-drafts, cerebro-health).
   schedule:
-    - cron: "*/5 * * * *"   # cada 5 minutos — auto-publish scheduled posts
-    - cron: "*/15 * * * *"  # cada 15 minutos — procesar comentarios de Instagram
-    - cron: "*/20 * * * *"  # cada 20 minutos — TrendKeywordAgent (un nicho por invocación)
-    - cron: "0 */4 * * *"   # cada 4 horas — social metrics sync
-    - cron: "0 3 * * *"     # 03:00 UTC diario — StyleLearningAgent (Cerebro Socialcors)
-    - cron: "0 3 * * 1"     # 03:00 UTC lunes — niche-intelligence + cross-tenant-intelligence + viral-opportunity + weekly-briefing + best-practices
+    - cron: "*/15 * * * *"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -17,12 +19,12 @@ jobs:
   socialflow-publish-cron:
     name: 📅 SocialFlow — Auto-publish Scheduled Posts
     runs-on: ubuntu-latest
-    if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: 🔗 Llamar endpoint de publicación
         run: |
           STATUS=$(curl -s -o /tmp/publish_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/publish" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/publish?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -36,12 +38,12 @@ jobs:
   socialflow-process-comments:
     name: 💬 SocialFlow — Procesar Comentarios Instagram
     runs-on: ubuntu-latest
-    if: github.event.schedule == '*/15 * * * *' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: 🔗 Procesar comentarios con IA
         run: |
           STATUS=$(curl -s -o /tmp/comments_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/comments" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/comments?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -55,12 +57,12 @@ jobs:
   socialflow-trend-keywords:
     name: 🌐 SocialFlow — TrendKeywordAgent (Cerebro)
     runs-on: ubuntu-latest
-    if: github.event.schedule == '*/20 * * * *' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: 🔗 Refrescar señales externas de un nicho
         run: |
           STATUS=$(curl -s -o /tmp/trend_keywords_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/trend-keywords" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/trend-keywords?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -74,12 +76,12 @@ jobs:
   social-metrics-cron:
     name: 📊 Social Metrics — Instagram Insights Sync
     runs-on: ubuntu-latest
-    if: github.event.schedule == '0 */4 * * *' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: 🔗 Llamar endpoint de métricas
         run: |
           STATUS=$(curl -s -o /tmp/metrics_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/metrics" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/metrics?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -96,7 +98,7 @@ jobs:
       - name: 🔗 Detectar momentos virales emergentes (ViralMomentAgent)
         run: |
           STATUS=$(curl -s -o /tmp/viral_moment_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/viral-moment" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/viral-moment?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -110,12 +112,12 @@ jobs:
   socialflow-style-learning:
     name: 🧠 SocialFlow — Style Learning (Cerebro)
     runs-on: ubuntu-latest
-    if: github.event.schedule == '0 3 * * *' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: 🔗 Ejecutar StyleLearningAgent por tenant
         run: |
           STATUS=$(curl -s -o /tmp/style_learning_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/style-learning" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/style-learning?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -132,7 +134,7 @@ jobs:
       - name: 🔗 Detectar oportunidades estacionales por tenant
         run: |
           STATUS=$(curl -s -o /tmp/seasonal_opportunity_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/seasonal-opportunity" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/seasonal-opportunity?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -151,7 +153,7 @@ jobs:
       - name: 🔗 Calcular riesgo de abandono por tenant (ChurnPredictionAgent)
         run: |
           STATUS=$(curl -s -o /tmp/churn_prediction_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/churn-prediction" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/churn-prediction?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -165,12 +167,12 @@ jobs:
   socialflow-niche-intelligence:
     name: 📈 SocialFlow — Niche Intelligence (Cerebro)
     runs-on: ubuntu-latest
-    if: github.event.schedule == '0 3 * * 1' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: 🔗 Refrescar socialcors_niche_intelligence
         run: |
           STATUS=$(curl -s -o /tmp/niche_intelligence_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/niche-intelligence" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/niche-intelligence?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -187,7 +189,7 @@ jobs:
       - name: 🔗 Refrescar benchmark de influencers por nicho (YouTube)
         run: |
           STATUS=$(curl -s -o /tmp/influencer_benchmark_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/influencer-benchmark" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/influencer-benchmark?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -206,7 +208,7 @@ jobs:
       - name: 🔗 Agregar inteligencia cross-tenant por nicho
         run: |
           STATUS=$(curl -s -o /tmp/cross_tenant_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/cross-tenant-intelligence" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/cross-tenant-intelligence?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -224,7 +226,7 @@ jobs:
       - name: 🔗 Detectar oportunidades virales por tenant
         run: |
           STATUS=$(curl -s -o /tmp/viral_opportunity_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/viral-opportunity" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/viral-opportunity?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -241,7 +243,7 @@ jobs:
       - name: 🔗 Generar y enviar weekly briefing
         run: |
           STATUS=$(curl -s -o /tmp/weekly_briefing_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/weekly-briefing" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/weekly-briefing?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -262,7 +264,7 @@ jobs:
       - name: 🏆 Detectar mejores prácticas del nicho (BestPracticesAgent)
         run: |
           STATUS=$(curl -s -o /tmp/best_practices_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/best-practices" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/best-practices?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"
@@ -279,7 +281,7 @@ jobs:
       - name: 🔗 Generar plan estratégico mensual (StrategicPlanningAgent)
         run: |
           STATUS=$(curl -s -o /tmp/strategic_plan_response.json -w "%{http_code}" \
-            -X GET "https://socialflows.drako.systems/api/cron/social/strategic-plan" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/strategic-plan?force=1" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
           echo "HTTP status: $STATUS"

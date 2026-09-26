@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
+import { guardCronTurn } from "@/lib/security/cron-lock";
 import { env } from "@/lib/cf";
 import { runStrategicPlanCron } from "@/lib/socialflow/ai/agents/StrategicPlanningAgent";
 import { withAgentExecutionLog } from "@/lib/socialflow/intelligence/agent-execution-log";
@@ -15,6 +16,9 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const locked = await guardCronTurn(request, "strategic-plan", 10080);
+  if (locked) return locked;
 
   const bindings = env();
   if (!bindings?.SOCIAL_DB) {

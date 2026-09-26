@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
+import { guardCronTurn } from "@/lib/security/cron-lock";
 import { env } from "@/lib/cf";
 import { resolveSocialContext, listSaasSocialAccounts } from "@/lib/socialflow/repository";
 import { requireInstagramCredentials } from "@/lib/socialflow/meta/publishing";
@@ -367,6 +368,9 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const locked = await guardCronTurn(request, "comments", 5);
+  if (locked) return locked;
 
   const bindings = env();
   const socialDb = bindings?.SOCIAL_DB;

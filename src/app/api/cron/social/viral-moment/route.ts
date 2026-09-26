@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
+import { guardCronTurn } from "@/lib/security/cron-lock";
 import { env } from "@/lib/cf";
 import { runViralMomentCron } from "@/lib/socialflow/ai/agents/ViralMomentAgent";
 import { withAgentExecutionLog } from "@/lib/socialflow/intelligence/agent-execution-log";
@@ -15,6 +16,9 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const locked = await guardCronTurn(request, "viral-moment", 240);
+  if (locked) return locked;
 
   const bindings = env();
   if (!bindings?.SOCIAL_DB) {

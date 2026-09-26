@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronAuth, CronAuthError } from "@/lib/security/cron-auth";
+import { guardCronTurn } from "@/lib/security/cron-lock";
 import { processScheduledPosts } from "@/lib/socialflow/scheduler";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,9 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const locked = await guardCronTurn(req, "social-publish", 5);
+  if (locked) return locked;
 
   try {
     const batch = await processScheduledPosts();

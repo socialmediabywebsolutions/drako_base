@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronAuth, CronAuthError } from "@/lib/security/cron-auth";
+import { guardCronTurn } from "@/lib/security/cron-lock";
 import { processInstagramMetrics } from "@/lib/socialflow/meta/metrics-collector";
 import { processLinkedInMetrics } from "@/lib/socialflow/linkedin/metrics-collector";
 import { checkAllLinkedInAccountTokens } from "@/lib/socialflow/linkedin/token-health";
@@ -35,6 +36,9 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const locked = await guardCronTurn(req, "metrics", 240);
+  if (locked) return locked;
 
   const startedAt = new Date().toISOString();
   try {
