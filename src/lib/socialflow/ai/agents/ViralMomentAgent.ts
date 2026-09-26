@@ -30,14 +30,37 @@ const STOPWORDS = new Set([
   "the", "and", "for", "you", "your", "this", "that", "with", "from", "how", "what",
 ]);
 
+// Relleno de plataforma que domina los títulos de Shorts/Reels ("#viral #shorts
+// #trending ...") — sin quitarlo, la clave de tema de casi cualquier hook de YouTube
+// acababa siendo "viral shorts trending ..." y no describía ningún tema real.
+const PLATFORM_NOISE = new Set([
+  "viral", "virales", "viralvideo", "viralshorts", "shorts", "short", "reels", "reel", "trending",
+  "trendingreels", "youtube", "youtubeshorts", "ytshorts", "foryou", "fyp", "explore", "video",
+  "videos", "millionviews", "shortsfeed", "subscribe", "motivation",
+]);
+
+// Longitud mínima de palabra para que dos textos de fuentes distintas cuenten como el
+// mismo tema — con 3 letras coincidían palabras vacías ("new", "top", "day").
+const MIN_MATCH_WORD_LENGTH = 5;
+
 function normalizeText(text: string): string {
-  return text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/&#?\w+;/g, " ")
+    .replace(/#\S+/g, " ")
+    .replace(/https?:\S+|www\.\S+/g, " ");
+}
+
+function significantWords(text: string, minLength: number): string[] {
+  const normalized = normalizeText(text).replace(/[¿?¡!.,;:"'()]/g, " ");
+  const words = normalized.match(new RegExp(`[a-z]{${minLength},}`, "g")) ?? [];
+  return words.filter((w) => !STOPWORDS.has(w) && !PLATFORM_NOISE.has(w));
 }
 
 function extractTopicWords(text: string): string[] {
-  const normalized = normalizeText(text).replace(/[¿?¡!.,;:"'()]/g, " ");
-  const words = normalized.match(/[a-z]{3,}/g) ?? [];
-  return words.filter((w) => !STOPWORDS.has(w)).slice(0, 4);
+  return significantWords(text, 3).slice(0, 4);
 }
 
 function extractTopicKey(text: string): string {
@@ -46,22 +69,38 @@ function extractTopicKey(text: string): string {
 
 type TopicCandidate = { label: string; sources: Set<string> };
 
-// Une youtubeHooks/redditTopics/globalTrends en un mapa clave-de-tema -> fuentes donde
-// aparece ESTA corrida — sourcesCount refleja presencia actual, no un acumulado
-// histórico (un tema que ya no aparece en 2+ fuentes deja de contar como "multi-fuente"
-// aunque lo haya sido antes).
+// Candidatos = hooks de YouTube y temas de Reddit (las fuentes específicas del nicho);
+// sources = su propia fuente + cualquier otra fuente con al menos un texto que comparta
+// una palabra significativa con él. Antes se exigía que la clave de 4 palabras
+// coincidiera EXACTA entre fuentes — un título de YouTube, un post de Reddit y una
+// tendencia de Google nunca coinciden así, y las 446 filas de tracking tenían siempre 1
+// sola fuente (viralMoments: [] para todos los tenants). Google Trends ES es una señal
+// de país, no del nicho: solo sirve para corroborar, nunca genera candidato propio.
+// sourcesCount refleja presencia actual, no un acumulado histórico.
 function extractCurrentTopics(signals: TrendSignals): Map<string, TopicCandidate> {
-  const map = new Map<string, TopicCandidate>();
-  const add = (text: string, source: string) => {
-    const key = extractTopicKey(text);
-    if (!key) return;
-    const entry = map.get(key) ?? { label: text, sources: new Set<string>() };
-    entry.sources.add(source);
-    map.set(key, entry);
+  const bySource: Record<string, string[]> = {
+    youtube: signals.youtubeHooks,
+    reddit: signals.redditTopics,
+    global: signals.globalTrends,
   };
-  signals.youtubeHooks.forEach((h) => add(h, "youtube"));
-  signals.redditTopics.forEach((t) => add(t, "reddit"));
-  signals.globalTrends.forEach((t) => add(t, "global"));
+  const wordsBySource = Object.fromEntries(
+    Object.entries(bySource).map(([source, texts]) => [source, new Set(texts.flatMap((t) => significantWords(t, MIN_MATCH_WORD_LENGTH)))]),
+  );
+
+  const map = new Map<string, TopicCandidate>();
+  for (const source of ["youtube", "reddit"]) {
+    for (const text of bySource[source]) {
+      const key = extractTopicKey(text);
+      if (!key) continue;
+      const words = significantWords(text, MIN_MATCH_WORD_LENGTH);
+      const entry = map.get(key) ?? { label: text, sources: new Set<string>() };
+      entry.sources.add(source);
+      for (const other of Object.keys(bySource)) {
+        if (other !== source && words.some((w) => wordsBySource[other].has(w))) entry.sources.add(other);
+      }
+      map.set(key, entry);
+    }
+  }
   return map;
 }
 
