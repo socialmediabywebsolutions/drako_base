@@ -27,7 +27,10 @@ export type InfluencerBenchmarkResult = {
   patterns: InfluencerBenchmarkPatterns;
 };
 
-export type InfluencerBenchmarkCronResult = { niche: string; ok: boolean; error?: string };
+// written=true solo cuando se guardó (INSERT/UPDATE) una fila para ese nicho — es lo que
+// el cron registra como rows_written. Antes cada nicho contaba como procesado aunque la
+// llamada a YouTube fallara, así que el log decía "66 filas" con la tabla sin tocar.
+export type InfluencerBenchmarkCronResult = { niche: string; ok: boolean; written: boolean; skippedReason?: string; error?: string };
 
 type BenchmarkPayload = {
   insight: string;
@@ -64,9 +67,15 @@ Responde SOLO con un objeto JSON válido, sin markdown, con esta forma exacta:
 }`;
 }
 
-async function benchmarkNiche(niche: string, apiKey: string): Promise<InfluencerBenchmarkResult | null> {
+type BenchmarkNicheOutcome =
+  | { status: "youtube_failed" }
+  | { status: "no_channels" }
+  | { status: "ok"; result: InfluencerBenchmarkResult };
+
+async function benchmarkNiche(niche: string, apiKey: string): Promise<BenchmarkNicheOutcome> {
   const { channels, ok } = await fetchTopYoutubeChannels(niche, apiKey);
-  if (!ok || !channels.length) return null;
+  if (!ok) return { status: "youtube_failed" };
+  if (!channels.length) return { status: "no_channels" };
 
   const topChannels: InfluencerBenchmarkTopChannel[] = channels.map((c) => ({
     name: c.name,
@@ -90,7 +99,7 @@ async function benchmarkNiche(niche: string, apiKey: string): Promise<Influencer
       ? data.insight.trim()
       : `Los canales con más vistas esta semana en "${niche}" son ${topChannels.map((c) => c.name).join(", ")} — sin análisis detallado disponible en este momento.`;
 
-  return { topChannels, insight, patterns };
+  return { status: "ok", result: { topChannels, insight, patterns } };
 }
 
 async function upsertInfluencerBenchmark(niche: string, result: InfluencerBenchmarkResult, db: D1Database): Promise<void> {
@@ -128,23 +137,27 @@ async function upsertInfluencerBenchmark(niche: string, result: InfluencerBenchm
 export async function runInfluencerBenchmarkCron(env: Env): Promise<InfluencerBenchmarkCronResult[]> {
   const db = env?.SOCIAL_DB;
   const apiKey = env?.YOUTUBE_API_KEY;
-  if (!db) return [{ niche: "", ok: false, error: "SOCIAL_DB not configured" }];
-  if (!apiKey) return [{ niche: "", ok: false, error: "YOUTUBE_API_KEY not configured" }];
+  if (!db) return [{ niche: "", ok: false, written: false, error: "SOCIAL_DB not configured" }];
+  if (!apiKey) return [{ niche: "", ok: false, written: false, error: "YOUTUBE_API_KEY not configured" }];
 
   const results: InfluencerBenchmarkCronResult[] = [];
 
   for (const niche of NICHE_INTELLIGENCE_NICHES) {
     try {
-      const result = await benchmarkNiche(niche, apiKey);
-      if (!result) {
-        results.push({ niche, ok: true });
+      const outcome = await benchmarkNiche(niche, apiKey);
+      if (outcome.status === "youtube_failed") {
+        results.push({ niche, ok: false, written: false, error: "YOUTUBE_FETCH_FAILED" });
         continue;
       }
-      await upsertInfluencerBenchmark(niche, result, db);
-      results.push({ niche, ok: true });
+      if (outcome.status === "no_channels") {
+        results.push({ niche, ok: true, written: false, skippedReason: "NO_CHANNELS_FOUND" });
+        continue;
+      }
+      await upsertInfluencerBenchmark(niche, outcome.result, db);
+      results.push({ niche, ok: true, written: true });
     } catch (err) {
       console.error("[InfluencerBenchmarkAgent] niche failed", niche, err instanceof Error ? err.message : String(err));
-      results.push({ niche, ok: false, error: err instanceof Error ? err.message : String(err) });
+      results.push({ niche, ok: false, written: false, error: err instanceof Error ? err.message : String(err) });
     }
   }
 

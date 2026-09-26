@@ -30,7 +30,13 @@ export async function GET(request: NextRequest) {
     tenantId: null,
     saasId: null,
     run: () => runInfluencerBenchmarkCron(bindings),
-    rowsWritten: (r) => r.length,
+    rowsWritten: (r) => r.filter((x) => x.written).length,
   });
-  return NextResponse.json({ ok: true, nichesProcessed: results.length, results });
+  return NextResponse.json({
+    ok: true,
+    nichesProcessed: results.filter((x) => x.ok).length,
+    rowsWritten: results.filter((x) => x.written).length,
+    youtubeFailures: results.filter((x) => x.error === "YOUTUBE_FETCH_FAILED").length,
+    results,
+  });
 }
