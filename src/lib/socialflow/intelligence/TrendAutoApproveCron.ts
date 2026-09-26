@@ -115,11 +115,15 @@ export async function runTrendAutoApproveCron(env: DracoEnv): Promise<TrendAutoA
     // interno. scheduled_at IS NOT NULL: mismo requisito que ya exige
     // processScheduledPosts() para publicar — auto-aprobar un DRAFT sin scheduled_at
     // solo lo dejaría varado en SCHEDULED sin publicarse nunca.
+    // Posts de Instagram sin imagen (generación fallida) nunca se autoaprueban: se quedan
+    // en DRAFT para revisión manual (metadata.error_message = IMAGE_GENERATION_FAILED, ver
+    // SocialFlowOrchestrator.persistToDb). Aprobarlos solo los llevaba a FAILED al publicar.
     const { results: candidates } = await db
       .prepare(
         `SELECT id, tenant_id, campaign_id, scheduled_at FROM saas_social_posts
          WHERE status = 'DRAFT' AND creation_mode = 'AUTO'
-           AND scheduled_at IS NOT NULL AND datetime(created_at) <= datetime(?)`,
+           AND scheduled_at IS NOT NULL AND datetime(created_at) <= datetime(?)
+           AND NOT (provider = 'INSTAGRAM' AND COALESCE(image_hint, '') = '')`,
       )
       .bind(cutoff)
       .all<{ id: string; tenant_id: string; campaign_id: string | null; scheduled_at: string }>();

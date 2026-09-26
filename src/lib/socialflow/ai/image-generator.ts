@@ -5,6 +5,15 @@ import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-
 import type { EmpresaEmployee } from "@/lib/socialflow/employees/types";
 
 const MODEL = "@cf/stabilityai/stable-diffusion-xl-base-1.0";
+// SDXL base NO acepta imagen de entrada (400 "input tensor `image` is not present in the
+// model") — pasarle la foto de referencia del perfil físico hacía fallar TODA generación
+// de imagen de los tenants con reference_image_url (posts sin imagen → Instagram los
+// rechazaba al publicar). img2img va con el modelo SD 1.5 img2img, a su resolución
+// nativa; si falla (a 2026-09-26 la cuenta de Cloudflare devuelve 403 "not allowed to
+// access" para este modelo), se cae a txt2img con SDXL — la referencia se pierde pero el
+// post tiene imagen, y la descripción física sigue en el prompt.
+const IMG2IMG_MODEL = "@cf/runwayml/stable-diffusion-v1-5-img2img";
+const IMG2IMG_SIZE = 512;
 const R2_PUBLIC_BASE = "https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev";
 const EMPLOYEES_SAAS_ID = "socialflow";
 
@@ -311,27 +320,43 @@ export async function generatePostImage(prompt: string, postId: string, tenantId
     }
   }
 
+  const ai = e.AI;
+  const runModel = async (model: string, inputs: Record<string, unknown>): Promise<ArrayBuffer> => {
+    const response = await (ai.run as (m: string, i: Record<string, unknown>) => Promise<unknown>).call(ai, model, inputs);
+    if (response instanceof ReadableStream) return readStream(response as ReadableStream<Uint8Array>);
+    if (response instanceof ArrayBuffer) return response;
+    if (response instanceof Uint8Array) return response.buffer as ArrayBuffer;
+    throw new Error(`IMAGE_GEN_UNEXPECTED_RESPONSE_TYPE from ${model}`);
+  };
+
   try {
-    const response = await e.AI.run(MODEL, {
+    let imageBuffer: ArrayBuffer | null = null;
+    if (referenceImage) {
+      try {
+        imageBuffer = await runModel(IMG2IMG_MODEL, {
+          prompt: finalPrompt,
+          negative_prompt: NEGATIVE_PROMPT,
+          num_steps: 20,
+          width: IMG2IMG_SIZE,
+          height: IMG2IMG_SIZE,
+          image: referenceImage,
+          strength: 0.35,
+        });
+      } catch (img2imgErr) {
+        console.warn("IMAGE_GEN_IMG2IMG_FAILED_FALLING_BACK_TO_TXT2IMG", {
+          postId,
+          error: img2imgErr instanceof Error ? img2imgErr.message : String(img2imgErr),
+        });
+      }
+    }
+
+    imageBuffer ??= await runModel(MODEL, {
       prompt: finalPrompt,
       negative_prompt: NEGATIVE_PROMPT,
       num_steps: 20,
       width: 1024,
       height: 1024,
-      ...(referenceImage ? { image: referenceImage, strength: 0.35 } : {}),
     });
-
-    let imageBuffer: ArrayBuffer;
-    if (response instanceof ReadableStream) {
-      imageBuffer = await readStream(response as ReadableStream<Uint8Array>);
-    } else if (response instanceof ArrayBuffer) {
-      imageBuffer = response;
-    } else if (response instanceof Uint8Array) {
-      imageBuffer = (response as Uint8Array).buffer as ArrayBuffer;
-    } else {
-      console.error("IMAGE_GEN_UNEXPECTED_RESPONSE_TYPE", { postId });
-      return null;
-    }
 
     const key = `posts/${postId}/ai-image.png`;
     await e.SOCIAL_MEDIA_BUCKET.put(key, imageBuffer, {

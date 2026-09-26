@@ -310,9 +310,14 @@ export class SocialFlowOrchestrator {
         const imagePrompt = buildImagePrompt({ theme: item.theme, angle: item.angle, body }, profile);
         const imageHint = await generatePostImage(imagePrompt, postId, input.tenantId);
         const postProvider = input.provider ?? "INSTAGRAM";
+        // Instagram no publica sin imagen: un post así se queda en DRAFT marcado para
+        // revisión manual, y TrendAutoApproveCron no lo aprueba (ver su filtro de
+        // image_hint) — antes llegaba a SCHEDULED y fallaba al publicar con
+        // INSTAGRAM_MEDIA_REQUIRED.
+        const imageGenerationFailed = postProvider === "INSTAGRAM" && !imageHint;
         const hashtags = (optimized?.hashtags ?? []).slice(0, 15);
         const contentType: SaasSocialContentType = STRATEGY_FORMAT_TO_CONTENT_TYPE[item.format] ?? "FEED";
-        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType, title: item.theme, body, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, creationMode: "AUTO", metadata: { targetProvider: postProvider, strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags, angle: item.angle, callToAction: item.callToAction } }, { applyTrialCaptionLink: input.applyTrialCaptionLink });
+        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType, title: item.theme, body, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, creationMode: "AUTO", metadata: { targetProvider: postProvider, strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags, angle: item.angle, callToAction: item.callToAction, ...(imageGenerationFailed ? { error_message: "IMAGE_GENERATION_FAILED" } : {}) } }, { applyTrialCaptionLink: input.applyTrialCaptionLink });
         savedCount++;
       } catch (postError) {
         console.error(`[SocialFlowOrchestrator] Failed to persist post for item ${item.id}`, postError instanceof Error ? postError.message : String(postError));
