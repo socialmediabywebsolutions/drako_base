@@ -184,3 +184,43 @@ export async function getInfluencerBenchmark(
     return null;
   }
 }
+
+export type InfluencerBenchmarkWithFreshness = {
+  benchmark: InfluencerBenchmarkResult;
+  stale: boolean;
+  updatedAt: string;
+};
+
+// Variante para el generador de contenido: devuelve el snapshot aunque haya caducado
+// (valid_until pasado), marcado con stale=true para que el prompt lo presente como
+// referencia aproximada — un benchmark de hace unas semanas sigue siendo mejor
+// contexto que ninguno. getInfluencerBenchmark (chat) mantiene su filtro estricto.
+export async function getInfluencerBenchmarkAnyAge(
+  rawNiche: string,
+  env: Env,
+  tenantId?: string,
+  saasId?: string,
+): Promise<InfluencerBenchmarkWithFreshness | null> {
+  const db = env?.SOCIAL_DB;
+  if (!db || !rawNiche) return null;
+
+  try {
+    const niche = await resolveNicheSlug(rawNiche, db, tenantId, saasId);
+    if (!niche) return null;
+
+    const row = await db
+      .prepare(`SELECT snapshot_json, valid_until, updated_at FROM socialcors_influencer_benchmarks WHERE niche = ? LIMIT 1`)
+      .bind(niche)
+      .first<InfluencerBenchmarkRow & { updated_at: string }>();
+
+    if (!row) return null;
+    return {
+      benchmark: JSON.parse(row.snapshot_json) as InfluencerBenchmarkResult,
+      stale: row.valid_until <= new Date().toISOString(),
+      updatedAt: row.updated_at,
+    };
+  } catch (err) {
+    console.error("[InfluencerBenchmarkAgent] getInfluencerBenchmarkAnyAge failed", rawNiche, err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}

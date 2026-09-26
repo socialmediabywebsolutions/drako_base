@@ -8,6 +8,7 @@ import { getNicheIntelligence, getStyleHistory, detectContentFatigue } from "@/l
 import { extractEngagementPatterns } from "@/lib/socialflow/intelligence/CrossTenantIntelligenceAgent";
 import { extractTrendSignals } from "@/lib/socialflow/intelligence/TrendKeywordAgent";
 import { getLatestHashtagIntelligence } from "./HashtagIntelligenceAgent";
+import { buildGeneratorCerebroSection } from "@/lib/socialflow/intelligence/generatorCerebroContext";
 import { env } from "@/lib/cf";
 
 // Fallback determinista (sin llamar a Mistral) cuando el binding de IA no está
@@ -95,7 +96,7 @@ export class ContentGeneratorAgent {
     const isLinkedin = input.network === "LINKEDIN";
 
     const dracoEnv = env();
-    const [nicheIntel, styleHistory, hashtagIntel] = dracoEnv
+    const [nicheIntel, styleHistory, hashtagIntel, cerebroSection] = dracoEnv
       ? await Promise.all([
           getNicheIntelligence(profile.niche, dracoEnv, input.tenantId, input.saasId, profile.accountType ?? "influencer"),
           input.tenantId && input.saasId
@@ -104,8 +105,11 @@ export class ContentGeneratorAgent {
           input.tenantId && input.saasId
             ? getLatestHashtagIntelligence(input.tenantId, input.saasId, dracoEnv).catch(() => null)
             : Promise.resolve(null),
+          // Benchmarks de creadores top, momentos virales, mejores prácticas y plan
+          // estratégico — ver generatorCerebroContext.ts. "" si no hay ningún dato.
+          buildGeneratorCerebroSection({ niche: profile.niche, dracoEnv, tenantId: input.tenantId, saasId: input.saasId }).catch(() => ""),
         ])
-      : [null, [], null];
+      : [null, [], null, ""];
     const fatigueWarning = detectContentFatigue(styleHistory);
 
     // Real, cross-tenant hashtag data (Sprint F) — read directly from
@@ -244,7 +248,7 @@ ${hooks ? `Hooks de referencia (adapta al tema): ${hooks}` : ""}
 ${keywords ? `Keywords a incluir naturalmente: ${keywords}` : ""}
 ${hashtagSeed ? `Hashtags de referencia para incluir: ${hashtagSeed}` : ""}
 ${overusedHashtagsLine}
-${nicheIntelSection}${fatigueSection}${seasonalSection}${geoSection}
+${nicheIntelSection}${cerebroSection}${fatigueSection}${seasonalSection}${geoSection}
 
 ${isLinkedin ? `
 ⚠️ GANCHO — REGLA IRROMPIBLE: La primera línea debe enganchar con una idea, dato o pregunta potente relacionada con "${strategyItem.angle}" — nunca un saludo genérico ("Hola", "Chicas") ni una autopresentación ("Soy ${profile.brandIdentity}...").
