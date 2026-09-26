@@ -27,7 +27,12 @@ export async function GET(request: NextRequest) {
     tenantId: null,
     saasId: null,
     run: () => runBestPracticesCron(bindings),
-    rowsWritten: (r) => r.length,
+    rowsWritten: (r) => r.filter((x) => x.written).length,
   });
-  return NextResponse.json({ ok: true, tenantsProcessed: results.length, results });
+  return NextResponse.json({
+    ok: true,
+    tenantsProcessed: results.length,
+    rowsWritten: results.filter((x) => x.written).length,
+    results,
+  });
 }

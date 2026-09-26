@@ -32,6 +32,15 @@ export type BestPracticesResult = {
 
 type TenantRef = { tenantId: string; saasId: string };
 
+// written=true solo si la fila se guardó de verdad — el cron lo usa como rows_written
+// (antes contaba tenants recorridos: "7 filas" con la tabla vacía). skippedReason explica
+// los casos en que no hay nada que guardar, casi siempre el gate de anonimato.
+export type BestPracticesRunOutcome = { result: BestPracticesResult | null; written: boolean; skippedReason?: string };
+
+function skipped(reason: string): BestPracticesRunOutcome {
+  return { result: null, written: false, skippedReason: reason };
+}
+
 function parsePerformanceSnapshot(json: string): ContentPerformanceResult | null {
   try {
     const parsed = JSON.parse(json) as Partial<ContentPerformanceResult>;
@@ -112,16 +121,16 @@ async function findNicheMatchedCandidates(
 // tenantId/saasId ni contenido de otros tenants — solo agregados numéricos. Persiste en
 // socialcors_best_practices (tabla propia por tenant, migración 0239).
 export class BestPracticesAgent {
-  async run(input: { tenantId: string; saasId: string; accountType?: "influencer" | "empresa" }): Promise<BestPracticesResult | null> {
+  async run(input: { tenantId: string; saasId: string; accountType?: "influencer" | "empresa" }): Promise<BestPracticesRunOutcome> {
     const dracoEnv = env();
-    if (!dracoEnv?.SOCIAL_DB) return null;
+    if (!dracoEnv?.SOCIAL_DB) return skipped("SOCIAL_DB_UNAVAILABLE");
     const db = dracoEnv.SOCIAL_DB;
 
     const profile = await getChannelProfile(input.tenantId, input.saasId);
-    if (!profile.niche) return null;
+    if (!profile.niche) return skipped("NO_NICHE");
 
     const nicheSlug = await resolveNicheSlug(profile.niche, db, input.tenantId, input.saasId).catch(() => "");
-    if (!nicheSlug) return null;
+    if (!nicheSlug) return skipped("NICHE_NOT_RESOLVED");
 
     const accountType =
       input.accountType ?? (await getSocialFlowAccountTypeByTenant(input.tenantId).catch(() => null)) ?? "influencer";
@@ -140,13 +149,15 @@ export class BestPracticesAgent {
 
     // Gate de anonimato: por debajo de MIN_TENANTS_FOR_CROSS no hay suficiente masa
     // cross-tenant para agregar sin que el "top 3" sea, en la práctica, identificable.
-    if (candidatesWithScore.length < MIN_TENANTS_FOR_CROSS) return null;
+    if (candidatesWithScore.length < MIN_TENANTS_FOR_CROSS) {
+      return skipped(`ONLY_${candidatesWithScore.length}_PEERS_WITH_PERFORMANCE_DATA_MIN_${MIN_TENANTS_FOR_CROSS}`);
+    }
 
     const topPerformers = [...candidatesWithScore].sort((a, b) => b.compositeScore - a.compositeScore).slice(0, TOP_N);
 
     const ownSnapshot = await getLatestPerformanceSnapshot(input.tenantId, input.saasId, dracoEnv).catch(() => null);
     const ownResult = ownSnapshot ? parsePerformanceSnapshot(ownSnapshot.snapshotJson) : null;
-    if (!ownResult) return null;
+    if (!ownResult) return skipped("NO_OWN_PERFORMANCE_SNAPSHOT");
 
     const [topCaptionStats, ownCaptionStats] = await Promise.all([
       Promise.all(topPerformers.map((p) => avgCaptionLengthFor(p.tenant.tenantId, p.tenant.saasId))),
@@ -219,16 +230,16 @@ export class BestPracticesAgent {
 
     const result: BestPracticesResult = { topPerformerPatterns, currentPatterns, gaps, recommendations };
 
-    await upsertBestPractices(input.tenantId, input.saasId, JSON.stringify(result), dracoEnv);
-    return result;
+    const written = await upsertBestPractices(input.tenantId, input.saasId, JSON.stringify(result), dracoEnv);
+    return written ? { result, written } : { result, written, skippedReason: "UPSERT_FAILED" };
   }
 }
 
 // --- Persistencia (tabla propia por tenant, ver migración 0239) -------------------
 
-async function upsertBestPractices(tenantId: string, saasId: string, snapshot: string, dracoEnv: DracoEnv): Promise<void> {
+async function upsertBestPractices(tenantId: string, saasId: string, snapshot: string, dracoEnv: DracoEnv): Promise<boolean> {
   const db = dracoEnv?.SOCIAL_DB;
-  if (!db) return;
+  if (!db) return false;
 
   try {
     const now = new Date().toISOString();
@@ -242,7 +253,7 @@ async function upsertBestPractices(tenantId: string, saasId: string, snapshot: s
         .prepare(`UPDATE socialcors_best_practices SET snapshot_json = ?, updated_at = ? WHERE id = ?`)
         .bind(snapshot, now, existing.id)
         .run();
-      return;
+      return true;
     }
 
     await db
@@ -252,8 +263,10 @@ async function upsertBestPractices(tenantId: string, saasId: string, snapshot: s
       )
       .bind(crypto.randomUUID(), tenantId, saasId, snapshot, now, now)
       .run();
+    return true;
   } catch (err) {
     console.error("[BestPracticesAgent] upsertBestPractices failed", tenantId, saasId, err instanceof Error ? err.message : String(err));
+    return false;
   }
 }
 
@@ -281,7 +294,7 @@ export async function getLatestBestPractices(
   }
 }
 
-export type BestPracticesTenantOutcome = { tenantId: string; saasId: string; ok: boolean; error?: string };
+export type BestPracticesTenantOutcome = { tenantId: string; saasId: string; ok: boolean; written: boolean; skippedReason?: string; error?: string };
 
 // Corre semanalmente para todo tenant onboardeado — mismo patrón de enumeración que
 // runStrategicPlanCron: nunca lanza por un tenant fallido, sigue con el resto.
@@ -297,11 +310,11 @@ export async function runBestPracticesCron(cronEnv: DracoEnv): Promise<BestPract
   const results: BestPracticesTenantOutcome[] = [];
   for (const row of tenantRows ?? []) {
     try {
-      await new BestPracticesAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id });
-      results.push({ tenantId: row.tenant_id, saasId: row.saas_id, ok: true });
+      const outcome = await new BestPracticesAgent().run({ tenantId: row.tenant_id, saasId: row.saas_id });
+      results.push({ tenantId: row.tenant_id, saasId: row.saas_id, ok: true, written: outcome.written, skippedReason: outcome.skippedReason });
     } catch (err) {
       console.error("[BestPracticesAgent] tenant failed", row.tenant_id, err instanceof Error ? err.message : String(err));
-      results.push({ tenantId: row.tenant_id, saasId: row.saas_id, ok: false, error: err instanceof Error ? err.message : String(err) });
+      results.push({ tenantId: row.tenant_id, saasId: row.saas_id, ok: false, written: false, error: err instanceof Error ? err.message : String(err) });
     }
   }
   return results;
