@@ -26,9 +26,9 @@ const PLAN_MAX_CHANNELS: Record<SocialFlowPlanCode, number> = {
   influencer_starter: 1,  // Instagram
   influencer_basico: 1,   // Instagram
   influencer_pro: 2,      // Instagram + Facebook
-  empresa_starter: 1,     // Instagram o LinkedIn (a elegir)
-  empresa_basico: 1,      // Instagram o LinkedIn (a elegir)
-  empresa_pro: 2,         // Instagram + LinkedIn
+  empresa_starter: 2,     // Instagram o LinkedIn (a elegir) + Facebook
+  empresa_basico: 2,      // Instagram o LinkedIn (a elegir) + Facebook
+  empresa_pro: 3,         // Instagram + LinkedIn + Facebook
 };
 
 // Cuota de publicaciones de Instagram por SEMANA (lunes-domingo) — sustituye al
