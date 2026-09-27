@@ -19,6 +19,11 @@ const INFLUENCER_INCLUDED: Record<"free" | "influencer_starter" | "influencer_ba
 // aún, ambas se muestran como disponibles hasta que se conecte la primera.
 const EMPRESA_PICK_ONE: SaasSocialProvider[] = ["INSTAGRAM", "LINKEDIN"];
 
+// Facebook Page va incluida en todos los planes empresa de pago, además de su red o redes
+// principales (no cuenta dentro de la elección única de EMPRESA_PICK_ONE) — igual que en
+// influencer_pro. free con accountType empresa no la incluye.
+const EMPRESA_PLANS_WITH_FACEBOOK = new Set<SocialFlowPlanCode>(["empresa_starter", "empresa_basico", "empresa_pro"]);
+
 export type NetworkEntitlementSnapshot = {
   planCode: SocialFlowPlanCode;
   accountType: "influencer" | "empresa" | null;
@@ -50,6 +55,9 @@ export async function resolveNetworkEntitlements(input: {
     } else {
       const alreadyPicked = EMPRESA_PICK_ONE.find((provider) => connected.has(provider));
       included = alreadyPicked ? new Set([alreadyPicked]) : new Set(EMPRESA_PICK_ONE);
+    }
+    if (EMPRESA_PLANS_WITH_FACEBOOK.has(planCode)) {
+      included.add("FACEBOOK_PAGE");
     }
   } else {
     const key =
