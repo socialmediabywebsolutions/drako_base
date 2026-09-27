@@ -65,8 +65,8 @@ const NICHE_TO_YOUTUBE_QUERY: Record<string, string> = {
   mindfulness: "meditación mindfulness",
   finanzas_personales: "finanzas personales consejos",
   emprendimiento: "emprendimiento consejos",
-  tecnologia: "inteligencia artificial negocios 2026",
-  marketing: "estrategia marketing digital 2026",
+  tecnologia: "inteligencia artificial para negocios 2026",
+  marketing: "estrategia marketing digital automatización 2026",
   gaming: "gaming en español",
   musica: "música novedades",
 };
