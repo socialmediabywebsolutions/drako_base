@@ -7,8 +7,11 @@ import type {
 
 export const SOCIALFLOW_META_CALLBACK_PATH = "/api/socialflow/meta/callback";
 export const SOCIALFLOW_META_SETTINGS_PATH = "/socialflow/settings/accounts";
+// Solo permisos de Páginas de Facebook (+ business_management, necesario para listar
+// Páginas gestionadas desde un Business Manager). Instagram se conecta por su propio OAuth
+// (instagram/oauth.ts, INSTAGRAM_OAUTH_SCOPES), así que este flujo ya no pide instagram_*.
 export const SOCIALFLOW_META_SCOPES =
-  "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement,pages_read_user_content,instagram_basic,instagram_manage_insights,instagram_content_publish,instagram_business_manage_messages,business_management";
+  "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement,pages_read_user_content,business_management";
 
 export type SocialFlowMetaCallbackContext = {
   tenantId: string;

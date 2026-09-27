@@ -272,17 +272,28 @@ export async function handleSocialFlowMetaCallback(
   };
 }
 
-// Conecta UNA Página concreta: busca su cuenta de Instagram Business vinculada y persiste
-// ambas. Compartido por el callback (una sola Página) y por la pantalla de selección
-// (/api/socialflow/meta/select-page). Lanza si falla la búsqueda de Instagram; un fallo de
-// persistencia se devuelve como persistence.status = "failed".
+// Conecta UNA Página concreta y, si se puede, su cuenta de Instagram Business vinculada.
+// Compartido por el callback (una sola Página) y por la pantalla de selección
+// (/api/socialflow/meta/select-page). La búsqueda de Instagram es opcional: este OAuth ya
+// no pide instagram_basic (ver SOCIALFLOW_META_SCOPES), así que si Meta la rechaza se
+// conecta solo la Página. Un fallo de persistencia se devuelve como
+// persistence.status = "failed".
 export async function connectSocialFlowMetaPage(input: {
   tenantId: string;
   saasId: string;
   token: MetaTokenResponse;
   page: MetaPage;
 }): Promise<{ instagramAccount: MetaInstagramAccount | null; persistence: SocialFlowMetaCallbackSuccess["persistence"] }> {
-  const instagramAccount = await fetchInstagramBusinessAccount(input.page.id, input.page.access_token);
+  let instagramAccount: MetaInstagramAccount | null = null;
+  try {
+    instagramAccount = await fetchInstagramBusinessAccount(input.page.id, input.page.access_token);
+  } catch (error) {
+    console.warn("SOCIALFLOW_META_INSTAGRAM_LOOKUP_SKIPPED", {
+      pageId: input.page.id,
+      code: error instanceof MetaIntegrationError ? error.code : null,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   let persistence: SocialFlowMetaCallbackSuccess["persistence"];
   try {
