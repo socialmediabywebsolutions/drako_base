@@ -10,7 +10,7 @@ import { resolveSocialFlowPlanCode, type SocialFlowPlanCode } from "./plans";
 const INFLUENCER_INCLUDED: Record<"free" | "influencer_starter" | "influencer_basico" | "influencer_pro", SaasSocialProvider[]> = {
   free: ["INSTAGRAM", "LINKEDIN"],
   influencer_starter: ["INSTAGRAM", "LINKEDIN"],
-  influencer_basico: ["INSTAGRAM", "LINKEDIN"],
+  influencer_basico: ["INSTAGRAM", "FACEBOOK_PAGE", "LINKEDIN"],
   influencer_pro: ["INSTAGRAM", "FACEBOOK_PAGE", "LINKEDIN"],
 };
 
