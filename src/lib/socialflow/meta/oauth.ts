@@ -7,15 +7,19 @@ import {
   getMetaAppIdWithSource,
   resolveMetaOAuthDiagnostics,
   type MetaInstagramAccount,
+  type MetaPage,
+  type MetaTokenResponse,
 } from "@/lib/socialflow/meta/core";
 import { buildSocialFlowMetaAuthorizationUrl } from "@/lib/socialflow/meta/client";
 import { persistSocialFlowMetaConnection } from "@/lib/socialflow/meta/repository";
+import { savePendingPageSelection } from "@/lib/socialflow/meta/pending-pages";
 import { verifyAndConsumeOAuthState } from "@/lib/socialflow/oauth/state";
 import {
   SOCIALFLOW_META_CALLBACK_PATH,
   SOCIALFLOW_META_SETTINGS_PATH,
   type SocialFlowMetaCallbackFailure,
   type SocialFlowMetaCallbackResult,
+  type SocialFlowMetaCallbackSelectPage,
   type SocialFlowMetaCallbackSuccess,
   type SocialFlowMetaConnectResult,
 } from "@/lib/socialflow/meta/types";
@@ -183,6 +187,47 @@ export async function handleSocialFlowMetaCallback(
   }
 
   const page = pages[0];
+
+  // Varias Páginas: no se elige ninguna por el usuario — se guardan todas (tokens cifrados,
+  // lado servidor) y se redirige a /socialflow/redes/facebook/select-page. Antes se
+  // conectaba siempre la primera que devolvía Meta.
+  if (pages.length > 1) {
+    try {
+      const pendingSelectionId = await savePendingPageSelection({
+        tenantId: context.tenantId,
+        saasId: context.saasId,
+        redirectTo: context.redirectTo,
+        token,
+        pages,
+      });
+      const selectPage: SocialFlowMetaCallbackSelectPage = {
+        ok: true,
+        selectionRequired: true,
+        pendingSelectionId,
+        pageCount: pages.length,
+        tenantId: context.tenantId,
+        saasId: context.saasId,
+        redirectTo: context.redirectTo,
+        diagnostics,
+      };
+      return selectPage;
+    } catch (error) {
+      return {
+        ok: false,
+        tenantId: context.tenantId,
+        saasId: context.saasId,
+        redirectTo: context.redirectTo,
+        diagnostics,
+        error: {
+          status: 500,
+          code: "META_PAGE_SELECTION_SAVE_FAILED",
+          message: error instanceof Error ? error.message : "Could not store the Facebook Page selection.",
+          details: null,
+        },
+      };
+    }
+  }
+
   if (!page) {
     return {
       ok: false,
@@ -199,9 +244,9 @@ export async function handleSocialFlowMetaCallback(
     };
   }
 
-  let instagramAccount: MetaInstagramAccount | null = null;
+  let connection: Awaited<ReturnType<typeof connectSocialFlowMetaPage>>;
   try {
-    instagramAccount = await fetchInstagramBusinessAccount(page.id, page.access_token);
+    connection = await connectSocialFlowMetaPage({ tenantId: context.tenantId, saasId: context.saasId, token, page });
   } catch (error) {
     return {
       ok: false,
@@ -212,21 +257,7 @@ export async function handleSocialFlowMetaCallback(
       error: normalizeError(error),
     };
   }
-
-  let persistence: SocialFlowMetaCallbackSuccess["persistence"];
-  try {
-    const persisted = await persistSocialFlowMetaConnection({
-      tenantId: context.tenantId,
-      saasId: context.saasId,
-      token,
-      page,
-      instagramAccount,
-    });
-    persistence = { status: persisted.status, accountIds: persisted.accounts.map((account) => account.id) };
-  } catch (error) {
-    const failure = normalizePersistenceFailure(error);
-    persistence = { status: "failed", code: failure.code, message: failure.message, details: failure.details };
-  }
+  const { instagramAccount, persistence } = connection;
 
   return {
     ok: true,
@@ -239,6 +270,35 @@ export async function handleSocialFlowMetaCallback(
     persistence,
     diagnostics,
   };
+}
+
+// Conecta UNA Página concreta: busca su cuenta de Instagram Business vinculada y persiste
+// ambas. Compartido por el callback (una sola Página) y por la pantalla de selección
+// (/api/socialflow/meta/select-page). Lanza si falla la búsqueda de Instagram; un fallo de
+// persistencia se devuelve como persistence.status = "failed".
+export async function connectSocialFlowMetaPage(input: {
+  tenantId: string;
+  saasId: string;
+  token: MetaTokenResponse;
+  page: MetaPage;
+}): Promise<{ instagramAccount: MetaInstagramAccount | null; persistence: SocialFlowMetaCallbackSuccess["persistence"] }> {
+  const instagramAccount = await fetchInstagramBusinessAccount(input.page.id, input.page.access_token);
+
+  let persistence: SocialFlowMetaCallbackSuccess["persistence"];
+  try {
+    const persisted = await persistSocialFlowMetaConnection({
+      tenantId: input.tenantId,
+      saasId: input.saasId,
+      token: input.token,
+      page: input.page,
+      instagramAccount,
+    });
+    persistence = { status: persisted.status, accountIds: persisted.accounts.map((account) => account.id) };
+  } catch (error) {
+    const failure = normalizePersistenceFailure(error);
+    persistence = { status: "failed", code: failure.code, message: failure.message, details: failure.details };
+  }
+  return { instagramAccount, persistence };
 }
 
 export async function resolveSocialFlowMetaCallbackSession(request: Request) {

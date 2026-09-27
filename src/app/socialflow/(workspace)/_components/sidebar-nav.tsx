@@ -92,6 +92,14 @@ const NETWORK_BLOCKS: { provider: SaasSocialProvider; emoji: string; items: { hr
       { href: "/socialflow/linkedin/post", label: "Crear Post",             icon: <IcoCamera /> },
     ],
   },
+  {
+    provider: "FACEBOOK_PAGE",
+    emoji: "📘",
+    items: [
+      { href: "/socialflow/plan",      label: "Próximas publicaciones", icon: <IcoCalendar /> },
+      { href: "/socialflow/campaigns", label: "Crear campañas",         icon: <IcoTarget /> },
+    ],
+  },
 ];
 
 const empresaNavItem = { href: "/socialflow/empresa/empleados", label: "Empleados", icon: <IcoTeam /> };

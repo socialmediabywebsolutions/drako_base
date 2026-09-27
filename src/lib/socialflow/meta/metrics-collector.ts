@@ -1,7 +1,7 @@
 import { env } from "@/lib/cf";
 import { decryptToken } from "@/lib/socialflow/token-encryption";
 import { resolveSocialContext, upsertSaasSocialMetrics, type SocialContext } from "@/lib/socialflow/repository";
-import { checkAndRefreshInstagramToken } from "@/lib/socialflow/instagram/token-health";
+import { checkAndRefreshInstagramToken, checkFacebookPageToken } from "@/lib/socialflow/instagram/token-health";
 import { importInstagramMediaItems } from "@/lib/socialflow/meta/instagram-import";
 import {
   fetchInstagramAccountInsights,
@@ -478,4 +478,161 @@ export async function processInstagramMetrics(): Promise<InstagramMetricsResult>
   }
 
   return { processed, errors, mediaProcessed, rowsWritten, postsImported, firstError };
+}
+
+// ---------------------------------------------------------------------------
+// Facebook Pages
+// ---------------------------------------------------------------------------
+
+export type FacebookPageMetricsResult = {
+  processed: number;
+  errors: number;
+  rowsWritten: number;
+  firstError: string | null;
+};
+
+type FacebookPostRow = { id: string; saas_id: string; external_post_id: string };
+
+async function fetchGraphJson(url: URL): Promise<Record<string, unknown>> {
+  const res = await fetch(url.toString(), { method: "GET" });
+  const payload = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!res.ok || !payload) {
+    const error = payload?.error as { message?: string; code?: number } | undefined;
+    throw new Error(`FACEBOOK_GRAPH_${res.status}${error?.code ? `_${error.code}` : ""}: ${error?.message ?? "request failed"}`);
+  }
+  return payload;
+}
+
+function summaryCount(value: unknown): number {
+  const summary = (value as { summary?: { total_count?: unknown } } | null)?.summary;
+  return typeof summary?.total_count === "number" ? summary.total_count : 0;
+}
+
+// Mismo cron de 4 h que Instagram (/api/cron/social/metrics). Por cada Página
+// CONNECTED_REAL: valida el token (checkFacebookPageToken — los tokens de Página no
+// caducan pero Facebook puede invalidarlos), guarda un snapshot de cuenta
+// (post_id "account:<id>", seguidores y fans) y likes/comentarios/compartidos de los
+// posts FACEBOOK_PAGE publicados en los últimos 30 días (re-capturados cada 4 h, máx. 15
+// por Página y ciclo, igual que el backfill de Instagram). Sin impresiones/alcance: eso
+// requiere Page Insights (read_insights), que no se pide hoy.
+export async function processFacebookPageMetrics(): Promise<FacebookPageMetricsResult> {
+  const socialDb = env()?.SOCIAL_DB;
+  if (!socialDb) throw new Error("SOCIAL_DB not configured");
+
+  const { results: accounts } = await socialDb
+    .prepare(
+      `SELECT id, tenant_id, saas_id, auth_meta FROM saas_social_accounts
+       WHERE provider = 'FACEBOOK_PAGE' AND status = 'CONNECTED_REAL'
+       LIMIT 50`,
+    )
+    .all<AccountRow>();
+
+  let processed = 0;
+  let errors = 0;
+  let rowsWritten = 0;
+  let firstError: string | null = null;
+  const recordError = (step: string, accountId: string, error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[FacebookMetricsCron] step=${step} account=${accountId} error=${message}`);
+    firstError ??= `${step} account=${accountId} ${message}`.slice(0, 500);
+  };
+  const apiBase = resolveMetaApiBase(null);
+
+  for (const account of accounts ?? []) {
+    try {
+      const authMeta = account.auth_meta ? (JSON.parse(account.auth_meta) as Record<string, unknown>) : {};
+      const pageId = typeof authMeta.pageId === "string" ? authMeta.pageId : null;
+      const encryptedToken = typeof authMeta.accessToken === "string" ? authMeta.accessToken : null;
+      const pageToken = encryptedToken ? await decryptToken(encryptedToken) : null;
+      if (!pageId || !pageToken) {
+        recordError("credentials", account.id, "missing pageId or undecryptable token");
+        errors++;
+        continue;
+      }
+
+      const tokenCheck = await checkFacebookPageToken(socialDb, { id: account.id, tenantId: account.tenant_id, saasId: account.saas_id }, authMeta);
+      if (tokenCheck.valid === false) {
+        recordError("token", account.id, "Facebook Page token invalid (reconnection required)");
+        errors++;
+        continue;
+      }
+
+      const ctx = await resolveSocialContext({ tenantId: account.tenant_id, saasId: account.saas_id });
+
+      const pageUrl = new URL(`${apiBase}/${pageId}`);
+      pageUrl.searchParams.set("fields", "followers_count,fan_count");
+      pageUrl.searchParams.set("access_token", pageToken);
+      try {
+        const page = await fetchGraphJson(pageUrl);
+        const followersCount = typeof page.followers_count === "number" ? page.followers_count : 0;
+        const fanCount = typeof page.fan_count === "number" ? page.fan_count : 0;
+        await upsertSaasSocialMetrics(ctx, {
+          postId: `account:${account.id}`,
+          provider: "FACEBOOK_PAGE",
+          impressions: 0,
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          clicks: 0,
+          leadsGenerated: 0,
+          capturedAt: new Date().toISOString(),
+          metadata: { type: "account", accountId: account.id, pageId, followersCount, fanCount },
+        });
+        rowsWritten++;
+      } catch (pageError) {
+        recordError("page_fields", account.id, pageError);
+      }
+
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+      const { results: posts } = await socialDb
+        .prepare(
+          `SELECT p.id as id, p.saas_id as saas_id, p.external_post_id as external_post_id
+           FROM saas_social_posts p
+           LEFT JOIN saas_social_metrics m ON m.post_id = p.id AND m.tenant_id = p.tenant_id
+           WHERE p.tenant_id = ? AND p.provider = 'FACEBOOK_PAGE'
+             AND p.status IN ('POSTED', 'PUBLISHED')
+             AND p.external_post_id IS NOT NULL
+             AND p.posted_at >= ?
+           GROUP BY p.id
+           HAVING MAX(m.captured_at) IS NULL OR MAX(m.captured_at) < ?
+           LIMIT 15`,
+        )
+        .bind(account.tenant_id, thirtyDaysAgo, fourHoursAgo)
+        .all<FacebookPostRow>();
+
+      for (const post of posts ?? []) {
+        try {
+          const postUrl = new URL(`${apiBase}/${post.external_post_id}`);
+          postUrl.searchParams.set("fields", "likes.summary(true).limit(0),comments.summary(true).limit(0),shares");
+          postUrl.searchParams.set("access_token", pageToken);
+          const data = await fetchGraphJson(postUrl);
+          const shares = typeof (data.shares as { count?: unknown } | undefined)?.count === "number" ? (data.shares as { count: number }).count : 0;
+          const postCtx = post.saas_id === account.saas_id ? ctx : await resolveSocialContext({ tenantId: account.tenant_id, saasId: post.saas_id });
+          await upsertSaasSocialMetrics(postCtx, {
+            postId: post.id,
+            provider: "FACEBOOK_PAGE",
+            impressions: 0,
+            likes: summaryCount(data.likes),
+            comments: summaryCount(data.comments),
+            shares,
+            clicks: 0,
+            leadsGenerated: 0,
+            capturedAt: new Date().toISOString(),
+            metadata: { type: "media", mediaId: post.external_post_id },
+          });
+          rowsWritten++;
+        } catch (postError) {
+          recordError("post_engagement", account.id, postError);
+        }
+      }
+
+      processed++;
+    } catch (error) {
+      recordError("account_processing", account.id, error);
+      errors++;
+    }
+  }
+
+  return { processed, errors, rowsWritten, firstError };
 }

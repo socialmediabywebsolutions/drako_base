@@ -48,9 +48,9 @@ async function resolveCampaignObjective(tenantId: string, saasId: string, campai
   return campaign?.objective ?? null;
 }
 
-async function hasConnectedLinkedIn(ctx: Awaited<ReturnType<typeof resolveSocialContext>>): Promise<boolean> {
+async function listConnectedProviders(ctx: Awaited<ReturnType<typeof resolveSocialContext>>): Promise<Set<string>> {
   const accounts = await listSaasSocialAccounts(ctx).catch(() => []);
-  return accounts.some((a) => a.provider === "LINKEDIN" && a.status === "CONNECTED_REAL");
+  return new Set(accounts.filter((a) => a.status === "CONNECTED_REAL").map((a) => a.provider));
 }
 
 export class SocialFlowOrchestrator {
@@ -248,18 +248,16 @@ export class SocialFlowOrchestrator {
     // defecto. Texto propio con la rama de tono profesional de ContentGeneratorAgent
     // (network: "LINKEDIN"); la imagen se reutiliza en persistToDb. Un fallo aquí nunca
     // rompe la campaña de Instagram.
-    const linkedinVariants = new Map<string, string>();
-    if ((input.provider ?? "INSTAGRAM") !== "LINKEDIN" && (await hasConnectedLinkedIn(ctx))) {
-      for (const item of strategy.items) {
-        try {
-          const generated = await this.contentGenerator.run({ profile, strategyItem: item, keywordEngine, trends, tenantId: input.tenantId, saasId: input.saasId, network: "LINKEDIN" });
-          const text = generated.variants[0]?.text?.trim();
-          if (text) linkedinVariants.set(item.id, cleanOpening(text));
-        } catch (err) {
-          console.error(`[SocialFlowOrchestrator] LinkedIn variant failed for item ${item.id}`, err instanceof Error ? err.message : String(err));
-        }
-      }
-    }
+    const connectedProviders = await listConnectedProviders(ctx);
+    const campaignProvider = input.provider ?? "INSTAGRAM";
+    const linkedinVariants = campaignProvider !== "LINKEDIN" && connectedProviders.has("LINKEDIN")
+      ? await this.generateNetworkVariants("LINKEDIN", strategy.items, { profile, keywordEngine, trends, tenantId: input.tenantId, saasId: input.saasId })
+      : new Map<string, string>();
+    // Tercera variante, para la Página de Facebook, con el mismo mecanismo que LinkedIn
+    // (tono conversacional de comunidad — rama isFacebook de ContentGeneratorAgent).
+    const facebookVariants = campaignProvider !== "FACEBOOK_PAGE" && connectedProviders.has("FACEBOOK_PAGE")
+      ? await this.generateNetworkVariants("FACEBOOK", strategy.items, { profile, keywordEngine, trends, tenantId: input.tenantId, saasId: input.saasId })
+      : new Map<string, string>();
     // BestTimeToPostAgent — resuelto aquí (no dentro de SchedulerAgent, que se mantiene
     // síncrono y sin I/O) leyendo el snapshot más reciente de socialcors_style_history.
     // Degradación elegante: cualquier fallo deja optimalHoursByFormat undefined y
@@ -308,14 +306,34 @@ export class SocialFlowOrchestrator {
       optimalHoursByFormat,
       preferredWeekdays,
     });
-    const campaignId = await this.persistToDb(input, profile, strategy.items as StrategyItem[], optimizedPosts, schedule, linkedinVariants);
+    const campaignId = await this.persistToDb(input, profile, strategy.items as StrategyItem[], optimizedPosts, schedule, linkedinVariants, facebookVariants);
     return { profile, research, keywords: research, competitors, marketResearch, strategy, generatedPosts, optimizedPosts, schedule, campaignId };
+  }
+
+  // Una variante de texto por item para otra red (LinkedIn/Facebook). Un item fallido se
+  // salta sin romper la campaña.
+  private async generateNetworkVariants(
+    network: "LINKEDIN" | "FACEBOOK",
+    items: StrategyItem[],
+    ctx: { profile: BrandProfile; keywordEngine: Parameters<ContentGeneratorAgent["run"]>[0]["keywordEngine"]; trends: Parameters<ContentGeneratorAgent["run"]>[0]["trends"]; tenantId: string; saasId: string },
+  ): Promise<Map<string, string>> {
+    const variants = new Map<string, string>();
+    for (const item of items) {
+      try {
+        const generated = await this.contentGenerator.run({ ...ctx, strategyItem: item, network });
+        const text = generated.variants[0]?.text?.trim();
+        if (text) variants.set(item.id, cleanOpening(text));
+      } catch (err) {
+        console.error(`[SocialFlowOrchestrator] ${network} variant failed for item ${item.id}`, err instanceof Error ? err.message : String(err));
+      }
+    }
+    return variants;
   }
 
   async generateStrategyOnly(input: SocialAIPipelineInput) { const profile = await this.buildProfile(input); const competitors = await this.competitorAgent.run({ niche: profile.niche }); const trends = await this.trendAgent.run({ profile }); const { research } = await this.keywordAgent.run({ profile, trends }); const strategy = await this.strategyAgent.run({ profile, horizonDays: 7 }); return { profile, research, keywords: research, competitors, strategy }; }
   async generateSinglePost(input: SocialAIPipelineInput) { const profile = await this.buildProfile(input); const trends = await this.trendAgent.run({ profile }); const { engine: keywordEngine } = await this.keywordAgent.run({ profile, trends }); const strategy = await this.strategyAgent.run({ profile, horizonDays: 1 }); const item = strategy.items[0]; const generated = await this.contentGenerator.run({ profile, strategyItem: item, keywordEngine, trends, tenantId: input.tenantId, saasId: input.saasId }); const optimized = await this.optimizationAgent.run({ profile, variant: generated.variants[0], keywordEngine }); return { profile, strategyItem: item, generated, optimized }; }
 
-  private async persistToDb(input: SocialAIPipelineInput, profile: BrandProfile, strategyItems: StrategyItem[], optimizedPosts: { id: string; improvedText: string; hashtags?: string[] }[], schedule: { id: string; postId: string; scheduledAt: string }[], linkedinVariants: Map<string, string> = new Map()): Promise<string> {
+  private async persistToDb(input: SocialAIPipelineInput, profile: BrandProfile, strategyItems: StrategyItem[], optimizedPosts: { id: string; improvedText: string; hashtags?: string[] }[], schedule: { id: string; postId: string; scheduledAt: string }[], linkedinVariants: Map<string, string> = new Map(), facebookVariants: Map<string, string> = new Map()): Promise<string> {
     const ctx = await resolveSocialContext({ tenantId: input.tenantId, saasId: input.saasId });
     const campaign = await upsertSaasSocialCampaign(ctx, { id: input.campaignId ?? `ai_campaign_${Date.now()}`, saasId: input.saasId, name: `IA: ${input.niche}`, objective: null, status: "ACTIVE", targetSegment: "DEFAULT", startDate: input.startDate ?? null, endDate: input.endDate ?? null, budgetEstimate: null, notes: `Generated for ${input.niche}` });
     const channels = await listSaasSocialChannels(ctx);
@@ -357,11 +375,23 @@ export class SocialFlowOrchestrator {
             console.error(`[SocialFlowOrchestrator] Failed to persist LinkedIn variant for item ${item.id}`, linkedinError instanceof Error ? linkedinError.message : String(linkedinError));
           }
         }
+
+        // Variante Facebook — mismo patrón que LinkedIn (misma imagen, hora, DRAFT/AUTO).
+        // Facebook admite posts solo texto (/feed), así que se guarda aunque no haya imagen.
+        const facebookBody = facebookVariants.get(item.id);
+        if (facebookBody) {
+          try {
+            await upsertSaasSocialPost(ctx, { id: `${postId}_fb`, saasId: input.saasId, channelId: channels.find((c) => c.provider === "FACEBOOK_PAGE")?.id ?? null, campaignId: campaign.id, provider: "FACEBOOK_PAGE", contentType: "FEED", title: item.theme, body: facebookBody, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, creationMode: "AUTO", metadata: { targetProvider: "FACEBOOK_PAGE", strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, angle: item.angle, callToAction: item.callToAction, variantOf: postId } }, { applyTrialCaptionLink: input.applyTrialCaptionLink });
+            savedCount++;
+          } catch (facebookError) {
+            console.error(`[SocialFlowOrchestrator] Failed to persist Facebook variant for item ${item.id}`, facebookError instanceof Error ? facebookError.message : String(facebookError));
+          }
+        }
       } catch (postError) {
         console.error(`[SocialFlowOrchestrator] Failed to persist post for item ${item.id}`, postError instanceof Error ? postError.message : String(postError));
       }
     }
-    console.log(`[SocialFlowOrchestrator] Saved ${savedCount}/${strategyItems.length + linkedinVariants.size} posts for campaign ${campaign.id}`);
+    console.log(`[SocialFlowOrchestrator] Saved ${savedCount}/${strategyItems.length + linkedinVariants.size + facebookVariants.size} posts for campaign ${campaign.id}`);
     return campaign.id;
   }
 }

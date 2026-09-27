@@ -89,11 +89,14 @@ export class ContentGeneratorAgent {
     // Dashboard por Red Social (paso 2/3) — red destino del post. Ausente/"INSTAGRAM"
     // conserva el comportamiento actual exacto (prompt sin cambios). "LINKEDIN" activa
     // la rama de tono profesional (paso 3, ver isLinkedin más abajo).
-    network?: "INSTAGRAM" | "LINKEDIN";
+    // "FACEBOOK" activa la rama de tono para Páginas de Facebook (conversacional, de
+    // comunidad) — ver isFacebook más abajo.
+    network?: "INSTAGRAM" | "LINKEDIN" | "FACEBOOK";
   }): Promise<GeneratedPost> {
     const { profile, strategyItem, keywordEngine, trends } = input;
     const isEmpresa = profile.accountType === "empresa";
     const isLinkedin = input.network === "LINKEDIN";
+    const isFacebook = input.network === "FACEBOOK";
 
     const dracoEnv = env();
     const [nicheIntel, styleHistory, hashtagIntel, cerebroSection] = dracoEnv
@@ -160,7 +163,7 @@ export class ContentGeneratorAgent {
     // El default "Cuéntame en los comentarios 👇" es 100% Instagram (comment-bait) — en
     // LinkedIn el cierre con pregunta/reflexión de la estructura obligatoria ya cumple
     // ese rol, así que sin CTA configurado en el perfil no se fuerza ninguno.
-    const cta = objectiveCta ? null : profile.primaryCTA || (isLinkedin ? null : `¿Tú también lo sientes así? Cuéntame en los comentarios 👇`);
+    const cta = objectiveCta ? null : profile.primaryCTA || (isLinkedin || isFacebook ? null : `¿Tú también lo sientes así? Cuéntame en los comentarios 👇`);
     const ctaSuffix = cta ? `\n\n${cta}` : "";
 
     // HashtagIntelligenceAgent — mix ya curado (nicho+tendencia+alcance) cruzando el
@@ -265,6 +268,21 @@ Estructura obligatoria:
 3. Cierre con una pregunta abierta o una reflexión final que invite a pensar, no un CTA de "comenta/sígueme".
 
 Genera entre 3 y 5 hashtags relevantes: profesionales y específicos del sector de "${profile.niche}", nada de hashtags genéricos de comunidad o virales de Instagram. Formato: #hashtag1 #hashtag2 ... IMPORTANTE: nunca más de 5.
+` : isFacebook ? `
+⚠️ GANCHO — REGLA IRROMPIBLE: La primera línea debe enganchar con una situación cotidiana, una pregunta o un dato relacionado con "${strategyItem.angle}" — nunca un saludo genérico ("Hola", "Chicas") ni una autopresentación ("Soy ${profile.brandIdentity}...").
+
+⚠️ LONGITUD — REGLA IRROMPIBLE: El post completo debe tener entre 60 y 150 palabras, en 2-4 párrafos cortos. Más desarrollo que un post de Instagram, más cercano y ligero que uno de LinkedIn.
+
+⚠️ TONO — REGLA IRROMPIBLE: Conversacional y de comunidad, como hablando con vecinos o clientes habituales de una Página de Facebook. Cercano y útil, sin jerga corporativa ni tono de anuncio.
+
+⚠️ FORMATO: Texto plano — sin markdown (nada de **negritas** ni # de títulos), Facebook no lo interpreta. Emojis: máximo 2-3 y solo si aportan.
+
+Estructura obligatoria:
+1. Gancho en la primera línea.
+2. Desarrollo: el valor concreto sobre "${strategyItem.angle}" contado de forma cercana.
+3. Cierre con una pregunta abierta que invite a comentar en la Página.
+
+Genera entre 2 y 3 hashtags relevantes y específicos de "${profile.niche}" (en Facebook los hashtags pesan poco — nunca más de 3). Formato: #hashtag1 #hashtag2
 ` : isEmpresa ? `
 ⚠️ APERTURA — REGLA IRROMPIBLE: NUNCA empieces con "Hola", "Chicas", "A veces", ni presentándote ("Soy ${profile.brandIdentity}..."). Fuera de esa restricción, redacta la línea de apertura libremente — no uses ningún banco de frases fijo, solo engancha con el tema concreto de la imagen.
 

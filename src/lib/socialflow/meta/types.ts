@@ -51,4 +51,17 @@ export type SocialFlowMetaCallbackFailure = {
   };
 };
 
-export type SocialFlowMetaCallbackResult = SocialFlowMetaCallbackSuccess | SocialFlowMetaCallbackFailure;
+// El usuario administra varias Páginas: se guardan en una selección pendiente
+// (meta/pending-pages.ts) y el callback redirige a la pantalla de selección.
+export type SocialFlowMetaCallbackSelectPage = {
+  ok: true;
+  selectionRequired: true;
+  pendingSelectionId: string;
+  pageCount: number;
+  tenantId: string;
+  saasId: string;
+  redirectTo: string;
+  diagnostics: MetaOAuthDiagnostics;
+};
+
+export type SocialFlowMetaCallbackResult = SocialFlowMetaCallbackSuccess | SocialFlowMetaCallbackSelectPage | SocialFlowMetaCallbackFailure;

@@ -31,6 +31,14 @@ export async function GET(request: Request) {
     return NextResponse.redirect(url, 308);
   }
 
+  if ("selectionRequired" in result) {
+    const selectUrl = buildCallbackRedirect(request, "/socialflow/redes/facebook/select-page", {
+      pending: result.pendingSelectionId,
+      saasId: result.saasId,
+    });
+    return NextResponse.redirect(selectUrl, 308);
+  }
+
   const url = buildCallbackRedirect(request, result.redirectTo, {
     meta: result.persistence.status === "failed" ? "warning" : "connected",
     provider: "meta",

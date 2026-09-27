@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronAuth, CronAuthError } from "@/lib/security/cron-auth";
 import { guardCronTurn } from "@/lib/security/cron-lock";
-import { processInstagramMetrics } from "@/lib/socialflow/meta/metrics-collector";
+import { processFacebookPageMetrics, processInstagramMetrics } from "@/lib/socialflow/meta/metrics-collector";
 import { processLinkedInMetrics } from "@/lib/socialflow/linkedin/metrics-collector";
 import { checkAllLinkedInAccountTokens } from "@/lib/socialflow/linkedin/token-health";
 import { insertAgentExecutionLog } from "@/lib/socialflow/intelligence/agent-execution-log";
@@ -67,9 +67,19 @@ export async function GET(req: NextRequest) {
       linkedinTokenHealth = { checked: 0, errors: 1 };
     }
 
-    await logMetricsCronExecution(startedAt, instagram.rowsWritten, instagram.firstError);
+    // Páginas de Facebook — independiente de Instagram/LinkedIn: un fallo aquí no afecta
+    // a las otras redes.
+    let facebook: Awaited<ReturnType<typeof processFacebookPageMetrics>>;
+    try {
+      facebook = await processFacebookPageMetrics();
+    } catch (facebookError) {
+      console.error("[SocialMetricsCron] Facebook Page metrics failed", facebookError);
+      facebook = { processed: 0, errors: 1, rowsWritten: 0, firstError: facebookError instanceof Error ? facebookError.message : String(facebookError) };
+    }
 
-    return NextResponse.json({ success: true, instagram, linkedin, linkedinTokenHealth });
+    await logMetricsCronExecution(startedAt, instagram.rowsWritten + facebook.rowsWritten, instagram.firstError ?? facebook.firstError);
+
+    return NextResponse.json({ success: true, instagram, facebook, linkedin, linkedinTokenHealth });
   } catch (error) {
     console.error("[SocialMetricsCron] Failed", error);
     await logMetricsCronExecution(startedAt, null, error instanceof Error ? error.message : String(error));
