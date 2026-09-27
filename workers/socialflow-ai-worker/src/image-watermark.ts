@@ -67,10 +67,15 @@ export async function watermarkCampaignImages(env: DracoEnv, campaignId: string)
     .bind(campaignId)
     .all<CampaignPostRow>();
 
+  // Las variantes LinkedIn reutilizan la imagen del post de Instagram (misma clave R2,
+  // ver SocialFlowOrchestrator.persistToDb) — la marca se aplica en sitio, así que sin
+  // deduplicar la imagen compartida se marcaría dos veces.
+  const processedKeys = new Set<string>();
   for (const row of results ?? []) {
     if (!row.image_hint) continue;
     const key = extractR2Key(row.image_hint);
-    if (!key) continue;
+    if (!key || processedKeys.has(key)) continue;
+    processedKeys.add(key);
     await watermarkOneImage(bucket, key, row.id);
   }
 }

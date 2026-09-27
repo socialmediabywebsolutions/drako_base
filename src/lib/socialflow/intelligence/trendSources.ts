@@ -41,7 +41,10 @@ export const NICHE_TO_SUBREDDIT: Record<string, string> = {
   mindfulness: "meditation",
   finanzas_personales: "personalfinance",
   emprendimiento: "entrepreneur",
-  tecnologia: "technology",
+  // Sin subreddit, marketing solo puntuaba con Google Trends (máx. 10 de 70 en
+  // TrendTriggerConnector: Reddit pesa 0.5, YouTube 0.4, Trends 0.1). En inglés.
+  marketing: "Entrepreneur",
+  tecnologia: "artificial",
   gaming: "gaming",
   musica: "WeAreTheMusicMakers",
 };
@@ -62,7 +65,8 @@ const NICHE_TO_YOUTUBE_QUERY: Record<string, string> = {
   mindfulness: "meditación mindfulness",
   finanzas_personales: "finanzas personales consejos",
   emprendimiento: "emprendimiento consejos",
-  tecnologia: "tecnología novedades",
+  tecnologia: "inteligencia artificial negocios 2026",
+  marketing: "estrategia marketing digital 2026",
   gaming: "gaming en español",
   musica: "música novedades",
 };
