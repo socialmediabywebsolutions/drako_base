@@ -42,7 +42,7 @@ type PlanKindConfig = {
 
 const PLAN_KIND_CONFIG: Record<PlanKind, PlanKindConfig> = {
   influencer: {
-    badgeLabel: "INFLUENCER · INSTAGRAM + LINKEDIN",
+    badgeLabel: "INFLUENCER · INSTAGRAM + LINKEDIN + FACEBOOK",
     badgeColor: IG_PINK,
     title: "Elige tu plan de Influencer",
     networkColor: IG_PINK,
@@ -64,7 +64,7 @@ const PLAN_KIND_CONFIG: Record<PlanKind, PlanKindConfig> = {
           "Hashtags con tracción real",
           "Hora de publicación IA",
         ],
-        crosses: ["LinkedIn personal", "Análisis de competencia", "CRM Social", "Soporte prioritario"],
+        crosses: ["LinkedIn personal", "Página de Facebook", "Análisis de competencia", "CRM Social", "Soporte prioritario"],
       },
       {
         slug: "basico",
@@ -82,6 +82,7 @@ const PLAN_KIND_CONFIG: Record<PlanKind, PlanKindConfig> = {
           "Hashtags con tracción real",
           "Hora de publicación IA",
           "LinkedIn personal (2/sem)",
+          "Página de Facebook",
           "Análisis de imagen con IA",
           "Reels y carruseles automáticos",
         ],
@@ -99,6 +100,7 @@ const PLAN_KIND_CONFIG: Record<PlanKind, PlanKindConfig> = {
           "2 historias/día",
           "20 vídeos IA/mes",
           "LinkedIn personal (5/sem)",
+          "Página de Facebook",
           "Análisis avanzado",
           "CRM Social completo",
           "Soporte prioritario",
