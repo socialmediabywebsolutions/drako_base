@@ -79,7 +79,7 @@ async function publishToLinkedIn(input: {
 // we fall back to the original URL.
 // ---------------------------------------------------------------------------
 
-const R2_PUBLIC_DOMAIN = "pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev";
+const R2_PUBLIC_DOMAIN = "pub-04c730a67921499bac35a1f62402cc17.r2.dev";
 const R2_PUBLIC_BASE = `https://${R2_PUBLIC_DOMAIN}`;
 
 // Instagram Content Publishing only accepts JPEG/PNG/WebP as photo and MP4/MOV as

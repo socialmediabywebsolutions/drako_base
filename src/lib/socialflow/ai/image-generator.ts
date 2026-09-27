@@ -14,7 +14,7 @@ const MODEL = "@cf/stabilityai/stable-diffusion-xl-base-1.0";
 // post tiene imagen, y la descripción física sigue en el prompt.
 const IMG2IMG_MODEL = "@cf/runwayml/stable-diffusion-v1-5-img2img";
 const IMG2IMG_SIZE = 512;
-const R2_PUBLIC_BASE = "https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev";
+const R2_PUBLIC_BASE = "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev";
 const EMPLOYEES_SAAS_ID = "socialflow";
 
 const EMPLOYEE_HAIR_STYLE_LABELS: Record<string, string> = {
