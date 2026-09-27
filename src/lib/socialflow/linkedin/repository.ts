@@ -315,6 +315,17 @@ async function resolveLinkedInConnectionProjection(
   return projectLinkedInConnectionToCore(input);
 }
 
+// La conexión está lista para publicar en el perfil si LinkedIn devolvió token de acceso,
+// el authorUrn del miembro y el permiso w_member_social. Es la condición que decide
+// CONNECTED_REAL: la proyección al integration-core antiguo (DRACO_DB, tablas de la
+// migración 0139 que no existen en producción) fallaba siempre con
+// CORE_PROJECTION_UNAVAILABLE y dejaba toda conexión nueva en PENDING_REAL, aunque el
+// OAuth hubiera ido bien — y token-health / métricas ignoran las cuentas PENDING_REAL.
+function hasLinkedInPublishingGrant(input: PersistLinkedInConnectionInput): boolean {
+  const scopes = new Set((input.token.scope ?? "").split(/[\s,]+/).filter(Boolean));
+  return Boolean(input.token.access_token?.trim() && input.identity.authorUrn?.trim() && scopes.has("w_member_social"));
+}
+
 export async function persistSocialFlowLinkedInConnection(
   input: PersistLinkedInConnectionInput,
 ): Promise<PersistLinkedInConnectionResult> {
@@ -338,7 +349,11 @@ export async function persistSocialFlowLinkedInConnection(
   // Developer Platform) — ver refreshLinkedInAccessToken en core.ts. Ausente hoy
   // en el caso normal; se guarda si algún día aparece.
   const encryptedRefreshToken = await encryptToken(input.token.refresh_token ?? null);
-  const socialAccountStatus = coreProjection.validation.ok ? "CONNECTED_REAL" : "PENDING_REAL";
+  const connectionReady = hasLinkedInPublishingGrant(input) || coreProjection.validation.ok;
+  const socialAccountStatus = connectionReady ? "CONNECTED_REAL" : "PENDING_REAL";
+  // El fallo de la proyección al core se conserva para diagnóstico, pero no como
+  // lastErrorCode de la cuenta cuando la conexión está lista (no es un error de la cuenta).
+  const coreProjectionError = coreProjection.validation.ok ? null : coreProjection.validation.error ?? null;
 
   const account = await upsertSaasSocialAccount(socialContext, {
     id: existingAccount?.id,
@@ -372,8 +387,10 @@ export async function persistSocialFlowLinkedInConnection(
       organizationId: input.organization?.organizationId ?? null,
       organizationName: input.organization?.name ?? null,
       lastValidationAt: coreProjection.validation.checkedAt ?? new Date().toISOString(),
-      lastErrorCode: coreProjection.validation.error?.code ?? null,
-      lastErrorMessage: coreProjection.validation.error?.message ?? null,
+      lastErrorCode: connectionReady ? null : coreProjection.validation.error?.code ?? null,
+      lastErrorMessage: connectionReady ? null : coreProjection.validation.error?.message ?? null,
+      coreProjectionErrorCode: coreProjectionError?.code ?? null,
+      coreProjectionErrorMessage: coreProjectionError?.message ?? null,
     },
     isPrimary: true,
   });
@@ -402,8 +419,8 @@ export async function persistSocialFlowLinkedInConnection(
   await recordConnectionActivity({
     tenantId: input.tenantId,
     saasId: input.saasId,
-    status: coreProjection.validation.ok ? "success" : "error",
-    summary: coreProjection.validation.ok
+    status: connectionReady ? "success" : "error",
+    summary: connectionReady
       ? "LinkedIn OAuth connection completed."
       : coreProjection.validation.error?.message ?? "LinkedIn OAuth connection needs attention.",
     metadata: {
