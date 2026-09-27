@@ -56,7 +56,15 @@ export async function persistSocialFlowMetaConnection(input: PersistMetaConnecti
 
   const accounts: SaasSocialAccount[] = [facebookAccount];
 
-  if (input.instagramAccount) {
+  // Una cuenta de Instagram conectada con Instagram Login (token de graph.instagram.com,
+  // authType instagram_business_login) no se toca al conectar Facebook: el upsert de
+  // abajo la sobrescribía con el token de la Página y sin authType/accountType/username,
+  // moviéndola a graph.facebook.com. La Página se guarda igual en su propia fila
+  // FACEBOOK_PAGE (arriba); la cuenta de Instagram existente se devuelve tal cual.
+  const existingInstagramUsesInstagramLogin = existingInstagramAccount?.authMeta?.authType === "instagram_business_login";
+  if (existingInstagramAccount && existingInstagramUsesInstagramLogin) {
+    accounts.push(existingInstagramAccount);
+  } else if (input.instagramAccount) {
     const instagramAccount = await upsertSaasSocialAccount(socialContext, {
       id: existingInstagramAccount?.id,
       saasId: input.saasId,
