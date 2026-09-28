@@ -751,7 +751,6 @@ async function registerLinkedInImageUpload(
         supportedUploadMechanism: ["SYNCHRONOUS_UPLOAD"],
       },
     }),
-    cache: "no-store",
   });
 
   const body = await parseLinkedInResponseBody(response);
@@ -899,7 +898,6 @@ async function postLinkedInUgcContent(input: {
       "X-Restli-Protocol-Version": "2.0.0",
     },
     body: JSON.stringify(payload),
-    cache: "no-store",
   });
 
   const body = await parseLinkedInResponseBody(response);
