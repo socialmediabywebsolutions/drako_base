@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users2, Bot, Activity, BellRing, Landmark, Inbox, Sparkles, Code2, Stethoscope, Building2 } from "lucide-react";
+import { LayoutDashboard, Users2, Bot, Activity, BellRing, Landmark, Inbox, Sparkles, Code2, Stethoscope, Building2, Share2 } from "lucide-react";
 
 type Item = { href: string; label: string; icon: ReactNode; description?: string };
 
@@ -30,6 +30,7 @@ const grupos: { titulo: string; items: Item[] }[] = [
       { href: "/agents", label: "Agentes IA", description: "Roles y modelos", icon: <Bot className="h-4 w-4" /> },
       { href: "/dev-architects", label: "DevArchitect", description: "Staff técnico IA", icon: <Code2 className="h-4 w-4" /> },
       { href: "/clinic/dashboard", label: "Clinic", description: "Vertical salud Drako", icon: <Stethoscope className="h-4 w-4" /> },
+      { href: "/operator/socialflow", label: "SocialFlow", description: "Redes y campañas", icon: <Share2 className="h-4 w-4" /> },
       { href: "/metrics", label: "Métricas", description: "Costes y ROI", icon: <Activity className="h-4 w-4" /> },
       { href: "/alerts", label: "Alertas", description: "Incidencias", icon: <BellRing className="h-4 w-4" /> },
     ],
