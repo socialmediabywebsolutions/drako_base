@@ -20,23 +20,36 @@ function resolveVisualStyle(tone: string, niche: string): string {
   for (const [keyword, style] of TONE_STYLE_MAP) {
     if (combined.includes(keyword)) return style;
   }
-  return "clean corporate photography, modern office environment, neutral tones, business professional";
+  return "futuristic digital technology, glowing neon accents, dark background, abstract data visualization, no people, no offices";
+}
+
+const SUBJECT_MAX_WORDS = 150;
+
+// El sujeto sale del texto real del post — theme/angle solo son el fallback, porque
+// un theme como "errores comunes" no describe ninguna escena concreta.
+function resolveSubject(post: { body?: string; angle?: string; theme?: string }, niche: string): string {
+  const bodyWords = (post.body ?? "").trim().split(/\s+/).filter(Boolean);
+  if (bodyWords.length) return bodyWords.slice(0, SUBJECT_MAX_WORDS).join(" ");
+  return post.theme ?? post.angle ?? niche;
 }
 
 export function buildImagePrompt(
   post: { body?: string; angle?: string; theme?: string },
   profile: BrandProfile,
 ): string {
-  const subject = post.theme ?? post.angle ?? post.body?.slice(0, 100) ?? profile.niche;
+  const subject = resolveSubject(post, profile.niche);
   const style = resolveVisualStyle(profile.toneOfVoice, profile.niche);
 
+  // El sujeto va al final: CLIP (SDXL) trunca el prompt a ~77 tokens, y con 150
+  // palabras de cuerpo delante el estilo y los modificadores quedarían cortados.
   return [
-    subject,
-    `${profile.brandIdentity} brand`,
-    `${profile.niche} industry`,
     style,
+    "vibrant colors, cinematic lighting, ultra detailed",
     "professional social media marketing image",
     "high quality photorealistic",
-    "no text no watermarks no logos",
+    "no text no watermarks",
+    `${profile.brandIdentity} brand`,
+    `${profile.niche} industry`,
+    subject,
   ].join(", ");
 }
