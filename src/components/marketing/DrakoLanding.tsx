@@ -661,9 +661,10 @@ export default function DrakoLanding() {
           </a>
 
           <ul className="drako-nav-links">
-            {["Plataforma","SaaS","Agentes IA","Cómo funciona","Precios","Blog"].map(l => (
+            {(["Plataforma","SaaS","Agentes IA","Cómo funciona","Precios"] as string[]).map(l => (
               <li key={l}><a href="#">{l}</a></li>
             ))}
+            <li><a href="/journal">Revista</a></li>
           </ul>
 
           <div className="drako-nav-actions">

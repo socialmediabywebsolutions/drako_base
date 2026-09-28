@@ -92,5 +92,11 @@
 		// Enable image optimization
 		// see https://opennext.js.org/cloudflare/howtos/image
 		"binding": "IMAGES"
+	},
+	"triggers": {
+		"crons": [
+			// Revista: generate AI editorial articles daily at 8am UTC
+			{ "cron": "0 8 * * *" }
+		]
 	}
 }
