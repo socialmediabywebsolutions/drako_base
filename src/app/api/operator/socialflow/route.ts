@@ -29,6 +29,8 @@ import { env } from "@/lib/cf";
 import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import { resolveSocialFlowPlanCode } from "@/lib/socialflow/billing/plans";
 import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
+import { resolveSocialContext, upsertSaasSocialCampaign } from "@/lib/socialflow/repository";
+import { getChannelProfile } from "@/lib/socialflow/profile/repository";
 
 type SocialFlowRouteAction =
   | { action: "run_all" }
@@ -49,7 +51,8 @@ type SocialFlowRouteAction =
       provider: string;
       niche?: string;
     }
-  | { action: CampoBaseSocialFlowOperatorAction; tenantId: string; saasId: string };
+  | { action: CampoBaseSocialFlowOperatorAction; tenantId: string; saasId: string }
+  | { action: "launch_campaign"; tenants: string[]; networks: string[]; title: string; body: string; scheduledAt: string | null };
 
 function validateAction(body: unknown): SocialFlowRouteAction | null {
   if (!body || typeof body !== "object") {
@@ -73,6 +76,22 @@ function validateAction(body: unknown): SocialFlowRouteAction | null {
 
   if (action === "run_all") {
     return { action };
+  }
+
+  if (action === "launch_campaign") {
+    const tenants = "tenants" in body && Array.isArray(body.tenants)
+      ? body.tenants.filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+      : [];
+    const networks = "networks" in body && Array.isArray(body.networks)
+      ? body.networks.filter((n): n is string => typeof n === "string")
+      : [];
+    const title = "title" in body && typeof body.title === "string" ? body.title.trim() : "";
+    const postBody = "body" in body && typeof body.body === "string" ? body.body.trim() : "";
+    const scheduledAt = "scheduledAt" in body && typeof body.scheduledAt === "string" && body.scheduledAt.trim()
+      ? body.scheduledAt.trim()
+      : null;
+    if (!tenants.length || !title) return null;
+    return { action, tenants, networks, title, body: postBody, scheduledAt };
   }
 
   if (action === "list_tenants") {
@@ -399,6 +418,68 @@ async function listOperatorSocialFlowTenants(): Promise<OperatorTenantListItem[]
   );
 }
 
+const LAUNCH_CAMPAIGN_SAAS_ID = "socialflow";
+const LAUNCH_CAMPAIGN_DEFAULT_TONE = "profesional y cercano";
+
+type LaunchCampaignResult = { tenantId: string; ok: boolean; campaignId?: string; error?: string };
+
+// Mismo job "campaign" que /api/socialflow/ai/generate, pero en nombre de cada tenant
+// (esa ruta exige la sesión del propio tenant). La IA escribe los posts: title va como
+// niche, scheduledAt solo aporta el día (startDate — la hora la elige SchedulerAgent),
+// y body/networks no llegan al orquestador.
+async function launchOperatorCampaign(input: { tenants: string[]; title: string; scheduledAt: string | null }): Promise<LaunchCampaignResult[]> {
+  if (["1", "true", "yes", "on"].includes((process.env.SOCIALFLOW_DISABLE_AI ?? "").trim().toLowerCase())) {
+    return input.tenants.map((tenantId) => ({ tenantId, ok: false, error: "SOCIALFLOW_AI_GENERATION_DISABLED" }));
+  }
+
+  const queue = env()?.SOCIALFLOW_AI_QUEUE;
+  if (!queue) {
+    return input.tenants.map((tenantId) => ({ tenantId, ok: false, error: "SOCIALFLOW_AI_QUEUE_UNAVAILABLE" }));
+  }
+
+  const startDate = input.scheduledAt ? input.scheduledAt.slice(0, 10) : null;
+  const results: LaunchCampaignResult[] = [];
+
+  for (const tenantId of input.tenants) {
+    try {
+      const saasId = LAUNCH_CAMPAIGN_SAAS_ID;
+      const ctx = await resolveSocialContext({ tenantId, saasId });
+      const profile = await getChannelProfile(tenantId, saasId).catch(() => null);
+      const campaignId = `ai_campaign_operator_${Date.now()}_${tenantId.slice(0, 8)}`;
+
+      await upsertSaasSocialCampaign(ctx, {
+        id: campaignId,
+        saasId,
+        name: `AI Campaign: ${input.title}`,
+        objective: null,
+        status: "GENERATING",
+        targetSegment: "DEFAULT",
+        startDate,
+        endDate: null,
+        budgetEstimate: null,
+        notes: null,
+      });
+
+      await queue.send({
+        type: "campaign",
+        tenantId,
+        saasId,
+        niche: input.title,
+        tone: profile?.toneOfVoice?.trim() || LAUNCH_CAMPAIGN_DEFAULT_TONE,
+        frequencyPerWeek: 1,
+        campaignId,
+        startDate,
+      });
+
+      results.push({ tenantId, ok: true, campaignId });
+    } catch (error) {
+      results.push({ tenantId, ok: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  return results;
+}
+
 export async function GET(request: Request) {
   try {
     await requireOwnerAccess(request);
@@ -472,6 +553,14 @@ export async function POST(request: Request) {
         action: action.action,
         result,
         status,
+      });
+    }
+
+    if (action.action === "launch_campaign") {
+      const results = await launchOperatorCampaign(action);
+      return NextResponse.json({
+        action: action.action,
+        result: { results },
       });
     }
 

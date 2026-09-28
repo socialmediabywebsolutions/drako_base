@@ -18,6 +18,14 @@ import type {
 import type { SocialFlowTrendTrigger, SocialFlowTrendTriggerHealth } from "@/lib/capabilities/internal-api-types/socialflow";
 import type { AgentControlCenterAgent, AgentControlCenterGroup, AgentControlCenterStatus } from "@/lib/campamento-base/socialflow-agent-control-center";
 
+type LaunchCampaignResult = { tenantId: string; ok: boolean; campaignId?: string; error?: string };
+
+const CAMPAIGN_NETWORKS = [
+  { value: "INSTAGRAM", label: "Instagram" },
+  { value: "FACEBOOK_PAGE", label: "Facebook" },
+  { value: "LINKEDIN", label: "LinkedIn" },
+] as const;
+
 type ControlResponse = {
   status?: CampoBaseSocialAutomationStatusOutput;
   result?:
@@ -176,6 +184,17 @@ export default function CampoBaseSocialAutomationControl() {
   const [testResult, setTestResult] = useState<{ kind: "BLOCKED_INTENT" | "AI_GENERATED"; suggestedReply: string } | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
   const [testBusy, setTestBusy] = useState(false);
+
+  // Lanzador de campañas globales — encola una campaña IA por tenant elegido
+  // (acción "launch_campaign" en api/operator/socialflow/route.ts).
+  const [campaignTitle, setCampaignTitle] = useState("");
+  const [campaignBody, setCampaignBody] = useState("");
+  const [campaignScheduledAt, setCampaignScheduledAt] = useState("");
+  const [campaignTenantIds, setCampaignTenantIds] = useState<string[]>([]);
+  const [campaignNetworks, setCampaignNetworks] = useState<string[]>([...CAMPAIGN_NETWORKS.map((n) => n.value)]);
+  const [campaignResults, setCampaignResults] = useState<LaunchCampaignResult[] | null>(null);
+  const [campaignError, setCampaignError] = useState<string | null>(null);
+  const [campaignBusy, setCampaignBusy] = useState(false);
 
   // Todos los tenants activos de Socialcors (socialflow_profiles), no solo el
   // registrado en la automatización — se carga una vez al montar el panel.
@@ -367,6 +386,46 @@ export default function CampoBaseSocialAutomationControl() {
     setTestNiche(found?.niche ?? "");
   }
 
+  function toggleInList(list: string[], value: string): string[] {
+    return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+  }
+
+  async function launchCampaign() {
+    if (!campaignTitle.trim() || campaignTenantIds.length === 0) return;
+
+    setCampaignBusy(true);
+    setCampaignError(null);
+    setCampaignResults(null);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "launch_campaign",
+          tenants: campaignTenantIds,
+          networks: campaignNetworks,
+          title: campaignTitle,
+          body: campaignBody,
+          scheduledAt: campaignScheduledAt || null,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { result?: { results?: LaunchCampaignResult[] }; message?: string }
+        | null;
+
+      if (!response.ok || !data?.result?.results) {
+        throw new Error(data?.message ?? "No se pudo lanzar la campaña.");
+      }
+
+      setCampaignResults(data.result.results);
+    } catch (launchErr) {
+      setCampaignError(launchErr instanceof Error ? launchErr.message : "No se pudo lanzar la campaña.");
+    } finally {
+      setCampaignBusy(false);
+    }
+  }
+
   async function runAiReplyTest() {
     const selected = tenantOptions.find((t) => t.id === testTenantKey);
     if (!selected || !testMessage.trim()) return;
@@ -418,6 +477,119 @@ export default function CampoBaseSocialAutomationControl() {
           {error}
         </div>
       ) : null}
+
+      <Card
+        tone="default"
+        title="Lanzar campaña global"
+        subtitle="Encola una campaña IA por cada tenant elegido — la IA escribe los posts a partir del tema y el cron los publica"
+      >
+        {tenantOptionsLoading ? (
+          <EmptyState title="Cargando tenants…" subtitle="Leyendo clientes activos de Socialcors desde SOCIAL_DB." />
+        ) : tenantOptions.length === 0 ? (
+          <EmptyState
+            title="Sin tenants activos"
+            subtitle="No hay clientes con perfil en Socialcors todavía."
+          />
+        ) : (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-xs font-semibold text-slate-500">
+                Tema / Título
+                <input
+                  type="text"
+                  value={campaignTitle}
+                  onChange={(e) => setCampaignTitle(e.target.value)}
+                  placeholder="Ej. errores comunes al automatizar con IA"
+                  className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+                />
+              </label>
+
+              <label className="block text-xs font-semibold text-slate-500">
+                Fecha y hora de publicación
+                <input
+                  type="datetime-local"
+                  value={campaignScheduledAt}
+                  onChange={(e) => setCampaignScheduledAt(e.target.value)}
+                  className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+                />
+              </label>
+            </div>
+
+            <label className="block text-xs font-semibold text-slate-500">
+              Cuerpo del post
+              <textarea
+                value={campaignBody}
+                onChange={(e) => setCampaignBody(e.target.value)}
+                placeholder="Texto base del post…"
+                rows={4}
+                className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+              />
+            </label>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <fieldset>
+                <legend className="text-xs font-semibold text-slate-500">Tenants</legend>
+                <div className="mt-2 space-y-1">
+                  {tenantOptions.map((t) => (
+                    <label key={t.id} className="flex items-center gap-2 text-sm text-slate-800">
+                      <input
+                        type="checkbox"
+                        checked={campaignTenantIds.includes(t.tenantId)}
+                        onChange={() => setCampaignTenantIds((prev) => toggleInList(prev, t.tenantId))}
+                      />
+                      {t.name}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend className="text-xs font-semibold text-slate-500">Redes</legend>
+                <div className="mt-2 space-y-1">
+                  {CAMPAIGN_NETWORKS.map((n) => (
+                    <label key={n.value} className="flex items-center gap-2 text-sm text-slate-800">
+                      <input
+                        type="checkbox"
+                        checked={campaignNetworks.includes(n.value)}
+                        onChange={() => setCampaignNetworks((prev) => toggleInList(prev, n.value))}
+                      />
+                      {n.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+
+            <Button
+              variant="primary"
+              size="md"
+              loading={campaignBusy}
+              disabled={campaignBusy || !campaignTitle.trim() || campaignTenantIds.length === 0}
+              onClick={launchCampaign}
+            >
+              Lanzar campaña
+            </Button>
+
+            {campaignError ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {campaignError}
+              </div>
+            ) : null}
+
+            {campaignResults ? (
+              <div className="space-y-2">
+                {campaignResults.map((r) => (
+                  <div key={r.tenantId} className="flex flex-wrap items-center gap-2 rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-800">
+                    <Badge variant={r.ok ? "ok" : "err"}>{r.ok ? "Encolada" : "Error"}</Badge>
+                    <span className="font-semibold">{tenantOptions.find((t) => t.tenantId === r.tenantId)?.name ?? r.tenantId}</span>
+                    <span className="text-slate-500">{r.ok ? r.campaignId : r.error}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        )}
+      </Card>
 
       <Card
         tone="default"
