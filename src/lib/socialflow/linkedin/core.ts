@@ -30,7 +30,7 @@ const LINKEDIN_ORGANIZATION_SCOPE_ENV_KEY = "SOCIALFLOW_LINKEDIN_ORGANIZATION_SC
 // header Linkedin-Version — confirmado contra
 // learn.microsoft.com/linkedin/marketing/community-management/shares/vector-asset-api
 // (2026-08-13). Revisar este endpoint si LinkedIn retira /rest/assets del todo.
-const LINKEDIN_ASSETS_REGISTER_UPLOAD_ENDPOINT = "https://api.linkedin.com/rest/assets?action=registerUpload";
+const LINKEDIN_ASSETS_REGISTER_UPLOAD_ENDPOINT = "https://api.linkedin.com/v2/assets?action=registerUpload";
 const LINKEDIN_ORGANIZATION_SHARE_STATISTICS_ENDPOINT = "https://api.linkedin.com/rest/organizationalEntityShareStatistics";
 // Formato YYYYMM exigido por el header Linkedin-Version — 202607 es el
 // "defaultMoniker" (versión soportada más reciente) confirmado en la
@@ -738,7 +738,6 @@ async function registerLinkedInImageUpload(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
-      "Linkedin-Version": LINKEDIN_API_VERSION,
       "X-Restli-Protocol-Version": "2.0.0",
     },
     body: JSON.stringify({
