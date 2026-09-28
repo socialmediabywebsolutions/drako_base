@@ -11,6 +11,7 @@ import { setGlobalEnv, type DracoEnv } from "../../../src/lib/cf";
 import { SocialFlowOrchestrator } from "../../../src/lib/socialflow/ai/SocialFlowOrchestrator";
 import { resolveSocialContext, upsertSaasSocialCampaign } from "../../../src/lib/socialflow/repository";
 import { watermarkCampaignImages } from "./image-watermark";
+import { overlayTenantLogoOnCampaignImages } from "./image-logo";
 import { processScheduledPosts } from "../../../src/lib/socialflow/scheduler";
 import { runTrendAutoApproveCron } from "../../../src/lib/socialflow/intelligence/TrendAutoApproveCron";
 import { withAgentExecutionLog } from "../../../src/lib/socialflow/intelligence/agent-execution-log";
@@ -776,6 +777,7 @@ export default {
         // el pipeline shared de generación no puede tocarlo sin romper el build de la
         // app principal. Nunca lanza, así que un fallo aquí no revierte la campaña ya
         // persistida ni bloquea el ack del mensaje.
+        await overlayTenantLogoOnCampaignImages(env, job.campaignId, job.tenantId);
         if (job.applyTrialCaptionLink) {
           await watermarkCampaignImages(env, job.campaignId);
         }
