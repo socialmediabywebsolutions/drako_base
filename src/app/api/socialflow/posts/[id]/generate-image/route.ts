@@ -10,27 +10,7 @@ import {
 } from "@/lib/socialflow/repository";
 import { getChannelProfile } from "@/lib/socialflow/profile/repository";
 import { generatePostImage } from "@/lib/socialflow/ai/image-generator";
-
-const TONE_STYLE_MAP: [string, string][] = [
-  ["luxury",   "luxury lifestyle photography, elegant minimal composition, premium quality, cinematic lighting"],
-  ["premium",  "luxury lifestyle photography, elegant minimal composition, premium quality, cinematic lighting"],
-  ["playful",  "vibrant colorful design, dynamic composition, energetic lifestyle photography"],
-  ["fun",      "vibrant colorful design, dynamic composition, energetic lifestyle photography"],
-  ["health",   "wellness aesthetic, clean white background, fresh natural colors, health lifestyle photography"],
-  ["fitness",  "dynamic sports photography, energy in motion, bold colors, athletic lifestyle"],
-  ["food",     "food photography, shallow depth of field, warm tones, appetizing presentation, natural lighting"],
-  ["tech",     "clean futuristic aesthetic, dark gradient background, neon accent lights, product visualization"],
-  ["fashion",  "editorial fashion photography, high contrast, model silhouette, bold graphic composition"],
-  ["bold",     "bold graphic design, high contrast colors, strong visual impact, dynamic composition"],
-];
-
-function resolveVisualStyle(tone: string, niche: string): string {
-  const combined = `${tone} ${niche}`.toLowerCase();
-  for (const [keyword, style] of TONE_STYLE_MAP) {
-    if (combined.includes(keyword)) return style;
-  }
-  return "clean corporate photography, modern office environment, neutral tones, business professional";
-}
+import { buildImagePrompt } from "@/lib/socialflow/ai/image-prompt-builder";
 
 export async function POST(
   request: Request,
@@ -53,20 +33,10 @@ export async function POST(
     const brandName = profile?.brandName ?? saasId;
     const tone = profile?.toneOfVoice ?? "professional";
 
-    const subject =
-      post.title ||
-      (post.metadata?.angle as string | undefined) ||
-      post.body.slice(0, 100);
-
-    const imagePrompt = [
-      subject,
-      `${brandName} brand`,
-      `${niche} industry`,
-      resolveVisualStyle(tone, niche),
-      "professional social media marketing image",
-      "high quality photorealistic",
-      "no text no watermarks no logos",
-    ].join(", ");
+    const imagePrompt = buildImagePrompt(
+      { body: post.body, theme: post.title || undefined, angle: post.metadata?.angle as string | undefined },
+      { brandIdentity: brandName, niche, toneOfVoice: tone },
+    );
 
     const imageUrl = await generatePostImage(imagePrompt, postId, session.tenantId);
     if (!imageUrl) {

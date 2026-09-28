@@ -35,7 +35,7 @@ function resolveSubject(post: { body?: string; angle?: string; theme?: string },
 
 export function buildImagePrompt(
   post: { body?: string; angle?: string; theme?: string },
-  profile: BrandProfile,
+  profile: Pick<BrandProfile, "brandIdentity" | "niche" | "toneOfVoice">,
 ): string {
   const subject = resolveSubject(post, profile.niche);
   const style = resolveVisualStyle(profile.toneOfVoice, profile.niche);

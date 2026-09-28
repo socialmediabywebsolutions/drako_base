@@ -84,6 +84,11 @@ function describeEmployeesForPrompt(employees: EmpresaEmployee[]): string | null
 const NEGATIVE_PROMPT =
   "deformed, extra limbs, twisted joints, bad anatomy, mutated hands, extra fingers, missing fingers, fused fingers, too many fingers, malformed limbs, missing arms, missing legs, extra arms, extra legs, mutated, ugly, blurry, low quality, watermark, text";
 
+// Solo cuando el prompt no describe a nadie (sin perfil físico ni empleados): ahí
+// la persona ES el sujeto de la imagen y estos términos la borrarían.
+const NO_PEOPLE_NEGATIVE_PROMPT =
+  "people, office, desk, chair, window, corporate, businessman, businesswoman";
+
 const GENDER_LABELS: Record<string, string> = {
   mujer: "mujer",
   hombre: "hombre",
@@ -306,6 +311,9 @@ export async function generatePostImage(prompt: string, postId: string, tenantId
 
   const promptWithPhysical = physicalDescription ? `${prompt}, ${physicalDescription}` : prompt;
   const finalPrompt = employeeDescription ? `${promptWithPhysical}. ${employeeDescription}` : promptWithPhysical;
+  const negativePrompt = physicalDescription || employeeDescription
+    ? NEGATIVE_PROMPT
+    : `${NEGATIVE_PROMPT}, ${NO_PEOPLE_NEGATIVE_PROMPT}`;
 
   let referenceImage: number[] | null = null;
   if (physicalProfile?.referenceImageUrl) {
@@ -335,7 +343,7 @@ export async function generatePostImage(prompt: string, postId: string, tenantId
       try {
         imageBuffer = await runModel(IMG2IMG_MODEL, {
           prompt: finalPrompt,
-          negative_prompt: NEGATIVE_PROMPT,
+          negative_prompt: negativePrompt,
           num_steps: 20,
           width: IMG2IMG_SIZE,
           height: IMG2IMG_SIZE,
@@ -352,7 +360,7 @@ export async function generatePostImage(prompt: string, postId: string, tenantId
 
     imageBuffer ??= await runModel(MODEL, {
       prompt: finalPrompt,
-      negative_prompt: NEGATIVE_PROMPT,
+      negative_prompt: negativePrompt,
       num_steps: 20,
       width: 1024,
       height: 1024,
