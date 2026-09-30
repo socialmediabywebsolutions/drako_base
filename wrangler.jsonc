@@ -6,6 +6,7 @@
 	"compatibility_flags": [
 		"nodejs_compat",
 		"global_fetch_strictly_public",
+		"experimental"
 	],
 	"assets": {
 		"directory": ".open-next/assets",
