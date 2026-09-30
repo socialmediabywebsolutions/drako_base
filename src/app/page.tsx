@@ -1,11 +1,79 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import type { ReactNode } from "react";
+import {
+  ArrowRight,
+  Bot,
+  Brain,
+  Building2,
+  Cloud,
+  Facebook,
+  GraduationCap,
+  Infinity as InfinityIcon,
+  Instagram,
+  Linkedin,
+  Plug,
+  Rocket,
+  Share2,
+  Sparkles,
+  Timer,
+  Wallet,
+} from "lucide-react";
 import { HostMode, resolveHostMode } from "@/lib/hosts";
 import { SiteLayout } from "@/components/marketing/SiteLayout";
 import { getMarketingCopy, resolveMarketingLocale, defaultMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
-import Link from "next/link";
+
 const isHostMode = (value: string | null): value is HostMode =>
   value === "CAMPAMENTO_BASE" || value === "PREVIEW" || value === "PUBLIC_SAAS";
+
+const SOCIALCORS_URL = "https://socialcors.com";
+
+const TRUST_ITEMS: { name: string; icon: ReactNode }[] = [
+  { name: "Instagram", icon: <Instagram className="h-5 w-5" /> },
+  { name: "Facebook", icon: <Facebook className="h-5 w-5" /> },
+  { name: "LinkedIn", icon: <Linkedin className="h-5 w-5" /> },
+  { name: "Meta", icon: <InfinityIcon className="h-5 w-5" /> },
+  { name: "Cloudflare", icon: <Cloud className="h-5 w-5" /> },
+  { name: "Anthropic", icon: <Sparkles className="h-5 w-5" /> },
+];
+
+const ECOSYSTEM: { name: string; description: string; active: boolean; href?: string; icon: ReactNode }[] = [
+  { name: "Socialcors", description: "Automatización total de redes sociales con IA", active: true, href: SOCIALCORS_URL, icon: <Share2 className="h-6 w-6" /> },
+  { name: "Mentoría", description: "Tutores IA para estudiantes", active: false, icon: <GraduationCap className="h-6 w-6" /> },
+  { name: "Cazh", description: "Wallet digital inteligente", active: false, icon: <Wallet className="h-6 w-6" /> },
+  { name: "Rentia", description: "Gestión inmobiliaria con IA", active: false, icon: <Building2 className="h-6 w-6" /> },
+];
+
+const STEPS: { title: string; description: string; icon: ReactNode }[] = [
+  { title: "Conectas tus redes", description: "Instagram, Facebook y LinkedIn en un par de clics, con los permisos oficiales de cada plataforma.", icon: <Plug className="h-7 w-7" /> },
+  { title: "La IA aprende tu negocio", description: "Los agentes estudian tu marca, tu audiencia y lo que funciona en tu nicho.", icon: <Brain className="h-7 w-7" /> },
+  { title: "Publicas en piloto automático", description: "Contenido, horarios y publicación en marcha sin que tengas que tocar nada.", icon: <Rocket className="h-7 w-7" /> },
+];
+
+const METRICS: { value: string; label: string; icon: ReactNode }[] = [
+  { value: "26", label: "agentes IA activos", icon: <Bot className="h-5 w-5" /> },
+  { value: "3", label: "redes sociales automatizadas", icon: <Share2 className="h-5 w-5" /> },
+  { value: "100%", label: "autónomo en Nivel 3", icon: <Sparkles className="h-5 w-5" /> },
+  { value: "0", label: "horas de gestión manual", icon: <Timer className="h-5 w-5" /> },
+];
+
+// Mismos artículos que muestra /journal (src/app/journal/page.tsx).
+const JOURNAL_ARTICLES = [
+  { category: "Ingeniería", title: "Por qué la latencia es el nuevo downtime en sistemas LLM", date: "Oct 2025" },
+  { category: "Producto", title: "El fin del dashboard estático", date: "Sep 2025" },
+  { category: "Cultura", title: "Pragmatismo Radical: Nuestro sistema operativo cultural", date: "Ago 2025" },
+];
+
+function SectionHeading({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle?: string }) {
+  return (
+    <div className="max-w-2xl mx-auto text-center mb-16">
+      <span className="text-blue-600 font-bold tracking-widest uppercase text-xs mb-4 block">{eyebrow}</span>
+      <h2 className="heading-lg text-slate-900 mb-5 text-balance">{title}</h2>
+      {subtitle ? <p className="text-lg text-slate-600 leading-relaxed">{subtitle}</p> : null}
+    </div>
+  );
+}
 
 export default async function Home({ params }: { params?: Promise<{ locale?: string }> }) {
   const resolvedParams = params ? await params : undefined;
@@ -33,241 +101,176 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
   return (
     <SiteLayout locale={locale} currentPath={currentPath} copy={{ nav: copy.nav, footerLine }}>
       <div>
-        
-        {/* HERO SECTION */}
-        <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden bg-gradient-to-b from-slate-50 to-blue-50">
+
+        {/* HERO */}
+        <section className="relative overflow-hidden bg-gradient-to-b from-slate-50 to-blue-50 pt-24 pb-28 md:pt-36 md:pb-40">
           <div className="container-premium relative z-10">
             <div className="max-w-4xl mx-auto text-center fade-in-up">
+              <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white/80 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-blue-600 mb-8">
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                Holding tecnológico de IA
+              </span>
               <h1 className="heading-xl text-slate-900 mb-8 text-balance">
-                {copy.home.hero.title}
+                El cerebro de IA que mueve <span className="drako-gradient-text">tus redes sociales.</span>
               </h1>
-              <p className="text-lg md:text-xl text-slate-600 mb-10 leading-relaxed max-w-2xl mx-auto text-balance delay-100 fade-in-up">
-                {copy.home.hero.subtitle}
+              <p className="text-lg md:text-xl text-slate-600 mb-12 leading-relaxed max-w-2xl mx-auto text-balance delay-100 fade-in-up">
+                Drako dirige múltiples SaaS de automatización con inteligencia artificial. Resultados reales, sin esfuerzo manual.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 delay-200 fade-in-up">
-                <Link 
-                  href={`${prefix}/products`}
-                  className="btn-premium btn-primary"
-                >
-                  {copy.home.hero.cta}
-                </Link>
-                <Link 
-                  href={`${prefix}/system`}
-                  className="btn-premium btn-secondary"
-                >
-                  {copy.nav.system}
-                </Link>
-              </div>
-            </div>
-
-            <div className="mt-20 max-w-3xl mx-auto delay-300 fade-in-up">
-              <div className="card-premium !bg-white/70 backdrop-blur-sm border-gray-200 p-8 md:p-12">
-                <p className="text-base md:text-lg text-slate-700 leading-loose">
-                  {copy.home.hero.description}
-                </p>
+                <a href={SOCIALCORS_URL} className="btn-premium btn-primary">
+                  Ver Socialcors
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </a>
+                <a href="#como-funciona" className="btn-premium btn-secondary">
+                  Cómo funciona
+                </a>
               </div>
             </div>
           </div>
 
-          {/* Abstract decorative background */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-7xl pointer-events-none opacity-40 z-0">
-             <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-blue-200/40 rounded-full blur-3xl mix-blend-multiply filter" />
-             <div className="absolute top-[20%] left-[-10%] w-[500px] h-[500px] bg-cyan-100/50 rounded-full blur-3xl mix-blend-multiply filter" />
+          <div className="absolute inset-0 pointer-events-none z-0">
+            <div className="absolute top-[-15%] right-[-5%] w-[600px] h-[600px] bg-blue-200/40 rounded-full blur-3xl" />
+            <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-cyan-100/60 rounded-full blur-3xl" />
           </div>
         </section>
 
-        {/* PROBLEM SECTION */}
-        <section className="section-spacing bg-white border-y border-gray-200">
+        {/* BANDA DE CONFIANZA */}
+        <section className="bg-white border-y border-gray-200 py-12">
           <div className="container-premium">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-24 items-center">
-              <div>
-                <h2 className="heading-lg text-slate-900 mb-6">
-                  {copy.home.problem.title}
-                </h2>
-                <div className="h-1 w-20 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 mb-8" />
-              </div>
-              <div>
-                <p className="text-lg text-slate-600 leading-relaxed">
-                  {copy.home.problem.description}
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* WHAT IS DRAKO */}
-        <section className="section-spacing">
-          <div className="container-premium">
-            <div className="max-w-4xl mx-auto">
-              <div className="rounded-3xl bg-white border border-gray-200 text-slate-900 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden relative">
-                 {/* Card content */}
-                 <div className="relative z-10 p-8 md:p-12">
-                    <span className="inline-block py-1 px-3 rounded-full bg-blue-50 text-blue-600 text-xs font-bold tracking-widest uppercase mb-6">
-                      Drako Systems
-                    </span>
-                    <h2 className="heading-lg mb-6 text-slate-900">
-                      {copy.home.whatIs.title}
-                    </h2>
-                    <p className="text-lg text-slate-600 leading-relaxed mb-8">
-                      {copy.home.whatIs.description}
-                    </p>
-                    <Link href={`${prefix}/about`} className="text-blue-600 font-semibold hover:text-cyan-600 transition-colors inline-flex items-center gap-2">
-                       {copy.nav.about} 
-                       <span aria-hidden="true">→</span>
-                    </Link>
-                 </div>
-                 
-                 {/* Decorative gradient overlay */}
-                 <div className="absolute bottom-0 right-0 w-full h-full bg-gradient-to-tr from-blue-500/5 via-transparent to-cyan-500/10 pointer-events-none" />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* PRODUCTS PREVIEW */}
-        <section className="section-spacing bg-[var(--background-alt)]">
-          <div className="container-premium">
-            <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
-              <div>
-                <h2 className="heading-lg text-slate-900 mb-4">{copy.home.productsPreview.title}</h2>
-                <p className="text-slate-600 max-w-xl">{copy.products.intro}</p>
-              </div>
-              <Link href={`${prefix}/products`} className="btn-premium btn-secondary shrink-0">
-                {copy.home.productsPreview.cta}
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 gap-8">
-              {copy.products.items.map((item) => (
-                <div key={item.name} className="card-premium bg-white border-gray-200 text-slate-900 overflow-hidden p-0 group">
-                   <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[400px]">
-                      <div className="p-8 md:p-12 flex flex-col justify-center relative z-10">
-                         <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-cyan-400/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-                         
-                         {item.name === 'Socialcors' ? (
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs font-bold tracking-widest uppercase mb-6 w-fit">
-                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"/>
-                                Pilot Program Open
-                            </div>
-                         ) : (
-                             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold tracking-widest uppercase mb-6 w-fit">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"/>
-                                Live Product
-                             </div>
-                         )}
-                         
-                         <h3 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4 tracking-tight">{item.name}</h3>
-                         <p className="text-xl drako-gradient-text font-medium mb-6">{item.tagline}</p>
-                         <p className="text-slate-600 mb-8 leading-relaxed text-lg max-w-md">
-                            {item.solution}
-                         </p>
-                         
-                         <div>
-                            <Link 
-                              href={`${prefix}/products/socialflow`} 
-                              className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-lg font-bold transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/50 hover:-translate-y-0.5"
-                            >
-                              Ver Landing Page
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                            </Link>
-                         </div>
-                      </div>
-                      
-                      {/* Visual Preview */}
-                      <div className="bg-gradient-to-br from-slate-50 to-blue-50 relative border-t lg:border-t-0 lg:border-l border-gray-200 p-8 flex items-center justify-center overflow-hidden">
-                          <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:16px_16px] opacity-60" />
-                          
-                          {/* Abstract UI representation */}
-                          <div className="relative w-full max-w-md aspect-video bg-white rounded-xl shadow-xl border border-gray-200 p-4 transform rotate-1 group-hover:rotate-0 transition-all duration-500 hover:shadow-blue-500/20">
-                              <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-2">
-                                  <div className="w-2 h-2 rounded-full bg-slate-300" />
-                                  <div className="w-2 h-2 rounded-full bg-slate-300" />
-                                  <div className="w-2 h-2 rounded-full bg-slate-300" />
-                              </div>
-                              <div className="space-y-4">
-                                  <div className="flex gap-3">
-                                      <div className="w-8 h-8 rounded-full bg-slate-100 flex-shrink-0 border border-gray-200" />
-                                      <div className="space-y-2 flex-1 pt-1">
-                                          <div className="h-2 bg-slate-200 rounded w-3/4" />
-                                          <div className="h-2 bg-slate-200 rounded w-1/2" />
-                                      </div>
-                                  </div>
-                                  
-                                  <div className="bg-cyan-50 p-3 rounded-lg border border-cyan-200 ml-11">
-                                      <div className="flex items-center gap-2 text-cyan-700 text-[10px] font-bold mb-1 uppercase tracking-wide">
-                                          <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"/>
-                                          AI Response
-                                      </div>
-                                      <div className="h-1.5 bg-cyan-200 rounded w-full mb-1" />
-                                      <div className="h-1.5 bg-cyan-200 rounded w-5/6" />
-                                  </div>
-                              </div>
-                              
-                              <div className="absolute -bottom-4 -right-4 bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
-                                  <span className="w-2 h-2 bg-green-500 rounded-full" />
-                                  System Active
-                              </div>
-                          </div>
-                      </div>
-                   </div>
+            <p className="text-center text-sm font-semibold text-slate-500 mb-8">
+              Tecnología que ya conoces, inteligencia que no habías visto
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-6">
+              {TRUST_ITEMS.map((item) => (
+                <div key={item.name} className="flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-colors duration-300">
+                  {item.icon}
+                  <span className="text-base font-semibold tracking-tight">{item.name}</span>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* SYSTEM / VISION PREVIEW GRID */}
-        <section className="section-spacing">
-           <div className="container-premium">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {/* System Card */}
-                 <Link href={`${prefix}/system`} className="card-premium group cursor-pointer h-full flex flex-col">
-                    <div className="mb-6">
-                       <span className="inline-block p-3 rounded-xl bg-blue-50 text-blue-600 mb-4 group-hover:bg-blue-100 transition-colors">
-                          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                          </svg>
-                       </span>
-                       <h3 className="text-2xl font-bold text-slate-900 mb-2">{copy.system.title}</h3>
-                       <p className="text-slate-600">{copy.system.intro}</p>
-                    </div>
-                    <div className="mt-auto pt-6 border-t border-slate-100">
-                       <span className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors flex items-center gap-2">
-                          Conoce nuestro método <span aria-hidden="true">→</span>
-                       </span>
-                    </div>
-                 </Link>
-
-                 {/* Vision Card */}
-                 <Link href={`${prefix}/vision`} className="card-premium group cursor-pointer h-full flex flex-col">
-                    <div className="mb-6">
-                       <span className="inline-block p-3 rounded-xl bg-cyan-50 text-cyan-600 mb-4 group-hover:bg-cyan-100 transition-colors">
-                          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                       </span>
-                       <h3 className="text-2xl font-bold text-slate-900 mb-2">{copy.vision.title}</h3>
-                       <p className="text-slate-600">{copy.vision.content[0]}</p>
-                    </div>
-                    <div className="mt-auto pt-6 border-t border-slate-100">
-                       <span className="text-sm font-bold text-slate-900 group-hover:text-cyan-600 transition-colors flex items-center gap-2">
-                          Lee nuestra visión <span aria-hidden="true">→</span>
-                       </span>
-                    </div>
-                 </Link>
-              </div>
-           </div>
+        {/* EL ECOSISTEMA */}
+        <section className="section-spacing bg-slate-50">
+          <div className="container-premium">
+            <SectionHeading
+              eyebrow="El ecosistema"
+              title="Un holding, varios SaaS, un mismo cerebro"
+              subtitle="Cada producto de Drako comparte la misma infraestructura de agentes IA. Lo que aprende uno, lo aprovechan todos."
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {ECOSYSTEM.map((saas) => (
+                <div key={saas.name} className="card-premium flex flex-col">
+                  <div className="flex items-center justify-between mb-6">
+                    <span className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${saas.active ? "bg-gradient-to-br from-blue-500 to-cyan-500 text-white" : "bg-slate-100 text-slate-500"}`}>
+                      {saas.icon}
+                    </span>
+                    {saas.active ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Activo
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-slate-100 border border-gray-200 px-3 py-1 text-xs font-bold text-slate-500">
+                        Próximamente
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-2">{saas.name}</h3>
+                  <p className="text-slate-600 mb-8">{saas.description}</p>
+                  {saas.active && saas.href ? (
+                    <a href={saas.href} className="btn-premium btn-primary mt-auto py-3 px-6 text-sm">
+                      Visitar {saas.name}
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
-        {/* FINAL CTA */}
-        <section className="py-24 bg-gradient-to-b from-slate-50 to-blue-50 border-t border-gray-200">
-           <div className="container-premium text-center">
-              <h2 className="heading-lg text-slate-900 mb-6 max-w-2xl mx-auto text-balance">{copy.contact.title}</h2>
-              <p className="text-xl text-slate-600 mb-10 max-w-xl mx-auto">{copy.contact.subtitle}</p>
-              <Link href={`${prefix}/contact`} className="btn-premium btn-primary text-lg px-8 py-4">
-                 {copy.contact.form.submit}
+        {/* CÓMO FUNCIONA */}
+        <section id="como-funciona" className="section-spacing bg-white scroll-mt-24">
+          <div className="container-premium">
+            <SectionHeading eyebrow="Cómo funciona" title="Tres pasos y la IA se encarga del resto" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+              <div className="hidden md:block absolute top-10 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-blue-200 via-cyan-200 to-blue-200" />
+              {STEPS.map((step, index) => (
+                <div key={step.title} className="relative text-center">
+                  <div className="relative mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30">
+                    {step.icon}
+                    <span className="absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-white border border-gray-200 text-xs font-bold text-blue-600 shadow-sm">
+                      {index + 1}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-3">{step.title}</h3>
+                  <p className="text-slate-600 max-w-xs mx-auto leading-relaxed">{step.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* MÉTRICAS */}
+        <section className="section-spacing bg-gradient-to-b from-slate-50 to-blue-50 border-y border-gray-200">
+          <div className="container-premium">
+            <SectionHeading eyebrow="Impacto" title="Números de un sistema que no descansa" />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+              {METRICS.map((metric) => (
+                <div key={metric.label} className="card-premium text-center">
+                  <span className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    {metric.icon}
+                  </span>
+                  <div className="text-5xl md:text-6xl font-bold tracking-tight drako-gradient-text mb-2">{metric.value}</div>
+                  <p className="text-sm font-medium text-slate-600">{metric.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* JOURNAL */}
+        <section className="section-spacing bg-white">
+          <div className="container-premium">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+              <div>
+                <span className="text-blue-600 font-bold tracking-widest uppercase text-xs mb-4 block">Journal</span>
+                <h2 className="heading-lg text-slate-900">Lo último del journal</h2>
+              </div>
+              <Link href={`${prefix}/journal`} className="btn-premium btn-secondary shrink-0">
+                Ver todos los artículos
               </Link>
-           </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {JOURNAL_ARTICLES.map((article) => (
+                <Link key={article.title} href={`${prefix}/journal`} className="card-premium group flex flex-col">
+                  <div className="mb-6 h-40 rounded-2xl bg-gradient-to-br from-blue-100 via-slate-50 to-cyan-100" />
+                  <div className="flex items-center justify-between mb-3 text-xs">
+                    <span className="font-bold uppercase tracking-widest text-blue-600">{article.category}</span>
+                    <span className="font-mono text-slate-400">{article.date}</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 leading-snug group-hover:text-blue-600 transition-colors">
+                    {article.title}
+                  </h3>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CTA FINAL */}
+        <section className="section-spacing bg-gradient-to-b from-slate-50 to-blue-50 border-t border-gray-200">
+          <div className="container-premium text-center">
+            <h2 className="heading-lg text-slate-900 mb-6 max-w-2xl mx-auto text-balance">¿Listo para automatizar tu marca?</h2>
+            <p className="text-xl text-slate-600 mb-10 max-w-xl mx-auto">
+              Socialcors pone a trabajar a los agentes de Drako en tus redes desde el primer día.
+            </p>
+            <a href={SOCIALCORS_URL} className="btn-premium btn-primary text-lg px-10 py-5">
+              Empezar con Socialcors
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </a>
+          </div>
         </section>
 
       </div>

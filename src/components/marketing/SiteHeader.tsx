@@ -23,11 +23,8 @@ type Props = {
 const navLinks = (copy: Props["copy"], locale: MarketingLocale) => {
   const prefix = locale === defaultMarketingLocale ? "" : `/${locale}`;
   return [
-    { href: copy.home ? `/${locale}` : "/", label: copy.home ?? "Inicio" },
-    { href: `${prefix}/system`, label: copy.system ?? "Cómo trabajamos" },
     { href: `${prefix}/products`, label: copy.products ?? "Productos" },
     { href: `${prefix}/journal`, label: copy.journal ?? "Journal" },
-    { href: `${prefix}/vision`, label: copy.vision ?? "Visión" },
     { href: `${prefix}/about`, label: copy.about ?? "Sobre Drako" },
     { href: `${prefix}/contact`, label: copy.contact ?? "Contacto" },
   ];
@@ -98,10 +95,10 @@ export function SiteHeader({ locale, copy }: Props) {
             {copy.localeSwitch}
           </Link>
           <Link
-            href={locale === defaultMarketingLocale ? "/contact" : `/${locale}/contact`}
+            href="/operator/socialflow"
             className="hidden sm:inline-flex btn-premium btn-primary py-2 px-6 text-sm"
           >
-            {copy.contact}
+            Panel de control
           </Link>
         </div>
       </div>

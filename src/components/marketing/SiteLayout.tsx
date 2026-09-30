@@ -62,6 +62,7 @@ export function SiteLayout({ children, locale, currentPath, copy }: Props) {
                    <li><Link href="/about" className="hover:text-cyan-400 transition-colors">{copy.nav.about}</Link></li>
                    <li><Link href="/vision" className="hover:text-cyan-400 transition-colors">{copy.nav.vision}</Link></li>
                    <li><Link href="/contact" className="hover:text-cyan-400 transition-colors">{copy.nav.contact}</Link></li>
+                   <li><Link href="/operator/socialflow" className="hover:text-cyan-400 transition-colors">Panel operador</Link></li>
                 </ul>
              </div>
           </div>
