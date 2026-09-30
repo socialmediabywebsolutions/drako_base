@@ -5,19 +5,18 @@ import type { ReactNode } from "react";
 import {
   ArrowRight,
   Bot,
-  Brain,
   Building2,
   Cloud,
-  Facebook,
+  CreditCard,
+  Database,
   GraduationCap,
+  Hammer,
   Infinity as InfinityIcon,
-  Instagram,
-  Linkedin,
-  Plug,
-  Rocket,
+  Layers,
+  LayoutDashboard,
+  Search,
   Share2,
   Sparkles,
-  Timer,
   Wallet,
 } from "lucide-react";
 import { HostMode, resolveHostMode } from "@/lib/hosts";
@@ -30,12 +29,10 @@ const isHostMode = (value: string | null): value is HostMode =>
 const SOCIALCORS_URL = "https://socialcors.com";
 
 const TRUST_ITEMS: { name: string; icon: ReactNode }[] = [
-  { name: "Instagram", icon: <Instagram className="h-5 w-5" /> },
-  { name: "Facebook", icon: <Facebook className="h-5 w-5" /> },
-  { name: "LinkedIn", icon: <Linkedin className="h-5 w-5" /> },
-  { name: "Meta", icon: <InfinityIcon className="h-5 w-5" /> },
   { name: "Cloudflare", icon: <Cloud className="h-5 w-5" /> },
   { name: "Anthropic", icon: <Sparkles className="h-5 w-5" /> },
+  { name: "Meta", icon: <InfinityIcon className="h-5 w-5" /> },
+  { name: "Stripe", icon: <CreditCard className="h-5 w-5" /> },
 ];
 
 const ECOSYSTEM: { name: string; description: string; active: boolean; href?: string; icon: ReactNode }[] = [
@@ -46,16 +43,16 @@ const ECOSYSTEM: { name: string; description: string; active: boolean; href?: st
 ];
 
 const STEPS: { title: string; description: string; icon: ReactNode }[] = [
-  { title: "Conectas tus redes", description: "Instagram, Facebook y LinkedIn en un par de clics, con los permisos oficiales de cada plataforma.", icon: <Plug className="h-7 w-7" /> },
-  { title: "La IA aprende tu negocio", description: "Los agentes estudian tu marca, tu audiencia y lo que funciona en tu nicho.", icon: <Brain className="h-7 w-7" /> },
-  { title: "Publicas en piloto automático", description: "Contenido, horarios y publicación en marcha sin que tengas que tocar nada.", icon: <Rocket className="h-7 w-7" /> },
+  { title: "Identifica un problema real", description: "Drako detecta sectores donde la IA puede sustituir trabajo manual repetitivo.", icon: <Search className="h-7 w-7" /> },
+  { title: "Construye un SaaS especializado", description: "Cada producto se lanza con su propia marca, stack y modelo de negocio.", icon: <Hammer className="h-7 w-7" /> },
+  { title: "Lo dirige desde el centro", description: "Campamento Base coordina tecnología, facturación e inteligencia compartida.", icon: <LayoutDashboard className="h-7 w-7" /> },
 ];
 
 const METRICS: { value: string; label: string; icon: ReactNode }[] = [
+  { value: "4", label: "SaaS en el ecosistema", icon: <Layers className="h-5 w-5" /> },
   { value: "26", label: "agentes IA activos", icon: <Bot className="h-5 w-5" /> },
-  { value: "3", label: "redes sociales automatizadas", icon: <Share2 className="h-5 w-5" /> },
-  { value: "100%", label: "autónomo en Nivel 3", icon: <Sparkles className="h-5 w-5" /> },
-  { value: "0", label: "horas de gestión manual", icon: <Timer className="h-5 w-5" /> },
+  { value: "1", label: "plataforma central", icon: <LayoutDashboard className="h-5 w-5" /> },
+  { value: "0", label: "silos de datos", icon: <Database className="h-5 w-5" /> },
 ];
 
 // Mismos artículos que muestra /journal (src/app/journal/page.tsx).
@@ -111,19 +108,19 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
                 Holding tecnológico de IA
               </span>
               <h1 className="heading-xl text-slate-900 mb-8 text-balance">
-                El cerebro de IA que mueve <span className="drako-gradient-text">tus redes sociales.</span>
+                El holding tecnológico que construye <span className="drako-gradient-text">el futuro con IA.</span>
               </h1>
               <p className="text-lg md:text-xl text-slate-600 mb-12 leading-relaxed max-w-2xl mx-auto text-balance delay-100 fade-in-up">
-                Drako dirige múltiples SaaS de automatización con inteligencia artificial. Resultados reales, sin esfuerzo manual.
+                Drako crea, dirige y hace crecer empresas de software especializadas impulsadas por inteligencia artificial. Cada SaaS resuelve un problema real. Todos comparten una misma inteligencia.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 delay-200 fade-in-up">
-                <a href={SOCIALCORS_URL} className="btn-premium btn-primary">
-                  Ver Socialcors
+                <a href="#ecosistema" className="btn-premium btn-primary">
+                  Conoce el ecosistema
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </a>
-                <a href="#como-funciona" className="btn-premium btn-secondary">
-                  Cómo funciona
-                </a>
+                <Link href={`${prefix}/journal`} className="btn-premium btn-secondary">
+                  Leer el Journal
+                </Link>
               </div>
             </div>
           </div>
@@ -138,7 +135,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
         <section className="bg-white border-y border-gray-200 py-12">
           <div className="container-premium">
             <p className="text-center text-sm font-semibold text-slate-500 mb-8">
-              Tecnología que ya conoces, inteligencia que no habías visto
+              Tecnología construida sobre
             </p>
             <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-6">
               {TRUST_ITEMS.map((item) => (
@@ -152,12 +149,12 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
         </section>
 
         {/* EL ECOSISTEMA */}
-        <section className="section-spacing bg-slate-50">
+        <section id="ecosistema" className="section-spacing bg-slate-50 scroll-mt-24">
           <div className="container-premium">
             <SectionHeading
               eyebrow="El ecosistema"
-              title="Un holding, varios SaaS, un mismo cerebro"
-              subtitle="Cada producto de Drako comparte la misma infraestructura de agentes IA. Lo que aprende uno, lo aprovechan todos."
+              title="Empresas que ya operan con inteligencia artificial"
+              subtitle="Cada producto de Drako es una empresa independiente con su propia marca, clientes y modelo de negocio. Todas comparten tecnología, agentes IA y la inteligencia acumulada del ecosistema."
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {ECOSYSTEM.map((saas) => (
@@ -190,10 +187,10 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
           </div>
         </section>
 
-        {/* CÓMO FUNCIONA */}
-        <section id="como-funciona" className="section-spacing bg-white scroll-mt-24">
+        {/* CÓMO OPERA DRAKO */}
+        <section id="como-opera" className="section-spacing bg-white scroll-mt-24">
           <div className="container-premium">
-            <SectionHeading eyebrow="Cómo funciona" title="Tres pasos y la IA se encarga del resto" />
+            <SectionHeading eyebrow="Cómo opera Drako" title="Del problema al SaaS, dirigido desde el centro" />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
               <div className="hidden md:block absolute top-10 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-blue-200 via-cyan-200 to-blue-200" />
               {STEPS.map((step, index) => (
@@ -236,7 +233,10 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
               <div>
                 <span className="text-blue-600 font-bold tracking-widest uppercase text-xs mb-4 block">Journal</span>
-                <h2 className="heading-lg text-slate-900">Lo último del journal</h2>
+                <h2 className="heading-lg text-slate-900">Reportajes sobre IA y tecnología</h2>
+                <p className="text-lg text-slate-600 leading-relaxed max-w-2xl mt-4">
+                  Drako publica análisis, avances y casos de uso reales del ecosistema. Para fundadores, equipos técnicos y curiosos de la IA.
+                </p>
               </div>
               <Link href={`${prefix}/journal`} className="btn-premium btn-secondary shrink-0">
                 Ver todos los artículos
@@ -262,9 +262,9 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
         {/* CTA FINAL */}
         <section className="section-spacing bg-gradient-to-b from-slate-50 to-blue-50 border-t border-gray-200">
           <div className="container-premium text-center">
-            <h2 className="heading-lg text-slate-900 mb-6 max-w-2xl mx-auto text-balance">¿Listo para automatizar tu marca?</h2>
+            <h2 className="heading-lg text-slate-900 mb-6 max-w-2xl mx-auto text-balance">¿Quieres entrar al ecosistema?</h2>
             <p className="text-xl text-slate-600 mb-10 max-w-xl mx-auto">
-              Socialcors pone a trabajar a los agentes de Drako en tus redes desde el primer día.
+              Prueba Socialcors, el primer SaaS activo de Drako. Automatiza tus redes sociales con IA.
             </p>
             <a href={SOCIALCORS_URL} className="btn-premium btn-primary text-lg px-10 py-5">
               Empezar con Socialcors
