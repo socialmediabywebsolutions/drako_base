@@ -753,6 +753,9 @@ jobs:
           # 0195: CREATE TABLE IF NOT EXISTS — always idempotent
           wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
             --file migrations/0195_sso_tokens.sql
+          # 0205: Journal IA de drako.systems — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
+          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --file migrations/0205_drako_journal.sql
 
       - name: Validate Cloudflare account identifier
         run: |

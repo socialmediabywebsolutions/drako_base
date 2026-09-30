@@ -1,46 +1,41 @@
 import { SiteLayout } from "@/components/marketing/SiteLayout";
 import { getMarketingCopy, resolveMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
+import { listPublishedJournalArticles, type JournalArticle } from "@/lib/drako/journal-repository";
 import Link from "next/link";
 
-export default async function JournalPage({ params }: { params?: Promise<{ locale?: string }> }) {
+export const dynamic = "force-dynamic";
+
+function formatDate(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
+}
+
+async function loadArticles(page: number): Promise<{ articles: JournalArticle[]; page: number; totalPages: number }> {
+  try {
+    return await listPublishedJournalArticles(page);
+  } catch (error) {
+    console.error("JOURNAL_PAGE_LOAD_ERROR", error instanceof Error ? error.message : String(error));
+    return { articles: [], page: 1, totalPages: 1 };
+  }
+}
+
+export default async function JournalPage({
+  params,
+  searchParams,
+}: {
+  params?: Promise<{ locale?: string }>;
+  searchParams?: Promise<{ page?: string }>;
+}) {
   const resolvedParams = params ? await params : undefined;
+  const resolvedSearch = searchParams ? await searchParams : undefined;
   const locale: MarketingLocale = resolveMarketingLocale(resolvedParams?.locale);
   const copy = getMarketingCopy(locale);
-  
+
   const footerLine = copy.about.content[0];
 
-  const featuredArticles = [
-    {
-      id: 1,
-      category: "Ingeniería",
-      title: "Por qué la latencia es el nuevo downtime en sistemas LLM",
-      excerpt: "Analizamos cómo 200ms extra pueden destruir la confianza del usuario en interfaces conversacionales.",
-      author: "Equipo Drako",
-      date: "Oct 2025",
-      readTime: "8 min lectura",
-      gradient: "from-orange-400 to-pink-500"
-    },
-    {
-      id: 2,
-      category: "Producto",
-      title: "El fin del dashboard estático",
-      excerpt: "Nadie quiere ver gráficos. Quieren respuestas. Así diseñamos interfaces orientadas a la acción.",
-      author: "Diseño",
-      date: "Sep 2025",
-      readTime: "5 min lectura",
-      gradient: "from-blue-400 to-cyan-500"
-    },
-    {
-      id: 3,
-      category: "Cultura",
-      title: "Pragmatismo Radical: Nuestro sistema operativo cultural",
-      excerpt: "Cómo evitamos el 'teatro de la innovación' y nos centramos en lo que realmente mueve la aguja.",
-      author: "Founders",
-      date: "Ago 2025",
-      readTime: "6 min lectura",
-      gradient: "from-emerald-400 to-teal-500"
-    }
-  ];
+  const { articles, page, totalPages } = await loadArticles(Number(resolvedSearch?.page ?? "1"));
 
   return (
     <SiteLayout locale={locale} currentPath="/journal" copy={{ nav: copy.nav, footerLine }}>
@@ -64,72 +59,63 @@ export default async function JournalPage({ params }: { params?: Promise<{ local
           <div className="absolute top-0 right-0 w-1/3 h-full bg-slate-50 skew-x-12 opacity-50 pointer-events-none" />
         </section>
 
-        {/* FEATURED ARTICLES GRID */}
-        <section className="section-spacing">
+        {/* ARTICLES GRID */}
+        <section className="section-spacing bg-slate-50">
            <div className="container-premium">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                 
-                 {/* Main Featured Article */}
-                 <div className="lg:col-span-8 fade-in-up delay-100">
-                    <Link href="#" className="group block h-full">
-                       <div className="h-full rounded-3xl overflow-hidden bg-white border border-gray-200 text-slate-900 relative shadow-sm group-hover:shadow-md transition-all duration-500">
-                          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-blue-50 z-0" />
-                          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-cyan-400/15 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 group-hover:bg-cyan-400/25 transition-colors duration-500" />
-                          
-                          <div className="relative z-10 p-8 md:p-16 flex flex-col h-full justify-between min-h-[400px]">
-                             <div className="flex justify-between items-start">
-                                <span className="inline-block py-1 px-3 rounded-full bg-blue-50 text-blue-600 text-xs font-bold tracking-widest uppercase">
-                                  Destacado
-                                </span>
-                                <span className="text-slate-400 font-mono text-sm">Oct 12, 2025</span>
-                             </div>
-                             
-                             <div className="max-w-2xl">
-                                <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight group-hover:text-blue-600 transition-colors">
-                                   La Inteligencia Artificial no es mágica, es infraestructura.
-                                </h2>
-                                <p className="text-lg text-slate-600 leading-relaxed mb-8 line-clamp-3">
-                                   Por qué debemos dejar de tratar a los LLMs como oráculos y empezar a integrarlos como tuberías de datos fiables en nuestros sistemas de producción.
-                                </p>
-                                <div className="flex items-center gap-3 text-sm font-medium text-slate-900">
-                                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white flex items-center justify-center">D</div>
-                                   <span>Equipo de Ingeniería</span>
-                                </div>
+              {articles.length === 0 ? (
+                 <div className="rounded-3xl border border-gray-200 bg-white p-12 text-center">
+                    <h2 className="text-2xl font-bold text-slate-900 mb-3">Pronto, el primer reportaje.</h2>
+                    <p className="text-slate-600">El Journal de Drako publica análisis nuevos cada día laborable.</p>
+                 </div>
+              ) : (
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {articles.map((article) => (
+                       <Link key={article.id} href={`/journal/${article.slug}`} className="card-premium group flex flex-col p-0">
+                          {article.coverImageUrl ? (
+                             // eslint-disable-next-line @next/next/no-img-element
+                             <img src={article.coverImageUrl} alt="" loading="lazy" className="aspect-[16/9] w-full object-cover" />
+                          ) : (
+                             <div className="aspect-[16/9] w-full bg-gradient-to-br from-blue-100 via-slate-50 to-cyan-100" />
+                          )}
+                          <div className="flex flex-1 flex-col p-6">
+                             <span className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-3">{article.category}</span>
+                             <h2 className="text-xl font-bold text-slate-900 leading-snug mb-3 group-hover:text-blue-600 transition-colors">
+                                {article.title}
+                             </h2>
+                             <p className="text-sm text-slate-600 mb-6 line-clamp-3">{article.excerpt}</p>
+                             <div className="mt-auto flex items-center gap-2 text-xs text-slate-400 font-mono">
+                                <span>{formatDate(article.publishedAt)}</span>
+                                <span>•</span>
+                                <span>{article.readingTime} min lectura</span>
                              </div>
                           </div>
-                       </div>
-                    </Link>
-                 </div>
-
-                 {/* Sidebar / Top Picks */}
-                 <div className="lg:col-span-4 space-y-8 fade-in-up delay-200">
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-                       <h3 className="text-sm font-bold uppercase tracking-widest text-slate-900">Más leídos</h3>
-                    </div>
-                    
-                    {featuredArticles.map((article, i) => (
-                       <Link key={article.id} href="#" className="group block">
-                          <article className="py-4 group-hover:bg-white group-hover:p-4 group-hover:rounded-2xl group-hover:shadow-lg transition-all duration-300 -mx-4">
-                             <span className={`text-xs font-bold bg-clip-text text-transparent bg-gradient-to-r ${article.gradient} mb-2 block`}>
-                                {article.category}
-                             </span>
-                             <h4 className="text-xl font-bold text-slate-900 mb-2 leading-tight group-hover:text-blue-600 transition-colors">
-                                {article.title}
-                             </h4>
-                             <p className="text-sm text-slate-500 mb-3 line-clamp-2">
-                                {article.excerpt}
-                             </p>
-                             <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
-                                <span>{article.readTime}</span>
-                                <span>•</span>
-                                <span>{article.date}</span>
-                             </div>
-                          </article>
                        </Link>
                     ))}
                  </div>
+              )}
 
-              </div>
+              {totalPages > 1 ? (
+                 <nav className="mt-12 flex items-center justify-center gap-2" aria-label="Paginación del Journal">
+                    {page > 1 ? (
+                       <Link href={`/journal?page=${page - 1}`} className="btn-premium btn-secondary py-2 px-5 text-sm">← Anteriores</Link>
+                    ) : null}
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                       <Link
+                          key={n}
+                          href={`/journal?page=${n}`}
+                          aria-current={n === page ? "page" : undefined}
+                          className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
+                             n === page ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white" : "bg-white border border-gray-200 text-slate-600 hover:border-blue-300 hover:text-blue-600"
+                          }`}
+                       >
+                          {n}
+                       </Link>
+                    ))}
+                    {page < totalPages ? (
+                       <Link href={`/journal?page=${page + 1}`} className="btn-premium btn-secondary py-2 px-5 text-sm">Siguientes →</Link>
+                    ) : null}
+                 </nav>
+              ) : null}
            </div>
         </section>
 

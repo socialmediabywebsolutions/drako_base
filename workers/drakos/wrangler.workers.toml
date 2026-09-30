@@ -33,6 +33,11 @@ binding = "SOCIAL_DB"
 database_name = "saas_socialflows_prod_db"
 database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
 
+# Portadas del Journal IA (journal/covers/*) — bucket público socialflow-media.
+[[r2_buckets]]
+binding = "SOCIAL_MEDIA_BUCKET"
+bucket_name = "socialflow-media"
+
 [[queues.producers]]
 queue = "drako-billing-queue"
 binding = "BILLING_QUEUE"

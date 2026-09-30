@@ -23,8 +23,15 @@ new_classes = ["RateLimiterDO"]
 [triggers]
 crons = [
     "*/5 * * * *",  # Job Reaper
-    "*/15 * * * *"  # Reconciliation
+    "*/15 * * * *", # Reconciliation
+    "0 9 * * 1-5"   # Journal IA de drako.systems (POST /api/cron/journal en saas-drakos-prod)
 ]
+
+# Service binding al worker de drako.systems — el cron del Journal llama a su ruta
+# /api/cron/journal por RPC interno en vez de fetch() público.
+[[services]]
+binding = "DRAKOS"
+service = "saas-drakos-prod"
 
 # Vars (Secrets should be set via `wrangler secret put`)
 [vars]

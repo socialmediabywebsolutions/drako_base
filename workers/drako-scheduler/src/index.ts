@@ -7,6 +7,28 @@ import { verifyRequest } from "../../../src/lib/security/internal-api";
 
 export { RateLimiterDO };
 
+// Genera el artículo diario del Journal de drako.systems. La ruta valida el Bearer
+// con verifyCronAuth (CRON_SECRET o INTERNAL_API_SECRET).
+async function runDrakoJournal(env: any): Promise<void> {
+    const token = (typeof env.CRON_SECRET === "string" && env.CRON_SECRET.trim())
+        || (typeof env.INTERNAL_API_SECRET === "string" && env.INTERNAL_API_SECRET.trim())
+        || "";
+    if (!env.DRAKOS || !token) {
+        console.error("DRAKO_JOURNAL_CRON_SKIPPED", { hasBinding: Boolean(env.DRAKOS), hasToken: Boolean(token) });
+        return;
+    }
+    const response = await env.DRAKOS.fetch("https://drako.systems/api/cron/journal", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    const body = await response.text();
+    if (!response.ok) {
+        console.error("DRAKO_JOURNAL_CRON_FAILED", { status: response.status, body: body.slice(0, 500) });
+        return;
+    }
+    console.log("DRAKO_JOURNAL_CRON_OK", body.slice(0, 300));
+}
+
 export default {
     async fetch(request: Request, env: any, ctx: ExecutionContext): Promise<Response> {
         setGlobalEnv(env as DracoEnv);
@@ -63,6 +85,10 @@ export default {
             case "*/15 * * * *":
                 console.log("Running Reconciliation...");
                 await runReconciliation(env);
+                break;
+            case "0 9 * * 1-5":
+                console.log("Running Drako Journal...");
+                await runDrakoJournal(env);
                 break;
         }
     },
