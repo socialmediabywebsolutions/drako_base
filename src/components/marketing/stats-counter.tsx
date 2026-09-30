@@ -34,7 +34,7 @@ function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: str
     }, [target, hasAnimated]);
 
     return (
-        <div ref={ref} className="text-6xl md:text-7xl font-black text-sky-600 italic">
+        <div ref={ref} className="text-6xl md:text-7xl font-black text-blue-600 italic">
             {count}{suffix}
         </div>
     );
@@ -49,18 +49,18 @@ export function StatsCounter() {
     ];
 
     return (
-        <section className="py-32 bg-gradient-to-br from-slate-900 to-slate-800 text-white relative overflow-hidden">
+        <section className="py-32 bg-gradient-to-br from-slate-50 to-blue-50 text-slate-900 relative overflow-hidden">
             {/* Background decoration */}
             <div className="absolute inset-0 opacity-10">
-                <div className="absolute top-0 left-0 w-96 h-96 bg-sky-500 blur-[120px] rounded-full" />
-                <div className="absolute bottom-0 right-0 w-96 h-96 bg-sky-600 blur-[120px] rounded-full" />
+                <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500 blur-[120px] rounded-full" />
+                <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-600 blur-[120px] rounded-full" />
             </div>
 
             <div className="max-w-7xl mx-auto px-10 relative z-10">
                 <div className="text-center mb-20">
-                    <span className="text-sky-400 text-xs font-black uppercase tracking-[0.5em]">Resultados Comprobados</span>
+                    <span className="text-blue-400 text-xs font-black uppercase tracking-[0.5em]">Resultados Comprobados</span>
                     <h2 className="text-5xl font-black mt-4 tracking-tight">
-                        Números que <span className="text-sky-400">Hablan por Sí Solos</span>
+                        Números que <span className="text-blue-400">Hablan por Sí Solos</span>
                     </h2>
                 </div>
 

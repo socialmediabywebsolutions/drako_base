@@ -17,7 +17,7 @@ export default async function AboutPage({ params }: { params?: Promise<{ locale?
         <section className="pt-32 pb-20 md:pt-48 md:pb-32">
           <div className="container-premium">
              <div className="max-w-4xl fade-in-up">
-                <span className="text-sky-500 font-bold tracking-widest uppercase text-sm mb-6 block">
+                <span className="text-blue-600 font-bold tracking-widest uppercase text-sm mb-6 block">
                   {copy.nav.about}
                 </span>
                 <h1 className="heading-xl text-slate-900 mb-8 text-balance">
@@ -53,7 +53,7 @@ export default async function AboutPage({ params }: { params?: Promise<{ locale?
               <h2 className="heading-lg mb-12">{copy.about.valuesTitle}</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                  {copy.about.values.map((value, index) => (
-                    <div key={index} className="p-8 rounded-2xl bg-slate-50">
+                    <div key={index} className="p-8 rounded-2xl bg-white border border-gray-200 hover:shadow-md transition-shadow duration-300">
                        <h3 className="text-xl font-bold mb-4 text-slate-900">{value.title}</h3>
                        <p className="text-slate-600">{value.desc}</p>
                     </div>

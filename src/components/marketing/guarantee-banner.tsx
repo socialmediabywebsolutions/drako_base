@@ -44,11 +44,11 @@ export function GuaranteeBanner() {
     ];
 
     return (
-        <section className="py-20 bg-gradient-to-br from-emerald-50 to-sky-50 relative overflow-hidden">
+        <section className="py-20 bg-gradient-to-br from-emerald-50 to-blue-50 relative overflow-hidden">
             {/* Decorative background */}
             <div className="absolute inset-0 opacity-30">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-400 blur-[100px] rounded-full" />
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-sky-400 blur-[100px] rounded-full" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 blur-[100px] rounded-full" />
             </div>
 
             <div className="max-w-7xl mx-auto px-10 relative z-10">
@@ -83,7 +83,7 @@ export function GuaranteeBanner() {
                 p-6 rounded-2xl text-center space-y-3
                 ${item.highlight
                                     ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-2 border-emerald-400 shadow-2xl shadow-emerald-500/30 scale-105'
-                                    : 'bg-white border-2 border-sky-100 shadow-lg'
+                                    : 'bg-white border-2 border-blue-100 shadow-lg'
                                 }
                 hover:scale-110 transition-transform
               `}

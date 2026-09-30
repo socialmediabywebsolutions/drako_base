@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -50,18 +51,17 @@ export function SiteHeader({ locale, copy }: Props) {
 
   return (
     <header 
-      className={`fixed top-0 w-full z-50 transition-all duration-500 border-b ${
-        isScrolled 
-          ? "bg-[var(--panel)]/90 backdrop-blur-md border-[var(--border)] py-3 shadow-sm" 
-          : "bg-transparent border-transparent py-5"
+      className={`fixed top-0 w-full z-50 transition-all duration-500 bg-white border-b border-gray-100 ${
+        isScrolled ? "py-3 shadow-sm" : "py-5"
       }`}
     >
       <div className="container-premium flex items-center justify-between">
         <Link 
           href={locale === defaultMarketingLocale ? "/" : `/${locale}`} 
-          className="relative z-10 group"
+          className="relative z-10 group flex items-center gap-2.5"
         >
-          <span className="text-xl font-bold tracking-tight transition-colors duration-300 text-[var(--foreground)]">
+          <Image src="/logo-drako.png" alt="" width={36} height={36} priority className="h-9 w-9 object-contain" />
+          <span className="text-xl font-bold tracking-tight transition-colors duration-300 text-slate-900">
             Drako Systems
           </span>
         </Link>
@@ -99,9 +99,7 @@ export function SiteHeader({ locale, copy }: Props) {
           </Link>
           <Link
             href={locale === defaultMarketingLocale ? "/contact" : `/${locale}/contact`}
-            className={`hidden sm:inline-flex btn-premium btn-primary py-2 px-6 text-sm transition-all duration-300 ${
-              isScrolled ? "shadow-md" : "shadow-none bg-slate-900"
-            }`}
+            className="hidden sm:inline-flex btn-premium btn-primary py-2 px-6 text-sm"
           >
             {copy.contact}
           </Link>

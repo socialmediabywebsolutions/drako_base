@@ -46,12 +46,12 @@ export function Testimonials() {
     ];
 
     return (
-        <section className="py-32 bg-gradient-to-br from-white to-sky-50">
+        <section className="py-32 bg-gradient-to-br from-white to-blue-50">
             <div className="max-w-7xl mx-auto px-10">
                 <div className="text-center mb-20 space-y-4">
-                    <span className="text-sky-600 text-xs font-black uppercase tracking-[0.5em]">Casos de Éxito</span>
+                    <span className="text-blue-600 text-xs font-black uppercase tracking-[0.5em]">Casos de Éxito</span>
                     <h2 className="text-5xl font-black text-slate-900 tracking-tight">
-                        Lo que dicen <span className="text-sky-600">nuestros clientes</span>
+                        Lo que dicen <span className="text-blue-600">nuestros clientes</span>
                     </h2>
                     <p className="text-slate-600 font-medium max-w-2xl mx-auto">
                         Resultados reales de empresas que confiaron en Drako Partner
@@ -66,11 +66,11 @@ export function Testimonials() {
                             whileInView={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.1 }}
                             viewport={{ once: true }}
-                            className="bg-white rounded-3xl p-8 border-2 border-sky-100 shadow-lg hover:shadow-2xl hover:border-sky-300 transition-all space-y-6"
+                            className="bg-white rounded-3xl p-8 border-2 border-blue-100 shadow-lg hover:shadow-2xl hover:border-blue-300 transition-all space-y-6"
                         >
                             {/* Header */}
                             <div className="flex items-start gap-4">
-                                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-sky-500 to-sky-600 flex items-center justify-center text-white font-black text-lg shadow-lg">
+                                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-black text-lg shadow-lg">
                                     {testimonial.initials}
                                 </div>
                                 <div className="flex-1">
@@ -92,10 +92,10 @@ export function Testimonials() {
                             </blockquote>
 
                             {/* Metrics */}
-                            <div className="grid grid-cols-3 gap-3 pt-4 border-t-2 border-sky-100">
+                            <div className="grid grid-cols-3 gap-3 pt-4 border-t-2 border-blue-100">
                                 {testimonial.metrics.map((metric, i) => (
                                     <div key={i} className="text-center">
-                                        <div className="text-2xl font-black text-sky-600">{metric.value}</div>
+                                        <div className="text-2xl font-black text-blue-600">{metric.value}</div>
                                         <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-1">
                                             {metric.label}
                                         </div>
@@ -109,7 +109,7 @@ export function Testimonials() {
                 <div className="mt-16 text-center">
                     <a
                         href="#chat-section"
-                        className="inline-block px-8 py-4 bg-sky-500 text-white font-black text-sm uppercase tracking-wider rounded-xl hover:bg-sky-600 hover:scale-105 transition-all shadow-lg shadow-sky-500/30"
+                        className="inline-block px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-black text-sm uppercase tracking-wider rounded-xl hover:scale-105 transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50"
                     >
                         Únete a nuestros clientes →
                     </a>

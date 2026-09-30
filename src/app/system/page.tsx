@@ -18,7 +18,7 @@ export default async function SystemPage({ params }: { params?: Promise<{ locale
         <section className="pt-32 pb-20 md:pt-48 md:pb-32">
           <div className="container-premium">
              <div className="max-w-4xl fade-in-up">
-                <span className="text-sky-500 font-bold tracking-widest uppercase text-sm mb-6 block">
+                <span className="text-blue-600 font-bold tracking-widest uppercase text-sm mb-6 block">
                   {copy.nav.system}
                 </span>
                 <h1 className="heading-xl text-slate-900 mb-8 text-balance">
@@ -34,7 +34,7 @@ export default async function SystemPage({ params }: { params?: Promise<{ locale
         {/* INTRO BLOCK */}
         <section className="pb-24">
            <div className="container-premium">
-              <div className="card-premium bg-white p-8 md:p-12 border-l-4 border-l-sky-400 fade-in-up delay-100">
+              <div className="card-premium bg-white p-8 md:p-12 border-l-4 border-l-blue-500 fade-in-up delay-100">
                  <p className="text-lg md:text-xl text-slate-700 leading-loose">
                     {copy.system.intro}
                  </p>
@@ -50,7 +50,7 @@ export default async function SystemPage({ params }: { params?: Promise<{ locale
                     <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-16 items-start group fade-in-up">
                        {/* Number Column */}
                        <div className="md:col-span-2 hidden md:block sticky top-32">
-                          <span className="text-6xl font-bold text-slate-200 group-hover:text-sky-200 transition-colors">
+                          <span className="text-6xl font-bold text-slate-200 group-hover:text-blue-200 transition-colors">
                              0{index + 1}
                           </span>
                        </div>
@@ -60,7 +60,7 @@ export default async function SystemPage({ params }: { params?: Promise<{ locale
                           <div className="md:hidden text-4xl font-bold text-slate-200 mb-4">
                              0{index + 1}
                           </div>
-                          <h3 className="heading-lg text-slate-900 mb-6 group-hover:text-sky-600 transition-colors">
+                          <h3 className="heading-lg text-slate-900 mb-6 group-hover:text-blue-600 transition-colors">
                              {step.title} 
                           </h3>
                           <div className="prose prose-lg text-slate-600 leading-loose max-w-none">

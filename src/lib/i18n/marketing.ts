@@ -272,7 +272,7 @@ export function getMarketingCopy(locale: MarketingLocale) {
         items: [
           { title: "Logística Inteligente", desc: "Optimización de rutas y stock en tiempo real.", color: "bg-orange-500" },
           { title: "Finanzas Predictivas", desc: "Detección de anomalías y proyección de flujo.", color: "bg-emerald-500" },
-          { title: "Talento & Cultura", desc: "Matching de skills y análisis de sentimiento.", color: "bg-purple-500" }
+          { title: "Talento & Cultura", desc: "Matching de skills y análisis de sentimiento.", color: "bg-cyan-500" }
         ]
       },
       cta: {

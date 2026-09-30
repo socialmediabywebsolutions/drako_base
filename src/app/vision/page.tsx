@@ -17,7 +17,7 @@ export default async function VisionPage({ params }: { params?: Promise<{ locale
         <section className="pt-32 pb-20 md:pt-48 md:pb-32">
           <div className="container-premium">
              <div className="max-w-4xl fade-in-up">
-                <span className="text-sky-500 font-bold tracking-widest uppercase text-sm mb-6 block">
+                <span className="text-blue-600 font-bold tracking-widest uppercase text-sm mb-6 block">
                   {copy.nav.vision}
                 </span>
                 <h1 className="heading-xl text-slate-900 mb-8 text-balance">
@@ -48,8 +48,8 @@ export default async function VisionPage({ params }: { params?: Promise<{ locale
            <div className="container-premium">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
                  {copy.vision.pillars.map((pillar, index) => (
-                    <div key={index} className="card-premium p-8 md:p-12 hover:border-indigo-200 group fade-in-up">
-                       <h3 className="text-2xl font-bold text-slate-900 mb-4 group-hover:text-indigo-600 transition-colors">
+                    <div key={index} className="card-premium p-8 md:p-12 hover:border-cyan-200 group fade-in-up">
+                       <h3 className="text-2xl font-bold text-slate-900 mb-4 group-hover:text-cyan-600 transition-colors">
                           {pillar.title}
                        </h3>
                        <p className="text-lg text-slate-600 leading-relaxed">

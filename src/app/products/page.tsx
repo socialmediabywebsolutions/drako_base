@@ -27,7 +27,7 @@ export default async function ProductsHubPage({ params }: { params?: Promise<{ l
                 <p className="text-xl md:text-2xl text-slate-500 leading-relaxed mb-10 max-w-2xl">
                    {content.subtitle}
                 </p>
-                <div className="w-20 h-1 bg-cyan-500 rounded-full" />
+                <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full" />
              </div>
           </div>
         </section>
@@ -43,7 +43,7 @@ export default async function ProductsHubPage({ params }: { params?: Promise<{ l
              <div className="space-y-24">
                 {content.items.map((item, i) => (
                    <div key={i} className="group fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-cyan-200 transition-all duration-500">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center bg-white p-8 md:p-12 rounded-3xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-500">
                          <div className="order-2 lg:order-1">
                             {item.name === 'Socialcors' ? (
                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-cyan-50 border border-cyan-100 rounded-full text-xs font-bold text-cyan-700 mb-6 uppercase tracking-wider">
@@ -79,7 +79,7 @@ export default async function ProductsHubPage({ params }: { params?: Promise<{ l
 
                             <Link 
                                href="/products/socialflow" 
-                               className="inline-flex items-center gap-2 bg-slate-900 text-white hover:bg-cyan-600 px-8 py-4 rounded-lg font-bold transition-all duration-300 shadow-lg hover:shadow-cyan-500/30"
+                               className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-8 py-4 rounded-lg font-bold transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/50 hover:-translate-y-0.5"
                             >
                                Explorar Socialcors
                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
@@ -141,29 +141,29 @@ export default async function ProductsHubPage({ params }: { params?: Promise<{ l
         </section>
 
         {/* Future Lab Section */}
-        <section className="py-24 bg-slate-900 text-white overflow-hidden relative mt-20">
+        <section className="py-24 bg-gradient-to-b from-slate-50 to-blue-50 border-y border-gray-200 text-slate-900 overflow-hidden relative mt-20">
            <div className="container-premium relative z-10">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
                  <div>
-                    <span className="text-cyan-400 font-bold tracking-widest uppercase text-xs mb-6 block">
+                    <span className="text-cyan-600 font-bold tracking-widest uppercase text-xs mb-6 block">
                        Drako Labs
                     </span>
-                    <h2 className="heading-lg mb-6 text-white">{content.future.title}</h2>
-                    <p className="text-xl text-slate-400 leading-relaxed mb-8">
+                    <h2 className="heading-lg mb-6 text-slate-900">{content.future.title}</h2>
+                    <p className="text-xl text-slate-600 leading-relaxed mb-8">
                        {content.future.description}
                     </p>
-                    <Link href="/contact" className="text-white border-b border-cyan-500 pb-1 hover:text-cyan-400 transition-colors inline-block mt-4">
+                    <Link href="/contact" className="text-slate-900 font-semibold border-b-2 border-cyan-500 pb-1 hover:text-blue-600 transition-colors inline-block mt-4">
                        ¿Tienes un reto operativo complejo? Hablemos.
                     </Link>
                  </div>
                  
                  <div className="grid gap-4">
                     {content.future.items.map((item, i) => (
-                       <div key={i} className="p-6 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center gap-4 group cursor-default">
-                          <div className={`w-3 h-3 rounded-full ${item.color} shadow-[0_0_10px_rgba(0,0,0,0.5)] group-hover:scale-125 transition-transform`} />
+                       <div key={i} className="p-6 rounded-xl bg-white border border-gray-200 hover:shadow-md transition-shadow duration-300 flex items-center gap-4 group cursor-default">
+                          <div className={`w-3 h-3 rounded-full ${item.color} shadow-[0_0_10px_rgba(59,130,246,0.35)] group-hover:scale-125 transition-transform`} />
                           <div>
-                             <h3 className="font-bold text-white text-lg">{item.title}</h3>
-                             <p className="text-slate-400 text-sm">{item.desc}</p>
+                             <h3 className="font-bold text-slate-900 text-lg">{item.title}</h3>
+                             <p className="text-slate-600 text-sm">{item.desc}</p>
                           </div>
                        </div>
                     ))}
@@ -173,14 +173,14 @@ export default async function ProductsHubPage({ params }: { params?: Promise<{ l
            
            {/* Background Decorations */}
            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
-           <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
+           <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
         </section>
 
         {/* General CTA */}
-        <section className="py-32 bg-white text-center">
+        <section className="py-32 bg-gradient-to-b from-slate-50 to-blue-50 text-center">
            <div className="container-premium">
               <h2 className="heading-lg text-slate-900 mb-12 max-w-3xl mx-auto">{content.cta.title}</h2>
-              <Link href="/contact" className="btn-premium bg-slate-900 text-white hover:bg-slate-800 px-10 py-5 text-lg shadow-xl shadow-slate-200">
+              <Link href="/contact" className="btn-premium btn-primary px-10 py-5 text-lg">
                  {content.cta.button}
               </Link>
            </div>

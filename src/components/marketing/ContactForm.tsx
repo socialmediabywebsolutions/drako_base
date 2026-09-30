@@ -89,7 +89,7 @@ export function ContactForm({ copy, initialInterest }: ContactFormProps) {
             id="name"
             name="name"
             required
-            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all"
+            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             placeholder="Ej. Ana García"
           />
         </div>
@@ -103,7 +103,7 @@ export function ContactForm({ copy, initialInterest }: ContactFormProps) {
             id="email"
             name="email"
             required
-            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all"
+            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             placeholder="Ej. ana@empresa.com"
           />
         </div>
@@ -116,7 +116,7 @@ export function ContactForm({ copy, initialInterest }: ContactFormProps) {
             type="text" 
             id="role"
             name="role"
-            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all"
+            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             placeholder="Ej. Director de Operaciones"
           />
         </div>
@@ -129,7 +129,7 @@ export function ContactForm({ copy, initialInterest }: ContactFormProps) {
             id="interest"
             name="interest"
             defaultValue={initialInterest}
-            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all appearance-none"
+            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none"
           >
             <option value="" disabled>Selecciona una opción</option>
             {copy.interests.map((interest, i) => (
@@ -147,7 +147,7 @@ export function ContactForm({ copy, initialInterest }: ContactFormProps) {
             name="message"
             required
             rows={5}
-            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all resize-none"
+            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
             placeholder="Cuéntanos brevemente qué buscas resolver..."
           />
         </div>

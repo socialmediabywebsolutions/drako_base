@@ -28,7 +28,7 @@ export default async function JournalPage({ params }: { params?: Promise<{ local
       author: "Diseño",
       date: "Sep 2025",
       readTime: "5 min lectura",
-      gradient: "from-blue-400 to-indigo-500"
+      gradient: "from-blue-400 to-cyan-500"
     },
     {
       id: 3,
@@ -72,27 +72,27 @@ export default async function JournalPage({ params }: { params?: Promise<{ local
                  {/* Main Featured Article */}
                  <div className="lg:col-span-8 fade-in-up delay-100">
                     <Link href="#" className="group block h-full">
-                       <div className="h-full rounded-3xl overflow-hidden bg-slate-900 text-white relative shadow-xl group-hover:shadow-2xl transition-all duration-500">
-                          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-950 z-0" />
-                          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/20 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 group-hover:bg-indigo-500/30 transition-colors duration-500" />
+                       <div className="h-full rounded-3xl overflow-hidden bg-white border border-gray-200 text-slate-900 relative shadow-sm group-hover:shadow-md transition-all duration-500">
+                          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-blue-50 z-0" />
+                          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-cyan-400/15 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 group-hover:bg-cyan-400/25 transition-colors duration-500" />
                           
                           <div className="relative z-10 p-8 md:p-16 flex flex-col h-full justify-between min-h-[400px]">
                              <div className="flex justify-between items-start">
-                                <span className="inline-block py-1 px-3 rounded-full bg-white/10 text-indigo-300 text-xs font-bold tracking-widest uppercase backdrop-blur-sm">
+                                <span className="inline-block py-1 px-3 rounded-full bg-blue-50 text-blue-600 text-xs font-bold tracking-widest uppercase">
                                   Destacado
                                 </span>
                                 <span className="text-slate-400 font-mono text-sm">Oct 12, 2025</span>
                              </div>
                              
                              <div className="max-w-2xl">
-                                <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight group-hover:text-indigo-200 transition-colors">
+                                <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight group-hover:text-blue-600 transition-colors">
                                    La Inteligencia Artificial no es mágica, es infraestructura.
                                 </h2>
-                                <p className="text-lg text-slate-400 leading-relaxed mb-8 line-clamp-3">
+                                <p className="text-lg text-slate-600 leading-relaxed mb-8 line-clamp-3">
                                    Por qué debemos dejar de tratar a los LLMs como oráculos y empezar a integrarlos como tuberías de datos fiables en nuestros sistemas de producción.
                                 </p>
-                                <div className="flex items-center gap-3 text-sm font-medium text-white">
-                                   <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">D</div>
+                                <div className="flex items-center gap-3 text-sm font-medium text-slate-900">
+                                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white flex items-center justify-center">D</div>
                                    <span>Equipo de Ingeniería</span>
                                 </div>
                              </div>
@@ -113,7 +113,7 @@ export default async function JournalPage({ params }: { params?: Promise<{ local
                              <span className={`text-xs font-bold bg-clip-text text-transparent bg-gradient-to-r ${article.gradient} mb-2 block`}>
                                 {article.category}
                              </span>
-                             <h4 className="text-xl font-bold text-slate-900 mb-2 leading-tight group-hover:text-sky-600 transition-colors">
+                             <h4 className="text-xl font-bold text-slate-900 mb-2 leading-tight group-hover:text-blue-600 transition-colors">
                                 {article.title}
                              </h4>
                              <p className="text-sm text-slate-500 mb-3 line-clamp-2">
@@ -145,7 +145,7 @@ export default async function JournalPage({ params }: { params?: Promise<{ local
                     <input 
                        type="email" 
                        placeholder="tu@email.com" 
-                       className="flex-1 bg-white border border-slate-200 rounded-full px-6 py-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all"
+                       className="flex-1 bg-white border border-slate-200 rounded-full px-6 py-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                     />
                     <button type="submit" className="btn-premium btn-primary px-8">
                        Suscribirse

@@ -214,6 +214,68 @@ body::before {
   background: var(--brand-quiet);
 }
 
+/* ── drako.systems (landing pública) ─────────────────────────────────────
+   Solo bajo .drako-site (SiteLayout) — btn-primary/card-premium también se usan
+   en OnboardingWizard y home/HomePage, que no cambian. */
+.drako-site {
+  --background: #f8fafc;
+  --brand: #3b82f6;
+  --brand-strong: #2563eb;
+  --brand-quiet: #eff6ff;
+  --brand-accent: #06b6d4;
+  --shadow-glow: 0 10px 30px -6px rgba(59, 130, 246, 0.5);
+}
+
+.drako-site .btn-primary {
+  background: linear-gradient(90deg, #3b82f6, #06b6d4);
+  background-size: 150% 100%;
+  background-position: 0% 0%;
+  color: white;
+  box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.25);
+  transition: background-position 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.drako-site .btn-primary:hover {
+  background: linear-gradient(90deg, #3b82f6, #06b6d4);
+  background-size: 150% 100%;
+  background-position: 100% 0%;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-glow), 0 0 0 1px rgba(6, 182, 212, 0.2);
+}
+
+.drako-site .btn-secondary {
+  border-color: #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.drako-site .btn-secondary:hover {
+  border-color: var(--brand);
+  color: var(--brand-strong);
+  background: var(--brand-quiet);
+  box-shadow: 0 6px 20px -6px rgba(59, 130, 246, 0.35);
+}
+
+.drako-site .card-premium {
+  background-color: #ffffff;
+  border-color: #e5e7eb;
+}
+
+.drako-site .card-premium:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.drako-site .card-premium::before {
+  background: linear-gradient(90deg, #3b82f6, #06b6d4);
+}
+
+.drako-gradient-text {
+  background: linear-gradient(90deg, #3b82f6, #06b6d4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 /* Animations */
 .fade-in-up {
   opacity: 0;

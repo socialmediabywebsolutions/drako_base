@@ -26,7 +26,7 @@ export default async function ContactPage({
         <section className="pt-32 pb-20 md:pt-48 md:pb-32">
           <div className="container-premium">
              <div className="max-w-4xl fade-in-up">
-                <span className="text-sky-500 font-bold tracking-widest uppercase text-sm mb-6 block">
+                <span className="text-blue-600 font-bold tracking-widest uppercase text-sm mb-6 block">
                   {copy.nav.contact}
                 </span>
                 <h1 className="heading-xl text-slate-900 mb-8 text-balance">

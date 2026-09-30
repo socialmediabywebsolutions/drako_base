@@ -52,19 +52,19 @@ export function PricingComparison() {
         <section className="py-32 bg-white">
             <div className="max-w-7xl mx-auto px-10">
                 <div className="text-center mb-16 space-y-4">
-                    <span className="text-sky-600 text-xs font-black uppercase tracking-[0.5em]">Comparativa Transparente</span>
+                    <span className="text-blue-600 text-xs font-black uppercase tracking-[0.5em]">Comparativa Transparente</span>
                     <h2 className="text-5xl font-black text-slate-900 tracking-tight">
                         Drako vs. <span className="text-slate-400">Alternativas Tradicionales</span>
                     </h2>
                 </div>
 
-                <div className="bg-white rounded-3xl border-2 border-sky-100 shadow-2xl overflow-hidden">
-                    <div className="grid grid-cols-4 gap-px bg-sky-100">
+                <div className="bg-white rounded-3xl border-2 border-blue-100 shadow-2xl overflow-hidden">
+                    <div className="grid grid-cols-4 gap-px bg-blue-100">
                         {/* Headers */}
                         <div className="bg-white p-6">
                             <div className="text-sm font-black text-slate-400 uppercase tracking-wider">Métrica</div>
                         </div>
-                        <div className="bg-gradient-to-br from-sky-500 to-sky-600 p-6 relative">
+                        <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 relative">
                             <div className="absolute top-2 right-2 px-2 py-1 bg-yellow-400 text-yellow-900 text-[8px] font-black uppercase rounded-full">
                                 Mejor opción
                             </div>
@@ -85,13 +85,13 @@ export function PricingComparison() {
                                 whileInView={{ opacity: 1, x: 0 }}
                                 transition={{ delay: idx * 0.05 }}
                                 viewport={{ once: true }}
-                                className="col-span-4 grid grid-cols-4 gap-px bg-sky-100"
+                                className="col-span-4 grid grid-cols-4 gap-px bg-blue-100"
                             >
                                 <div className="bg-white p-6">
                                     <div className="text-sm font-bold text-slate-900">{row.category}</div>
                                 </div>
-                                <div className={`p-6 ${row.winner === 'drako' ? 'bg-sky-50' : 'bg-white'}`}>
-                                    <div className={`text-sm font-black flex items-center gap-2 ${row.winner === 'drako' ? 'text-sky-600' : 'text-slate-700'}`}>
+                                <div className={`p-6 ${row.winner === 'drako' ? 'bg-blue-50' : 'bg-white'}`}>
+                                    <div className={`text-sm font-black flex items-center gap-2 ${row.winner === 'drako' ? 'text-blue-600' : 'text-slate-700'}`}>
                                         {row.winner === 'drako' && <span className="text-xl">✓</span>}
                                         {row.drako}
                                     </div>
