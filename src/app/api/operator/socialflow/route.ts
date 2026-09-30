@@ -423,7 +423,7 @@ const LAUNCH_CAMPAIGN_DEFAULT_TONE = "profesional y cercano";
 
 type LaunchCampaignResult = { tenantId: string; ok: boolean; campaignId?: string; error?: string };
 
-// Mismo job "campaign" que /api/socialflow/ai/generate, pero en nombre de cada tenant
+// Mismo job "campaign" que el endpoint de generación de Socialflow, pero en nombre de cada tenant
 // (esa ruta exige la sesión del propio tenant). La IA escribe los posts: title va como
 // niche, scheduledAt solo aporta el día (startDate — la hora la elige SchedulerAgent),
 // y body/networks no llegan al orquestador.
