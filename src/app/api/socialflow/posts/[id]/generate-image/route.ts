@@ -46,6 +46,12 @@ export async function POST(
       );
     }
 
+    // Con imagen ya no aplica IMAGE_GENERATION_FAILED — si se dejara, el post seguiría
+    // saliendo en FailedPostsPanel y la fase 3 de TrendAutoApproveCron la regeneraría
+    // otra vez encima de esta.
+    const metadata = post.metadata ? { ...post.metadata } : post.metadata;
+    if (metadata) delete metadata.error_message;
+
     await upsertSaasSocialPost(ctx, {
       id: post.id,
       saasId: post.saasId,
@@ -61,7 +67,7 @@ export async function POST(
       postedAt: post.postedAt,
       externalPostId: post.externalPostId,
       creationMode: post.creationMode,
-      metadata: post.metadata,
+      metadata,
     });
 
     return NextResponse.json({ ok: true, imageUrl });

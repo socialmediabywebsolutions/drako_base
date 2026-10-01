@@ -12,6 +12,7 @@ import { getEmpresaChecklist } from "@/lib/socialflow/onboarding/checklistReposi
 import EmpresaChecklist from "@/components/socialflow/EmpresaChecklist";
 import { emptyDashboardData, loadDashboardData, type DashboardData } from "./_lib/dashboard-data";
 import { Greeting, WeekCalendar } from "./_components/dashboard-client";
+import { FailedPostsPanel } from "./_components/FailedPostsPanel";
 import { EngagementChart, FollowersChart, ViewsByPostChart } from "./_components/dashboard-charts";
 import {
   Connections,
@@ -180,6 +181,9 @@ export default async function SocialFlowDashboardPage() {
           Plan {planDefinition.label}
         </span>
       </header>
+
+      {/* Posts sin imagen — solo se pinta si hay alguno */}
+      <FailedPostsPanel />
 
       {/* 2 · Métricas principales */}
       <StatCards cards={stats} />
