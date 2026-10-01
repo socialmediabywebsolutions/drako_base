@@ -16,6 +16,7 @@ type Props = {
     vision: string;
     about: string;
     contact: string;
+    ecosystem?: string;
     localeSwitch: string;
   };
 };
@@ -24,6 +25,7 @@ const navLinks = (copy: Props["copy"], locale: MarketingLocale) => {
   const prefix = locale === defaultMarketingLocale ? "" : `/${locale}`;
   return [
     { href: `${prefix}/products`, label: copy.products ?? "Productos" },
+    { href: `${prefix}/ecosystem`, label: copy.ecosystem ?? "Ecosistema" },
     { href: `${prefix}/journal`, label: copy.journal ?? "Journal" },
     { href: `${prefix}/about`, label: copy.about ?? "Sobre Drako" },
     { href: `${prefix}/contact`, label: copy.contact ?? "Contacto" },

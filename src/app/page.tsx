@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { HostMode, resolveHostMode } from "@/lib/hosts";
 import { SiteLayout } from "@/components/marketing/SiteLayout";
+import { EcosystemDashboard } from "@/components/marketing/EcosystemDashboard";
 import { getMarketingCopy, resolveMarketingLocale, defaultMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
 
 const isHostMode = (value: string | null): value is HostMode =>
@@ -54,20 +55,6 @@ const METRICS: { value: string; label: string; icon: ReactNode }[] = [
   { value: "1", label: "plataforma central", icon: <LayoutDashboard className="h-5 w-5" /> },
   { value: "0", label: "silos de datos", icon: <Database className="h-5 w-5" /> },
 ];
-
-const ECOSYSTEM_STATUS: { name: string; description: string; status: "Activo" | "Beta" | "En desarrollo"; progress: number }[] = [
-  { name: "Socialcors", description: "Automatización de redes sociales con IA", status: "Activo", progress: 85 },
-  { name: "Mentoría", description: "Tutores IA para estudiantes", status: "Beta", progress: 60 },
-  { name: "Crypto IA", description: "Análisis de mercados cripto con IA", status: "En desarrollo", progress: 40 },
-  { name: "Cazh", description: "Wallet digital inteligente", status: "En desarrollo", progress: 25 },
-  { name: "Rentia", description: "Gestión inmobiliaria con IA", status: "En desarrollo", progress: 20 },
-];
-
-const STATUS_BADGE_CLASS: Record<(typeof ECOSYSTEM_STATUS)[number]["status"], string> = {
-  Activo: "bg-emerald-50 border-emerald-200 text-emerald-700",
-  Beta: "bg-cyan-50 border-cyan-200 text-cyan-700",
-  "En desarrollo": "bg-slate-100 border-gray-200 text-slate-600",
-};
 
 // Mismos artículos que muestra /journal (src/app/journal/page.tsx).
 const JOURNAL_ARTICLES = [
@@ -204,33 +191,12 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
         {/* ESTADO DEL ECOSISTEMA */}
         <section id="estado-ecosistema" className="py-24 bg-slate-50 border-t border-gray-200 scroll-mt-24">
           <div className="container-premium">
-            <SectionHeading eyebrow="Roadmap" title="Estado del Ecosistema" subtitle="Progreso en tiempo real de cada producto Drako" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-              {ECOSYSTEM_STATUS.map((item) => (
-                <div key={item.name} className="card-premium flex flex-col p-6">
-                  <span className={`self-start rounded-full border px-3 py-1 text-xs font-bold mb-5 ${STATUS_BADGE_CLASS[item.status]}`}>
-                    {item.status}
-                  </span>
-                  <h3 className="text-lg font-bold text-slate-900 mb-1">{item.name}</h3>
-                  <p className="text-sm text-slate-600 mb-6">{item.description}</p>
-                  <div className="mt-auto">
-                    <div className="flex items-center justify-between text-xs font-semibold mb-2">
-                      <span className="text-slate-500">Progreso</span>
-                      <span className="text-blue-600">{item.progress}%</span>
-                    </div>
-                    <div
-                      className="h-2 w-full overflow-hidden rounded-full bg-slate-100"
-                      role="progressbar"
-                      aria-valuenow={item.progress}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label={`Progreso de ${item.name}`}
-                    >
-                      <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-500" style={{ width: `${item.progress}%` }} />
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <SectionHeading eyebrow="Roadmap" title="Estado del Ecosistema" subtitle="Progreso y tracción en redes de cada producto Drako, actualizados a diario" />
+            <EcosystemDashboard />
+            <div className="mt-10 text-center">
+              <Link href={`${prefix}/ecosystem`} className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-cyan-600 transition-colors">
+                Ver dashboard completo →
+              </Link>
             </div>
           </div>
         </section>

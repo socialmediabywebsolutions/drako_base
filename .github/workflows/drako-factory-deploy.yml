@@ -756,6 +756,9 @@ jobs:
           # 0205: Journal IA de drako.systems — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
           wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
             --file migrations/0205_drako_journal.sql
+          # 0206: Métricas sociales del ecosistema Drako — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
+          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --file migrations/0206_drako_ecosystem_metrics.sql
 
       - name: Validate Cloudflare account identifier
         run: |

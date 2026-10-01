@@ -7,26 +7,26 @@ import { verifyRequest } from "../../../src/lib/security/internal-api";
 
 export { RateLimiterDO };
 
-// Genera el artículo diario del Journal de drako.systems. La ruta valida el Bearer
-// con verifyCronAuth (CRON_SECRET o INTERNAL_API_SECRET).
-async function runDrakoJournal(env: any): Promise<void> {
+// Llama a una ruta /api/cron/* de drako.systems (saas-drakos-prod) por service binding.
+// La ruta valida el Bearer con verifyCronAuth (CRON_SECRET o INTERNAL_API_SECRET).
+async function runDrakosCron(env: any, path: string, label: string): Promise<void> {
     const token = (typeof env.CRON_SECRET === "string" && env.CRON_SECRET.trim())
         || (typeof env.INTERNAL_API_SECRET === "string" && env.INTERNAL_API_SECRET.trim())
         || "";
     if (!env.DRAKOS || !token) {
-        console.error("DRAKO_JOURNAL_CRON_SKIPPED", { hasBinding: Boolean(env.DRAKOS), hasToken: Boolean(token) });
+        console.error(`${label}_CRON_SKIPPED`, { hasBinding: Boolean(env.DRAKOS), hasToken: Boolean(token) });
         return;
     }
-    const response = await env.DRAKOS.fetch("https://drako.systems/api/cron/journal", {
+    const response = await env.DRAKOS.fetch(`https://drako.systems${path}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
     });
     const body = await response.text();
     if (!response.ok) {
-        console.error("DRAKO_JOURNAL_CRON_FAILED", { status: response.status, body: body.slice(0, 500) });
+        console.error(`${label}_CRON_FAILED`, { status: response.status, body: body.slice(0, 500) });
         return;
     }
-    console.log("DRAKO_JOURNAL_CRON_OK", body.slice(0, 300));
+    console.log(`${label}_CRON_OK`, body.slice(0, 300));
 }
 
 export default {
@@ -86,9 +86,13 @@ export default {
                 console.log("Running Reconciliation...");
                 await runReconciliation(env);
                 break;
+            case "0 8 * * *":
+                console.log("Running Drako Ecosystem Metrics...");
+                await runDrakosCron(env, "/api/cron/ecosystem-metrics", "DRAKO_ECOSYSTEM_METRICS");
+                break;
             case "0 9 * * 1-5":
                 console.log("Running Drako Journal...");
-                await runDrakoJournal(env);
+                await runDrakosCron(env, "/api/cron/journal", "DRAKO_JOURNAL");
                 break;
         }
     },
