@@ -64,8 +64,10 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
 
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [publishedNow, setPublishedNow] = useState(false);
 
   async function handleImageSelected(file: File) {
     setError(null);
@@ -133,6 +135,53 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
     }
   }
 
+  async function publishNow() {
+    if (!text.trim()) {
+      setError("Escribe o genera un texto antes de publicar.");
+      return;
+    }
+    setError(null);
+    setPublishing(true);
+    try {
+      const title = text.split("\n")[0]?.slice(0, 72).trim() || "Post de LinkedIn";
+      const bodyWithHashtags = hashtags.length ? `${text}\n\n${hashtags.join(" ")}` : text;
+
+      // 1. Crear el post con status SCHEDULED (para este instante)
+      const createRes = await fetch("/api/socialflow/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          saasId,
+          provider: "LINKEDIN",
+          contentType: "FEED",
+          title,
+          body: bodyWithHashtags,
+          imageHint: r2Url ?? null,
+          status: "SCHEDULED",
+          scheduledAt: new Date().toISOString(),
+        }),
+      });
+      const createData = (await createRes.json()) as { post?: { id: string }; code?: string; message?: string };
+      if (!createRes.ok || !createData.post) {
+        throw new Error(createData.message ?? createData.code ?? "Error al crear el post.");
+      }
+
+      // 2. Publicar inmediatamente
+      const postId = createData.post.id;
+      const publishRes = await fetch(`/api/socialflow/posts/${postId}/publish`, { method: "POST" });
+      const publishData = (await publishRes.json()) as { ok?: boolean; code?: string; message?: string };
+      if (!publishRes.ok || publishData.ok === false) {
+        throw new Error(publishData.message ?? publishData.code ?? "Error al publicar en LinkedIn.");
+      }
+
+      setPublishedNow(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al publicar.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   async function approveAndSchedule() {
     if (!text.trim()) {
       setError("Escribe o genera un texto antes de programar.");
@@ -171,6 +220,34 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
     }
   }
 
+  function resetForm() {
+    setText("");
+    setHashtags([]);
+    removeImage();
+    setSavedAt(null);
+    setPublishedNow(false);
+  }
+
+  if (publishedNow) {
+    return (
+      <div className="rounded-2xl border border-green-200 bg-green-50 p-8 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
+          <IcoLinkedIn />
+        </div>
+        <p className="text-lg font-bold text-gray-900">¡Post publicado en LinkedIn!</p>
+        <p className="mt-1 text-sm text-gray-500">Tu post ya está visible en tu perfil.</p>
+        <div className="mt-6 flex justify-center gap-3">
+          <button type="button" onClick={resetForm} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50">
+            Crear otro post
+          </button>
+          <button type="button" onClick={() => router.push("/socialflow/plan")} className="rounded-xl bg-gradient-to-r from-sky-600 to-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-sky-500/20 transition hover:brightness-110">
+            Ver publicaciones
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (savedAt) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
@@ -182,23 +259,10 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
           Se publicará el {new Date(savedAt).toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short" })}.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              setText("");
-              setHashtags([]);
-              removeImage();
-              setSavedAt(null);
-            }}
-            className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
-          >
+          <button type="button" onClick={resetForm} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50">
             Crear otro post
           </button>
-          <button
-            type="button"
-            onClick={() => router.push("/socialflow/plan")}
-            className="rounded-xl bg-gradient-to-r from-sky-600 to-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-sky-500/20 transition hover:brightness-110"
-          >
+          <button type="button" onClick={() => router.push("/socialflow/plan")} className="rounded-xl bg-gradient-to-r from-sky-600 to-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-sky-500/20 transition hover:brightness-110">
             Ver próximas publicaciones
           </button>
         </div>
@@ -337,14 +401,24 @@ export default function LinkedInPostCreator({ saasId }: { saasId: string }) {
           />
         </div>
 
-        <button
-          type="button"
-          onClick={() => void approveAndSchedule()}
-          disabled={saving || uploadingImage || !text.trim()}
-          className="w-full rounded-xl bg-gradient-to-r from-sky-600 to-sky-500 py-2.5 text-sm font-black text-white shadow-md shadow-sky-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {saving ? "Programando…" : "Aprobar y programar"}
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => void publishNow()}
+            disabled={publishing || saving || uploadingImage || !text.trim()}
+            className="flex-1 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] py-2.5 text-sm font-black text-white shadow-md shadow-[#3b82f6]/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {publishing ? "Publicando…" : "⚡ Publicar ahora"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void approveAndSchedule()}
+            disabled={saving || publishing || uploadingImage || !text.trim()}
+            className="flex-1 rounded-xl border border-sky-300 bg-sky-50 py-2.5 text-sm font-black text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? "Programando…" : "Programar para después"}
+          </button>
+        </div>
       </div>
     </div>
   );

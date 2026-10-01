@@ -25,7 +25,7 @@ const COMPETITOR_PLATFORMS = [
   { value: "other", label: "Otro" },
 ];
 
-const MIN_COMPETITORS = 3;
+const MIN_COMPETITORS = 0;
 
 type CompetitorDraft = { name: string; handle: string; platform: string };
 
@@ -76,7 +76,7 @@ function buildInitialState(): FormState {
     toneOfVoice: "",
     audienceDescription: "",
     activeSocialNetworks: [],
-    competitors: [{ ...EMPTY_COMPETITOR }, { ...EMPTY_COMPETITOR }, { ...EMPTY_COMPETITOR }],
+    competitors: [],
   };
 }
 
@@ -337,7 +337,7 @@ export default function SocialFlowOnboardingPage() {
           <div className="space-y-4">
             <div>
               <p className="text-sm font-semibold text-gray-900">Competidores principales</p>
-              <p className="text-xs text-gray-500">Añade al menos {MIN_COMPETITORS} competidores para que el audit pueda comparar tu presencia.</p>
+              <p className="text-xs text-gray-500">Añade tus competidores principales (opcional). Cuantos más añadas, mejor analizará el Cerebro tu sector.</p>
             </div>
             <div className="space-y-3">
               {data.competitors.map((competitor, idx) => (
