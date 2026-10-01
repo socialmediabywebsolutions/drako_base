@@ -26,7 +26,10 @@ function verifyCronSecret(request: Request): boolean {
     (typeof bindings?.CRON_SECRET === "string" ? bindings.CRON_SECRET : null) ??
     (typeof process !== "undefined" ? process.env.CRON_SECRET : null);
   if (!cronSecret) return false;
-  return request.headers.get("x-cron-secret") === cronSecret;
+  // Acepta tanto x-cron-secret (invocación directa) como Authorization: Bearer (cron handler interno)
+  const xSecret = request.headers.get("x-cron-secret");
+  const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  return xSecret === cronSecret || bearer === cronSecret;
 }
 
 export async function POST(request: Request) {

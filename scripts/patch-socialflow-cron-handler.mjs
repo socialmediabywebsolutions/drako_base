@@ -155,6 +155,7 @@ const scheduledHandler = `    // __socialflowCronHandlerPatched
             await callRoute("/api/cron/social/audience-insights");
             await callRoute("/api/cron/social/seasonal-opportunity");
             await callRoute("/api/cron/social/churn-prediction");
+            await callRoute("/api/socialflow/cron/prospector-followup");
             return;
         }
 
