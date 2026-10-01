@@ -10,13 +10,13 @@ export { RateLimiterDO };
 
 // Llama a una ruta /api/cron/* de drako.systems (saas-drakos-prod) por service binding.
 // La ruta valida el Bearer con verifyCronAuth (CRON_SECRET o INTERNAL_API_SECRET).
-async function runDrakosCron(env: any, path: string, label: string): Promise<void> {
+async function runDrakosCron(env: any, path: string, label: string): Promise<boolean> {
     const token = (typeof env.CRON_SECRET === "string" && env.CRON_SECRET.trim())
         || (typeof env.INTERNAL_API_SECRET === "string" && env.INTERNAL_API_SECRET.trim())
         || "";
     if (!env.DRAKOS || !token) {
         console.error(`${label}_CRON_SKIPPED`, { hasBinding: Boolean(env.DRAKOS), hasToken: Boolean(token) });
-        return;
+        return false;
     }
     const response = await env.DRAKOS.fetch(`https://drako.systems${path}`, {
         method: "POST",
@@ -25,9 +25,10 @@ async function runDrakosCron(env: any, path: string, label: string): Promise<voi
     const body = await response.text();
     if (!response.ok) {
         console.error(`${label}_CRON_FAILED`, { status: response.status, body: body.slice(0, 500) });
-        return;
+        return false;
     }
     console.log(`${label}_CRON_OK`, body.slice(0, 300));
+    return true;
 }
 
 export default {
@@ -100,6 +101,14 @@ export default {
             case "0 9 * * 1-5":
                 console.log("Running Drako Journal...");
                 await runDrakosCron(env, "/api/cron/journal", "DRAKO_JOURNAL");
+                break;
+            case "0 10 * * 1-5":
+                // El AutoPublishAgent necesita Workers AI y el Journal, que viven en
+                // saas-drakos-prod: la ruta genera y guarda los posts en drako_social_posts.
+                console.log("Running Drako Auto-Publish...");
+                if (await runDrakosCron(env, "/api/cron/auto-publish", "DRAKO_AUTO_PUBLISH")) {
+                    console.log("[auto-publish] posts generados y guardados");
+                }
                 break;
         }
     },

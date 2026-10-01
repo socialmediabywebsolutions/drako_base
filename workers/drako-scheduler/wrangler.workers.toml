@@ -26,11 +26,12 @@ crons = [
     "*/15 * * * *", # Reconciliation
     "0 8 * * *",    # Métricas sociales del ecosistema (POST /api/cron/ecosystem-metrics en saas-drakos-prod)
     "0 8 * * 1",    # Agente de Financiación (POST /api/funding/opportunities en saas-drakos-prod)
-    "0 9 * * 1-5"   # Journal IA de drako.systems (POST /api/cron/journal en saas-drakos-prod)
+    "0 9 * * 1-5",  # Journal IA de drako.systems (POST /api/cron/journal en saas-drakos-prod)
+    "0 10 * * 1-5"  # AutoPublishAgent de @drako.systems (POST /api/cron/auto-publish en saas-drakos-prod)
 ]
 
 # Service binding al worker de drako.systems — el cron del Journal llama a su ruta
-# /api/cron/journal, /api/cron/ecosystem-metrics y /api/funding/opportunities por RPC interno en vez de fetch() público.
+# /api/cron/journal, /api/cron/ecosystem-metrics, /api/cron/auto-publish y /api/funding/opportunities por RPC interno en vez de fetch() público.
 [[services]]
 binding = "DRAKOS"
 service = "saas-drakos-prod"

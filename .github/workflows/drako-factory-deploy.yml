@@ -765,6 +765,9 @@ jobs:
           # 0208: Ventas del CRM de /operator/socialflow — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
           wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
             --file migrations/0208_drako_crm_sales.sql
+          # 0209: Posts del AutoPublishAgent de @drako.systems — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
+          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --file migrations/0209_drako_social_posts.sql
 
       - name: Validate Cloudflare account identifier
         run: |
