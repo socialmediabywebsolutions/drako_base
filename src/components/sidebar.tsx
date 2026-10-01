@@ -55,6 +55,11 @@ export default function Sidebar({ innerStyle }: SidebarProps) {
     return pathname.startsWith(href);
   };
 
+  async function logout() {
+    await fetch("/api/operator-logout", { method: "POST" }).catch(() => null);
+    window.location.assign("/operator-login");
+  }
+
   return (
     <aside style={innerStyle} className="hidden lg:flex h-full shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6">
       <div className="mb-7 flex items-center justify-between">
@@ -118,10 +123,18 @@ export default function Sidebar({ innerStyle }: SidebarProps) {
       <div className="mt-6">
         <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400 mb-2">Acciones rápidas</p>
         <div className="grid gap-2">
-          <Link href="/saas/create" className="rounded-2xl bg-sky-500 px-4 py-3 text-sm font-black uppercase tracking-widest text-white text-center shadow-lg shadow-sky-500/20 hover:bg-sky-600 transition-all">Crear SaaS</Link>
+          <Link href="/saas/create" className="text-sm text-[#6b7280] hover:text-slate-900 transition-colors">+ Crear SaaS</Link>
           <Link href="/alerts" className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 text-center hover:bg-slate-50 transition-all">Revisar alertas</Link>
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={logout}
+        className="mt-8 self-start text-[11px] text-slate-400 hover:text-slate-600 hover:underline transition-colors"
+      >
+        Cerrar sesión
+      </button>
     </aside>
   );
 }

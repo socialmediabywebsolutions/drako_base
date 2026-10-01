@@ -1,4 +1,5 @@
 import { env } from "@/lib/cf";
+import { readOperatorSessionCookie, verifyOperatorSession } from "@/lib/drako/operator-session";
 import { resolveTenantId } from "@/lib/tenants/services";
 import { getAuthsCookieName } from "@/lib/auths/cookies";
 import { resolveAuthsContextFromRequest } from "@/lib/auths/contexts";
@@ -387,9 +388,29 @@ export async function requireTenantAccess(
 // reexportadas aquí para no tocar los imports existentes (src/lib/auths/services.ts).
 export { isPlatformAdminEmailAllowed, isPlatformAdminEmail };
 
+// Sesión del operator de drako.systems (cookie drako_operator_session, Sprint 7): da
+// acceso de owner al panel. Su tenant es OPERATOR_TENANT_ID o, por defecto,
+// "demo-tenant" (donde viven owners/clients del holding en DRACO_DB). No pasa por
+// PLATFORM_ADMIN_EMAILS: el login del operator ya es la puerta.
+async function getOperatorOwnerSession(request: Request): Promise<SessionData | null> {
+  const claims = await verifyOperatorSession(readOperatorSessionCookie(request.headers.get("cookie")));
+  if (!claims) return null;
+  const tenantId = (typeof process !== "undefined" ? process.env.OPERATOR_TENANT_ID?.trim() : "") || "demo-tenant";
+  return { email: claims.sub, tenantId, role: "owner", issuedAt: claims.iat * 1000 };
+}
+
 export async function requireOwnerAccess(
   request: Request
 ): Promise<{ tenantId: string; session: SessionData }> {
+  const operatorSession = await getOperatorOwnerSession(request);
+  if (operatorSession) {
+    const requestedTenantId = resolveTenantId(request, { fallbackTenantId: null });
+    if (requestedTenantId && operatorSession.tenantId !== requestedTenantId) {
+      throw TENANT_MISMATCH_ERROR;
+    }
+    return { tenantId: operatorSession.tenantId, session: operatorSession };
+  }
+
   const session =
     (await getSession(request))
     ?? (await getNextAuthDatabaseSession(request))
