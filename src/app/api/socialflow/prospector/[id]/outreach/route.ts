@@ -28,7 +28,7 @@ export async function POST(
     const senderName = body.senderName?.trim() || "El equipo de Socialcors";
     const brandName = body.brandName?.trim() || "Socialcors";
 
-    const db = getDb(request);
+    const db = getDb();
     const prospect = await getProspect(db, params.id, session.tenantId);
 
     if (!prospect) {

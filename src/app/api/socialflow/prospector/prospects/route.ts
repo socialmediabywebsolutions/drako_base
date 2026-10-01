@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const limitRaw = url.searchParams.get("limit");
     const limit = limitRaw ? Math.min(Math.max(parseInt(limitRaw, 10) || 100, 1), 500) : 100;
 
-    const db = getDb(request);
+    const db = getDb();
     const prospects = await listProspects(db, session.tenantId, { campaignId, status, limit });
 
     return new Response(JSON.stringify({ ok: true, prospects }), {
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     }
 
     const saasId = body.saasId?.trim() || "socialflow";
-    const db = getDb(request);
+    const db = getDb();
 
     const toInsert = body.prospects.map((p) => ({
       tenantId: session.tenantId,

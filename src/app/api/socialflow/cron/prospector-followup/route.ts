@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const db = getDb(request);
+  const db = getDb();
   const result = { tenantsProcessed: 0, followUpsSent: 0, errors: 0 };
 
   try {

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const session = await requireCurrentSocialFlowSession(request);
-    const db = getDb(request);
+    const db = getDb();
     const campaigns = await listCampaigns(db, session.tenantId);
     return new Response(JSON.stringify({ ok: true, campaigns }), {
       status: 200, headers: { "content-type": "application/json" },
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const db = getDb(request);
+    const db = getDb();
 
     // 1. Crear la campaña
     const campaign = await createCampaign(db, {

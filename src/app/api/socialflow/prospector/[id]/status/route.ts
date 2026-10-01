@@ -21,7 +21,7 @@ export async function PATCH(
       });
     }
 
-    const db = getDb(request);
+    const db = getDb();
     const prospect = await getProspect(db, params.id, session.tenantId);
     if (!prospect) {
       return new Response(JSON.stringify({ error: "PROSPECT_NOT_FOUND" }), {
