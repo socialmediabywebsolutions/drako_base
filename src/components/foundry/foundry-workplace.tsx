@@ -118,36 +118,7 @@ export function FoundryWorkplace({ blueprint }: FoundryWorkplaceProps) {
 
     return (
         <FoundryLayout
-            chatInput={input}
-            onChatInputChange={setInput}
-            onSendMessage={handleSendMessage}
             onReset={handleReset}
-            chatComponent={
-                <div className="flex flex-col h-full space-y-4 w-full min-w-0">
-                    {messages.map((m, i) => (
-                        <motion.div
-                            key={i}
-                            initial={{ opacity: 0, x: 10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className={`p-4 rounded-2xl text-xs leading-relaxed break-words ${m.role === "user"
-                                ? "bg-white border border-slate-200 text-slate-800 ml-4 rounded-tr-none shadow-sm"
-                                : "bg-slate-100 text-slate-800 mr-4 rounded-tl-none border border-slate-200"
-                                }`}
-                        >
-                            {m.content.split("\n").map((line: string, idx: number) => (
-                                <p key={idx} className={idx > 0 ? "mt-2" : ""}>{line}</p>
-                            ))}
-                        </motion.div>
-                    ))}
-                    {isTyping && (
-                        <div className="flex gap-1 p-2">
-                            <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" />
-                            <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce delay-75" />
-                            <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce delay-150" />
-                        </div>
-                    )}
-                </div>
-            }
         >
             <div className="space-y-12">
                 {!showDashboard ? (
