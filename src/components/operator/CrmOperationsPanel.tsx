@@ -6,7 +6,8 @@ import Card from "@/components/ui/card";
 import { Table, TableWrap, TBody, TD, TH, THead } from "@/components/ui/table";
 
 // CRM — Centro de Operaciones en /operator/socialflow. Lee /api/operator/crm (DRACO_DB:
-// clients + client_saas + drako_crm_sales) y crea ventas con "＋ Crear venta".
+// clients + client_saas + drako_crm_sales); "＋ Crear venta" hace POST a /api/clients
+// con plan y notas.
 
 type LeadStatus = "nuevo" | "activo" | "en_riesgo";
 
@@ -70,10 +71,10 @@ function CreateSaleModal({ onClose, onCreated }: { onClose: () => void; onCreate
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/operator/crm", {
+      const res = await fetch("/api/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, plan, email, notes }),
+        body: JSON.stringify({ name, plan, email: email.trim() || null, notes }),
       });
       const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (!res.ok || !data?.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);

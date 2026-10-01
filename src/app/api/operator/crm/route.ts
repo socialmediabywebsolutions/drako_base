@@ -1,22 +1,16 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { queryAll, queryOne, run } from "@/lib/db";
+import { queryAll, queryOne } from "@/lib/db";
 import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
+import { CRM_PLANS, crmPlanPrice } from "@/lib/drako/crm-plans";
 
 // /api/operator/crm — CRM del operator en /operator/socialflow (DRACO_DB).
 // GET: métricas (clientes activos, MRR estimado, leads 7 días, churn del mes) + los 10
-// clientes más recientes. POST: "＋ Crear venta" — crea el cliente en `clients` y la
-// venta en `drako_crm_sales` (migración 0208).
+// clientes más recientes. "＋ Crear venta" no pasa por aquí: hace POST a /api/clients
+// con plan y notas.
 // Vista global del holding: el operator ve los clientes de todos los tenants.
-
-const CRM_PLANS = {
-  starter: { label: "Starter", monthly: 29 },
-  pro: { label: "Pro", monthly: 79 },
-  business: { label: "Business", monthly: 199 },
-} as const;
-type CrmPlan = keyof typeof CRM_PLANS;
 
 const DAY_MS = 86_400_000;
 
@@ -53,11 +47,6 @@ const CLIENTS_SQL = `
 
 const INACTIVE_STATUSES = new Set(["canceled", "cancelled", "inactive", "paused", "churned", "unpaid", "incomplete_expired"]);
 
-function planPrice(plan: string | null): number {
-  const key = plan?.toLowerCase() as CrmPlan | undefined;
-  return key && key in CRM_PLANS ? CRM_PLANS[key].monthly : 0;
-}
-
 function isActive(row: ClientRow): boolean {
   const status = (row.sub_status ?? row.link_status ?? "active").toLowerCase();
   return !INACTIVE_STATUSES.has(status);
@@ -91,8 +80,8 @@ export async function GET(request: Request) {
     const rows = await queryAll<ClientRow>(`${CLIENTS_SQL} ORDER BY c.created_at DESC`);
 
     const active = rows.filter(isActive);
-    const pricedActive = active.filter((r) => planPrice(r.plan) > 0);
-    const mrr = pricedActive.reduce((sum, r) => sum + planPrice(r.plan), 0);
+    const pricedActive = active.filter((r) => crmPlanPrice(r.plan) > 0);
+    const mrr = pricedActive.reduce((sum, r) => sum + crmPlanPrice(r.plan), 0);
     const avgPlan = pricedActive.length ? mrr / pricedActive.length : 0;
     const leadsThisWeek = rows.filter((r) => ageMs(r.created_at, now) < 7 * DAY_MS).length;
 
@@ -129,54 +118,5 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     return errorResponse(error, "OPERATOR_CRM_GET_ERROR");
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const { tenantId, session } = await requireOwnerAccess(request);
-    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    const name = typeof body?.name === "string" ? body.name.trim() : "";
-    const email = typeof body?.email === "string" ? body.email.trim() : "";
-    const notes = typeof body?.notes === "string" ? body.notes.trim() : "";
-    const plan = typeof body?.plan === "string" ? body.plan.toLowerCase() : "";
-
-    if (!name) return NextResponse.json({ ok: false, error: "El nombre del cliente es obligatorio." }, { status: 400 });
-    if (!(plan in CRM_PLANS)) return NextResponse.json({ ok: false, error: "Plan no válido." }, { status: 400 });
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json({ ok: false, error: "Email no válido." }, { status: 400 });
-    }
-
-    // clients.owner_id es NOT NULL (FK a owners): el owner del tenant del operator o, si
-    // no tiene, el owner principal del holding.
-    const owner =
-      (await queryOne<{ id: string }>(`SELECT id FROM owners WHERE tenant_id = ? ORDER BY created_at LIMIT 1`, tenantId))
-      ?? (await queryOne<{ id: string }>(`SELECT id FROM owners ORDER BY created_at LIMIT 1`));
-    if (!owner) return NextResponse.json({ ok: false, error: "No hay owner configurado en DRACO_DB." }, { status: 409 });
-
-    const clientId = `client_${crypto.randomUUID()}`;
-    const now = new Date().toISOString();
-    await run(
-      `INSERT INTO clients (id, owner_id, name, email, created_at, tenant_id) VALUES (?, ?, ?, ?, ?, ?)`,
-      clientId,
-      owner.id,
-      name,
-      email || null,
-      now,
-      tenantId,
-    );
-    await run(
-      `INSERT INTO drako_crm_sales (client_id, plan, amount_monthly, notes, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-      clientId,
-      plan,
-      CRM_PLANS[plan as CrmPlan].monthly,
-      notes || null,
-      session.email ?? null,
-      now,
-    );
-
-    return NextResponse.json({ ok: true, clientId }, { status: 201 });
-  } catch (error) {
-    return errorResponse(error, "OPERATOR_CRM_POST_ERROR");
   }
 }

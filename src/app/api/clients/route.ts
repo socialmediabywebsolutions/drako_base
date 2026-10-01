@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { CRM_PLANS, isCrmPlan } from "@/lib/drako/crm-plans";
 
 
 type Client = {
@@ -72,17 +73,32 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(req);
-    const body = (await req.json().catch(() => null)) as Partial<Client> | null;
-    if (!body || !body.owner_id || !body.name) {
-      return errorResponse("owner_id and name are required");
+    const { tenantId, session } = await requireTenantAccess(req);
+    const body = (await req.json().catch(() => null)) as (Partial<Client> & { plan?: unknown; notes?: unknown }) | null;
+    if (!body || !body.name?.trim()) {
+      return errorResponse("name is required");
+    }
+    // plan + notes opcionales: "＋ Crear venta" del CRM de /operator/socialflow registra
+    // además la venta en drako_crm_sales (migración 0208).
+    const plan = typeof body.plan === "string" ? body.plan.toLowerCase() : null;
+    if (plan !== null && !isCrmPlan(plan)) {
+      return errorResponse("invalid plan");
+    }
+    // Sin owner_id (alta desde el CRM): el owner del tenant o, si no tiene, el owner
+    // principal del holding — clients.owner_id es NOT NULL.
+    const ownerId =
+      body.owner_id
+      ?? (await queryAll<{ id: string }>(`SELECT id FROM owners WHERE tenant_id = ? ORDER BY created_at LIMIT 1`, tenantId))[0]?.id
+      ?? (await queryAll<{ id: string }>(`SELECT id FROM owners ORDER BY created_at LIMIT 1`))[0]?.id;
+    if (!ownerId) {
+      return errorResponse("owner_id is required (no owner configured for this tenant)");
     }
     const id = body.id?.trim() || (globalThis.crypto?.randomUUID?.() ?? `client_${Date.now()}`);
     const ok = await run(
       `INSERT INTO clients (id, owner_id, name, nif, email, phone, country, city, address, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
-      body.owner_id,
-      body.name,
+      ownerId,
+      body.name.trim(),
       body.nif ?? null,
       body.email ?? null,
       body.phone ?? null,
@@ -93,6 +109,16 @@ export async function POST(req: Request) {
     );
     if (!ok) {
       return NextResponse.json({ ok: false, error: "failed to create client" }, { status: 500 });
+    }
+    if (plan && isCrmPlan(plan)) {
+      await run(
+        `INSERT INTO drako_crm_sales (client_id, plan, amount_monthly, notes, created_by) VALUES (?, ?, ?, ?, ?)`,
+        id,
+        plan,
+        CRM_PLANS[plan].monthly,
+        typeof body.notes === "string" && body.notes.trim() ? body.notes.trim() : null,
+        session.email ?? null,
+      );
     }
     const items = await queryAll<Client>(
       `SELECT ${clientFields} FROM clients WHERE id = ? AND tenant_id = ?`,
