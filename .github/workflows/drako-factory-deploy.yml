@@ -759,6 +759,9 @@ jobs:
           # 0206: Métricas sociales del ecosistema Drako — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
           wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
             --file migrations/0206_drako_ecosystem_metrics.sql
+          # 0207: Oportunidades del Agente de Financiación — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
+          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --file migrations/0207_drako_funding.sql
 
       - name: Validate Cloudflare account identifier
         run: |

@@ -1,77 +1,51 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Card from "@/components/ui/card";
-import Badge from "@/components/ui/badge";
 import { TableWrap, Table, THead, TBody, TH, TD } from "@/components/ui/table";
 
-// Agente de Financiación IA. La búsqueda devuelve resultados mock hasta conectar el
-// agente real; el pipeline lee /api/grants y, si está vacío, muestra filas de ejemplo.
+// Ayudas y Subvenciones: tabla de drako_funding_opportunities (DRACO_DB) que llena el
+// Agente de Financiación de drako-scheduler cada lunes a las 08:00 UTC.
+// "Ejecutar ahora" llama a /api/cron/funding con la sesión del operator (cookies),
+// nunca con CRON_SECRET: cualquier secreto en este bundle sería público.
 
-type Grant = {
-  id: string;
+type FundingOpportunity = {
+  id: number;
   title: string;
-  region: string | null;
+  organism: string;
+  description: string | null;
+  amount_min: number | null;
+  amount_max: number | null;
   deadline: string | null;
-  budget_cents: number | null;
-  requirements: string | null;
-  link: string | null;
+  url: string | null;
+  tags: string[];
+  source: string | null;
   status: string;
   created_at: string;
 };
 
-type FundingMatch = {
-  id: string;
-  name: string;
-  amount: string;
-  description: string;
-  requirements: string[];
-  url: string;
-};
+type ListResponse = { ok: boolean; items?: FundingOpportunity[]; page?: number; totalPages?: number; error?: string };
 
-const MOCK_MATCHES: FundingMatch[] = [
-  {
-    id: "kit-digital",
-    name: "Kit Digital",
-    amount: "€12.000",
-    description: "Bono para digitalizar pymes y autónomos: web, redes sociales, gestión de clientes, factura electrónica y ciberseguridad.",
-    requirements: ["Pyme de 10 a 49 empleados", "Inscrita en Acelera pyme", "Al corriente con Hacienda y Seguridad Social"],
-    url: "https://www.acelerapyme.gob.es/kit-digital",
-  },
-  {
-    id: "cdti-neotec",
-    name: "CDTI Neotec",
-    amount: "Hasta €325.000",
-    description: "Subvención para empresas de base tecnológica en sus primeros años, con un plan de empresa basado en I+D propia.",
-    requirements: ["Pequeña empresa innovadora", "Constituida hace menos de 3 años", "Capital social mínimo de €20.000"],
-    url: "https://www.cdti.es",
-  },
-  {
-    id: "subvenciones-madrid",
-    name: "Subvenciones Comunidad de Madrid",
-    amount: "Hasta €50.000",
-    description: "Ayudas regionales a la innovación y transformación digital de empresas con actividad en la Comunidad de Madrid.",
-    requirements: ["Centro de trabajo en Madrid", "Proyecto de innovación o digitalización", "Cofinanciación propia del proyecto"],
-    url: "https://www.comunidad.madrid",
-  },
+const PORTALS = [
+  { name: "Oficina Nacional de Emprendimiento", short: "ONE", url: "https://one.gob.es/es/buscador-de-ayudas-e-incentivos-para-empresas", tone: "from-blue-500 to-blue-600" },
+  { name: "Plan de Recuperación", short: "PRTR", url: "https://planderecuperacion.gob.es/asistente-de-busqueda-de-convocatorias", tone: "from-cyan-500 to-blue-500" },
+  { name: "Portal PYME (Ipyme)", short: "PYME", url: "https://ipyme.org/es-es/AyudasIncentivos/Paginas/buscador-de-ayudas.aspx", tone: "from-sky-500 to-cyan-500" },
 ];
 
-const MOCK_PIPELINE: Grant[] = [
-  { id: "mock-1", title: "Kit Digital — Segmento I", region: "España", deadline: "2026-12-31", budget_cents: 1_200_000, requirements: null, link: "https://www.acelerapyme.gob.es/kit-digital", status: "candidate", created_at: "2026-09-15" },
-  { id: "mock-2", title: "CDTI Neotec 2026", region: "España", deadline: "2026-11-20", budget_cents: 32_500_000, requirements: null, link: "https://www.cdti.es", status: "submitted", created_at: "2026-09-02" },
-  { id: "mock-3", title: "Innovación Comunidad de Madrid", region: "Madrid", deadline: "2027-01-15", budget_cents: 5_000_000, requirements: null, link: "https://www.comunidad.madrid", status: "new", created_at: "2026-09-28" },
-];
-
-const STATUS_LABEL: Record<string, { label: string; badge: "neutral" | "info" | "warn" | "ok" | "err" }> = {
-  new: { label: "Nuevo", badge: "neutral" },
-  candidate: { label: "Candidato", badge: "info" },
-  submitted: { label: "Enviado", badge: "warn" },
-  won: { label: "Ganado", badge: "ok" },
-  lost: { label: "Perdido", badge: "err" },
+const STATUS_STYLE: Record<string, string> = {
+  nueva: "bg-blue-50 text-blue-700 border-blue-200",
+  "en proceso": "bg-amber-50 text-amber-700 border-amber-200",
+  descartada: "bg-slate-100 text-slate-500 border-slate-200",
 };
 
-function formatEuros(cents: number | null): string {
-  if (cents == null) return "—";
-  return `€${Math.round(cents / 100).toLocaleString("es-ES")}`;
+function formatEur(value: number): string {
+  return `€${Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+}
+
+function formatAmount(min: number | null, max: number | null): string {
+  if (min != null && max != null) return min === max ? formatEur(max) : `${formatEur(min)} – ${formatEur(max)}`;
+  if (max != null) return `Hasta ${formatEur(max)}`;
+  if (min != null) return `Desde ${formatEur(min)}`;
+  return "—";
 }
 
 function formatDeadline(value: string | null): string {
@@ -80,157 +54,202 @@ function formatDeadline(value: string | null): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function ResultSkeleton() {
-  return (
-    <div className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5">
-      <div className="mb-3 flex justify-between">
-        <div className="h-5 w-40 rounded bg-slate-100" />
-        <div className="h-5 w-20 rounded bg-slate-100" />
-      </div>
-      <div className="mb-2 h-3 w-full rounded bg-slate-100" />
-      <div className="mb-4 h-3 w-4/5 rounded bg-slate-100" />
-      <div className="h-8 w-32 rounded-xl bg-slate-100" />
-    </div>
-  );
+function Spinner({ className = "" }: { className?: string }) {
+  return <span className={`inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent ${className}`} aria-hidden />;
 }
 
 export default function GrantsPage() {
-  const [items, setItems] = useState<Grant[]>([]);
+  const [items, setItems] = useState<FundingOpportunity[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [description, setDescription] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [matches, setMatches] = useState<FundingMatch[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+  const [runMessage, setRunMessage] = useState<string | null>(null);
+  const [discarding, setDiscarding] = useState<number | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (targetPage: number) => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch("/api/grants", { cache: "no-store" });
-      const data = (await res.json()) as { items?: Grant[] };
+      const res = await fetch(`/api/funding/opportunities?page=${targetPage}`, { cache: "no-store" });
+      const data = (await res.json().catch(() => null)) as ListResponse | null;
+      if (!res.ok || !data?.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
       setItems(data.items ?? []);
-    } catch {
+      setTotalPages(data.totalPages ?? 1);
+    } catch (loadError) {
       setItems([]);
+      setError(loadError instanceof Error ? loadError.message : "No se pudieron cargar las oportunidades.");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(page); }, [load, page]);
 
-  function search() {
-    if (!description.trim()) return;
-    setSearching(true);
-    setMatches(null);
-    window.setTimeout(() => {
-      setMatches(MOCK_MATCHES);
-      setSearching(false);
-    }, 1800);
+  async function runNow() {
+    setRunning(true);
+    setRunMessage(null);
+    try {
+      const res = await fetch("/api/cron/funding", { method: "POST" });
+      const data = (await res.json().catch(() => null)) as { ok?: boolean; inserted?: number; error?: string } | null;
+      if (!res.ok || !data?.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      setRunMessage(`${data.inserted ?? 0} oportunidades nuevas`);
+      setPage(1);
+      await load(1);
+    } catch (runError) {
+      setRunMessage(runError instanceof Error ? `Error: ${runError.message}` : "Error al ejecutar el agente");
+    } finally {
+      setRunning(false);
+    }
   }
 
-  const pipeline = items.length ? items : MOCK_PIPELINE;
-  const pipelineIsMock = items.length === 0;
+  async function discard(id: number) {
+    setDiscarding(id);
+    try {
+      const res = await fetch(`/api/funding/opportunities?id=${id}`, { method: "DELETE" });
+      if (res.ok) setItems((prev) => prev.map((item) => (item.id === id ? { ...item, status: "descartada" } : item)));
+    } finally {
+      setDiscarding(null);
+    }
+  }
+
+  const runButton = (
+    <button
+      type="button"
+      onClick={runNow}
+      disabled={running}
+      className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-70"
+    >
+      {running ? <Spinner /> : null}
+      {running ? "Buscando convocatorias…" : "Ejecutar ahora"}
+    </button>
+  );
 
   return (
     <div className="space-y-6">
       <Card tone="glass">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold text-slate-900">Agente de Financiación IA</h1>
-          <span className="rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 px-3 py-0.5 text-xs font-bold uppercase tracking-wide text-white">Beta</span>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-semibold text-slate-900">Ayudas y Subvenciones</h1>
+              <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-0.5 text-xs font-semibold text-blue-700">
+                Actualizado automáticamente · Lunes 08:00 UTC
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-[var(--muted)]">El agente busca convocatorias cada semana en portales oficiales del Estado</p>
+          </div>
+          {items.length ? runButton : null}
         </div>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Describe tu empresa y el agente buscará ayudas, subvenciones y convocatorias públicas que encajen contigo.
-        </p>
-
-        <label className="mt-5 block text-xs font-semibold text-slate-500">
-          Describe tu empresa
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            placeholder="Ej. Holding tecnológico en Madrid con 3 SaaS de IA, 4 empleados, constituido en 2025, buscamos financiar I+D y digitalización…"
-            className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={search}
-          disabled={searching || !description.trim()}
-          className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-60"
-        >
-          {searching ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden /> : <span aria-hidden>✨</span>}
-          {searching ? "Buscando convocatorias…" : "Buscar con IA"}
-        </button>
+        {runMessage ? <p className="mt-3 text-sm text-slate-600">{runMessage}</p> : null}
       </Card>
 
-      {searching || matches ? (
-        <Card title="Convocatorias recomendadas" subtitle={matches ? `${matches.length} oportunidades encajan con tu perfil` : "Analizando tu perfil…"}>
-          <div className="grid gap-4 lg:grid-cols-3">
-            {searching
-              ? [0, 1, 2].map((i) => <ResultSkeleton key={i} />)
-              : matches?.map((m) => (
-                  <div key={m.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="mb-2 flex items-start justify-between gap-3">
-                      <h3 className="text-base font-bold text-slate-900">{m.name}</h3>
-                      <span className="shrink-0 text-lg font-bold text-blue-600">{m.amount}</span>
-                    </div>
-                    <p className="text-sm text-slate-600">{m.description}</p>
-                    <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Requisitos</p>
-                    <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-slate-600">
-                      {m.requirements.map((r) => <li key={r}>{r}</li>)}
-                    </ul>
-                    <a
-                      href={m.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-5 inline-flex self-start rounded-xl border-2 border-blue-500 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-50"
-                    >
-                      Ver convocatoria
-                    </a>
-                  </div>
-                ))}
-          </div>
-        </Card>
-      ) : null}
-
-      <Card title="Pipeline" subtitle={pipelineIsMock ? "Convocatorias en seguimiento (datos de ejemplo)" : "Convocatorias en seguimiento"}>
+      <Card title="Oportunidades" subtitle="Convocatorias detectadas por el agente, más recientes primero">
         {loading ? (
-          <div className="text-sm text-[var(--muted)]">Cargando...</div>
+          <div className="flex items-center gap-2 text-sm text-[var(--muted)]"><Spinner /> Cargando oportunidades…</div>
+        ) : error ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
+        ) : items.length === 0 ? (
+          <div className="flex flex-col items-center gap-4 py-10 text-center">
+            <p className="text-sm text-slate-600">El agente aún no ha ejecutado. Próxima búsqueda: lunes 08:00 UTC</p>
+            {runButton}
+          </div>
         ) : (
-          <TableWrap>
-            <Table>
-              <THead>
-                <tr>
-                  <TH>Convocatoria</TH>
-                  <TH>Estado</TH>
-                  <TH>Fecha límite</TH>
-                  <TH>Importe</TH>
-                  <TH>Acciones</TH>
-                </tr>
-              </THead>
-              <TBody>
-                {pipeline.map((g) => {
-                  const status = STATUS_LABEL[g.status] ?? { label: g.status, badge: "neutral" as const };
-                  return (
-                    <tr key={g.id}>
+          <>
+            <TableWrap>
+              <Table>
+                <THead>
+                  <tr>
+                    <TH>Convocatoria</TH>
+                    <TH>Organismo</TH>
+                    <TH>Importe</TH>
+                    <TH>Plazo</TH>
+                    <TH>Estado</TH>
+                    <TH>Acciones</TH>
+                  </tr>
+                </THead>
+                <TBody>
+                  {items.map((o) => (
+                    <tr key={o.id} className={o.status === "descartada" ? "opacity-60" : undefined}>
                       <TD className="font-medium">
-                        {g.title}
-                        {g.region ? <span className="block text-xs font-normal text-[var(--muted)]">{g.region}</span> : null}
+                        {o.title}
+                        {o.description ? <span className="block max-w-md text-xs font-normal text-[var(--muted)]">{o.description}</span> : null}
+                        {o.source?.startsWith("simulado:") ? (
+                          <span className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            Simulada · verificar en {o.source.slice("simulado:".length)}
+                          </span>
+                        ) : null}
                       </TD>
-                      <TD><Badge variant={status.badge}>{status.label}</Badge></TD>
-                      <TD>{formatDeadline(g.deadline)}</TD>
-                      <TD>{formatEuros(g.budget_cents)}</TD>
+                      <TD>{o.organism}</TD>
+                      <TD className="whitespace-nowrap">{formatAmount(o.amount_min, o.amount_max)}</TD>
+                      <TD className="whitespace-nowrap">{formatDeadline(o.deadline)}</TD>
                       <TD>
-                        {g.link ? (
-                          <a className="text-[var(--brand)] hover:underline" href={g.link} target="_blank" rel="noopener noreferrer">Ver convocatoria</a>
-                        ) : "—"}
+                        <span className={`inline-block whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLE[o.status] ?? STATUS_STYLE.descartada}`}>
+                          {o.status}
+                        </span>
+                      </TD>
+                      <TD>
+                        <div className="flex flex-wrap gap-2">
+                          {o.url ? (
+                            <a
+                              href={o.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="whitespace-nowrap rounded-lg border-2 border-blue-500 px-3 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50"
+                            >
+                              Ver convocatoria
+                            </a>
+                          ) : null}
+                          {o.status !== "descartada" ? (
+                            <button
+                              type="button"
+                              onClick={() => discard(o.id)}
+                              disabled={discarding === o.id}
+                              className="whitespace-nowrap rounded-lg border-2 border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                            >
+                              {discarding === o.id ? "Descartando…" : "Descartar"}
+                            </button>
+                          ) : null}
+                        </div>
                       </TD>
                     </tr>
-                  );
-                })}
-              </TBody>
-            </Table>
-          </TableWrap>
+                  ))}
+                </TBody>
+              </Table>
+            </TableWrap>
+            {totalPages > 1 ? (
+              <div className="mt-4 flex items-center justify-end gap-3 text-sm">
+                <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-lg border-2 border-slate-200 px-3 py-1 font-semibold text-slate-600 disabled:opacity-40">
+                  Anterior
+                </button>
+                <span className="text-slate-500">Página {page} de {totalPages}</span>
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-lg border-2 border-slate-200 px-3 py-1 font-semibold text-slate-600 disabled:opacity-40">
+                  Siguiente
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
       </Card>
+
+      <div>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Buscar manualmente en los portales oficiales</p>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {PORTALS.map((portal) => (
+            <div key={portal.url} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${portal.tone} text-[10px] font-black text-white`}>
+                {portal.short}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-900">{portal.name}</p>
+                <a href={portal.url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-blue-600 hover:underline">
+                  Buscar manualmente →
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

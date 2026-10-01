@@ -2,6 +2,7 @@ import { RateLimiterDO } from "./rate-limiter-do";
 import { runReaper } from "./reaper";
 import { runReconciliation } from "./reconciliation";
 import { processQueueBatch } from "./consumer";
+import { runFundingAgent } from "./funding-agent";
 import { setGlobalEnv, type DracoEnv } from "../../../src/lib/cf";
 import { verifyRequest } from "../../../src/lib/security/internal-api";
 
@@ -90,6 +91,12 @@ export default {
                 console.log("Running Drako Ecosystem Metrics...");
                 await runDrakosCron(env, "/api/cron/ecosystem-metrics", "DRAKO_ECOSYSTEM_METRICS");
                 break;
+            case "0 8 * * 1": {
+                console.log("Running Drako Funding Agent...");
+                const n = await runFundingAgent(env);
+                console.log(`[funding-agent] ${n} oportunidades insertadas`);
+                break;
+            }
             case "0 9 * * 1-5":
                 console.log("Running Drako Journal...");
                 await runDrakosCron(env, "/api/cron/journal", "DRAKO_JOURNAL");
