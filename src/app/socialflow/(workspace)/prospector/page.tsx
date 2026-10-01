@@ -312,20 +312,59 @@ export default function ProspectorPage() {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty state / Onboarding */}
       {!loadingCampaigns && campaigns.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-white py-20 text-center">
-          <div className="mb-4 text-5xl">🎯</div>
-          <h2 className="text-xl font-black text-gray-900">Sin campañas todavía</h2>
-          <p className="mt-2 max-w-sm text-sm text-gray-500">
-            Crea tu primera campaña y el agente IA buscará prospectos en tu nicho y zona automáticamente.
-          </p>
-          <button
-            onClick={() => setShowNewCampaign(true)}
-            className="mt-6 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-6 py-3 text-sm font-black text-white shadow-md"
-          >
-            + Crear primera campaña
-          </button>
+        <div className="space-y-6">
+          {/* Hero */}
+          <div className="rounded-2xl bg-gradient-to-br from-[#3b82f6]/8 to-[#06b6d4]/8 border border-[#3b82f6]/20 px-8 py-10 text-center">
+            <div className="mb-3 text-5xl">🎯</div>
+            <h2 className="text-2xl font-black text-gray-900">Captación automática de clientes</h2>
+            <p className="mt-2 max-w-lg mx-auto text-sm text-gray-500">
+              Dile al agente en qué nicho y ciudad buscar, y él encuentra negocios reales,
+              les escribe por email y hace el seguimiento por ti — sin que tengas que mover un dedo.
+            </p>
+            <button
+              onClick={() => setShowNewCampaign(true)}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-7 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:opacity-90"
+            >
+              🚀 Crear mi primera campaña
+            </button>
+          </div>
+
+          {/* How it works */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            {[
+              {
+                step: "1",
+                icon: "🔍",
+                title: "El agente busca",
+                desc: "Le dices el nicho (restaurantes, clínicas, academias…) y la ciudad. La IA localiza negocios reales con datos de contacto.",
+              },
+              {
+                step: "2",
+                icon: "📧",
+                title: "Contacta por ti",
+                desc: "Envía emails personalizados a cada prospecto presentando tu servicio. También puedes escribirles por WhatsApp con un clic.",
+              },
+              {
+                step: "3",
+                icon: "🔄",
+                title: "Hace el seguimiento",
+                desc: "Si no responden en 3 días, el agente manda un follow-up automático. Tú solo gestionas los que muestran interés.",
+              },
+            ].map((item) => (
+              <div key={item.step} className="rounded-2xl border border-gray-200 bg-white p-6">
+                <div className="mb-3 flex items-center gap-3">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#3b82f6]/10 text-xs font-black text-[#3b82f6]">
+                    {item.step}
+                  </span>
+                  <span className="text-xl">{item.icon}</span>
+                </div>
+                <h3 className="font-black text-gray-900">{item.title}</h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-gray-500">{item.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
