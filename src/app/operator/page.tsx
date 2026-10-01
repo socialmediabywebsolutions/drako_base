@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Card from "@/components/ui/card";
 import Button from "@/components/ui/button";
 import Badge from "@/components/ui/badge";
-import EmptyState from "@/components/ui/empty-state";
 import type {
   OwnerGrowthAutopilotAction,
   OwnerPortfolioSnapshot,
@@ -24,6 +23,8 @@ import OperatorLeftPanel from "@/components/operator/LeftPanel";
 import OperatorCenterPanel from "@/components/operator/CenterPanel";
 import OperatorRightPanel from "@/components/operator/RightPanel";
 import LegacyFiscalForm from "@/components/operator/LegacyFiscalForm";
+import FinancialPanel from "@/components/operator/FinancialPanel";
+import MockPlaceholder from "@/components/operator/MockPlaceholder";
 
 type Owner = {
   id: string;
@@ -118,6 +119,20 @@ type OperatorEventRollup = {
   firstSeenAt: string;
   lastSeenAt: string;
 };
+
+// Grupo del operator: título + grid de 1/2/3 columnas. Las secciones anchas (tablas)
+// ocupan la fila completa con lg:col-span-2 xl:col-span-3.
+function OperatorGroup({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+  return (
+    <section className="space-y-4">
+      <div className="border-b border-sky-100 pb-2">
+        <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+        <p className="text-sm text-[var(--muted)]">{subtitle}</p>
+      </div>
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2 xl:grid-cols-3">{children}</div>
+    </section>
+  );
+}
 
 function normalizeFactoryStatus(status?: string | null): { label: string; badge: "ok" | "warn" | "err" } {
   const normalized = status?.toUpperCase() ?? "PENDING";
@@ -1055,1092 +1070,950 @@ export default function OwnerPage() {
         </div>
       </div>
 
-      {/* Legacy sections preserved below for backward compatibility */}
-      <Card tone="glass" title="Catalogo de SaaS" subtitle="Activa nuevos verticales desde operator">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-[var(--muted)]">
-            ¿Necesitas otro SaaS (clínica, salón, grooming, lavandería)? Activa uno nuevo desde el catálogo.
-          </p>
-          <Link href="/operator/catalog">
-            <Button variant="outline">Abrir catálogo</Button>
-          </Link>
-        </div>
-      </Card>
-
-      <Card tone="glass" title="Mentoria System Health" subtitle="Estado de resiliencia (jobs, eventos y silencio)">
-        {mentoriaSystemHealthLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando Mentoria system health...</p>
-        ) : mentoriaSystemHealthError ? (
-          <p className="text-sm text-red-300">{mentoriaSystemHealthError}</p>
-        ) : !mentoriaSystemHealth ? (
-          <EmptyState title="Sin datos" subtitle="No hay datos de health disponibles." />
-        ) : (
-          <div className="space-y-3 text-sm text-[var(--muted)]">
-            <p>
-              Notifications - pending: {mentoriaSystemHealth.notifications.pending}, failed: {mentoriaSystemHealth.notifications.failed}, abandoned: {mentoriaSystemHealth.notifications.abandoned}
-            </p>
-            <p>
-              Feedback - pending: {mentoriaSystemHealth.feedback.pending}, failed: {mentoriaSystemHealth.feedback.failed}
-            </p>
-            <p>
-              Publishes - pending: {mentoriaSystemHealth.publishes.pending}, failed: {mentoriaSystemHealth.publishes.failed}
-            </p>
-            <p>Critical events: {mentoriaSystemHealth.criticalEvents}</p>
-            {mentoriaSystemHealth.silence ? (
-              <p>
-                Silence - no feedback: {mentoriaSystemHealth.silence.studentsWithoutRecentFeedback}, no parent notification: {mentoriaSystemHealth.silence.studentsWithoutRecentParentNotification}, no academic activity: {mentoriaSystemHealth.silence.studentsWithoutRecentAcademicActivity}
-              </p>
-            ) : null}
-          </div>
-        )}
-      </Card>
-
-      <Card tone="glass" title="Resumen global" subtitle="Indicadores combinados">
-        {portfolioLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando portfolio...</p>
-        ) : portfolioError ? (
-          <p className="text-sm text-red-300">{portfolioError}</p>
-        ) : !portfolio ? (
-          <EmptyState title="Sin portfolio" subtitle="No hay SaaS asociados todavía." />
-        ) : (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <div>
-              <p className="text-xs text-[var(--muted)]">Total SaaS</p>
-              <p className="text-xl font-semibold">{portfolio.totalSaas}</p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--muted)]">Margen medio</p>
-              <p className="text-xl font-semibold">
-                {typeof portfolio.highLevel.totalMarginAverage === "number"
-                  ? `${portfolio.highLevel.totalMarginAverage.toFixed(0)}%`
-                  : "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--muted)]">Empleados</p>
-              <p className="text-xl font-semibold">{portfolio.highLevel.totalEmployees ?? "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--muted)]">Tareas abiertas</p>
-              <p className="text-xl font-semibold">{portfolio.highLevel.totalOpenTasks ?? "—"}</p>
-            </div>
-          </div>
-        )}
-      </Card>
-
-      <Card tone="glass" title="Eventos del Imperio" subtitle="Criticos recientes + rollups diarios">
-        {eventsLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando eventos...</p>
-        ) : eventsError ? (
-          <p className="text-sm text-red-300">{eventsError}</p>
-        ) : !eventsSnapshot ? (
-          <EmptyState title="Sin eventos" subtitle="No hay eventos disponibles todavia." />
-        ) : (
-          <div className="space-y-4">
-            <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]">
-              <input
-                type="checkbox"
-                checked={showOnlyMentoriaEvents}
-                onChange={() => setShowOnlyMentoriaEvents(!showOnlyMentoriaEvents)}
-              />
-              Show only Mentoria events
-            </label>
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Ultimos CRITICAL/SECURITY</p>
-              {visibleCriticalEvents.length === 0 ? (
-                <p className="text-sm text-[var(--muted)]">No hay eventos criticos recientes.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="modern text-sm" aria-label="Eventos criticos">
-                    <thead>
-                      <tr>
-                        <th>Fecha</th>
-                        <th>Tipo</th>
-                        <th>Severidad</th>
-                        <th>SaaS</th>
-                        <th>Mensaje</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visibleCriticalEvents.map((event) => (
-                        <tr key={`${event.correlationId}-${event.createdAt}`}>
-                          <td className="text-xs text-[var(--muted)]">{new Date(event.createdAt).toLocaleString()}</td>
-                          <td>
-                            {event.type}
-                            {isMentoriaSystemEventType(event.type) ? (
-                              <span className="ml-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-300">MENTORIA</span>
-                            ) : null}
-                          </td>
-                          <td>
-                            <Badge variant="err">{event.severity}</Badge>
-                          </td>
-                          <td className="text-xs text-[var(--muted)]">{event.saasSlug ?? "—"}</td>
-                          <td className="text-xs text-[var(--muted)]">{event.message}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Rollups diarios (14 dias)</p>
-              {visibleRollups.length === 0 ? (
-                <p className="text-sm text-[var(--muted)]">Sin rollups en los ultimos dias.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="modern text-sm" aria-label="Rollups diarios">
-                    <thead>
-                      <tr>
-                        <th>Dia</th>
-                        <th>Severidad</th>
-                        <th>Tipo</th>
-                        <th>SaaS</th>
-                        <th>Count</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visibleRollups.map((rollup) => (
-                        <tr key={`${rollup.day}-${rollup.type}-${rollup.severity}-${rollup.saasSlug ?? "global"}`}>
-                          <td className="text-xs text-[var(--muted)]">{rollup.day}</td>
-                          <td>
-                            <Badge variant={resolveHealthBadge(rollup.severity)}>{rollup.severity}</Badge>
-                          </td>
-                          <td>
-                            {rollup.type}
-                            {isMentoriaSystemEventType(rollup.type) ? (
-                              <span className="ml-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-300">MENTORIA</span>
-                            ) : null}
-                          </td>
-                          <td className="text-xs text-[var(--muted)]">{rollup.saasSlug ?? "global"}</td>
-                          <td>{rollup.count}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </Card>
-
-      <Card tone="glass" title="DB Health" subtitle="Estado de migraciones + drift">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-[var(--muted)]">
-            Verifica que D1 está al día antes de ejecutar cargas productivas.
-          </p>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={loadDbHealth} disabled={dbHealthLoading}>
-              Refresh
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (!dbHealthChecklist) return;
-                void navigator?.clipboard?.writeText(dbHealthChecklist);
-              }}
-              disabled={!dbHealthChecklist}
-            >
-              Copy checklist
-            </Button>
-          </div>
-        </div>
-        <div className="mt-4">
-          {dbHealthLoading ? (
-            <p className="text-sm text-[var(--muted)]">Cargando DB health...</p>
-          ) : dbHealthError ? (
-            <p className="text-sm text-red-300">{dbHealthError}</p>
-          ) : !dbHealth ? (
-            <EmptyState title="Sin DB health" subtitle="No hay datos disponibles." />
-          ) : (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge variant={resolveDbHealthBadge(dbHealth.status)}>{dbHealth.status}</Badge>
-                <span className="text-xs text-[var(--muted)]">
-                  Applied migrations: {dbHealth.appliedMigrations.count}
-                </span>
-                <span className="text-xs text-[var(--muted)]">
-                  Missing: {dbHealth.missingMigrations.length}
-                </span>
-                <span className="text-xs text-[var(--muted)]">
-                  Drift findings: {dbHealth.driftFindings.length}
-                </span>
-              </div>
-              {dbHealth.missingMigrations.length > 0 && (
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Migraciones faltantes</p>
-                  <ul className="mt-2 space-y-1 text-sm text-red-200">
-                    {dbHealth.missingMigrations.slice(0, 5).map((id) => (
-                      <li key={id}>{id}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {dbHealth.driftFindings.length > 0 && (
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Drift detectado</p>
-                  <ul className="mt-2 space-y-1 text-sm text-amber-200">
-                    {dbHealth.driftFindings.slice(0, 5).map((finding, index) => (
-                      <li key={`${finding.table}-${finding.column ?? "table"}-${index}`}>
-                        {finding.table}
-                        {finding.column ? `.${finding.column}` : ""}: {finding.message}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </Card>
-
-      <Card tone="glass" title="Factory" subtitle="Ultimos SaaS y estado de wiring">
-        {factoryLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando SaaS Factory...</p>
-        ) : factoryError ? (
-          <p className="text-sm text-red-300">{factoryError}</p>
-        ) : factoryItems.length === 0 ? (
-          <EmptyState title="Sin SaaS Factory" subtitle="Aun no hay SaaS creados con provisioning." />
-        ) : (
-          <div className="space-y-3">
-            <div className="overflow-x-auto">
-              <table className="modern text-sm" aria-label="Estado SaaS Factory">
-                <thead>
-                  <tr>
-                    <th>SaaS</th>
-                    <th>Vertical</th>
-                    <th>Estado Factory</th>
-                    <th>Pricing</th>
-                    <th>Health</th>
-                    <th>Marketing</th>
-                    <th>Agents</th>
-                    <th>Provisioning</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {factoryItems.map((item) => {
-                    const cf = normalizeFactoryStatus(item.cloudflare?.status);
-                    const stripe = normalizeFactoryStatus(item.stripe?.status);
-                    const ai = normalizeFactoryStatus(item.ai?.status);
-                    const stage = resolveFactoryStage({
-                      cloudflare: item.cloudflare,
-                      stripe: item.stripe,
-                      ai: item.ai,
-                    });
-                    const health = healthBySaasId.get(item.saasId);
-                    return (
-                      <tr key={item.saasId}>
-                        <td>
-                          <div className="font-semibold">{item.saasName}</div>
-                          <div className="text-xs text-[var(--muted)]">{new Date(item.createdAt).toLocaleString()}</div>
-                        </td>
-                        <td>{item.verticalId ?? "—"}</td>
-                        <td>{stage}</td>
-                        <td>{item.pricingStatus ?? "—"}</td>
-                        <td>
-                          {health ? (
-                            <Badge variant={resolveHealthStatusBadge(health.healthStatus)}>{health.healthStatus}</Badge>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td>{item.marketingPack ?? "—"}</td>
-                        <td>
-                          {item.agentsSummary
-                            ? `${item.agentsCount ?? 0} agents • ${item.agentsSummary}`
-                            : item.agentsCount
-                              ? `${item.agentsCount} agents`
-                              : "—"}
-                          {item.hasCoverageGap && item.missingDepartments && item.missingDepartments.length > 0 ? (
-                            <span className="text-xs text-amber-200">
-                              {" "}
-                              (gap: no {item.missingDepartments.join(", ")})
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="space-x-2">
-                          <Badge variant={cf.badge}>Cloudflare {cf.label}</Badge>
-                          <Badge variant={stripe.badge}>Stripe {stripe.label}</Badge>
-                          <Badge variant={ai.badge}>IA {ai.label}</Badge>
-                        </td>
-                        <td>
-                          <Link href={`/saas/${item.saasId}`} className="text-[var(--brand)] font-semibold">
-                            Ver SaaS
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex flex-wrap gap-2 text-xs text-[var(--muted)]">
-              <span>Accesos rapidos:</span>
-              <Link href="/saas/create" className="text-[var(--brand)]">Nuevo SaaS</Link>
-              <Link href="/operator" className="text-[var(--brand)]">Pricing</Link>
-              <Link href="/operator" className="text-[var(--brand)]">Tesoreria</Link>
-              <Link href="/operator" className="text-[var(--brand)]">Marketing</Link>
-              <Link href="/operator" className="text-[var(--brand)]">Tax</Link>
-            </div>
-          </div>
-        )}
-      </Card>
-
-      <Card tone="glass" title="Dominios del imperio" subtitle="Registro de hostnames activos y estado del routing">
-        {domainsLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando dominios...</p>
-        ) : domainsError ? (
-          <p className="text-sm text-red-300">{domainsError}</p>
-        ) : domains.length === 0 ? (
-          <EmptyState title="Sin dominios" subtitle="No hay dominios registrados para este tenant." />
-        ) : (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={domainsUpdating}
-                onClick={() => verifyDomains({ scope: "all" })}
-              >
-                Verify all pending
-              </Button>
-              <Button size="sm" variant="outline" disabled={domainsUpdating} onClick={() => loadDomains()}>
-                Refresh
-              </Button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="modern text-sm" aria-label="Dominios del imperio">
-                <thead>
-                  <tr>
-                    <th>Hostname</th>
-                    <th>SaaS</th>
-                    <th>Tenant</th>
-                    <th>Status</th>
-                    <th>Verificacion</th>
-                    <th>Ultimo error</th>
-                    <th>Retry</th>
-                    <th>Updated</th>
-                    <th>Ultimo evento</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {domains.map((domain) => (
-                    <tr key={domain.id}>
-                      <td className="font-semibold">{domain.hostname}</td>
-                      <td>{domain.saasSlug ?? domain.saasId}</td>
-                      <td className="text-xs text-[var(--muted)]">{domain.tenantId}</td>
-                      <td>
-                        <Badge variant={resolveDomainStatusBadge(domain.status)}>{domain.status.toUpperCase()}</Badge>
-                      </td>
-                      <td className="text-xs text-[var(--muted)]">
-                        <div className="flex flex-col gap-1">
-                          <Badge variant={resolveVerificationBadge(domain.verificationStatus)}>
-                            {domain.verificationStatus ? domain.verificationStatus.toUpperCase() : "—"}
-                          </Badge>
-                          {domain.verificationReason ? <span>{domain.verificationReason}</span> : null}
-                        </div>
-                      </td>
-                      <td className="text-xs text-[var(--muted)]">{domain.lastError ?? "—"}</td>
-                      <td className="text-xs text-[var(--muted)]">{domain.retryCount ?? 0}</td>
-                      <td className="text-xs text-[var(--muted)]">
-                        {domain.updatedAt ? new Date(domain.updatedAt).toLocaleString() : "—"}
-                      </td>
-                      <td className="text-xs text-[var(--muted)]">
-                        {domain.lastRoutingEvent
-                          ? `${domain.lastRoutingEvent.type} (${domain.lastRoutingEvent.severity})`
-                          : "—"}
-                      </td>
-                      <td>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={domainsUpdating}
-                          onClick={() => verifyDomains({ scope: "domain", domain: domain.hostname })}
-                        >
-                          Verify
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </Card>
-
-      <Card tone="glass" title="Department coverage" subtitle="Cobertura de departamentos IA por SaaS">
-        {accountingLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando coverage...</p>
-        ) : accountingError ? (
-          <p className="text-sm text-red-300">{accountingError}</p>
-        ) : !accounting?.departmentCoverageSummary ? (
-          <EmptyState title="Sin coverage" subtitle="No hay datos de cobertura de departamentos." />
-        ) : (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <Badge variant="ok">WELL</Badge>
-                <span>{accounting.departmentCoverageSummary.wellCoveredCount}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="warn">PARTIAL</Badge>
-                <span>{accounting.departmentCoverageSummary.partialCount}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="err">CRITICAL</Badge>
-                <span>{accounting.departmentCoverageSummary.criticalGapCount}</span>
-              </div>
-            </div>
-            {accounting.departmentCoverageSummary.topGaps.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">No hay gaps criticos en coverage.</p>
+      <OperatorGroup title="Estado del Ecosistema" subtitle="Salud de los SaaS, eventos, bases de datos y dominios">
+        <div>
+          <Card tone="glass" title="Resumen global" subtitle="Indicadores combinados">
+            {portfolioLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando portfolio...</p>
+            ) : portfolioError ? (
+              <p className="text-sm text-red-300">{portfolioError}</p>
+            ) : !portfolio ? (
+              <MockPlaceholder layout="grid" items={[{ label: "Total SaaS", value: "5" }, { label: "Margen medio", value: "63%" }, { label: "Empleados", value: "4" }, { label: "Tareas abiertas", value: "17" }]} />
             ) : (
-              <div className="space-y-3">
-                {accounting.departmentCoverageSummary.topGaps.map((item) => {
-                  const gaps = item.gaps.map((gap) => gap.departmentId).join(", ");
-                  const departments = item.departmentsEnabled.join(", ");
-                  return (
-                    <div key={item.saasId} className="rounded-2xl border border-[var(--border)]/60 bg-[var(--panel-alt)]/60 p-3 text-sm">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-[var(--text)]">{item.saasName}</p>
-                          <p className="text-xs text-[var(--muted)]">{item.verticalId ?? "OTHER"}</p>
-                        </div>
-                        <Badge variant={item.status === "CRITICAL_GAP" ? "err" : "warn"}>
-                          {item.status}
-                        </Badge>
-                      </div>
-                      <p className="mt-2 text-xs text-[var(--muted)]">Departamentos: {departments || "—"}</p>
-                      <p className="text-xs text-amber-200">Gaps: {gaps || "—"}</p>
-                    </div>
-                  );
-                })}
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div>
+                  <p className="text-xs text-[var(--muted)]">Total SaaS</p>
+                  <p className="text-xl font-semibold">{portfolio.totalSaas}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--muted)]">Margen medio</p>
+                  <p className="text-xl font-semibold">
+                    {typeof portfolio.highLevel.totalMarginAverage === "number"
+                      ? `${portfolio.highLevel.totalMarginAverage.toFixed(0)}%`
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--muted)]">Empleados</p>
+                  <p className="text-xl font-semibold">{portfolio.highLevel.totalEmployees ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--muted)]">Tareas abiertas</p>
+                  <p className="text-xl font-semibold">{portfolio.highLevel.totalOpenTasks ?? "—"}</p>
+                </div>
               </div>
             )}
-          </div>
-        )}
-      </Card>
-
-      <Card tone="glass" title="SaaS health & priorities" subtitle="Prioridades por salud combinada">
-        {accountingLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando health...</p>
-        ) : accountingError ? (
-          <p className="text-sm text-red-300">{accountingError}</p>
-        ) : !accounting?.saasHealthSummary ? (
-          <EmptyState title="Sin health" subtitle="No hay datos de salud disponibles." />
-        ) : (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-              <span className="text-[var(--muted)]">Filtro:</span>
+          </Card>
+        </div>
+        <div>
+          <Card tone="glass" title="Mentoria System Health" subtitle="Estado de resiliencia (jobs, eventos y silencio)">
+            {mentoriaSystemHealthLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando Mentoria system health...</p>
+            ) : mentoriaSystemHealthError ? (
+              <p className="text-sm text-red-300">{mentoriaSystemHealthError}</p>
+            ) : !mentoriaSystemHealth ? (
+              <MockPlaceholder layout="grid" items={[{ label: "Notificaciones pendientes", value: "3" }, { label: "Feedback pendiente", value: "5" }, { label: "Publicaciones pendientes", value: "2" }, { label: "Eventos críticos", value: "0" }]} />
+            ) : (
+              <div className="space-y-3 text-sm text-[var(--muted)]">
+                <p>
+                  Notifications - pending: {mentoriaSystemHealth.notifications.pending}, failed: {mentoriaSystemHealth.notifications.failed}, abandoned: {mentoriaSystemHealth.notifications.abandoned}
+                </p>
+                <p>
+                  Feedback - pending: {mentoriaSystemHealth.feedback.pending}, failed: {mentoriaSystemHealth.feedback.failed}
+                </p>
+                <p>
+                  Publishes - pending: {mentoriaSystemHealth.publishes.pending}, failed: {mentoriaSystemHealth.publishes.failed}
+                </p>
+                <p>Critical events: {mentoriaSystemHealth.criticalEvents}</p>
+                {mentoriaSystemHealth.silence ? (
+                  <p>
+                    Silence - no feedback: {mentoriaSystemHealth.silence.studentsWithoutRecentFeedback}, no parent notification: {mentoriaSystemHealth.silence.studentsWithoutRecentParentNotification}, no academic activity: {mentoriaSystemHealth.silence.studentsWithoutRecentAcademicActivity}
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </Card>
+        </div>
+        <div>
+          <Card tone="glass" title="DB Health" subtitle="Estado de migraciones + drift">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-[var(--muted)]">
+                Verifica que D1 está al día antes de ejecutar cargas productivas.
+              </p>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setHealthFilter("ALL")}
-                  className={`rounded-full border px-3 py-1 transition ${healthFilter === "ALL"
-                    ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
-                    : "border-[var(--border)]/60 text-[var(--muted)]"
-                    }`}
+                <Button variant="outline" onClick={loadDbHealth} disabled={dbHealthLoading}>
+                  Refresh
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (!dbHealthChecklist) return;
+                    void navigator?.clipboard?.writeText(dbHealthChecklist);
+                  }}
+                  disabled={!dbHealthChecklist}
                 >
-                  Todos
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setHealthFilter("WARN_ONLY")}
-                  className={`rounded-full border px-3 py-1 transition ${healthFilter === "WARN_ONLY"
-                    ? "border-amber-300/60 bg-amber-200/10 text-amber-200"
-                    : "border-[var(--border)]/60 text-[var(--muted)]"
-                    }`}
-                >
-                  Solo WARNING/CRITICAL
-                </button>
+                  Copy checklist
+                </Button>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <Badge variant="ok">GOOD</Badge>
-                <span>{accounting.saasHealthSummary.good}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="warn">WARNING</Badge>
-                <span>{accounting.saasHealthSummary.warning}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="err">CRITICAL</Badge>
-                <span>{accounting.saasHealthSummary.critical}</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                <span>Total: {accounting.saasHealthSummary.total}</span>
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-3">
-                <p className="text-xs uppercase text-[var(--muted)]">Top critical</p>
-                {accounting.saasHealthSummary.topCritical.length === 0 ? (
-                  <p className="text-sm text-[var(--muted)]">Sin SaaS criticos.</p>
-                ) : (
-                  accounting.saasHealthSummary.topCritical.map((item) => {
-                    const keySignals = item.signals.filter((signal) => signal.level !== "INFO").slice(0, 2);
-                    return (
-                      <div key={item.saasId} className="rounded-2xl border border-[var(--border)]/60 bg-[var(--panel-alt)]/60 p-3 text-sm">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <p className="font-semibold text-[var(--text)]">{item.saasName}</p>
-                            <p className="text-xs text-[var(--muted)]">{item.verticalId}</p>
-                          </div>
-                          <Badge variant="err">CRITICAL</Badge>
-                        </div>
-                        <p className="mt-2 text-xs text-[var(--muted)]">Health score: {item.healthScore}</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {keySignals.map((signal) => (
-                            <Badge key={`${item.saasId}-${signal.kind}`} variant={resolveHealthBadge(signal.level)}>
-                              {signal.kind}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-              <div className="space-y-3">
-                <p className="text-xs uppercase text-[var(--muted)]">Top scale candidates</p>
-                {accounting.saasHealthSummary.topScaleCandidates.length === 0 ? (
-                  <p className="text-sm text-[var(--muted)]">Sin candidatos claros.</p>
-                ) : (
-                  accounting.saasHealthSummary.topScaleCandidates.map((item) => {
-                    const keySignals = item.signals.filter((signal) => signal.level !== "INFO").slice(0, 2);
-                    return (
-                      <div key={item.saasId} className="rounded-2xl border border-[var(--border)]/60 bg-[var(--panel-alt)]/60 p-3 text-sm">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <p className="font-semibold text-[var(--text)]">{item.saasName}</p>
-                            <p className="text-xs text-[var(--muted)]">{item.verticalId}</p>
-                          </div>
-                          <Badge variant="ok">GOOD</Badge>
-                        </div>
-                        <p className="mt-2 text-xs text-[var(--muted)]">Health score: {item.healthScore}</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {keySignals.length === 0 ? (
-                            <Badge variant="ok">STABLE</Badge>
-                          ) : (
-                            keySignals.map((signal) => (
-                              <Badge key={`${item.saasId}-${signal.kind}`} variant={resolveHealthBadge(signal.level)}>
-                                {signal.kind}
-                              </Badge>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-            <div className="space-y-3">
-              <p className="text-xs uppercase text-[var(--muted)]">Lista de SaaS (salud)</p>
-              {healthTableItems.length === 0 ? (
-                <p className="text-sm text-[var(--muted)]">Sin datos de salud para mostrar.</p>
+            <div className="mt-4">
+              {dbHealthLoading ? (
+                <p className="text-sm text-[var(--muted)]">Cargando DB health...</p>
+              ) : dbHealthError ? (
+                <p className="text-sm text-red-300">{dbHealthError}</p>
+              ) : !dbHealth ? (
+                <MockPlaceholder layout="grid" items={[{ label: "Migraciones aplicadas", value: "206" }, { label: "Drift detectado", value: "0" }, { label: "Bases D1", value: "3" }, { label: "Última verificación", value: "hace 1 h" }]} />
               ) : (
-                <div className="max-h-72 overflow-auto rounded-2xl border border-[var(--border)]/60">
-                  <table className="modern text-sm" aria-label="SaaS health list">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Badge variant={resolveDbHealthBadge(dbHealth.status)}>{dbHealth.status}</Badge>
+                    <span className="text-xs text-[var(--muted)]">
+                      Applied migrations: {dbHealth.appliedMigrations.count}
+                    </span>
+                    <span className="text-xs text-[var(--muted)]">
+                      Missing: {dbHealth.missingMigrations.length}
+                    </span>
+                    <span className="text-xs text-[var(--muted)]">
+                      Drift findings: {dbHealth.driftFindings.length}
+                    </span>
+                  </div>
+                  {dbHealth.missingMigrations.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Migraciones faltantes</p>
+                      <ul className="mt-2 space-y-1 text-sm text-red-200">
+                        {dbHealth.missingMigrations.slice(0, 5).map((id) => (
+                          <li key={id}>{id}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {dbHealth.driftFindings.length > 0 && (
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Drift detectado</p>
+                      <ul className="mt-2 space-y-1 text-sm text-amber-200">
+                        {dbHealth.driftFindings.slice(0, 5).map((finding, index) => (
+                          <li key={`${finding.table}-${finding.column ?? "table"}-${index}`}>
+                            {finding.table}
+                            {finding.column ? `.${finding.column}` : ""}: {finding.message}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+        <div className="lg:col-span-2 xl:col-span-3">
+          <Card tone="glass" title="SaaS health & priorities" subtitle="Prioridades por salud combinada">
+            {accountingLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando health...</p>
+            ) : accountingError ? (
+              <p className="text-sm text-red-300">{accountingError}</p>
+            ) : !accounting?.saasHealthSummary ? (
+              <MockPlaceholder layout="list" items={[{ label: "Socialcors", value: "Saludable", hint: "Prioridad: escalar captación" }, { label: "Mentoría", value: "Atención", hint: "Prioridad: activar pricing" }, { label: "Crypto IA", value: "En construcción", hint: "Prioridad: completar agentes" }]} />
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <span className="text-[var(--muted)]">Filtro:</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setHealthFilter("ALL")}
+                      className={`rounded-full border px-3 py-1 transition ${healthFilter === "ALL"
+                        ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
+                        : "border-[var(--border)]/60 text-[var(--muted)]"
+                        }`}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHealthFilter("WARN_ONLY")}
+                      className={`rounded-full border px-3 py-1 transition ${healthFilter === "WARN_ONLY"
+                        ? "border-amber-300/60 bg-amber-200/10 text-amber-200"
+                        : "border-[var(--border)]/60 text-[var(--muted)]"
+                        }`}
+                    >
+                      Solo WARNING/CRITICAL
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="ok">GOOD</Badge>
+                    <span>{accounting.saasHealthSummary.good}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="warn">WARNING</Badge>
+                    <span>{accounting.saasHealthSummary.warning}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="err">CRITICAL</Badge>
+                    <span>{accounting.saasHealthSummary.critical}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                    <span>Total: {accounting.saasHealthSummary.total}</span>
+                  </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <p className="text-xs uppercase text-[var(--muted)]">Top critical</p>
+                    {accounting.saasHealthSummary.topCritical.length === 0 ? (
+                      <p className="text-sm text-[var(--muted)]">Sin SaaS criticos.</p>
+                    ) : (
+                      accounting.saasHealthSummary.topCritical.map((item) => {
+                        const keySignals = item.signals.filter((signal) => signal.level !== "INFO").slice(0, 2);
+                        return (
+                          <div key={item.saasId} className="rounded-2xl border border-[var(--border)]/60 bg-[var(--panel-alt)]/60 p-3 text-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="font-semibold text-[var(--text)]">{item.saasName}</p>
+                                <p className="text-xs text-[var(--muted)]">{item.verticalId}</p>
+                              </div>
+                              <Badge variant="err">CRITICAL</Badge>
+                            </div>
+                            <p className="mt-2 text-xs text-[var(--muted)]">Health score: {item.healthScore}</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {keySignals.map((signal) => (
+                                <Badge key={`${item.saasId}-${signal.kind}`} variant={resolveHealthBadge(signal.level)}>
+                                  {signal.kind}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-xs uppercase text-[var(--muted)]">Top scale candidates</p>
+                    {accounting.saasHealthSummary.topScaleCandidates.length === 0 ? (
+                      <p className="text-sm text-[var(--muted)]">Sin candidatos claros.</p>
+                    ) : (
+                      accounting.saasHealthSummary.topScaleCandidates.map((item) => {
+                        const keySignals = item.signals.filter((signal) => signal.level !== "INFO").slice(0, 2);
+                        return (
+                          <div key={item.saasId} className="rounded-2xl border border-[var(--border)]/60 bg-[var(--panel-alt)]/60 p-3 text-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <p className="font-semibold text-[var(--text)]">{item.saasName}</p>
+                                <p className="text-xs text-[var(--muted)]">{item.verticalId}</p>
+                              </div>
+                              <Badge variant="ok">GOOD</Badge>
+                            </div>
+                            <p className="mt-2 text-xs text-[var(--muted)]">Health score: {item.healthScore}</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {keySignals.length === 0 ? (
+                                <Badge variant="ok">STABLE</Badge>
+                              ) : (
+                                keySignals.map((signal) => (
+                                  <Badge key={`${item.saasId}-${signal.kind}`} variant={resolveHealthBadge(signal.level)}>
+                                    {signal.kind}
+                                  </Badge>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <p className="text-xs uppercase text-[var(--muted)]">Lista de SaaS (salud)</p>
+                  {healthTableItems.length === 0 ? (
+                    <p className="text-sm text-[var(--muted)]">Sin datos de salud para mostrar.</p>
+                  ) : (
+                    <div className="max-h-72 overflow-auto rounded-2xl border border-[var(--border)]/60">
+                      <table className="modern text-sm" aria-label="SaaS health list">
+                        <thead>
+                          <tr>
+                            <th>SaaS</th>
+                            <th>Vertical</th>
+                            <th>Health</th>
+                            <th>Senales</th>
+                            <th>Score</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {healthTableItems.map((item) => {
+                            const signalKinds = item.signals
+                              .filter((signal) => signal.level !== "INFO")
+                              .map((signal) => signal.kind)
+                              .join(", ");
+                            return (
+                              <tr key={item.saasId}>
+                                <td className="font-semibold">{item.saasName}</td>
+                                <td>{item.verticalId ?? "OTHER"}</td>
+                                <td>
+                                  <Badge variant={resolveHealthStatusBadge(item.healthStatus)}>{item.healthStatus}</Badge>
+                                </td>
+                                <td>{signalKinds || "—"}</td>
+                                <td>{item.healthScore}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+        <div className="lg:col-span-2 xl:col-span-3">
+          <Card tone="glass" title="Eventos del Imperio" subtitle="Criticos recientes + rollups diarios">
+            {eventsLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando eventos...</p>
+            ) : eventsError ? (
+              <p className="text-sm text-red-300">{eventsError}</p>
+            ) : !eventsSnapshot ? (
+              <MockPlaceholder layout="list" items={[{ label: "SOCIALFLOW_PUBLISH_RETRY", value: "HIGH", hint: "Socialcors · hace 3 h" }, { label: "MENTORIA_FEEDBACK_DELAYED", value: "MEDIUM", hint: "Mentoría · hace 9 h" }, { label: "Rollup diario de eventos", value: "142", hint: "Últimas 24 h" }]} />
+            ) : (
+              <div className="space-y-4">
+                <label className="inline-flex items-center gap-2 text-sm text-[var(--muted)]">
+                  <input
+                    type="checkbox"
+                    checked={showOnlyMentoriaEvents}
+                    onChange={() => setShowOnlyMentoriaEvents(!showOnlyMentoriaEvents)}
+                  />
+                  Show only Mentoria events
+                </label>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Ultimos CRITICAL/SECURITY</p>
+                  {visibleCriticalEvents.length === 0 ? (
+                    <p className="text-sm text-[var(--muted)]">No hay eventos criticos recientes.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="modern text-sm" aria-label="Eventos criticos">
+                        <thead>
+                          <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Severidad</th>
+                            <th>SaaS</th>
+                            <th>Mensaje</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleCriticalEvents.map((event) => (
+                            <tr key={`${event.correlationId}-${event.createdAt}`}>
+                              <td className="text-xs text-[var(--muted)]">{new Date(event.createdAt).toLocaleString()}</td>
+                              <td>
+                                {event.type}
+                                {isMentoriaSystemEventType(event.type) ? (
+                                  <span className="ml-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-300">MENTORIA</span>
+                                ) : null}
+                              </td>
+                              <td>
+                                <Badge variant="err">{event.severity}</Badge>
+                              </td>
+                              <td className="text-xs text-[var(--muted)]">{event.saasSlug ?? "—"}</td>
+                              <td className="text-xs text-[var(--muted)]">{event.message}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Rollups diarios (14 dias)</p>
+                  {visibleRollups.length === 0 ? (
+                    <p className="text-sm text-[var(--muted)]">Sin rollups en los ultimos dias.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="modern text-sm" aria-label="Rollups diarios">
+                        <thead>
+                          <tr>
+                            <th>Dia</th>
+                            <th>Severidad</th>
+                            <th>Tipo</th>
+                            <th>SaaS</th>
+                            <th>Count</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleRollups.map((rollup) => (
+                            <tr key={`${rollup.day}-${rollup.type}-${rollup.severity}-${rollup.saasSlug ?? "global"}`}>
+                              <td className="text-xs text-[var(--muted)]">{rollup.day}</td>
+                              <td>
+                                <Badge variant={resolveHealthBadge(rollup.severity)}>{rollup.severity}</Badge>
+                              </td>
+                              <td>
+                                {rollup.type}
+                                {isMentoriaSystemEventType(rollup.type) ? (
+                                  <span className="ml-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-cyan-300">MENTORIA</span>
+                                ) : null}
+                              </td>
+                              <td className="text-xs text-[var(--muted)]">{rollup.saasSlug ?? "global"}</td>
+                              <td>{rollup.count}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+        <div className="lg:col-span-2 xl:col-span-3">
+          <Card tone="glass" title="Dominios del imperio" subtitle="Registro de hostnames activos y estado del routing">
+            {domainsLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando dominios...</p>
+            ) : domainsError ? (
+              <p className="text-sm text-red-300">{domainsError}</p>
+            ) : domains.length === 0 ? (
+              <MockPlaceholder layout="list" items={[{ label: "drako.systems", value: "Activo", hint: "saas-drakos-prod · SSL verificado" }, { label: "socialcors.com", value: "Activo", hint: "Socialcors · SSL verificado" }]} />
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={domainsUpdating}
+                    onClick={() => verifyDomains({ scope: "all" })}
+                  >
+                    Verify all pending
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={domainsUpdating} onClick={() => loadDomains()}>
+                    Refresh
+                  </Button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="modern text-sm" aria-label="Dominios del imperio">
+                    <thead>
+                      <tr>
+                        <th>Hostname</th>
+                        <th>SaaS</th>
+                        <th>Tenant</th>
+                        <th>Status</th>
+                        <th>Verificacion</th>
+                        <th>Ultimo error</th>
+                        <th>Retry</th>
+                        <th>Updated</th>
+                        <th>Ultimo evento</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {domains.map((domain) => (
+                        <tr key={domain.id}>
+                          <td className="font-semibold">{domain.hostname}</td>
+                          <td>{domain.saasSlug ?? domain.saasId}</td>
+                          <td className="text-xs text-[var(--muted)]">{domain.tenantId}</td>
+                          <td>
+                            <Badge variant={resolveDomainStatusBadge(domain.status)}>{domain.status.toUpperCase()}</Badge>
+                          </td>
+                          <td className="text-xs text-[var(--muted)]">
+                            <div className="flex flex-col gap-1">
+                              <Badge variant={resolveVerificationBadge(domain.verificationStatus)}>
+                                {domain.verificationStatus ? domain.verificationStatus.toUpperCase() : "—"}
+                              </Badge>
+                              {domain.verificationReason ? <span>{domain.verificationReason}</span> : null}
+                            </div>
+                          </td>
+                          <td className="text-xs text-[var(--muted)]">{domain.lastError ?? "—"}</td>
+                          <td className="text-xs text-[var(--muted)]">{domain.retryCount ?? 0}</td>
+                          <td className="text-xs text-[var(--muted)]">
+                            {domain.updatedAt ? new Date(domain.updatedAt).toLocaleString() : "—"}
+                          </td>
+                          <td className="text-xs text-[var(--muted)]">
+                            {domain.lastRoutingEvent
+                              ? `${domain.lastRoutingEvent.type} (${domain.lastRoutingEvent.severity})`
+                              : "—"}
+                          </td>
+                          <td>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={domainsUpdating}
+                              onClick={() => verifyDomains({ scope: "domain", domain: domain.hostname })}
+                            >
+                              Verify
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      </OperatorGroup>
+
+      <OperatorGroup title="Finanzas" subtitle="Ingresos, costes, tesorería y fiscalidad">
+        <div className="lg:col-span-2 xl:col-span-3">
+          <FinancialPanel />
+        </div>
+        <div>
+          <Card tone="glass" title="Minimo vital y operator" subtitle="Cobertura de vida + vendor este mes">
+            {accountingLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando baseline...</p>
+            ) : accountingError ? (
+              <p className="text-sm text-red-300">{accountingError}</p>
+            ) : !accounting || accounting.totalBaselineMonthly <= 0 ? (
+              <MockPlaceholder layout="grid" items={[{ label: "Gastos base", value: "€2.150", hint: "al mes" }, { label: "Cobertura", value: "118%", hint: "MRR / mínimo vital" }, { label: "Vendor este mes", value: "€1.000" }, { label: "Colchón", value: "4,2 meses" }]} />
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">Vida</p>
+                    <p className="text-xl font-semibold">{accounting.baselineLifeMonthly.toFixed(0)} €</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">Trabajo</p>
+                    <p className="text-xl font-semibold">{accounting.baselineWorkMonthly.toFixed(0)} €</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">Vendor fijo</p>
+                    <p className="text-xl font-semibold">{accounting.vendorFixedMonthly.toFixed(0)} €</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">Necesitas al mes</p>
+                    <p className="text-xl font-semibold">{accounting.totalBaselineMonthly.toFixed(0)} €</p>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between text-xs text-[var(--muted)]">
+                    <span>Ingresos actuales</span>
+                    <span>{accounting.totalOwnerRevenueMonthly.toFixed(0)} €</span>
+                  </div>
+                  <div className="mt-2 h-2 w-full rounded-full bg-[var(--border)]/60">
+                    <div
+                      className="h-2 rounded-full bg-[var(--brand)]"
+                      style={{ width: `${Math.min(100, accounting.baselineCoveragePercent * 100).toFixed(0)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {accounting.baselineCovered ? (
+                  <p className="text-sm text-[var(--muted)]">Lo basico ya esta cubierto. A partir de aqui todo es margen y crecimiento.</p>
+                ) : (
+                  <p className="text-sm text-[var(--muted)]">
+                    Te faltan {accounting.baselineGapAmount.toFixed(0)} € para cubrir lo basico este mes.
+                  </p>
+                )}
+                <p className="text-xs text-[var(--muted)]">
+                  Tesoreria operator te indica cuanto reservar para impuestos, IA/infra y gastos personales.
+                </p>
+                <p className="text-xs text-[var(--muted)]">
+                  Los precios recomendados por SaaS tienen en cuenta tus costes de vendor. Cuando los ingresos superan tu minimo vital + costes fijos,
+                  esta carta se marca como cubierta.
+                </p>
+              </div>
+            )}
+          </Card>
+        </div>
+        <div>
+          <Card tone="glass" title="Estado de precios" subtitle="Resumen rapido de salud por SaaS">
+            {accountingLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando estado de precios...</p>
+            ) : accountingError ? (
+              <p className="text-sm text-red-300">{accountingError}</p>
+            ) : !accounting ? (
+              <p className="text-sm text-[var(--muted)]">No hay datos de precios disponibles.</p>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="err">UNDERWATER</Badge>
+                    <span>{accounting.saasPricingSummary.numUnderwater}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="warn">AT_RISK</Badge>
+                    <span>{accounting.saasPricingSummary.numAtRisk}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="ok">ABOVE_TARGET</Badge>
+                    <span>{accounting.saasPricingSummary.numAboveTarget}</span>
+                  </div>
+                </div>
+                <p className="text-sm text-[var(--muted)]">
+                  {accounting.saasPricingSummary.numUnderwater > 0
+                    ? "Tienes SaaS que te hacen perder dinero cada mes. Revisa sus precios en “Precios por SaaS”."
+                    : accounting.saasPricingSummary.numAtRisk > 0
+                      ? "Algunos SaaS tienen margen ajustado. Ajusta precio o upsell para proteger el margen."
+                      : "Todos tus SaaS estan por encima del minimo recomendado. Operator esta sano a nivel de precios."}
+                </p>
+              </div>
+            )}
+          </Card>
+        </div>
+        <div>
+          <Card tone="glass" title="Tax & Compliance overview" subtitle="IVA estimado y alertas fiscales (demo)">
+            {accountingLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando impuestos...</p>
+            ) : accounting?.taxSummary ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div>
+                  <p className="text-xs text-[var(--muted)]">IVA estimado total</p>
+                  <p className="text-xl font-semibold">
+                    {accounting.taxSummary.totalVatDueAllSaas > 0
+                      ? `${accounting.taxSummary.totalVatDueAllSaas.toFixed(0)} €`
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--muted)]">SaaS en riesgo fiscal</p>
+                  <p className="text-xl font-semibold">{accounting.taxSummary.saasWithHighVat}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--muted)]">Margen negativo</p>
+                  <p className="text-xl font-semibold">{accounting.taxSummary.saasWithNegativeMargin}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--muted)]">Sin datos fiscales disponibles.</p>
+            )}
+          </Card>
+        </div>
+        <div className="lg:col-span-2 xl:col-span-3">
+          <Card tone="glass" title="Operator Accounting & Strategy Board" subtitle="Ingresos por SaaS + margen estimado">
+            {accountingLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando accounting...</p>
+            ) : accountingError ? (
+              <p className="text-sm text-red-300">{accountingError}</p>
+            ) : !accounting ? (
+              <MockPlaceholder layout="list" items={[{ label: "Socialcors", value: "€2.058 / mes", hint: "Margen estimado 71%" }, { label: "Mentoría", value: "€522 / mes", hint: "Margen estimado 58%" }, { label: "Crypto IA", value: "€114 / mes", hint: "Margen estimado 22%" }]} />
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">SaaS activos</p>
+                    <p className="text-xl font-semibold">{accounting.totalSaas}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">MRR total</p>
+                    <p className="text-xl font-semibold">
+                      {accounting.totalSubscriptionMRR ? `${accounting.totalSubscriptionMRR.toFixed(0)} €` : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">Margen estimado</p>
+                    <p className="text-xl font-semibold">
+                      {typeof accounting.totalEstimatedMarginPercent === "number"
+                        ? `${accounting.totalEstimatedMarginPercent.toFixed(0)}%`
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">Vertical más rentable</p>
+                    <p className="text-xl font-semibold">
+                      {accounting.verticalBreakdown
+                        .slice()
+                        .sort((a, b) => (b.avgMarginPercent ?? 0) - (a.avgMarginPercent ?? 0))[0]?.vertical ?? "—"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="modern text-sm" aria-label="Owner accounting">
                     <thead>
                       <tr>
                         <th>SaaS</th>
                         <th>Vertical</th>
-                        <th>Health</th>
-                        <th>Senales</th>
-                        <th>Score</th>
+                        <th>Pack</th>
+                        <th>Plan / Precio mes</th>
+                        <th>Margen (%)</th>
+                        <th>Estado</th>
+                        <th>Pricing</th>
+                        <th>CTA</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {healthTableItems.map((item) => {
-                        const signalKinds = item.signals
-                          .filter((signal) => signal.level !== "INFO")
-                          .map((signal) => signal.kind)
-                          .join(", ");
-                        return (
-                          <tr key={item.saasId}>
-                            <td className="font-semibold">{item.saasName}</td>
-                            <td>{item.verticalId ?? "OTHER"}</td>
-                            <td>
-                              <Badge variant={resolveHealthStatusBadge(item.healthStatus)}>{item.healthStatus}</Badge>
-                            </td>
-                            <td>{signalKinds || "—"}</td>
-                            <td>{item.healthScore}</td>
-                          </tr>
-                        );
-                      })}
+                      {accounting.rows.map((row) => (
+                        <tr key={row.saasId}>
+                          <td className="font-semibold">{row.saasName}</td>
+                          <td>{row.vertical ?? "OTHER"}</td>
+                          <td>{row.packId ?? "—"}</td>
+                          <td>
+                            {row.planLabel ?? "—"}{" "}
+                            {row.subscriptionMonthlyAmount ? `· ${row.subscriptionMonthlyAmount.toFixed(0)} ${row.currency ?? "€"}` : ""}
+                          </td>
+                          <td>{typeof row.profitabilityMarginPercent === "number" ? `${row.profitabilityMarginPercent.toFixed(0)}%` : "—"}</td>
+                          <td>
+                            <Badge
+                              variant={
+                                row.profitabilityStatus === "HEALTHY"
+                                  ? "ok"
+                                  : row.profitabilityStatus === "TIGHT"
+                                    ? "warn"
+                                    : row.profitabilityStatus === "AT_RISK"
+                                      ? "err"
+                                      : "neutral"
+                              }
+                            >
+                              {row.profitabilityStatus ?? "UNKNOWN"}
+                            </Badge>
+                          </td>
+                          <td>
+                            {accounting.pricingStatusBySaas[row.saasId] ? (
+                              <Badge
+                                variant={
+                                  accounting.pricingStatusBySaas[row.saasId] === "UNDERWATER"
+                                    ? "err"
+                                    : accounting.pricingStatusBySaas[row.saasId] === "AT_RISK"
+                                      ? "warn"
+                                      : "ok"
+                                }
+                              >
+                                {accounting.pricingStatusBySaas[row.saasId]}
+                              </Badge>
+                            ) : (
+                              <Badge variant="neutral">N/A</Badge>
+                            )}
+                          </td>
+                          <td>
+                            <Link href={`/saas/${row.saasId}`} className="text-[var(--brand)] text-xs font-semibold">
+                              Abrir control
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
-      </Card>
+              </div>
+            )}
+          </Card>
+        </div>
+        <div className="lg:col-span-2 xl:col-span-3">
+          <Card tone="glass" title="Tesoreria operator" subtitle="Reservas internas para impuestos, IA/infra y gastos personales">
+            {treasuryLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando tesoreria...</p>
+            ) : treasuryError ? (
+              <p className="text-sm text-red-300">{treasuryError}</p>
+            ) : !treasury ? (
+              <MockPlaceholder layout="grid" items={[{ label: "Reserva impuestos", value: "€4.200" }, { label: "Reserva IA / infra", value: "€1.150" }, { label: "Gastos personales", value: "€2.000" }, { label: "Total reservado", value: "€7.350" }]} />
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">Total cuentas</p>
+                    <p className="text-xl font-semibold">{treasury.totalBalance.toFixed(0)} €</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">Reserva impuestos</p>
+                    <p className="text-xl font-semibold">{treasury.taxReserveBalance.toFixed(0)} €</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">Reserva infra</p>
+                    <p className="text-xl font-semibold">{treasury.infraReserveBalance.toFixed(0)} €</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">Reserva IA</p>
+                    <p className="text-xl font-semibold">{treasury.aiReserveBalance.toFixed(0)} €</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--muted)]">Gastos personales</p>
+                    <p className="text-xl font-semibold">{treasury.personalSpendingBalance.toFixed(0)} €</p>
+                  </div>
+                </div>
 
-      <Card tone="glass" title="Operator Accounting & Strategy Board" subtitle="Ingresos por SaaS + margen estimado">
-        {accountingLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando accounting...</p>
-        ) : accountingError ? (
-          <p className="text-sm text-red-300">{accountingError}</p>
-        ) : !accounting ? (
-          <EmptyState title="Sin datos" subtitle="No hay datos financieros para este owner." />
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <div>
-                <p className="text-xs text-[var(--muted)]">SaaS activos</p>
-                <p className="text-xl font-semibold">{accounting.totalSaas}</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted)]">MRR total</p>
-                <p className="text-xl font-semibold">
-                  {accounting.totalSubscriptionMRR ? `${accounting.totalSubscriptionMRR.toFixed(0)} €` : "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted)]">Margen estimado</p>
-                <p className="text-xl font-semibold">
-                  {typeof accounting.totalEstimatedMarginPercent === "number"
-                    ? `${accounting.totalEstimatedMarginPercent.toFixed(0)}%`
-                    : "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted)]">Vertical más rentable</p>
-                <p className="text-xl font-semibold">
-                  {accounting.verticalBreakdown
-                    .slice()
-                    .sort((a, b) => (b.avgMarginPercent ?? 0) - (a.avgMarginPercent ?? 0))[0]?.vertical ?? "—"}
-                </p>
-              </div>
-            </div>
+                <div className="overflow-x-auto">
+                  <table className="modern text-sm" aria-label="Treasury reserves">
+                    <thead>
+                      <tr>
+                        <th>Reserva</th>
+                        <th>Actual</th>
+                        <th>Recomendada</th>
+                        <th>Gap</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="font-semibold">Impuestos (trimestre)</td>
+                        <td>{treasury.taxReserveBalance.toFixed(0)} €</td>
+                        <td>{treasury.recommendedTaxReserveThisQuarter.toFixed(0)} €</td>
+                        <td>{treasury.taxReserveGap.toFixed(0)} €</td>
+                      </tr>
+                      <tr>
+                        <td className="font-semibold">Infra (mes)</td>
+                        <td>{treasury.infraReserveBalance.toFixed(0)} €</td>
+                        <td>{treasury.recommendedInfraReserveThisMonth.toFixed(0)} €</td>
+                        <td>{treasury.infraReserveGap.toFixed(0)} €</td>
+                      </tr>
+                      <tr>
+                        <td className="font-semibold">IA (mes)</td>
+                        <td>{treasury.aiReserveBalance.toFixed(0)} €</td>
+                        <td>{treasury.recommendedAiReserveThisMonth.toFixed(0)} €</td>
+                        <td>{treasury.aiReserveGap.toFixed(0)} €</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
 
-            <div className="overflow-x-auto">
-              <table className="modern text-sm" aria-label="Owner accounting">
-                <thead>
-                  <tr>
-                    <th>SaaS</th>
-                    <th>Vertical</th>
-                    <th>Pack</th>
-                    <th>Plan / Precio mes</th>
-                    <th>Margen (%)</th>
-                    <th>Estado</th>
-                    <th>Pricing</th>
-                    <th>CTA</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accounting.rows.map((row) => (
-                    <tr key={row.saasId}>
-                      <td className="font-semibold">{row.saasName}</td>
-                      <td>{row.vertical ?? "OTHER"}</td>
-                      <td>{row.packId ?? "—"}</td>
-                      <td>
-                        {row.planLabel ?? "—"}{" "}
-                        {row.subscriptionMonthlyAmount ? `· ${row.subscriptionMonthlyAmount.toFixed(0)} ${row.currency ?? "€"}` : ""}
-                      </td>
-                      <td>{typeof row.profitabilityMarginPercent === "number" ? `${row.profitabilityMarginPercent.toFixed(0)}%` : "—"}</td>
-                      <td>
-                        <Badge
-                          variant={
-                            row.profitabilityStatus === "HEALTHY"
-                              ? "ok"
-                              : row.profitabilityStatus === "TIGHT"
-                                ? "warn"
-                                : row.profitabilityStatus === "AT_RISK"
-                                  ? "err"
-                                  : "neutral"
-                          }
-                        >
-                          {row.profitabilityStatus ?? "UNKNOWN"}
-                        </Badge>
-                      </td>
-                      <td>
-                        {accounting.pricingStatusBySaas[row.saasId] ? (
+                <p className="text-sm text-[var(--muted)]">
+                  {treasury.taxReserveGap > 0
+                    ? `Te faltan ${treasury.taxReserveGap.toFixed(0)} € para la reserva fiscal recomendada.`
+                    : "Reserva fiscal alineada con la recomendacion actual."}{" "}
+                  {treasury.personalSpendingBalance > 0
+                    ? `Tienes ${treasury.personalSpendingBalance.toFixed(0)} € disponibles para gasto personal.`
+                    : "Sin saldo disponible en gastos personales."}
+                </p>
+              </div>
+            )}
+          </Card>
+        </div>
+        <div className="lg:col-span-2 xl:col-span-3">
+          <OperatorVendorSection />
+        </div>
+        <div className="lg:col-span-2 xl:col-span-3">
+          <OperatorPricingSection />
+        </div>
+        <div className="lg:col-span-2 xl:col-span-3">
+          <LegacyFiscalForm
+            loading={loading}
+            saving={saving}
+            message={message}
+            name={name}
+            nif={nif}
+            address={address}
+            email={email}
+            phone={phone}
+            onNameChange={setName}
+            onNifChange={setNif}
+            onAddressChange={setAddress}
+            onEmailChange={setEmail}
+            onPhoneChange={setPhone}
+            onSave={handleSave}
+            enabled={false}
+          />
+        </div>
+      </OperatorGroup>
+
+      <OperatorGroup title="SaaS & Clientes" subtitle="Portfolio, factory y catálogo de verticales">
+        <div>
+          <Card tone="glass" title="Catalogo de SaaS" subtitle="Activa nuevos verticales desde operator">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-[var(--muted)]">
+                ¿Necesitas otro SaaS (clínica, salón, grooming, lavandería)? Activa uno nuevo desde el catálogo.
+              </p>
+              <Link href="/operator/catalog">
+                <Button variant="outline">Abrir catálogo</Button>
+              </Link>
+            </div>
+          </Card>
+        </div>
+        <div>
+          <Card tone="glass" title="Acciones rápidas" subtitle="Atajos para portfolio">
+            {!portfolio || portfolio.saas.length === 0 ? (
+              <p className="text-sm text-[var(--muted)]">No hay SaaS asociados.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <Link href={`/saas/${portfolio.saas[0].saasId}#tasks`}>
+                  <Button size="sm" variant="outline">Ver tareas abiertas</Button>
+                </Link>
+                <Link href={`/saas/${portfolio.saas[0].saasId}#packs`}>
+                  <Button size="sm" variant="outline">Ir a packs/blueprint</Button>
+                </Link>
+                <Link href="/operator/socialflow">
+                  <Button size="sm" variant="outline">Control Socialcors</Button>
+                </Link>
+              </div>
+            )}
+          </Card>
+        </div>
+        <div>
+          <OperatorMarketingSection />
+        </div>
+        <div className="lg:col-span-2 xl:col-span-3">
+          <Card tone="glass" title="SaaS del portfolio" subtitle="Estado y KPIs por negocio">
+            {portfolioLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando SaaS...</p>
+            ) : !portfolio || portfolio.saas.length === 0 ? (
+              <MockPlaceholder layout="list" items={[{ label: "Socialcors", value: "€2.058 MRR", hint: "42 clientes · Activo" }, { label: "Mentoría", value: "€522 MRR", hint: "18 clientes · Beta" }, { label: "Crypto IA", value: "€114 MRR", hint: "6 clientes · En desarrollo" }]} />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="modern text-sm" aria-label="Portfolio SaaS">
+                  <thead>
+                    <tr>
+                      <th>SaaS</th>
+                      <th>Pack</th>
+                      <th>Margen</th>
+                      <th>Fairness</th>
+                      <th>ROI empleados</th>
+                      <th>Social ROI</th>
+                      <th>Autopilot</th>
+                      <th>CTA</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {portfolio.saas.map((item) => (
+                      <tr key={item.saasId}>
+                        <td className="font-semibold">{item.name}</td>
+                        <td>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>{item.verticalPack?.label ?? "—"}</span>
+                            {item.recommendedPackId && item.recommendedPackId === item.verticalPack?.id && (
+                              <Badge variant="info">Recommended pack</Badge>
+                            )}
+                            {item.recommendedPackId && item.recommendedPackId !== item.verticalPack?.id && (
+                              <Badge variant="neutral">
+                                Recomendado: {SAAS_PACK_DEFINITIONS.find((pack) => pack.id === item.recommendedPackId)?.label ?? item.recommendedPackId}
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
+                        <td>{typeof item.keyMetrics.marginPercent === "number" ? `${item.keyMetrics.marginPercent.toFixed(0)}%` : "—"}</td>
+                        <td>
                           <Badge
                             variant={
-                              accounting.pricingStatusBySaas[row.saasId] === "UNDERWATER"
+                              item.keyMetrics.hrFairnessStatus === "CRITICAL"
                                 ? "err"
-                                : accounting.pricingStatusBySaas[row.saasId] === "AT_RISK"
+                                : item.keyMetrics.hrFairnessStatus === "WARNING"
                                   ? "warn"
                                   : "ok"
                             }
                           >
-                            {accounting.pricingStatusBySaas[row.saasId]}
+                            {item.keyMetrics.hrFairnessStatus ?? "—"}
                           </Badge>
-                        ) : (
-                          <Badge variant="neutral">N/A</Badge>
-                        )}
-                      </td>
-                      <td>
-                        <Link href={`/saas/${row.saasId}`} className="text-[var(--brand)] text-xs font-semibold">
-                          Abrir control
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </Card>
-
-      <OperatorVendorSection />
-
-      <Card tone="glass" title="Minimo vital y operator" subtitle="Cobertura de vida + vendor este mes">
-        {accountingLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando baseline...</p>
-        ) : accountingError ? (
-          <p className="text-sm text-red-300">{accountingError}</p>
-        ) : !accounting || accounting.totalBaselineMonthly <= 0 ? (
-          <EmptyState title="Sin baseline" subtitle="Configura los gastos base para ver la cobertura mensual." />
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <div>
-                <p className="text-xs text-[var(--muted)]">Vida</p>
-                <p className="text-xl font-semibold">{accounting.baselineLifeMonthly.toFixed(0)} €</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted)]">Trabajo</p>
-                <p className="text-xl font-semibold">{accounting.baselineWorkMonthly.toFixed(0)} €</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted)]">Vendor fijo</p>
-                <p className="text-xl font-semibold">{accounting.vendorFixedMonthly.toFixed(0)} €</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted)]">Necesitas al mes</p>
-                <p className="text-xl font-semibold">{accounting.totalBaselineMonthly.toFixed(0)} €</p>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between text-xs text-[var(--muted)]">
-                <span>Ingresos actuales</span>
-                <span>{accounting.totalOwnerRevenueMonthly.toFixed(0)} €</span>
-              </div>
-              <div className="mt-2 h-2 w-full rounded-full bg-[var(--border)]/60">
-                <div
-                  className="h-2 rounded-full bg-[var(--brand)]"
-                  style={{ width: `${Math.min(100, accounting.baselineCoveragePercent * 100).toFixed(0)}%` }}
-                />
-              </div>
-            </div>
-
-            {accounting.baselineCovered ? (
-              <p className="text-sm text-[var(--muted)]">Lo basico ya esta cubierto. A partir de aqui todo es margen y crecimiento.</p>
-            ) : (
-              <p className="text-sm text-[var(--muted)]">
-                Te faltan {accounting.baselineGapAmount.toFixed(0)} € para cubrir lo basico este mes.
-              </p>
-            )}
-            <p className="text-xs text-[var(--muted)]">
-              Tesoreria operator te indica cuanto reservar para impuestos, IA/infra y gastos personales.
-            </p>
-            <p className="text-xs text-[var(--muted)]">
-              Los precios recomendados por SaaS tienen en cuenta tus costes de vendor. Cuando los ingresos superan tu minimo vital + costes fijos,
-              esta carta se marca como cubierta.
-            </p>
-          </div>
-        )}
-      </Card>
-
-      <Card tone="glass" title="Tesoreria operator" subtitle="Reservas internas para impuestos, IA/infra y gastos personales">
-        {treasuryLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando tesoreria...</p>
-        ) : treasuryError ? (
-          <p className="text-sm text-red-300">{treasuryError}</p>
-        ) : !treasury ? (
-          <EmptyState title="Sin tesoreria" subtitle="No hay cuentas de tesoreria configuradas en este entorno." />
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-              <div>
-                <p className="text-xs text-[var(--muted)]">Total cuentas</p>
-                <p className="text-xl font-semibold">{treasury.totalBalance.toFixed(0)} €</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted)]">Reserva impuestos</p>
-                <p className="text-xl font-semibold">{treasury.taxReserveBalance.toFixed(0)} €</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted)]">Reserva infra</p>
-                <p className="text-xl font-semibold">{treasury.infraReserveBalance.toFixed(0)} €</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted)]">Reserva IA</p>
-                <p className="text-xl font-semibold">{treasury.aiReserveBalance.toFixed(0)} €</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted)]">Gastos personales</p>
-                <p className="text-xl font-semibold">{treasury.personalSpendingBalance.toFixed(0)} €</p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="modern text-sm" aria-label="Treasury reserves">
-                <thead>
-                  <tr>
-                    <th>Reserva</th>
-                    <th>Actual</th>
-                    <th>Recomendada</th>
-                    <th>Gap</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="font-semibold">Impuestos (trimestre)</td>
-                    <td>{treasury.taxReserveBalance.toFixed(0)} €</td>
-                    <td>{treasury.recommendedTaxReserveThisQuarter.toFixed(0)} €</td>
-                    <td>{treasury.taxReserveGap.toFixed(0)} €</td>
-                  </tr>
-                  <tr>
-                    <td className="font-semibold">Infra (mes)</td>
-                    <td>{treasury.infraReserveBalance.toFixed(0)} €</td>
-                    <td>{treasury.recommendedInfraReserveThisMonth.toFixed(0)} €</td>
-                    <td>{treasury.infraReserveGap.toFixed(0)} €</td>
-                  </tr>
-                  <tr>
-                    <td className="font-semibold">IA (mes)</td>
-                    <td>{treasury.aiReserveBalance.toFixed(0)} €</td>
-                    <td>{treasury.recommendedAiReserveThisMonth.toFixed(0)} €</td>
-                    <td>{treasury.aiReserveGap.toFixed(0)} €</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <p className="text-sm text-[var(--muted)]">
-              {treasury.taxReserveGap > 0
-                ? `Te faltan ${treasury.taxReserveGap.toFixed(0)} € para la reserva fiscal recomendada.`
-                : "Reserva fiscal alineada con la recomendacion actual."}{" "}
-              {treasury.personalSpendingBalance > 0
-                ? `Tienes ${treasury.personalSpendingBalance.toFixed(0)} € disponibles para gasto personal.`
-                : "Sin saldo disponible en gastos personales."}
-            </p>
-          </div>
-        )}
-      </Card>
-
-      <Card tone="glass" title="Estado de precios" subtitle="Resumen rapido de salud por SaaS">
-        {accountingLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando estado de precios...</p>
-        ) : accountingError ? (
-          <p className="text-sm text-red-300">{accountingError}</p>
-        ) : !accounting ? (
-          <p className="text-sm text-[var(--muted)]">No hay datos de precios disponibles.</p>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <Badge variant="err">UNDERWATER</Badge>
-                <span>{accounting.saasPricingSummary.numUnderwater}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="warn">AT_RISK</Badge>
-                <span>{accounting.saasPricingSummary.numAtRisk}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="ok">ABOVE_TARGET</Badge>
-                <span>{accounting.saasPricingSummary.numAboveTarget}</span>
-              </div>
-            </div>
-            <p className="text-sm text-[var(--muted)]">
-              {accounting.saasPricingSummary.numUnderwater > 0
-                ? "Tienes SaaS que te hacen perder dinero cada mes. Revisa sus precios en “Precios por SaaS”."
-                : accounting.saasPricingSummary.numAtRisk > 0
-                  ? "Algunos SaaS tienen margen ajustado. Ajusta precio o upsell para proteger el margen."
-                  : "Todos tus SaaS estan por encima del minimo recomendado. Operator esta sano a nivel de precios."}
-            </p>
-          </div>
-        )}
-      </Card>
-
-      <OperatorMarketingSection />
-
-      <OperatorPricingSection />
-
-      <Card tone="glass" title="Tax & Compliance overview" subtitle="IVA estimado y alertas fiscales (demo)">
-        {accountingLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando impuestos...</p>
-        ) : accounting?.taxSummary ? (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div>
-              <p className="text-xs text-[var(--muted)]">IVA estimado total</p>
-              <p className="text-xl font-semibold">
-                {accounting.taxSummary.totalVatDueAllSaas > 0
-                  ? `${accounting.taxSummary.totalVatDueAllSaas.toFixed(0)} €`
-                  : "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--muted)]">SaaS en riesgo fiscal</p>
-              <p className="text-xl font-semibold">{accounting.taxSummary.saasWithHighVat}</p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--muted)]">Margen negativo</p>
-              <p className="text-xl font-semibold">{accounting.taxSummary.saasWithNegativeMargin}</p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-[var(--muted)]">Sin datos fiscales disponibles.</p>
-        )}
-      </Card>
-
-      <Card tone="glass" title="Operator — Action queue" subtitle="Acciones unificadas por prioridad">
-        {actionQueueLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando action queue...</p>
-        ) : actionQueueError ? (
-          <p className="text-sm text-red-300">{actionQueueError}</p>
-        ) : !actionQueue ? (
-          <EmptyState title="Sin acciones" subtitle="No hay acciones disponibles ahora mismo." />
-        ) : (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge variant="err">CRITICAL</Badge>
-                <span>{actionQueue.stats.byPriority.CRITICAL ?? 0}</span>
-                <Badge variant="warn">HIGH</Badge>
-                <span>{actionQueue.stats.byPriority.HIGH ?? 0}</span>
-                <Badge variant="neutral">NORMAL</Badge>
-                <span>{actionQueue.stats.byPriority.NORMAL ?? 0}</span>
-                <Badge variant="info">LOW</Badge>
-                <span>{actionQueue.stats.byPriority.LOW ?? 0}</span>
-                <span className="text-[var(--muted)]">Total: {actionQueue.stats.total}</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActionStatusFilter("OPEN")}
-                  className={`rounded-full border px-3 py-1 transition ${actionStatusFilter === "OPEN"
-                    ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
-                    : "border-[var(--border)]/60 text-[var(--muted)]"
-                    }`}
-                >
-                  OPEN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActionStatusFilter("HISTORY")}
-                  className={`rounded-full border px-3 py-1 transition ${actionStatusFilter === "HISTORY"
-                    ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
-                    : "border-[var(--border)]/60 text-[var(--muted)]"
-                    }`}
-                >
-                  HISTORY
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActionFilter("ALL")}
-                  className={`rounded-full border px-3 py-1 transition ${actionFilter === "ALL"
-                    ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
-                    : "border-[var(--border)]/60 text-[var(--muted)]"
-                    }`}
-                >
-                  ALL
-                </button>
-                {(["CRITICAL", "HIGH", "NORMAL", "LOW"] as OperatorActionQueuePriority[]).map((priority) => (
-                  <button
-                    key={priority}
-                    type="button"
-                    onClick={() => setActionFilter(priority)}
-                    className={`rounded-full border px-3 py-1 transition ${actionFilter === priority
-                      ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
-                      : "border-[var(--border)]/60 text-[var(--muted)]"
-                      }`}
-                  >
-                    {priority}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {topCriticalActions.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="text-[var(--muted)]">Top 5 CRITICAL:</span>
-                {topCriticalActions.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="rounded-full border border-rose-300/40 bg-rose-500/10 px-3 py-1 text-rose-200"
-                    onClick={() => {
-                      setActionFilter("CRITICAL");
-                      setActionStatusFilter("OPEN");
-                    }}
-                  >
-                    {item.saasName ?? item.title}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            {visibleActionItems.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">No hay acciones para el filtro actual.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="modern text-sm" aria-label="Action queue">
-                  <thead>
-                    <tr>
-                      <th>Prioridad</th>
-                      <th>SaaS</th>
-                      <th>Categoria</th>
-                      <th>Status</th>
-                      <th>Resumen</th>
-                      <th>Origen</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleActionItems.map((item) => (
-                      <tr key={item.id}>
-                        <td>
-                          <Badge variant={resolveActionPriorityBadge(item.priority)}>{item.priority}</Badge>
                         </td>
                         <td>
-                          <div className="font-semibold">{item.saasName ?? "—"}</div>
-                          <div className="text-xs text-[var(--muted)]">{item.verticalId ?? "—"}</div>
+                          <Badge
+                            variant={
+                              item.keyMetrics.employeesRoiStatus === "TIGHT"
+                                ? "warn"
+                                : item.keyMetrics.employeesRoiStatus === "LOW_ACTIVITY"
+                                  ? "neutral"
+                                  : "ok"
+                            }
+                          >
+                            {item.keyMetrics.employeesRoiStatus ?? "—"}
+                          </Badge>
                         </td>
-                        <td>{item.category}</td>
                         <td>
-                          <Badge variant={resolveActionStatusBadge(item.status)}>{item.status}</Badge>
+                          <Badge
+                            variant={
+                              item.keyMetrics.socialRoiStatus === "GOOD"
+                                ? "ok"
+                                : item.keyMetrics.socialRoiStatus === "POOR"
+                                  ? "err"
+                                  : "neutral"
+                            }
+                          >
+                            {item.keyMetrics.socialRoiStatus ?? "—"}
+                          </Badge>
                         </td>
-                        <td className="max-w-[360px]">
-                          <div className="text-xs text-[var(--muted)]">{item.title}</div>
-                          <div className="text-xs">{item.summary}</div>
-                        </td>
-                        <td className="text-xs text-[var(--muted)]">{item.source}</td>
                         <td>
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={actionQueueUpdatingId === item.id || item.status !== "OPEN"}
-                              onClick={() => updateActionQueueStatus(item.id, "EXECUTE")}
-                            >
-                              Execute
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={actionQueueUpdatingId === item.id || item.status !== "OPEN"}
-                              onClick={() => updateActionQueueStatus(item.id, "DISMISS")}
-                            >
-                              Dismiss
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={actionQueueUpdatingId === item.id || item.status !== "OPEN"}
-                              onClick={() => updateActionQueueStatus(item.id, "SNOOZE")}
-                            >
-                              Snooze +7d
-                            </Button>
-                          </div>
+                          <span className="text-xs text-[var(--muted)]">
+                            {item.autopilotSummary?.criticalActions ?? 0} / {item.autopilotSummary?.warningActions ?? 0} /{" "}
+                            {item.autopilotSummary?.suggestionActions ?? 0}
+                          </span>
+                        </td>
+                        <td>
+                          <Link href={`/saas/${item.saasId}`} className="text-[var(--brand)] text-xs font-semibold">
+                            Abrir panel
+                          </Link>
                         </td>
                       </tr>
                     ))}
@@ -2148,224 +2021,397 @@ export default function OwnerPage() {
                 </table>
               </div>
             )}
-          </div>
-        )}
-      </Card>
+          </Card>
+        </div>
+        <div className="lg:col-span-2 xl:col-span-3">
+          <Card tone="glass" title="Factory" subtitle="Ultimos SaaS y estado de wiring">
+            {factoryLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando SaaS Factory...</p>
+            ) : factoryError ? (
+              <p className="text-sm text-red-300">{factoryError}</p>
+            ) : factoryItems.length === 0 ? (
+              <MockPlaceholder layout="list" items={[{ label: "Socialcors", value: "Live", hint: "Wiring completo · dominio socialcors.com" }, { label: "Mentoría", value: "Beta", hint: "Wiring completo · pricing pendiente" }, { label: "Crypto IA", value: "Provisioning", hint: "Agentes 4/9 configurados" }]} />
+            ) : (
+              <div className="space-y-3">
+                <div className="overflow-x-auto">
+                  <table className="modern text-sm" aria-label="Estado SaaS Factory">
+                    <thead>
+                      <tr>
+                        <th>SaaS</th>
+                        <th>Vertical</th>
+                        <th>Estado Factory</th>
+                        <th>Pricing</th>
+                        <th>Health</th>
+                        <th>Marketing</th>
+                        <th>Agents</th>
+                        <th>Provisioning</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {factoryItems.map((item) => {
+                        const cf = normalizeFactoryStatus(item.cloudflare?.status);
+                        const stripe = normalizeFactoryStatus(item.stripe?.status);
+                        const ai = normalizeFactoryStatus(item.ai?.status);
+                        const stage = resolveFactoryStage({
+                          cloudflare: item.cloudflare,
+                          stripe: item.stripe,
+                          ai: item.ai,
+                        });
+                        const health = healthBySaasId.get(item.saasId);
+                        return (
+                          <tr key={item.saasId}>
+                            <td>
+                              <div className="font-semibold">{item.saasName}</div>
+                              <div className="text-xs text-[var(--muted)]">{new Date(item.createdAt).toLocaleString()}</div>
+                            </td>
+                            <td>{item.verticalId ?? "—"}</td>
+                            <td>{stage}</td>
+                            <td>{item.pricingStatus ?? "—"}</td>
+                            <td>
+                              {health ? (
+                                <Badge variant={resolveHealthStatusBadge(health.healthStatus)}>{health.healthStatus}</Badge>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td>{item.marketingPack ?? "—"}</td>
+                            <td>
+                              {item.agentsSummary
+                                ? `${item.agentsCount ?? 0} agents • ${item.agentsSummary}`
+                                : item.agentsCount
+                                  ? `${item.agentsCount} agents`
+                                  : "—"}
+                              {item.hasCoverageGap && item.missingDepartments && item.missingDepartments.length > 0 ? (
+                                <span className="text-xs text-amber-200">
+                                  {" "}
+                                  (gap: no {item.missingDepartments.join(", ")})
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="space-x-2">
+                              <Badge variant={cf.badge}>Cloudflare {cf.label}</Badge>
+                              <Badge variant={stripe.badge}>Stripe {stripe.label}</Badge>
+                              <Badge variant={ai.badge}>IA {ai.label}</Badge>
+                            </td>
+                            <td>
+                              <Link href={`/saas/${item.saasId}`} className="text-[var(--brand)] font-semibold">
+                                Ver SaaS
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs text-[var(--muted)]">
+                  <span>Accesos rapidos:</span>
+                  <Link href="/saas/create" className="text-[var(--brand)]">Nuevo SaaS</Link>
+                  <Link href="/operator" className="text-[var(--brand)]">Pricing</Link>
+                  <Link href="/operator" className="text-[var(--brand)]">Tesoreria</Link>
+                  <Link href="/operator" className="text-[var(--brand)]">Marketing</Link>
+                  <Link href="/operator" className="text-[var(--brand)]">Tax</Link>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      </OperatorGroup>
 
-      <Card tone="glass" title="Operator Growth Autopilot - Daily Playbook" subtitle="Acciones prioritarias para crecimiento y riesgo">
-        {growthLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando autopilot...</p>
-        ) : growthError ? (
-          <p className="text-sm text-red-300">{growthError}</p>
-        ) : growthActions.length === 0 ? (
-          <EmptyState title="Sin acciones urgentes" subtitle="El portfolio está estable por ahora." />
-        ) : (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-              <Badge variant="err">CRITICAL</Badge>
-              <span>{criticalActions.length}</span>
-              <Badge variant="warn">WARNING</Badge>
-              <span>{warningActions.length}</span>
-              <Badge variant="neutral">INFO</Badge>
-              <span>{infoActions.length}</span>
-            </div>
+      <OperatorGroup title="Operaciones IA" subtitle="Agentes, cola de acciones y playbook diario">
+        <div>
+          <Card tone="glass" title="Operator Growth Autopilot - Daily Playbook" subtitle="Acciones prioritarias para crecimiento y riesgo">
+            {growthLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando autopilot...</p>
+            ) : growthError ? (
+              <p className="text-sm text-red-300">{growthError}</p>
+            ) : growthActions.length === 0 ? (
+              <MockPlaceholder layout="list" items={[{ label: "Publicar caso de éxito Socialcors", value: "Hoy", hint: "Crecimiento" }, { label: "Lanzar campaña Q4 en LinkedIn", value: "Esta semana", hint: "Crecimiento" }, { label: "Revisar margen de Crypto IA", value: "Riesgo", hint: "Finanzas" }]} />
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                  <Badge variant="err">CRITICAL</Badge>
+                  <span>{criticalActions.length}</span>
+                  <Badge variant="warn">WARNING</Badge>
+                  <span>{warningActions.length}</span>
+                  <Badge variant="neutral">INFO</Badge>
+                  <span>{infoActions.length}</span>
+                </div>
 
-            {[{ label: "CRITICAL", items: criticalActions }, { label: "WARNING", items: warningActions }, { label: "INFO", items: infoActions }].map(
-              (group) =>
-                group.items.length > 0 ? (
-                  <div key={group.label} className="space-y-2">
-                    <p className="text-xs uppercase tracking-[0.25em] text-[var(--muted)]">{group.label}</p>
-                    <div className="space-y-3">
-                      {group.items.map((action) => (
-                        <div key={action.id} className="rounded-2xl border border-[var(--border)]/60 bg-[var(--surface)]/80 p-4">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="space-y-1">
-                              <p className="text-sm font-semibold text-[var(--text)]">{action.title}</p>
-                              <p className="text-xs text-[var(--muted)]">{action.description}</p>
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                                <Badge variant="neutral">{action.category}</Badge>
-                                <span>{resolveTargetLabel(action)}</span>
+                {[{ label: "CRITICAL", items: criticalActions }, { label: "WARNING", items: warningActions }, { label: "INFO", items: infoActions }].map(
+                  (group) =>
+                    group.items.length > 0 ? (
+                      <div key={group.label} className="space-y-2">
+                        <p className="text-xs uppercase tracking-[0.25em] text-[var(--muted)]">{group.label}</p>
+                        <div className="space-y-3">
+                          {group.items.map((action) => (
+                            <div key={action.id} className="rounded-2xl border border-[var(--border)]/60 bg-[var(--surface)]/80 p-4">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="space-y-1">
+                                  <p className="text-sm font-semibold text-[var(--text)]">{action.title}</p>
+                                  <p className="text-xs text-[var(--muted)]">{action.description}</p>
+                                  <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                                    <Badge variant="neutral">{action.category}</Badge>
+                                    <span>{resolveTargetLabel(action)}</span>
+                                  </div>
+                                </div>
+                                {action.target.type === "SAAS" && action.target.saasId ? (
+                                  <Link href={`/saas/${action.target.saasId}`}>
+                                    <Button size="sm" variant="outline">Abrir SaaS</Button>
+                                  </Link>
+                                ) : (
+                                  <Link href="/operator/catalog">
+                                    <Button size="sm" variant="outline">Ver catálogo</Button>
+                                  </Link>
+                                )}
                               </div>
                             </div>
-                            {action.target.type === "SAAS" && action.target.saasId ? (
-                              <Link href={`/saas/${action.target.saasId}`}>
-                                <Button size="sm" variant="outline">Abrir SaaS</Button>
-                              </Link>
-                            ) : (
-                              <Link href="/operator/catalog">
-                                <Button size="sm" variant="outline">Ver catálogo</Button>
-                              </Link>
-                            )}
-                          </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null,
-            )}
-          </div>
-        )}
-      </Card>
-
-      <OperatorTasksBoard />
-
-      <Card tone="glass" title="WhatsApp con Operator" subtitle="Comandos para el platform owner (demo)">
-        <div className="grid gap-3 md:grid-cols-2 text-xs text-[var(--muted)]">
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold text-[var(--text)]">Comandos sugeridos</p>
-            <ul className="space-y-1">
-              <li>• resumen portfolio</li>
-              <li>• tareas hoy</li>
-              <li>• riesgos</li>
-              <li>• resumen impuestos</li>
-              <li>• packs recomendados</li>
-            </ul>
-          </div>
-          <p>
-            Este flujo usa el número del platform owner y responde con métricas agregadas del portfolio. En producción se mapeará
-            al numero real de operator.
-          </p>
-        </div>
-      </Card>
-
-      <Card tone="glass" title="SaaS del portfolio" subtitle="Estado y KPIs por negocio">
-        {portfolioLoading ? (
-          <p className="text-sm text-[var(--muted)]">Cargando SaaS...</p>
-        ) : !portfolio || portfolio.saas.length === 0 ? (
-          <EmptyState title="Sin SaaS" subtitle="Asocia SaaS a clientes para ver el portfolio." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="modern text-sm" aria-label="Portfolio SaaS">
-              <thead>
-                <tr>
-                  <th>SaaS</th>
-                  <th>Pack</th>
-                  <th>Margen</th>
-                  <th>Fairness</th>
-                  <th>ROI empleados</th>
-                  <th>Social ROI</th>
-                  <th>Autopilot</th>
-                  <th>CTA</th>
-                </tr>
-              </thead>
-              <tbody>
-                {portfolio.saas.map((item) => (
-                  <tr key={item.saasId}>
-                    <td className="font-semibold">{item.name}</td>
-                    <td>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span>{item.verticalPack?.label ?? "—"}</span>
-                        {item.recommendedPackId && item.recommendedPackId === item.verticalPack?.id && (
-                          <Badge variant="info">Recommended pack</Badge>
-                        )}
-                        {item.recommendedPackId && item.recommendedPackId !== item.verticalPack?.id && (
-                          <Badge variant="neutral">
-                            Recomendado: {SAAS_PACK_DEFINITIONS.find((pack) => pack.id === item.recommendedPackId)?.label ?? item.recommendedPackId}
-                          </Badge>
-                        )}
                       </div>
-                    </td>
-                    <td>{typeof item.keyMetrics.marginPercent === "number" ? `${item.keyMetrics.marginPercent.toFixed(0)}%` : "—"}</td>
-                    <td>
-                      <Badge
-                        variant={
-                          item.keyMetrics.hrFairnessStatus === "CRITICAL"
-                            ? "err"
-                            : item.keyMetrics.hrFairnessStatus === "WARNING"
-                              ? "warn"
-                              : "ok"
-                        }
+                    ) : null,
+                )}
+              </div>
+            )}
+          </Card>
+        </div>
+        <div>
+          <Card tone="glass" title="Department coverage" subtitle="Cobertura de departamentos IA por SaaS">
+            {accountingLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando coverage...</p>
+            ) : accountingError ? (
+              <p className="text-sm text-red-300">{accountingError}</p>
+            ) : !accounting?.departmentCoverageSummary ? (
+              <MockPlaceholder layout="list" items={[{ label: "Marketing", value: "100%", hint: "Socialcors, Mentoría" }, { label: "Soporte", value: "80%", hint: "CRM Agent activo" }, { label: "Ventas", value: "60%", hint: "Sin agente en Crypto IA" }, { label: "Finanzas", value: "40%", hint: "Solo reporting" }]} />
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="ok">WELL</Badge>
+                    <span>{accounting.departmentCoverageSummary.wellCoveredCount}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="warn">PARTIAL</Badge>
+                    <span>{accounting.departmentCoverageSummary.partialCount}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="err">CRITICAL</Badge>
+                    <span>{accounting.departmentCoverageSummary.criticalGapCount}</span>
+                  </div>
+                </div>
+                {accounting.departmentCoverageSummary.topGaps.length === 0 ? (
+                  <p className="text-sm text-[var(--muted)]">No hay gaps criticos en coverage.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {accounting.departmentCoverageSummary.topGaps.map((item) => {
+                      const gaps = item.gaps.map((gap) => gap.departmentId).join(", ");
+                      const departments = item.departmentsEnabled.join(", ");
+                      return (
+                        <div key={item.saasId} className="rounded-2xl border border-[var(--border)]/60 bg-[var(--panel-alt)]/60 p-3 text-sm">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <p className="font-semibold text-[var(--text)]">{item.saasName}</p>
+                              <p className="text-xs text-[var(--muted)]">{item.verticalId ?? "OTHER"}</p>
+                            </div>
+                            <Badge variant={item.status === "CRITICAL_GAP" ? "err" : "warn"}>
+                              {item.status}
+                            </Badge>
+                          </div>
+                          <p className="mt-2 text-xs text-[var(--muted)]">Departamentos: {departments || "—"}</p>
+                          <p className="text-xs text-amber-200">Gaps: {gaps || "—"}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+        </div>
+        <div>
+          <Card tone="glass" title="WhatsApp con Operator" subtitle="Comandos para el platform owner (demo)">
+            <div className="grid gap-3 md:grid-cols-2 text-xs text-[var(--muted)]">
+              <div className="space-y-1">
+                <p className="text-[11px] font-semibold text-[var(--text)]">Comandos sugeridos</p>
+                <ul className="space-y-1">
+                  <li>• resumen portfolio</li>
+                  <li>• tareas hoy</li>
+                  <li>• riesgos</li>
+                  <li>• resumen impuestos</li>
+                  <li>• packs recomendados</li>
+                </ul>
+              </div>
+              <p>
+                Este flujo usa el número del platform owner y responde con métricas agregadas del portfolio. En producción se mapeará
+                al numero real de operator.
+              </p>
+            </div>
+          </Card>
+        </div>
+        <div className="lg:col-span-2 xl:col-span-3">
+          <Card tone="glass" title="Operator — Action queue" subtitle="Acciones unificadas por prioridad">
+            {actionQueueLoading ? (
+              <p className="text-sm text-[var(--muted)]">Cargando action queue...</p>
+            ) : actionQueueError ? (
+              <p className="text-sm text-red-300">{actionQueueError}</p>
+            ) : !actionQueue ? (
+              <MockPlaceholder layout="list" items={[{ label: "Activar pricing de Mentoría", value: "HIGH", hint: "Mentoría · Growth" }, { label: "Reconectar agente Monitor", value: "HIGH", hint: "Socialcors · Ops IA" }, { label: "Revisar churn de octubre", value: "NORMAL", hint: "Portfolio" }]} />
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Badge variant="err">CRITICAL</Badge>
+                    <span>{actionQueue.stats.byPriority.CRITICAL ?? 0}</span>
+                    <Badge variant="warn">HIGH</Badge>
+                    <span>{actionQueue.stats.byPriority.HIGH ?? 0}</span>
+                    <Badge variant="neutral">NORMAL</Badge>
+                    <span>{actionQueue.stats.byPriority.NORMAL ?? 0}</span>
+                    <Badge variant="info">LOW</Badge>
+                    <span>{actionQueue.stats.byPriority.LOW ?? 0}</span>
+                    <span className="text-[var(--muted)]">Total: {actionQueue.stats.total}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActionStatusFilter("OPEN")}
+                      className={`rounded-full border px-3 py-1 transition ${actionStatusFilter === "OPEN"
+                        ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
+                        : "border-[var(--border)]/60 text-[var(--muted)]"
+                        }`}
+                    >
+                      OPEN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActionStatusFilter("HISTORY")}
+                      className={`rounded-full border px-3 py-1 transition ${actionStatusFilter === "HISTORY"
+                        ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
+                        : "border-[var(--border)]/60 text-[var(--muted)]"
+                        }`}
+                    >
+                      HISTORY
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActionFilter("ALL")}
+                      className={`rounded-full border px-3 py-1 transition ${actionFilter === "ALL"
+                        ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
+                        : "border-[var(--border)]/60 text-[var(--muted)]"
+                        }`}
+                    >
+                      ALL
+                    </button>
+                    {(["CRITICAL", "HIGH", "NORMAL", "LOW"] as OperatorActionQueuePriority[]).map((priority) => (
+                      <button
+                        key={priority}
+                        type="button"
+                        onClick={() => setActionFilter(priority)}
+                        className={`rounded-full border px-3 py-1 transition ${actionFilter === priority
+                          ? "border-[var(--brand)]/60 bg-[var(--brand)]/10 text-[var(--brand)]"
+                          : "border-[var(--border)]/60 text-[var(--muted)]"
+                          }`}
                       >
-                        {item.keyMetrics.hrFairnessStatus ?? "—"}
-                      </Badge>
-                    </td>
-                    <td>
-                      <Badge
-                        variant={
-                          item.keyMetrics.employeesRoiStatus === "TIGHT"
-                            ? "warn"
-                            : item.keyMetrics.employeesRoiStatus === "LOW_ACTIVITY"
-                              ? "neutral"
-                              : "ok"
-                        }
+                        {priority}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {topCriticalActions.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="text-[var(--muted)]">Top 5 CRITICAL:</span>
+                    {topCriticalActions.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="rounded-full border border-rose-300/40 bg-rose-500/10 px-3 py-1 text-rose-200"
+                        onClick={() => {
+                          setActionFilter("CRITICAL");
+                          setActionStatusFilter("OPEN");
+                        }}
                       >
-                        {item.keyMetrics.employeesRoiStatus ?? "—"}
-                      </Badge>
-                    </td>
-                    <td>
-                      <Badge
-                        variant={
-                          item.keyMetrics.socialRoiStatus === "GOOD"
-                            ? "ok"
-                            : item.keyMetrics.socialRoiStatus === "POOR"
-                              ? "err"
-                              : "neutral"
-                        }
-                      >
-                        {item.keyMetrics.socialRoiStatus ?? "—"}
-                      </Badge>
-                    </td>
-                    <td>
-                      <span className="text-xs text-[var(--muted)]">
-                        {item.autopilotSummary?.criticalActions ?? 0} / {item.autopilotSummary?.warningActions ?? 0} /{" "}
-                        {item.autopilotSummary?.suggestionActions ?? 0}
-                      </span>
-                    </td>
-                    <td>
-                      <Link href={`/saas/${item.saasId}`} className="text-[var(--brand)] text-xs font-semibold">
-                        Abrir panel
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      <Card tone="glass" title="Acciones rápidas" subtitle="Atajos para portfolio">
-        {!portfolio || portfolio.saas.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">No hay SaaS asociados.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            <Link href={`/saas/${portfolio.saas[0].saasId}#tasks`}>
-              <Button size="sm" variant="outline">Ver tareas abiertas</Button>
-            </Link>
-            <Link href={`/saas/${portfolio.saas[0].saasId}#packs`}>
-              <Button size="sm" variant="outline">Ir a packs/blueprint</Button>
-            </Link>
-            <Link href="/operator/socialflow">
-              <Button size="sm" variant="outline">Control Socialcors</Button>
-            </Link>
-          </div>
-        )}
-      </Card>
-
-      <LegacyFiscalForm
-        loading={loading}
-        saving={saving}
-        message={message}
-        name={name}
-        nif={nif}
-        address={address}
-        email={email}
-        phone={phone}
-        onNameChange={setName}
-        onNifChange={setNif}
-        onAddressChange={setAddress}
-        onEmailChange={setEmail}
-        onPhoneChange={setPhone}
-        onSave={handleSave}
-        enabled={false}
-      />
-
-      {!loading && !owner && (
-        <EmptyState
-          title="Sin datos registrados"
-          subtitle="Completa el formulario para crear la entidad principal"
-        />
-      )}
+                        {item.saasName ?? item.title}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {visibleActionItems.length === 0 ? (
+                  <p className="text-sm text-[var(--muted)]">No hay acciones para el filtro actual.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="modern text-sm" aria-label="Action queue">
+                      <thead>
+                        <tr>
+                          <th>Prioridad</th>
+                          <th>SaaS</th>
+                          <th>Categoria</th>
+                          <th>Status</th>
+                          <th>Resumen</th>
+                          <th>Origen</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleActionItems.map((item) => (
+                          <tr key={item.id}>
+                            <td>
+                              <Badge variant={resolveActionPriorityBadge(item.priority)}>{item.priority}</Badge>
+                            </td>
+                            <td>
+                              <div className="font-semibold">{item.saasName ?? "—"}</div>
+                              <div className="text-xs text-[var(--muted)]">{item.verticalId ?? "—"}</div>
+                            </td>
+                            <td>{item.category}</td>
+                            <td>
+                              <Badge variant={resolveActionStatusBadge(item.status)}>{item.status}</Badge>
+                            </td>
+                            <td className="max-w-[360px]">
+                              <div className="text-xs text-[var(--muted)]">{item.title}</div>
+                              <div className="text-xs">{item.summary}</div>
+                            </td>
+                            <td className="text-xs text-[var(--muted)]">{item.source}</td>
+                            <td>
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={actionQueueUpdatingId === item.id || item.status !== "OPEN"}
+                                  onClick={() => updateActionQueueStatus(item.id, "EXECUTE")}
+                                >
+                                  Execute
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={actionQueueUpdatingId === item.id || item.status !== "OPEN"}
+                                  onClick={() => updateActionQueueStatus(item.id, "DISMISS")}
+                                >
+                                  Dismiss
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={actionQueueUpdatingId === item.id || item.status !== "OPEN"}
+                                  onClick={() => updateActionQueueStatus(item.id, "SNOOZE")}
+                                >
+                                  Snooze +7d
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+        </div>
+        <div className="lg:col-span-2 xl:col-span-3">
+          <OperatorTasksBoard />
+        </div>
+      </OperatorGroup>
     </div>
   );
 }

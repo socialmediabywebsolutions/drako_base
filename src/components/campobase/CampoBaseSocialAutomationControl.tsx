@@ -17,8 +17,20 @@ import type {
 } from "@/lib/campamento-base/socialflow-control-plane-service";
 import type { SocialFlowTrendTrigger, SocialFlowTrendTriggerHealth } from "@/lib/capabilities/internal-api-types/socialflow";
 import type { AgentControlCenterAgent, AgentControlCenterGroup, AgentControlCenterStatus } from "@/lib/campamento-base/socialflow-agent-control-center";
+import CerebroSynapseMap from "@/components/operator/CerebroSynapseMap";
 
 type LaunchCampaignResult = { tenantId: string; ok: boolean; campaignId?: string; error?: string };
+
+// Propuesta del Cerebro para "Rellenar con IA" — mock hasta que exista el endpoint.
+const CEREBRO_CAMPAIGN_SUGGESTION = {
+  title: "Aumentar engagement en Instagram y LinkedIn un 30% en Q4 2026",
+  audience: "Pymes españolas sector servicios, 25-45 años, decisores de marketing",
+  tone: "Profesional y cercano",
+  networks: ["INSTAGRAM", "LINKEDIN"],
+  body:
+    "IA que trabaja mientras tú duermes. Tu marca publica, responde y aprende cada día sin que tengas que estar pendiente. " +
+    "Descubre cómo las pymes de servicios están recuperando horas cada semana con Socialcors.",
+};
 
 const CAMPAIGN_NETWORKS = [
   { value: "INSTAGRAM", label: "Instagram" },
@@ -195,6 +207,9 @@ export default function CampoBaseSocialAutomationControl() {
   const [campaignResults, setCampaignResults] = useState<LaunchCampaignResult[] | null>(null);
   const [campaignError, setCampaignError] = useState<string | null>(null);
   const [campaignBusy, setCampaignBusy] = useState(false);
+  const [campaignAudience, setCampaignAudience] = useState("");
+  const [campaignTone, setCampaignTone] = useState("");
+  const [campaignAiFilling, setCampaignAiFilling] = useState(false);
 
   // Todos los tenants activos de Socialcors (socialflow_profiles), no solo el
   // registrado en la automatización — se carga una vez al montar el panel.
@@ -390,6 +405,18 @@ export default function CampoBaseSocialAutomationControl() {
     return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
   }
 
+  function fillCampaignWithAi() {
+    setCampaignAiFilling(true);
+    window.setTimeout(() => {
+      setCampaignTitle(CEREBRO_CAMPAIGN_SUGGESTION.title);
+      setCampaignAudience(CEREBRO_CAMPAIGN_SUGGESTION.audience);
+      setCampaignTone(CEREBRO_CAMPAIGN_SUGGESTION.tone);
+      setCampaignNetworks([...CEREBRO_CAMPAIGN_SUGGESTION.networks]);
+      setCampaignBody(CEREBRO_CAMPAIGN_SUGGESTION.body);
+      setCampaignAiFilling(false);
+    }, 1500);
+  }
+
   async function launchCampaign() {
     if (!campaignTitle.trim() || campaignTenantIds.length === 0) return;
 
@@ -407,6 +434,8 @@ export default function CampoBaseSocialAutomationControl() {
           networks: campaignNetworks,
           title: campaignTitle,
           body: campaignBody,
+          audience: campaignAudience || null,
+          tone: campaignTone || null,
           scheduledAt: campaignScheduledAt || null,
         }),
       });
@@ -492,9 +521,25 @@ export default function CampoBaseSocialAutomationControl() {
           />
         ) : (
           <div className="space-y-4">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={fillCampaignWithAi}
+                disabled={campaignAiFilling}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-70"
+              >
+                {campaignAiFilling ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden />
+                ) : (
+                  <span aria-hidden>✨</span>
+                )}
+                {campaignAiFilling ? "El Cerebro está pensando…" : "Rellenar con IA"}
+              </button>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block text-xs font-semibold text-slate-500">
-                Tema / Título
+                Objetivo / Tema
                 <input
                   type="text"
                   value={campaignTitle}
@@ -513,10 +558,32 @@ export default function CampoBaseSocialAutomationControl() {
                   className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
                 />
               </label>
+
+              <label className="block text-xs font-semibold text-slate-500">
+                Audiencia
+                <input
+                  type="text"
+                  value={campaignAudience}
+                  onChange={(e) => setCampaignAudience(e.target.value)}
+                  placeholder="Ej. pymes de servicios, decisores de marketing"
+                  className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+                />
+              </label>
+
+              <label className="block text-xs font-semibold text-slate-500">
+                Tono
+                <input
+                  type="text"
+                  value={campaignTone}
+                  onChange={(e) => setCampaignTone(e.target.value)}
+                  placeholder="Ej. profesional y cercano"
+                  className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none"
+                />
+              </label>
             </div>
 
             <label className="block text-xs font-semibold text-slate-500">
-              Cuerpo del post
+              Contenido
               <textarea
                 value={campaignBody}
                 onChange={(e) => setCampaignBody(e.target.value)}
@@ -628,6 +695,8 @@ export default function CampoBaseSocialAutomationControl() {
           </div>
         )}
       </Card>
+
+      <CerebroSynapseMap />
 
       <Card
         tone="default"
