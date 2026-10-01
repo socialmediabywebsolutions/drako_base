@@ -62,6 +62,10 @@ export default function ProspectorPage() {
   // Filter
   const [filterStatus, setFilterStatus] = useState<ProspectStatus | "">("");
 
+  // Discovery polling
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverSeconds, setDiscoverSeconds] = useState(0);
+
   // ── Data fetching ──────────────────────────────────────────────────────
 
   const fetchCampaigns = useCallback(async () => {
@@ -121,9 +125,28 @@ export default function ProspectorPage() {
       setSelectedCampaign(data.campaign.id);
       setForm({ name: "", niche: "", location: "" });
       setShowNewCampaign(false);
-      showToast("🚀 Campaña creada — buscando prospectos en segundo plano…");
-      // Poll after 5s to pick up discovered prospects
-      setTimeout(() => { void fetchProspects(data.campaign.id); }, 5000);
+      showToast("🚀 Campaña creada — buscando prospectos…");
+
+      // Polling: cada 3s durante máx. 60s hasta que aparezcan prospectos
+      const campaignId = data.campaign.id;
+      setDiscovering(true);
+      setDiscoverSeconds(0);
+      let elapsed = 0;
+      const interval = setInterval(async () => {
+        elapsed += 3;
+        setDiscoverSeconds(elapsed);
+        try {
+          const qs = new URLSearchParams({ campaignId, limit: "200" });
+          const pd = await apiFetch<{ prospects: SocialFlowProspect[] }>(`/api/socialflow/prospector/prospects?${qs}`);
+          const found = pd.prospects ?? [];
+          if (found.length > 0 || elapsed >= 60) {
+            clearInterval(interval);
+            setDiscovering(false);
+            setProspects(found);
+            if (found.length > 0) showToast(`✅ ${found.length} prospecto${found.length > 1 ? "s" : ""} encontrado${found.length > 1 ? "s" : ""}`);
+          }
+        } catch { /* silently ignore */ }
+      }, 3000);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Error al crear campaña");
     } finally {
@@ -383,6 +406,25 @@ export default function ProspectorPage() {
               </div>
             ) : filteredProspects.length === 0 && activeCampaign ? (
               <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-14 text-center">
+                {discovering ? (
+                  <>
+                    <div className="mb-3 flex justify-center">
+                      <svg className="h-8 w-8 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                      </svg>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-700">Buscando prospectos con IA…</p>
+                    <p className="mt-1 text-xs text-gray-400">{discoverSeconds}s — puede tardar hasta 60 segundos</p>
+                    <div className="mx-auto mt-3 h-1.5 w-40 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] transition-all duration-1000"
+                        style={{ width: `${Math.min(100, (discoverSeconds / 60) * 100)}%` }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
                 <p className="text-2xl mb-2">🔍</p>
                 <p className="text-sm text-gray-500">
                   {prospects.length === 0
@@ -396,6 +438,8 @@ export default function ProspectorPage() {
                   >
                     Actualizar
                   </button>
+                )}
+                  </>
                 )}
               </div>
             ) : (
