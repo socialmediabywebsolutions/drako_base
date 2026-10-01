@@ -379,7 +379,7 @@ export async function publishSocialPostLive(
       return { ok: true, code: "IDEMPOTENCY_RECOVERED", message: "Post was already published externally. Status recovered.", externalPostId: post.externalPostId, post: recovered };
     }
 
-    if (!options?.skipClaim && post.status === "SCHEDULED") {
+    if (!options?.skipClaim && (post.status === "SCHEDULED" || post.status === "APPROVED")) {
       const claimed = await claimScheduledPostForPublishing(ctx, postId);
       if (!claimed) {
         return { ok: false, code: "CLAIM_FAILED", message: "Post is already being published by another process.", post };
