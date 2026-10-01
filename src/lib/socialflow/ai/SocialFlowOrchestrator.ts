@@ -22,6 +22,7 @@ import { generatePostImage } from "./image-generator";
 import { buildImagePrompt } from "./image-prompt-builder";
 import { env } from "@/lib/cf";
 import { cleanOpening } from "./openers/cleanOpening";
+import { notifyTenantOfImageFailure } from "../posts/notify";
 
 // Handle real de la cuenta de Instagram conectada (OAuth) para este tenant/saas, si existe
 // — prioriza la marcada como primaria (is_primary=1) entre las CONNECTED_REAL, y si ninguna
@@ -359,8 +360,13 @@ export class SocialFlowOrchestrator {
         const imageGenerationFailed = postProvider === "INSTAGRAM" && !imageHint;
         const hashtags = (optimized?.hashtags ?? []).slice(0, 15);
         const contentType: SaasSocialContentType = STRATEGY_FORMAT_TO_CONTENT_TYPE[item.format] ?? "FEED";
-        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType, title: item.theme, body, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, creationMode: "AUTO", metadata: { targetProvider: postProvider, strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags, angle: item.angle, callToAction: item.callToAction, ...(imageGenerationFailed ? { error_message: "IMAGE_GENERATION_FAILED" } : {}) } }, { applyTrialCaptionLink: input.applyTrialCaptionLink });
+        await upsertSaasSocialPost(ctx, { id: postId, saasId: input.saasId, channelId, campaignId: campaign.id, provider: postProvider, contentType, title: item.theme, body, imageHint, status: "DRAFT", scheduledAt: sched?.scheduledAt ?? null, postedAt: null, externalPostId: null, creationMode: "AUTO", metadata: { targetProvider: postProvider, strategyItemId: item.id, scheduledAt: sched?.scheduledAt ?? null, hashtags, angle: item.angle, callToAction: item.callToAction, ...(imageGenerationFailed ? { error_message: "IMAGE_GENERATION_FAILED", imagePrompt } : {}) } }, { applyTrialCaptionLink: input.applyTrialCaptionLink });
         savedCount++;
+        // Aviso al cliente por email (nunca lanza). imagePrompt queda en metadata para
+        // que TrendAutoApproveCron reintente la imagen con el mismo prompt durante 24h.
+        if (imageGenerationFailed) {
+          await notifyTenantOfImageFailure({ tenantId: input.tenantId, saasId: input.saasId, postId, postTitle: item.theme });
+        }
 
         // Variante LinkedIn (ver generateFullCampaign): mismo item, misma hora e imagen
         // reutilizada — sin segunda generación de imagen. DRAFT + AUTO como el post de

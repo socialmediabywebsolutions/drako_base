@@ -14,6 +14,8 @@ const MODEL = "@cf/stabilityai/stable-diffusion-xl-base-1.0";
 // post tiene imagen, y la descripción física sigue en el prompt.
 const IMG2IMG_MODEL = "@cf/runwayml/stable-diffusion-v1-5-img2img";
 const IMG2IMG_SIZE = 512;
+const TXT2IMG_MAX_RETRIES = 2;
+const TXT2IMG_RETRY_DELAY_MS = 2000;
 const R2_PUBLIC_BASE = "https://pub-04c730a67921499bac35a1f62402cc17.r2.dev";
 const EMPLOYEES_SAAS_ID = "socialflow";
 
@@ -358,13 +360,29 @@ export async function generatePostImage(prompt: string, postId: string, tenantId
       }
     }
 
-    imageBuffer ??= await runModel(MODEL, {
-      prompt: finalPrompt,
-      negative_prompt: negativePrompt,
-      num_steps: 20,
-      width: 1024,
-      height: 1024,
-    });
+    // Reintentos solo para txt2img con SDXL (img2img ya tiene su propio fallback
+    // arriba): fallos transitorios de Workers AI dejaban posts de Instagram en DRAFT
+    // con IMAGE_GENERATION_FAILED. Si se agotan los intentos, el último error sube al
+    // catch de abajo y se devuelve null como siempre.
+    for (let attempt = 1; !imageBuffer; attempt++) {
+      try {
+        imageBuffer = await runModel(MODEL, {
+          prompt: finalPrompt,
+          negative_prompt: negativePrompt,
+          num_steps: 20,
+          width: 1024,
+          height: 1024,
+        });
+      } catch (txt2imgErr) {
+        if (attempt > TXT2IMG_MAX_RETRIES) throw txt2imgErr;
+        console.warn("IMAGE_GEN_TXT2IMG_RETRY", {
+          postId,
+          attempt,
+          error: txt2imgErr instanceof Error ? txt2imgErr.message : String(txt2imgErr),
+        });
+        await new Promise((resolve) => setTimeout(resolve, TXT2IMG_RETRY_DELAY_MS));
+      }
+    }
 
     const key = `posts/${postId}/ai-image.png`;
     await e.SOCIAL_MEDIA_BUCKET.put(key, imageBuffer, {

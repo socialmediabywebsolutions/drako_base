@@ -1,5 +1,6 @@
 import type { DracoEnv } from "@/lib/cf";
 import { isTenantAllowedInPrivatePilot } from "@/lib/socialflow/private-pilot";
+import { generatePostImage } from "@/lib/socialflow/ai/image-generator";
 
 // Nivel 3 — auto-aprobación con ventana de veto. Generalizado el 16/09 para cubrir
 // TODOS los tenants activos, no solo el piloto interno (775444ce) — mismo cambio que
@@ -32,6 +33,11 @@ const SCHEDULED_AT_EXPIRY_HOURS = 48;
 // auto-publicación de abajo.
 const DRAFT_EXPIRY_DAYS = 7;
 
+// Ventana durante la que se reintenta la imagen de un post DRAFT con
+// IMAGE_GENERATION_FAILED (fase 3). Pasado esto ya se avisó al cliente por email
+// (posts/notify.ts) y queda a su cargo añadirla o regenerarla a mano.
+const IMAGE_RETRY_WINDOW_HOURS = 24;
+
 // Mismo patrón que TrendTriggerConnector.ts: SOCIALFLOW_DISABLE_AI solo se expone vía
 // process.env (Vars de wrangler), no está declarado en DracoEnv.
 function isAiGenerationDisabled(): boolean {
@@ -59,6 +65,7 @@ export type TrendAutoApproveResult = {
   approved: number;
   generationFailed: number;
   expired: number;
+  imagesRecovered?: number;
   skipped?: string;
   error?: string;
 };
@@ -225,7 +232,52 @@ export async function runTrendAutoApproveCron(env: DracoEnv): Promise<TrendAutoA
       generationFailed++;
     }
 
-    return { ok: true, candidates: candidates?.length ?? 0, approved, generationFailed, expired };
+    // FASE 3 — reintento de imagen para posts que se quedaron en DRAFT con
+    // IMAGE_GENERATION_FAILED (ver SocialFlowOrchestrator.persistToDb). Corre después
+    // de la fase 1 a propósito: un post recuperado aquí sigue en DRAFT y lo aprueba la
+    // fase 1 de la siguiente pasada, con las mismas reglas que cualquier otro. Nunca
+    // publica, así que no se gatea por private pilot. Si vuelve a fallar no se hace
+    // nada — el cliente ya recibió el email al persistir el post.
+    const imageRetryCutoff = new Date(Date.now() - IMAGE_RETRY_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+    const { results: imageFailedPosts } = await db
+      .prepare(
+        `SELECT id, tenant_id, body, metadata FROM saas_social_posts
+         WHERE status = 'DRAFT'
+           AND json_extract(metadata, '$.error_message') = 'IMAGE_GENERATION_FAILED'
+           AND datetime(created_at) > datetime(?)`,
+      )
+      .bind(imageRetryCutoff)
+      .all<{ id: string; tenant_id: string; body: string; metadata: string | null }>();
+
+    let imagesRecovered = 0;
+    for (const post of imageFailedPosts ?? []) {
+      // Mismo prompt que usó persistToDb (metadata.imagePrompt); posts anteriores a ese
+      // campo caen al body del post.
+      let imagePrompt: string | null = null;
+      try {
+        const parsed = post.metadata ? (JSON.parse(post.metadata) as Record<string, unknown>) : null;
+        imagePrompt = typeof parsed?.imagePrompt === "string" ? parsed.imagePrompt : null;
+      } catch {
+        // metadata corrupta — se usa el body
+      }
+      const prompt = imagePrompt?.trim() || post.body.trim();
+      if (!prompt) continue;
+
+      const imageHint = await generatePostImage(prompt, post.id, post.tenant_id);
+      if (!imageHint) continue;
+
+      const updateResult = await db
+        .prepare(
+          `UPDATE saas_social_posts SET image_hint = ?, metadata = json_remove(metadata, '$.error_message'), updated_at = ?
+           WHERE id = ? AND status = 'DRAFT'`,
+        )
+        .bind(imageHint, new Date().toISOString(), post.id)
+        .run();
+      const changed = ((updateResult?.meta as { changes?: number } | undefined)?.changes ?? 0) > 0;
+      if (changed) imagesRecovered++;
+    }
+
+    return { ok: true, candidates: candidates?.length ?? 0, approved, generationFailed, expired, imagesRecovered };
   } catch (err) {
     return { ok: false, candidates: 0, approved: 0, generationFailed: 0, expired: 0, error: err instanceof Error ? err.message : String(err) };
   }
