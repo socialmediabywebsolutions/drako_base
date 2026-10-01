@@ -96,12 +96,6 @@ export function SiteHeader({ locale, copy }: Props) {
           >
             {copy.localeSwitch}
           </Link>
-          <Link
-            href="/operator/socialflow"
-            className="hidden sm:inline-flex btn-premium btn-primary py-2 px-6 text-sm"
-          >
-            Panel de control
-          </Link>
         </div>
       </div>
     </header>

@@ -22,6 +22,8 @@ import {
 import { HostMode, resolveHostMode } from "@/lib/hosts";
 import { SiteLayout } from "@/components/marketing/SiteLayout";
 import { EcosystemDashboard } from "@/components/marketing/EcosystemDashboard";
+import { HeroStats } from "@/components/marketing/HeroStats";
+import { EcosystemNetwork, HeroNetwork } from "@/components/marketing/NeuralNetwork";
 import { getMarketingCopy, resolveMarketingLocale, defaultMarketingLocale, type MarketingLocale } from "@/lib/i18n/marketing";
 
 const isHostMode = (value: string | null): value is HostMode =>
@@ -54,6 +56,12 @@ const METRICS: { value: string; label: string; icon: ReactNode }[] = [
   { value: "26", label: "agentes IA activos", icon: <Bot className="h-5 w-5" /> },
   { value: "1", label: "plataforma central", icon: <LayoutDashboard className="h-5 w-5" /> },
   { value: "0", label: "silos de datos", icon: <Database className="h-5 w-5" /> },
+];
+
+const LIVE_SYSTEMS: { emoji: string; title: string; description: string }[] = [
+  { emoji: "🧠", title: "Cerebro IA", description: "26 agentes monitorizando y publicando contenido las 24h" },
+  { emoji: "📰", title: "Journal automático", description: "Artículos generados con IA cada día laborable" },
+  { emoji: "📊", title: "Métricas en vivo", description: "Estado del ecosistema actualizado cada día" },
 ];
 
 // Mismos artículos que muestra /journal (src/app/journal/page.tsx).
@@ -101,7 +109,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
       <div>
 
         {/* HERO */}
-        <section className="relative overflow-hidden bg-gradient-to-b from-slate-50 to-blue-50 pt-24 pb-28 md:pt-36 md:pb-40">
+        <section className="relative overflow-hidden bg-gradient-to-b from-white to-[#f0f7ff] pt-24 pb-28 md:pt-36 md:pb-40">
           <div className="container-premium relative z-10">
             <div className="max-w-4xl mx-auto text-center fade-in-up">
               <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white/80 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-blue-600 mb-8">
@@ -109,11 +117,12 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
                 Holding tecnológico de IA
               </span>
               <h1 className="heading-xl text-slate-900 mb-8 text-balance">
-                El holding tecnológico que construye <span className="drako-gradient-text">el futuro con IA.</span>
+                El holding tecnológico que construye <span className="drako-gradient-text">el futuro con </span><span className="drako-gradient-text drako-typewriter">IA</span><span className="drako-caret" aria-hidden="true" /><span className="drako-gradient-text">.</span>
               </h1>
               <p className="text-lg md:text-xl text-slate-600 mb-12 leading-relaxed max-w-2xl mx-auto text-balance delay-100 fade-in-up">
                 Drako crea, dirige y hace crecer empresas de software especializadas impulsadas por inteligencia artificial. Cada SaaS resuelve un problema real. Todos comparten una misma inteligencia.
               </p>
+              <HeroStats />
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 delay-200 fade-in-up">
                 <a href="#ecosistema" className="btn-premium btn-primary">
                   Conoce el ecosistema
@@ -127,8 +136,27 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
           </div>
 
           <div className="absolute inset-0 pointer-events-none z-0">
-            <div className="absolute top-[-15%] right-[-5%] w-[600px] h-[600px] bg-blue-200/40 rounded-full blur-3xl" />
-            <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-cyan-100/60 rounded-full blur-3xl" />
+            <HeroNetwork />
+          </div>
+        </section>
+
+        {/* IA EN TIEMPO REAL */}
+        <section className="bg-white py-20 md:py-24">
+          <div className="container-premium">
+            <SectionHeading eyebrow="IA en tiempo real" title="El ecosistema que nunca duerme" />
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              {LIVE_SYSTEMS.map((item) => (
+                <div
+                  key={item.title}
+                  className="relative rounded-2xl border border-gray-200 bg-white p-7 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_12px_32px_rgba(59,130,246,0.14)]"
+                >
+                  <span className="drako-led absolute right-5 top-5 h-2.5 w-2.5 rounded-full bg-emerald-500" aria-label="Activo" />
+                  <span className="mb-5 block text-3xl" aria-hidden="true">{item.emoji}</span>
+                  <h3 className="mb-2 text-xl font-bold text-slate-900">{item.title}</h3>
+                  <p className="text-slate-600">{item.description}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -157,7 +185,9 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
               title="Empresas que ya operan con inteligencia artificial"
               subtitle="Cada producto de Drako es una empresa independiente con su propia marca, clientes y modelo de negocio. Todas comparten tecnología, agentes IA y la inteligencia acumulada del ecosistema."
             />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="relative">
+              <EcosystemNetwork />
+            <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {ECOSYSTEM.map((saas) => (
                 <div key={saas.name} className="card-premium flex flex-col">
                   <div className="flex items-center justify-between mb-6">
@@ -184,6 +214,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
                   ) : null}
                 </div>
               ))}
+            </div>
             </div>
           </div>
         </section>
