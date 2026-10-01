@@ -26,7 +26,7 @@ export default async function CompaniesPage({ searchParams }: PageProps) {
   const resolvedSearch = searchParams ? await searchParams : undefined;
   const tenantId = resolvedSearch?.tenantId?.trim() || DEMO_TENANT_ID;
   const baseUrl = getServerBaseUrl(await headers());
-  const cookieHeader = cookies().toString();
+  const cookieHeader = (await cookies()).toString();
   const qs = `tenantId=${encodeURIComponent(tenantId)}`;
 
   let companies: CompanyRecord[] = [];

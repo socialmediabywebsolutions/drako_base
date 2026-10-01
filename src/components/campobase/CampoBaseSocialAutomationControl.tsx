@@ -18,6 +18,7 @@ import type {
 import type { SocialFlowTrendTrigger, SocialFlowTrendTriggerHealth } from "@/lib/capabilities/internal-api-types/socialflow";
 import type { AgentControlCenterAgent, AgentControlCenterGroup, AgentControlCenterStatus } from "@/lib/campamento-base/socialflow-agent-control-center";
 import CerebroSynapseMap from "@/components/operator/CerebroSynapseMap";
+import CrmOperationsPanel from "@/components/operator/CrmOperationsPanel";
 
 type LaunchCampaignResult = { tenantId: string; ok: boolean; campaignId?: string; error?: string };
 
@@ -506,6 +507,8 @@ export default function CampoBaseSocialAutomationControl() {
           {error}
         </div>
       ) : null}
+
+      <CrmOperationsPanel />
 
       <Card
         tone="default"

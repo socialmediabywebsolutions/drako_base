@@ -762,6 +762,9 @@ jobs:
           # 0207: Oportunidades del Agente de Financiación — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
           wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
             --file migrations/0207_drako_funding.sql
+          # 0208: Ventas del CRM de /operator/socialflow — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
+          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
+            --file migrations/0208_drako_crm_sales.sql
 
       - name: Validate Cloudflare account identifier
         run: |
