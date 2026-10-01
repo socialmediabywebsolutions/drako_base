@@ -7,10 +7,6 @@ import { resolveMarketingLocale, defaultMarketingLocale } from "@/lib/i18n/marke
 import { NetworkCanvas } from "@/components/marketing/home/NetworkCanvas";
 import { StatCounter } from "@/components/marketing/home/StatCounter";
 
-// Home de drako.systems — "IA dominante"
-// Tokens: fondo hero #04080f, superficie light #f8fafc, azul #3b82f6, turquesa #06b6d4
-// Display: Syne 800 · Cuerpo: DM Sans
-
 const syne = Syne({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-syne", display: "swap" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
 
@@ -22,111 +18,81 @@ const DISPLAY = "font-[family-name:var(--font-syne)]";
 type Status = "live" | "beta" | "dev" | "core";
 type Tone = "b" | "t";
 
-const STATUS_BADGE: Record<Status, { label: string; className: string }> = {
-  live:  { label: "En producción", className: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
-  beta:  { label: "Beta",          className: "bg-amber-50 text-amber-700 border border-amber-200" },
-  dev:   { label: "Desarrollo",    className: "bg-blue-50 text-[#3b82f6] border border-blue-200" },
-  core:  { label: "Core",          className: "bg-cyan-50 text-[#0891b2] border border-cyan-200" },
+const STATUS_BADGE: Record<Status, { label: string; dot: string }> = {
+  live:  { label: "En producción", dot: "#10b981" },
+  beta:  { label: "Beta",          dot: "#f59e0b" },
+  dev:   { label: "Desarrollo",    dot: "#3b82f6" },
+  core:  { label: "Core",          dot: "#06b6d4" },
 };
 
-const PRODUCTS: { name: string; status: Status; icon: string; tone: Tone; description: string; tags: [string, Tone][] }[] = [
+const PRODUCTS: { name: string; status: Status; icon: string; description: string; url?: string }[] = [
   {
     name: "Socialcors",
     status: "live",
-    icon: "📱",
-    tone: "b",
-    description:
-      "Automatización de marketing en redes sociales. Contenido, programación, CRM social y analítica orquestados por agentes IA que trabajan sin descanso.",
-    tags: [["Instagram", "b"], ["TikTok", "b"], ["LinkedIn", "b"], ["Agentes IA", "t"]],
+    icon: "◈",
+    description: "Sistema operativo de marketing social. Agentes IA que generan, programan y publican contenido viral de forma autónoma en todas las redes.",
+    url: "https://socialcors.com",
   },
   {
     name: "Mentoría",
     status: "beta",
-    icon: "🎓",
-    tone: "t",
-    description:
-      "Tutores IA personalizados para estudiantes con aprendizaje adaptativo. Seguimiento para padres por WhatsApp y supervisión de profesores en tiempo real.",
-    tags: [["Matemáticas", "b"], ["Idiomas", "b"], ["Tutores IA", "t"], ["WhatsApp", "b"]],
+    icon: "◎",
+    description: "Tutores IA que adaptan el aprendizaje al ritmo de cada alumno. Seguimiento parental por WhatsApp y supervisión docente en tiempo real.",
   },
   {
     name: "Crypto IA",
     status: "dev",
-    icon: "📈",
-    tone: "b",
-    description:
-      "Análisis técnico avanzado: RSI, MACD, Fibonacci, Elliott. Agentes especializados como Market Watcher, Risk Manager y Signal Composer en tiempo real.",
-    tags: [["Análisis técnico", "b"], ["Backtesting", "b"], ["Signal AI", "t"]],
+    icon: "◆",
+    description: "Análisis técnico avanzado con agentes especializados: Market Watcher, Risk Manager, Signal Composer. RSI, MACD, Fibonacci en tiempo real.",
   },
   {
     name: "Cazh",
     status: "dev",
-    icon: "💳",
-    tone: "t",
-    description:
-      "Plataforma financiera digital con wallet, pagos instantáneos, tarjetas virtuales y físicas, y scoring financiero automatizado.",
-    tags: [["Wallet", "t"], ["Scoring IA", "t"], ["Tarjetas", "t"]],
+    icon: "◇",
+    description: "Fintech con wallet digital, pagos instantáneos, tarjetas virtuales y físicas, y scoring financiero automatizado por IA.",
   },
   {
     name: "Rentia",
     status: "dev",
-    icon: "🏠",
-    tone: "b",
-    description:
-      "Gestión inmobiliaria inteligente. Contratos, cobros e incidencias automatizados. Evaluación de inquilinos con IA y predicción de riesgos de impago.",
-    tags: [["Contratos IA", "b"], ["Incidencias", "b"], ["Evaluación", "t"]],
+    icon: "◉",
+    description: "Gestión inmobiliaria inteligente. Contratos, cobros e incidencias automatizados. Evaluación de inquilinos y predicción de riesgos con IA.",
   },
   {
     name: "Campamento Base",
     status: "core",
-    icon: "⚙️",
-    tone: "t",
-    description:
-      "El sistema operativo del holding. Gobierno, facturación centralizada, observabilidad global y orquestación de agentes IA para todo el ecosistema.",
-    tags: [["Gobierno", "t"], ["Facturación", "t"], ["Observabilidad", "t"]],
+    icon: "⬡",
+    description: "El sistema nervioso central del holding. Gobierno, facturación, observabilidad global y orquestación de agentes para todo el ecosistema.",
   },
 ];
 
-const STACK: [string, Tone][] = [
-  ["Cloudflare Workers", "b"],
-  ["D1 Database", "t"],
-  ["Durable Objects", "b"],
-  ["AI Gateway", "t"],
-  ["R2 Storage", "b"],
-  ["Queues", "t"],
-  ["Stripe Billing", "b"],
-  ["Multi-tenant RLS", "t"],
-  ["Agentes especializados", "b"],
-  ["WhatsApp API", "t"],
-];
-
-const WHY: { icon: string; title: string; text: string }[] = [
+const PILLARS: { num: string; title: string; text: string }[] = [
   {
-    icon: "🧠",
-    title: "Agentes, no chatbots",
-    text: "Cada SaaS tiene agentes especializados que razonan, planifican y ejecutan tareas complejas de forma autónoma. No son asistentes: son operadores reales del negocio.",
+    num: "01",
+    title: "Agentes que operan negocios",
+    text: "No son chatbots. Son agentes especializados que razonan, planifican y ejecutan tareas complejas de forma autónoma — los departamentos completos de tus clientes, automatizados.",
   },
   {
-    icon: "⚡",
-    title: "Edge computing puro",
-    text: "Toda la infraestructura corre en Cloudflare Edge. Latencias de milisegundos en cualquier región del mundo, sin servidores propios que escalar o mantener.",
+    num: "02",
+    title: "Edge computing sin límites",
+    text: "Infraestructura 100% en Cloudflare Edge. Latencia submilisegundo en cualquier región del mundo. Sin servidores que mantener, sin cuellos de botella que escalar.",
   },
   {
-    icon: "🔒",
-    title: "Multi-tenant por diseño",
-    text: "Aislamiento total entre clientes desde la base de datos hasta la capa de agentes. Cada consulta va acotada a su tenant, con auditoría completa y sin compromisos.",
+    num: "03",
+    title: "Aislamiento total por cliente",
+    text: "Arquitectura multi-tenant diseñada para que ningún dato cruce fronteras entre clientes. Row-Level Security, auditoría completa, cumplimiento desde el primer día.",
   },
   {
-    icon: "🚀",
-    title: "Tiempo a mercado en días",
-    text: "El stack compartido (auth, billing, IA, CRM, analítica) significa que cada nuevo SaaS parte de una base madura. Lo que tomaría meses, tarda días.",
+    num: "04",
+    title: "De concepto a mercado en días",
+    text: "Auth, billing, IA, CRM y analítica compartidos entre todos los SaaS. Lo que tarda meses en el mercado, en Drako tarda días. La ventaja del ecosistema.",
   },
 ];
 
-const STATS: { value: number; prefix?: string; suffix?: string; label: string }[] = [
-  { value: 5, label: "SaaS activos" },
+const STATS: { value: number; suffix?: string; prefix?: string; label: string }[] = [
+  { value: 5,   label: "SaaS activos" },
   { value: 100, suffix: "%", label: "IA en el núcleo" },
-  { value: 6, label: "Sectores cubiertos" },
-  { value: 50, prefix: "<", suffix: "ms", label: "Latencia global" },
+  { value: 6,   label: "Sectores verticales" },
+  { value: 50,  prefix: "<", suffix: "ms", label: "Latencia global" },
 ];
 
 export default async function Home({ params }: { params?: Promise<{ locale?: string }> }) {
@@ -145,369 +111,506 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
   const prefix = locale === defaultMarketingLocale ? "" : `/${locale}`;
 
   return (
-    <div className={`${syne.variable} ${dmSans.variable} min-h-screen overflow-x-hidden bg-[#f8fafc] font-[family-name:var(--font-dm-sans)] text-[#0f172a] scroll-smooth`}>
+    <div className={`${syne.variable} ${dmSans.variable} min-h-screen overflow-x-hidden bg-white font-[family-name:var(--font-dm-sans)] text-[#0a0f1e] scroll-smooth`}>
 
       <style>{`
+        /* ---- keyframes ---- */
         @keyframes shimmer {
           0%   { background-position: 0% center; }
           100% { background-position: 200% center; }
         }
-        @keyframes spin-slow {
-          to { transform: rotate(360deg); }
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50%       { opacity: 0.4; transform: scale(0.75); }
         }
-        @keyframes orb-pulse {
-          0%, 100% { opacity: 0.55; transform: scale(1); }
-          50%       { opacity: 0.85; transform: scale(1.12); }
+        @keyframes fade-in-up {
+          from { opacity: 0; transform: translateY(28px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes badge-border {
-          to { background-position: 200% center; }
+        @keyframes line-grow {
+          from { transform: scaleX(0); }
+          to   { transform: scaleX(1); }
         }
-        @keyframes glow-btn {
-          0%, 100% { box-shadow: 0 0 20px rgba(59,130,246,.35), 0 0 50px rgba(6,182,212,.12); }
-          50%       { box-shadow: 0 0 35px rgba(59,130,246,.65), 0 0 80px rgba(6,182,212,.25); }
+        @keyframes glow-ring {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
+          50%       { box-shadow: 0 0 0 8px rgba(59,130,246,0.08); }
         }
-        @keyframes float-up {
-          0%, 100% { transform: translateY(0px); }
-          50%       { transform: translateY(-8px); }
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50%       { transform: translateY(-10px); }
         }
-        .shimmer-text {
-          background: linear-gradient(90deg, #3b82f6, #06b6d4, #0ea5e9, #06b6d4, #3b82f6);
+        @keyframes scan-line {
+          0%   { top: 0%; opacity: 0.7; }
+          100% { top: 100%; opacity: 0; }
+        }
+
+        /* ---- utility ---- */
+        .text-gradient {
+          background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 55%, #0ea5e9 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .text-shimmer {
+          background: linear-gradient(90deg, #3b82f6, #06b6d4, #38bdf8, #06b6d4, #3b82f6);
           background-size: 300% auto;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
-          animation: shimmer 4s linear infinite;
+          animation: shimmer 5s linear infinite;
         }
-        .btn-glow {
-          animation: glow-btn 2.8s ease-in-out infinite;
+        .hero-animate {
+          animation: fade-in-up 0.8s cubic-bezier(0.16,1,0.3,1) both;
         }
-        .btn-glow:hover {
-          animation: none;
-          box-shadow: 0 0 40px rgba(59,130,246,.7), 0 0 80px rgba(6,182,212,.3);
-          transform: translateY(-2px) scale(1.02);
-        }
-        .card-glow {
-          transition: all 0.3s cubic-bezier(.4,0,.2,1);
-        }
-        .card-glow:hover {
-          box-shadow:
-            0 0 0 1.5px rgba(59,130,246,.3),
-            0 20px 60px rgba(59,130,246,.12),
-            0 0 60px rgba(6,182,212,.07);
-          transform: translateY(-6px);
-          border-color: rgba(59,130,246,.3);
-        }
-        .stack-pill {
-          transition: all 0.2s ease;
-        }
-        .stack-pill:hover {
-          background: rgba(59,130,246,.08);
-          box-shadow: 0 0 20px rgba(59,130,246,.2), inset 0 0 12px rgba(59,130,246,.04);
-          border-color: rgba(59,130,246,.4);
-          color: #1e40af;
-        }
-        .why-card {
-          transition: all 0.3s cubic-bezier(.4,0,.2,1);
-        }
-        .why-card:hover {
-          box-shadow: 0 0 0 1.5px rgba(59,130,246,.2), 0 20px 50px rgba(59,130,246,.1);
-          transform: translateY(-5px);
-        }
-        .stat-card {
-          transition: all 0.25s ease;
-        }
-        .stat-card:hover {
-          background: rgba(59,130,246,.06);
-          box-shadow: 0 0 0 1px rgba(59,130,246,.15), 0 8px 24px rgba(59,130,246,.08);
-          transform: translateY(-2px);
-        }
+        .hero-animate-2 { animation: fade-in-up 0.8s 0.15s cubic-bezier(0.16,1,0.3,1) both; }
+        .hero-animate-3 { animation: fade-in-up 0.8s 0.28s cubic-bezier(0.16,1,0.3,1) both; }
+        .hero-animate-4 { animation: fade-in-up 0.8s 0.42s cubic-bezier(0.16,1,0.3,1) both; }
+
+        /* ---- nav ---- */
         .nav-link {
           position: relative;
+          color: #475569;
+          transition: color 0.2s;
         }
         .nav-link::after {
           content: '';
           position: absolute;
           bottom: -2px;
-          left: 0;
-          width: 0;
-          height: 2px;
+          left: 0; right: 0;
+          height: 1.5px;
           background: linear-gradient(90deg, #3b82f6, #06b6d4);
-          border-radius: 2px;
-          transition: width 0.25s ease;
+          transform: scaleX(0);
+          transform-origin: left;
+          transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
         }
-        .nav-link:hover::after { width: 100%; }
+        .nav-link:hover { color: #0a0f1e; }
+        .nav-link:hover::after { transform: scaleX(1); }
+
+        /* ---- product cards ---- */
+        .product-card {
+          position: relative;
+          background: #fff;
+          border: 1px solid #e8edf5;
+          border-radius: 20px;
+          padding: 32px;
+          transition: all 0.35s cubic-bezier(0.4,0,0.2,1);
+          overflow: hidden;
+        }
+        .product-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 20px;
+          background: linear-gradient(135deg, rgba(59,130,246,0.04) 0%, rgba(6,182,212,0.04) 100%);
+          opacity: 0;
+          transition: opacity 0.35s;
+        }
+        .product-card:hover {
+          border-color: rgba(59,130,246,0.35);
+          transform: translateY(-6px);
+          box-shadow: 0 24px 64px rgba(59,130,246,0.1), 0 4px 16px rgba(0,0,0,0.06);
+        }
+        .product-card:hover::before { opacity: 1; }
+        .product-icon {
+          width: 52px; height: 52px;
+          display: flex; align-items: center; justify-content: center;
+          border-radius: 14px;
+          background: linear-gradient(135deg, #eff6ff, #e0f9ff);
+          color: #3b82f6;
+          font-size: 22px;
+          transition: all 0.3s;
+        }
+        .product-card:hover .product-icon {
+          background: linear-gradient(135deg, #3b82f6, #06b6d4);
+          color: #fff;
+        }
+
+        /* ---- pillar cards ---- */
+        .pillar-card {
+          border-top: 1px solid #e2e8f0;
+          padding-top: 32px;
+          transition: border-color 0.3s;
+        }
+        .pillar-card:hover { border-color: #3b82f6; }
+        .pillar-num {
+          font-family: var(--font-syne), sans-serif;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.15em;
+          color: #3b82f6;
+          margin-bottom: 16px;
+        }
+
+        /* ---- CTA button ---- */
+        .btn-primary {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: linear-gradient(135deg, #3b82f6, #06b6d4);
+          color: #fff;
+          font-family: var(--font-syne), sans-serif;
+          font-weight: 700;
+          font-size: 15px;
+          padding: 14px 28px;
+          border-radius: 12px;
+          transition: all 0.25s;
+          box-shadow: 0 4px 24px rgba(59,130,246,0.28);
+          letter-spacing: 0.01em;
+        }
+        .btn-primary:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 40px rgba(59,130,246,0.45);
+        }
+        .btn-secondary {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: transparent;
+          color: #3b82f6;
+          font-family: var(--font-syne), sans-serif;
+          font-weight: 700;
+          font-size: 15px;
+          padding: 14px 28px;
+          border-radius: 12px;
+          border: 1.5px solid #3b82f6;
+          transition: all 0.25s;
+          letter-spacing: 0.01em;
+        }
+        .btn-secondary:hover {
+          background: rgba(59,130,246,0.06);
+          transform: translateY(-2px);
+        }
+
+        /* ---- stat card ---- */
+        .stat-item {
+          text-align: center;
+          padding: 32px 16px;
+          border-right: 1px solid #e8edf5;
+          transition: background 0.3s;
+        }
+        .stat-item:last-child { border-right: none; }
+        .stat-item:hover { background: rgba(59,130,246,0.03); border-radius: 16px; }
+
+        /* ---- floating badge in hero ---- */
+        .hero-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(59,130,246,0.08);
+          border: 1px solid rgba(59,130,246,0.2);
+          border-radius: 999px;
+          padding: 6px 16px 6px 10px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #3b82f6;
+        }
+        .pulse-dot {
+          width: 7px; height: 7px;
+          border-radius: 50%;
+          background: #3b82f6;
+          animation: pulse-dot 1.8s ease-in-out infinite;
+        }
+
+        /* ---- network canvas backdrop ---- */
+        .canvas-wrap {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          pointer-events: none;
+        }
+
+        /* ---- scan line on hero visual ---- */
+        .scan-line {
+          position: absolute;
+          left: 0; right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, transparent, rgba(59,130,246,0.5), transparent);
+          animation: scan-line 3s ease-in-out infinite;
+        }
+
+        /* ---- grid lines backdrop ---- */
+        .grid-backdrop {
+          background-image:
+            linear-gradient(rgba(59,130,246,0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(59,130,246,0.05) 1px, transparent 1px);
+          background-size: 60px 60px;
+        }
+
+        /* ---- hover arrow ---- */
+        .arrow-hover {
+          display: inline-block;
+          transition: transform 0.2s;
+        }
+        a:hover .arrow-hover { transform: translateX(4px); }
+
         @media (prefers-reduced-motion: reduce) {
-          .shimmer-text, .btn-glow { animation: none; }
-          .shimmer-text { -webkit-text-fill-color: #3b82f6; }
-          .card-glow:hover, .why-card:hover, .stat-card:hover { transform: none; }
+          *, *::before, *::after { animation: none !important; transition: none !important; }
         }
       `}</style>
 
-      {/* ─── NAV ─────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-[100] flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur-[20px] shadow-[0_1px_0_0_rgba(59,130,246,.06),0_2px_16px_rgba(0,0,0,.04)] md:px-12 md:py-[18px]">
-        <Link href={prefix || "/"} className={`${DISPLAY} text-[21px] font-extrabold tracking-[-0.5px] shimmer-text`}>
-          DRAKO
-        </Link>
-        <ul className="hidden list-none gap-8 md:flex">
-          {[
-            { href: "#productos", label: "Productos" },
-            { href: "#stack", label: "Stack" },
-            { href: `${prefix}/ecosystem`, label: "Ecosistema" },
-            { href: `${prefix}/journal`, label: "Journal" },
-          ].map((item) => (
-            <li key={item.href}>
-              <a href={item.href} className="nav-link text-sm font-medium text-slate-500 transition-colors duration-200 hover:text-[#3b82f6]">
-                {item.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-        <a
-          href="#contacto"
-          className="btn-glow inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-5 py-[10px] text-sm font-bold text-white transition-all duration-200"
-          style={{ boxShadow: "0 0 18px rgba(59,130,246,.3), 0 0 40px rgba(6,182,212,.1)" }}
-        >
-          Hablar con Drako
-        </a>
+      {/* ════════════════════════════════════ NAV ════════════════════════════════════ */}
+      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-lg border-b border-slate-100">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href={`${prefix}/`} className={`${DISPLAY} text-xl font-bold text-[#0a0f1e] tracking-tight`}>
+            drako
+            <span className="text-gradient">.</span>
+          </Link>
+          <div className="hidden md:flex items-center gap-8">
+            <Link href={`${prefix}/ecosystem`} className="nav-link text-sm font-medium">Ecosistema</Link>
+            <Link href={`${prefix}/journal`}    className="nav-link text-sm font-medium">Journal</Link>
+            <Link href="https://socialcors.com" className="nav-link text-sm font-medium" target="_blank">Socialcors</Link>
+          </div>
+          <Link href="https://socialcors.com" target="_blank" className="btn-primary text-sm py-2.5 px-5">
+            Empezar ahora <span className="arrow-hover">→</span>
+          </Link>
+        </div>
       </nav>
 
-      {/* ─── HERO ────────────────────────────────────────────────── */}
-      <section className="relative flex min-h-[96vh] items-center justify-center overflow-hidden bg-[#f8fafc] px-5 pb-24 pt-16 md:px-10">
+      {/* ════════════════════════════════════ HERO ════════════════════════════════════ */}
+      <section className="relative min-h-[90vh] flex flex-col items-center justify-center text-center px-6 pb-20 pt-28 overflow-hidden bg-[#f8faff]">
+        {/* Grid backdrop */}
+        <div className="canvas-wrap grid-backdrop opacity-60" />
 
-        {/* Orbes de luz sobre fondo claro */}
-        <div
-          className="pointer-events-none absolute left-1/2 top-[30%] h-[640px] w-[640px] -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(59,130,246,0.12) 0%, rgba(6,182,212,0.06) 50%, transparent 75%)", animation: "orb-pulse 6s ease-in-out infinite" }}
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute -right-[8%] top-[15%] h-[380px] w-[380px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 65%)", animation: "orb-pulse 8s ease-in-out infinite 2s" }}
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute -left-[4%] bottom-[10%] h-[280px] w-[280px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 65%)", animation: "orb-pulse 7s ease-in-out infinite 1s" }}
-          aria-hidden="true"
-        />
+        {/* Network canvas */}
+        <div className="canvas-wrap">
+          <NetworkCanvas />
+        </div>
 
-        {/* Red neuronal de fondo */}
-        <NetworkCanvas className="absolute inset-0 h-full w-full opacity-[0.12]" />
+        {/* Gradient orbs */}
+        <div className="absolute top-[-120px] left-[10%] w-[600px] h-[600px] rounded-full bg-blue-500/[0.07] blur-3xl pointer-events-none" />
+        <div className="absolute bottom-[-80px] right-[8%] w-[500px] h-[500px] rounded-full bg-cyan-400/[0.07] blur-3xl pointer-events-none" />
 
-        {/* Contenido */}
-        <div className="relative z-[2] max-w-[880px] text-center">
-
-          {/* Badge animado */}
-          <div className="mb-9 inline-flex items-center gap-2.5 rounded-full px-[1.5px] py-[1.5px]"
-            style={{ background: "linear-gradient(90deg,#3b82f6,#06b6d4,#0ea5e9,#3b82f6)", backgroundSize: "300% auto", animation: "badge-border 3.5s linear infinite" }}>
-            <div className="flex items-center gap-2 rounded-full bg-white px-5 py-2 text-[12px] font-bold tracking-wide text-slate-600">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ background: "linear-gradient(90deg,#3b82f6,#06b6d4)", animation: "spin-slow 2.5s linear infinite" }}
-              />
-              Holding Tecnológico · IA en el core
+        <div className="relative z-10 max-w-4xl mx-auto">
+          {/* Badge */}
+          <div className="hero-animate flex justify-center mb-10">
+            <div className="hero-badge">
+              <span className="pulse-dot" />
+              Holding tecnológico · 5 SaaS de IA en producción
             </div>
           </div>
 
           {/* Headline */}
-          <h1 className={`${DISPLAY} mb-7 text-[clamp(44px,7vw,88px)] font-extrabold leading-[1.04] tracking-[-0.04em] text-[#0a0f1e]`}>
-            Software que{" "}
-            <span className="shimmer-text">automatiza</span>
+          <h1 className={`${DISPLAY} hero-animate-2 text-5xl sm:text-6xl lg:text-[80px] font-extrabold leading-[1.05] tracking-tight text-[#0a0f1e] mb-6`}>
+            Construimos la{" "}
+            <span className="text-shimmer">inteligencia artificial</span>
             <br />
-            industrias completas
+            que opera tu sector.
           </h1>
 
-          <p className="mx-auto mb-12 max-w-[540px] text-[clamp(16px,2vw,19px)] leading-[1.7] text-slate-500">
-            Drako crea SaaS verticales impulsados por inteligencia artificial. Cada producto resuelve un sector con agentes autónomos, edge computing y arquitectura de primer nivel.
+          {/* Sub */}
+          <p className="hero-animate-3 text-lg sm:text-xl text-slate-500 max-w-2xl mx-auto leading-relaxed mb-12">
+            Drako es el holding que diseña, construye y escala SaaS de IA especializados.
+            Cada producto automatiza un sector completo — desde redes sociales hasta finanzas, educación e inmobiliaria.
           </p>
 
-          {/* Botones */}
-          <div className="mb-20 flex flex-wrap items-center justify-center gap-4">
-            <a
-              href="#productos"
-              className="btn-glow inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-8 py-4 text-[15px] font-bold text-white transition-all duration-300"
-              style={{ boxShadow: "0 0 20px rgba(59,130,246,.35), 0 0 50px rgba(6,182,212,.12)" }}
-            >
-              Ver el ecosistema
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-            </a>
-            <a
-              href="#stack"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-8 py-4 text-[15px] font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#3b82f6] hover:text-[#3b82f6] hover:shadow-[0_4px_24px_rgba(59,130,246,.15)]"
-            >
-              Nuestra arquitectura
-            </a>
+          {/* CTAs */}
+          <div className="hero-animate-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href={`${prefix}/ecosystem`} className="btn-primary">
+              Ver el ecosistema <span className="arrow-hover">→</span>
+            </Link>
+            <Link href="https://socialcors.com" target="_blank" className="btn-secondary">
+              Socialcors — nuestro SaaS líder
+            </Link>
           </div>
+        </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_32px_rgba(59,130,246,.06)] md:grid-cols-4">
-            {STATS.map((stat, i) => (
-              <div
-                key={stat.label}
-                className={`stat-card relative px-5 py-6 text-center ${i > 0 ? "border-l border-slate-100" : ""} ${i >= 2 ? "border-t border-slate-100 md:border-t-0" : ""}`}
-              >
-                <StatCounter
-                  value={stat.value}
-                  prefix={stat.prefix}
-                  suffix={stat.suffix}
-                  className={`${DISPLAY} shimmer-text mb-1.5 block text-[32px] font-extrabold leading-none tracking-[-0.025em] tabular-nums`}
-                />
-                <span className="text-[11px] font-medium leading-[1.4] text-slate-400">{stat.label}</span>
-              </div>
-            ))}
-          </div>
+        {/* Scroll indicator */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-30">
+          <div className="w-px h-10 bg-gradient-to-b from-transparent to-slate-400" />
         </div>
       </section>
 
-      {/* ─── PRODUCTOS ───────────────────────────────────────────── */}
-      <section id="productos" className="scroll-mt-20 bg-[#f8fafc] px-5 py-16 md:px-10 md:py-24">
-        <div className="mx-auto max-w-[1160px]">
-          <div className="mb-14 max-w-[580px]">
-            <p className="mb-3 text-[12px] font-bold text-[#3b82f6]">El ecosistema</p>
-            <h2 className={`${DISPLAY} mb-4 text-[clamp(30px,4vw,48px)] font-extrabold leading-[1.1] tracking-[-0.03em] text-[#0a0f1e]`}>
-              Seis productos.<br />Un solo stack.
+      {/* ════════════════════════════════════ STATS ════════════════════════════════════ */}
+      <section className="bg-white border-y border-slate-100">
+        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-slate-100">
+          {STATS.map((s) => (
+            <div key={s.label} className="stat-item">
+              <p className={`${DISPLAY} text-4xl font-extrabold text-[#0a0f1e] mb-1`}>
+                {s.prefix && <span className="text-gradient">{s.prefix}</span>}
+                <StatCounter target={s.value} />
+                {s.suffix && <span className="text-gradient">{s.suffix}</span>}
+              </p>
+              <p className="text-sm text-slate-500 font-medium">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════ PRODUCTS ════════════════════════════════════ */}
+      <section className="py-28 px-6 bg-white">
+        <div className="max-w-6xl mx-auto">
+          {/* Section header */}
+          <div className="max-w-2xl mb-16">
+            <p className="text-xs font-bold tracking-[0.18em] text-[#3b82f6] uppercase mb-4">El ecosistema</p>
+            <h2 className={`${DISPLAY} text-4xl sm:text-5xl font-extrabold leading-tight text-[#0a0f1e] mb-5`}>
+              Seis productos.<br />
+              <span className="text-gradient">Una sola inteligencia.</span>
             </h2>
-            <p className="text-[17px] leading-[1.65] text-[#64748b]">
-              Cada SaaS opera de forma independiente y comparte infraestructura, agentes IA y conocimiento acumulado. Lo que uno aprende, lo aprovechan todos.
+            <p className="text-slate-500 text-lg leading-relaxed">
+              Cada SaaS resuelve un problema vertical concreto. Todos comparten la misma infraestructura, el mismo motor de IA y la misma arquitectura. Lo que aprende uno, lo aprovechan los demás.
             </p>
           </div>
 
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(320px,100%),1fr))] gap-5">
-            {PRODUCTS.map((product) => {
-              const badge = STATUS_BADGE[product.status];
+          {/* Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {PRODUCTS.map((p) => {
+              const badge = STATUS_BADGE[p.status];
               return (
-                <article
-                  key={product.name}
-                  className="card-glow group relative overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white p-7 transition-all duration-300"
-                >
-                  {/* Top glow strip — aparece en hover via group */}
-                  <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-
-                  <div className="mb-4 flex items-start justify-between">
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl text-[22px] ${product.tone === "b" ? "bg-blue-50" : "bg-cyan-50"}`}>
-                      {product.icon}
+                <div key={p.name} className="product-card group">
+                  {/* Icon + status */}
+                  <div className="flex items-start justify-between mb-5">
+                    <div className="product-icon">{p.icon}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: badge.dot }} />
+                      <span className="text-xs font-semibold text-slate-400">{badge.label}</span>
                     </div>
-                    <span className={`rounded-full px-2.5 py-[4px] text-[11px] font-semibold ${badge.className}`}>
-                      {badge.label}
-                    </span>
                   </div>
 
-                  <h3 className={`${DISPLAY} mb-2 text-[18px] font-bold text-[#0a0f1e]`}>{product.name}</h3>
-                  <p className="mb-5 text-sm leading-[1.65] text-[#64748b]">{product.description}</p>
+                  {/* Name */}
+                  <h3 className={`${DISPLAY} text-xl font-bold text-[#0a0f1e] mb-3`}>{p.name}</h3>
 
-                  <div className="flex flex-wrap gap-1.5">
-                    {product.tags.map(([tag, tone]) => (
-                      <span
-                        key={tag}
-                        className={`rounded-full px-2.5 py-[3px] text-[11px] font-semibold ${tone === "b" ? "bg-blue-50 text-[#3b82f6]" : "bg-cyan-50 text-[#0891b2]"}`}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </article>
+                  {/* Description */}
+                  <p className="text-slate-500 text-sm leading-relaxed">{p.description}</p>
+
+                  {/* Link */}
+                  {p.url && (
+                    <a href={p.url} target="_blank" rel="noopener noreferrer"
+                       className="inline-flex items-center gap-1.5 mt-5 text-sm font-semibold text-[#3b82f6] hover:text-[#06b6d4] transition-colors">
+                      Acceder <span className="arrow-hover">→</span>
+                    </a>
+                  )}
+                </div>
               );
             })}
           </div>
         </div>
       </section>
 
-      {/* ─── STACK ───────────────────────────────────────────────── */}
-      <section id="stack" className="scroll-mt-20 bg-white px-5 py-16 md:px-10 md:py-20 border-y border-slate-100">
-        <div className="mx-auto max-w-[1160px]">
-          <p className="mb-10 text-center text-[12px] font-bold tracking-[0.15em] text-slate-400 uppercase">
-            Infraestructura compartida en todos los productos
-          </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            {STACK.map(([item, tone]) => (
-              <div
-                key={item}
-                className="stack-pill flex cursor-default items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-5 py-2.5 text-[13px] font-semibold text-slate-600"
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${tone === "b" ? "bg-[#3b82f6]" : "bg-[#06b6d4]"}`} />
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── POR QUÉ DRAKO ───────────────────────────────────────── */}
-      <section id="por-que" className="scroll-mt-20 bg-[#f8fafc] px-5 py-16 md:px-10 md:py-24">
-        <div className="mx-auto max-w-[1160px]">
-          <div className="mb-14 max-w-[520px]">
-            <p className="mb-3 text-[12px] font-bold text-[#3b82f6]">Por qué Drako</p>
-            <h2 className={`${DISPLAY} mb-4 text-[clamp(30px,4vw,48px)] font-extrabold leading-[1.1] tracking-[-0.03em] text-[#0a0f1e]`}>
-              IA estructural,<br />no decorativa.
-            </h2>
-            <p className="text-[17px] leading-[1.65] text-[#64748b]">
-              La inteligencia artificial no es una función que añadimos. Está en el núcleo de cada decisión de arquitectura, desde el primer día.
+      {/* ════════════════════════════════════ BANNER ════════════════════════════════════ */}
+      <section className="py-20 px-6 bg-gradient-to-r from-[#3b82f6] via-[#0ea5e9] to-[#06b6d4] relative overflow-hidden">
+        {/* Subtle grid on banner */}
+        <div className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+          }}
+        />
+        <div className="relative z-10 max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="max-w-xl">
+            <p className={`${DISPLAY} text-3xl sm:text-4xl font-extrabold text-white leading-tight mb-3`}>
+              No construimos herramientas.<br />Construimos operadores de IA.
+            </p>
+            <p className="text-blue-100 text-base leading-relaxed">
+              La diferencia entre un chatbot y un agente es la diferencia entre un asistente que contesta y un empleado que trabaja. Drako construye lo segundo.
             </p>
           </div>
-
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(260px,100%),1fr))] gap-5">
-            {WHY.map((item) => (
-              <div
-                key={item.title}
-                className="why-card group rounded-2xl border border-[#e2e8f0] bg-white p-8 transition-all duration-300"
-              >
-                <span className="mb-5 block text-[32px]" aria-hidden="true">{item.icon}</span>
-                <h3 className={`${DISPLAY} mb-2.5 text-[16px] font-bold text-[#0a0f1e]`}>{item.title}</h3>
-                <p className="text-sm leading-[1.7] text-[#64748b]">{item.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── CTA ─────────────────────────────────────────────────── */}
-      <section id="contacto" className="scroll-mt-20 relative overflow-hidden bg-gradient-to-br from-[#eff6ff] via-[#f0fdff] to-[#f8fafc] px-5 py-20 text-center md:px-10 md:py-28 border-t border-slate-100">
-
-        {/* Orbes sobre fondo claro */}
-        <div
-          className="pointer-events-none absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(59,130,246,0.1) 0%, rgba(6,182,212,0.06) 40%, transparent 70%)", animation: "orb-pulse 5s ease-in-out infinite" }}
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute -right-20 bottom-0 h-[300px] w-[300px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(6,182,212,0.12) 0%, transparent 65%)", animation: "orb-pulse 7s ease-in-out infinite 1s" }}
-          aria-hidden="true"
-        />
-
-        <div className="relative z-[1] mx-auto max-w-[700px]">
-          <p className="mb-5 text-[12px] font-bold tracking-[0.15em] text-[#3b82f6] uppercase">¿Tu sector necesita automatización?</p>
-          <h2 className={`${DISPLAY} mb-5 text-balance text-[clamp(32px,5vw,58px)] font-extrabold leading-[1.08] tracking-[-0.03em] text-[#0a0f1e]`}>
-            Construimos el SaaS<br />
-            <span className="shimmer-text">que tu industria necesita.</span>
-          </h2>
-          <p className="mx-auto mb-10 max-w-[480px] text-[17px] leading-[1.65] text-slate-500">
-            Identificamos el problema, diseñamos la arquitectura y automatizamos el sector con agentes IA especializados.
-          </p>
-          <Link
-            href={`${prefix}/contact`}
-            className="btn-glow inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-10 py-[18px] text-[16px] font-bold text-white transition-all duration-300"
-            style={{ boxShadow: "0 0 20px rgba(59,130,246,.35), 0 0 50px rgba(6,182,212,.15)" }}
-          >
-            Hablar con Drako
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+          <Link href={`${prefix}/ecosystem`}
+            className="shrink-0 inline-flex items-center gap-2 bg-white text-[#3b82f6] font-bold text-base px-7 py-4 rounded-xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all">
+            Ver el ecosistema <span className="arrow-hover">→</span>
           </Link>
         </div>
       </section>
 
-      {/* ─── FOOTER ──────────────────────────────────────────────── */}
-      <footer className="bg-white border-t border-slate-100">
-        <div className="mx-auto flex max-w-[1160px] flex-wrap items-center justify-between gap-3 px-5 py-8 md:px-10">
-          <span className={`${DISPLAY} shimmer-text text-base font-extrabold`}>DRAKO</span>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-slate-400">
-            <Link href="/aviso-legal" className="transition-colors hover:text-[#3b82f6]">Aviso legal</Link>
-            <Link href="/privacidad" className="transition-colors hover:text-[#3b82f6]">Privacidad</Link>
-            <Link href="/cookies" className="transition-colors hover:text-[#3b82f6]">Cookies</Link>
-            <span>© 2026 Drako Systems</span>
+      {/* ════════════════════════════════════ PILLARS ════════════════════════════════════ */}
+      <section className="py-28 px-6 bg-[#f8faff]">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="max-w-xl mb-20">
+            <p className="text-xs font-bold tracking-[0.18em] text-[#3b82f6] uppercase mb-4">Por qué Drako</p>
+            <h2 className={`${DISPLAY} text-4xl sm:text-5xl font-extrabold text-[#0a0f1e] leading-tight`}>
+              La ventaja de<br />
+              <span className="text-gradient">construir en ecosistema.</span>
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-10">
+            {PILLARS.map((p) => (
+              <div key={p.num} className="pillar-card">
+                <p className="pillar-num">{p.num}</p>
+                <h3 className={`${DISPLAY} text-xl font-bold text-[#0a0f1e] mb-3`}>{p.title}</h3>
+                <p className="text-slate-500 leading-relaxed">{p.text}</p>
+              </div>
+            ))}
           </div>
         </div>
-      </footer>
+      </section>
 
+      {/* ════════════════════════════════════ TECH STRIP ════════════════════════════════════ */}
+      <section className="py-16 px-6 bg-white border-y border-slate-100">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-xs font-bold tracking-[0.18em] text-slate-400 uppercase text-center mb-10">
+            Infraestructura — 100% Cloudflare Edge
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {[
+              "Cloudflare Workers", "D1 Database", "Durable Objects",
+              "R2 Storage", "AI Gateway", "Queues",
+              "Stripe", "WhatsApp API", "Mistral AI",
+              "SDXL · Generación de imágenes", "Multi-tenant RLS", "GitHub Actions CI/CD",
+            ].map((tech) => (
+              <span key={tech}
+                className="text-sm font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 hover:border-blue-300 hover:text-[#3b82f6] hover:bg-blue-50/50 transition-all cursor-default">
+                {tech}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════ FINAL CTA ════════════════════════════════════ */}
+      <section className="py-32 px-6 bg-[#f8faff] relative overflow-hidden">
+        <div className="canvas-wrap opacity-30">
+          <NetworkCanvas />
+        </div>
+        {/* Orbs */}
+        <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-blue-400/[0.08] blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-cyan-400/[0.08] blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 max-w-3xl mx-auto text-center">
+          <p className="text-xs font-bold tracking-[0.18em] text-[#3b82f6] uppercase mb-6">Empieza hoy</p>
+          <h2 className={`${DISPLAY} text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#0a0f1e] leading-tight mb-6`}>
+            Tu sector, automatizado<br />
+            <span className="text-shimmer">por inteligencia artificial.</span>
+          </h2>
+          <p className="text-slate-500 text-lg leading-relaxed mb-12 max-w-xl mx-auto">
+            Socialcors ya está en producción. Si gestionas redes sociales para tu empresa o tus clientes, la IA de Drako trabaja por ti desde el primer día.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href="https://socialcors.com" target="_blank" className="btn-primary text-base px-8 py-4">
+              Probar Socialcors gratis <span className="arrow-hover">→</span>
+            </Link>
+            <Link href={`${prefix}/ecosystem`} className="btn-secondary text-base px-8 py-4">
+              Explorar el ecosistema
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════ FOOTER ════════════════════════════════════ */}
+      <footer className="bg-white border-t border-slate-100 py-12 px-6">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <span className={`${DISPLAY} text-lg font-bold text-[#0a0f1e] tracking-tight`}>
+              drako<span className="text-gradient">.</span>
+            </span>
+            <span className="text-slate-300">|</span>
+            <span className="text-sm text-slate-400">El holding de IA que construye el futuro del trabajo.</span>
+          </div>
+          <nav className="flex flex-wrap items-center gap-6">
+            {[
+              { label: "Ecosistema",  href: `${prefix}/ecosystem` },
+              { label: "Journal",     href: `${prefix}/journal` },
+              { label: "Socialcors",  href: "https://socialcors.com", ext: true },
+            ].map((l) => (
+              <Link key={l.label} href={l.href} {...(l.ext ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                className="text-sm text-slate-400 hover:text-[#3b82f6] transition-colors font-medium">
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+          <p className="text-xs text-slate-300">© {new Date().getFullYear()} Drako Systems</p>
+        </div>
+      </footer>
     </div>
   );
 }
