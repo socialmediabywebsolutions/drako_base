@@ -7,10 +7,9 @@ import { resolveMarketingLocale, defaultMarketingLocale } from "@/lib/i18n/marke
 import { NetworkCanvas } from "@/components/marketing/home/NetworkCanvas";
 import { StatCounter } from "@/components/marketing/home/StatCounter";
 
-// Home de drako.systems — diseño "IA en el core" (referencia: artifact 6WajhNGmDakD5zk9Gsu2xx).
-// Página autocontenida: nav sticky y footer propios, sin SiteLayout. Tokens fijos:
-// fondo #f8fafc, superficie #ffffff, azul #3b82f6, turquesa #06b6d4; Syne (display) y
-// DM Sans (cuerpo).
+// Home de drako.systems — "IA dominante"
+// Tokens: fondo hero #04080f, superficie light #f8fafc, azul #3b82f6, turquesa #06b6d4
+// Display: Syne 800 · Cuerpo: DM Sans
 
 const syne = Syne({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-syne", display: "swap" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
@@ -19,20 +18,16 @@ const isHostMode = (value: string | null): value is HostMode =>
   value === "CAMPAMENTO_BASE" || value === "PREVIEW" || value === "PUBLIC_SAAS";
 
 const DISPLAY = "font-[family-name:var(--font-syne)]";
-const GRADIENT_TEXT = "bg-gradient-to-br from-[#3b82f6] to-[#06b6d4] bg-clip-text text-transparent";
 
 type Status = "live" | "beta" | "dev" | "core";
 type Tone = "b" | "t";
 
 const STATUS_BADGE: Record<Status, { label: string; className: string }> = {
-  live: { label: "En producción", className: "bg-[#dcfce7] text-[#16a34a]" },
-  beta: { label: "Beta", className: "bg-[#fef9c3] text-[#b45309]" },
-  dev: { label: "Desarrollo", className: "bg-[#eff6ff] text-[#3b82f6]" },
-  core: { label: "Core", className: "bg-[#ecfeff] text-[#0891b2]" },
+  live:  { label: "En producción", className: "bg-emerald-950/80 text-emerald-400 border border-emerald-800/50" },
+  beta:  { label: "Beta",          className: "bg-amber-950/80 text-amber-400 border border-amber-800/50" },
+  dev:   { label: "Desarrollo",    className: "bg-blue-950/80 text-blue-400 border border-blue-800/50" },
+  core:  { label: "Core",          className: "bg-cyan-950/80 text-cyan-400 border border-cyan-800/50" },
 };
-
-const TONE_WASH: Record<Tone, string> = { b: "bg-[#eff6ff]", t: "bg-[#ecfeff]" };
-const TAG_TONE: Record<Tone, string> = { b: "bg-[#eff6ff] text-[#3b82f6]", t: "bg-[#ecfeff] text-[#0891b2]" };
 
 const PRODUCTS: { name: string; status: Status; icon: string; tone: Tone; description: string; tags: [string, Tone][] }[] = [
   {
@@ -41,7 +36,7 @@ const PRODUCTS: { name: string; status: Status; icon: string; tone: Tone; descri
     icon: "📱",
     tone: "b",
     description:
-      "Automatización de marketing en redes sociales. Sustituye el trabajo repetitivo de agencias: contenido, programación, CRM social y analítica en un solo flujo.",
+      "Automatización de marketing en redes sociales. Contenido, programación, CRM social y analítica orquestados por agentes IA que trabajan sin descanso.",
     tags: [["Instagram", "b"], ["TikTok", "b"], ["LinkedIn", "b"], ["Agentes IA", "t"]],
   },
   {
@@ -59,7 +54,7 @@ const PRODUCTS: { name: string; status: Status; icon: string; tone: Tone; descri
     icon: "📈",
     tone: "b",
     description:
-      "Análisis técnico avanzado de criptomonedas: RSI, MACD, Fibonacci, Elliott. Agentes especializados como Market Watcher, Risk Manager y Signal Composer.",
+      "Análisis técnico avanzado: RSI, MACD, Fibonacci, Elliott. Agentes especializados como Market Watcher, Risk Manager y Signal Composer en tiempo real.",
     tags: [["Análisis técnico", "b"], ["Backtesting", "b"], ["Signal AI", "t"]],
   },
   {
@@ -68,7 +63,7 @@ const PRODUCTS: { name: string; status: Status; icon: string; tone: Tone; descri
     icon: "💳",
     tone: "t",
     description:
-      "Plataforma financiera digital con wallet, pagos instantáneos, tarjetas virtuales y físicas, y scoring financiero automatizado para personas y empresas.",
+      "Plataforma financiera digital con wallet, pagos instantáneos, tarjetas virtuales y físicas, y scoring financiero automatizado.",
     tags: [["Wallet", "t"], ["Scoring IA", "t"], ["Tarjetas", "t"]],
   },
   {
@@ -86,7 +81,7 @@ const PRODUCTS: { name: string; status: Status; icon: string; tone: Tone; descri
     icon: "⚙️",
     tone: "t",
     description:
-      "El sistema operativo del holding. Gobierno, facturación centralizada, observabilidad global y orquestación de agentes IA para todos los SaaS del ecosistema.",
+      "El sistema operativo del holding. Gobierno, facturación centralizada, observabilidad global y orquestación de agentes IA para todo el ecosistema.",
     tags: [["Gobierno", "t"], ["Facturación", "t"], ["Observabilidad", "t"]],
   },
 ];
@@ -128,30 +123,11 @@ const WHY: { icon: string; title: string; text: string }[] = [
 ];
 
 const STATS: { value: number; prefix?: string; suffix?: string; label: string }[] = [
-  { value: 5, label: "SaaS en el ecosistema" },
+  { value: 5, label: "SaaS activos" },
   { value: 100, suffix: "%", label: "IA en el núcleo" },
   { value: 6, label: "Sectores cubiertos" },
-  { value: 50, prefix: "<", suffix: "ms", label: "Latencia global (Edge)" },
+  { value: 50, prefix: "<", suffix: "ms", label: "Latencia global" },
 ];
-
-const BTN_PRIMARY =
-  "inline-flex items-center gap-1.5 rounded-lg bg-[#3b82f6] px-7 py-3.5 text-[15px] font-semibold leading-none text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#2563eb] hover:shadow-[0_8px_28px_rgba(59,130,246,.45)]";
-const BTN_SECONDARY =
-  "inline-block rounded-lg border border-[#e2e8f0] bg-white px-7 py-3.5 text-[15px] font-medium leading-none text-[#0f172a] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#3b82f6] hover:text-[#3b82f6] hover:shadow-[0_4px_16px_rgba(59,130,246,.1)]";
-
-function SectionIntro({ eyebrow, title, lead }: { eyebrow: string; title: [string, string]; lead: string }) {
-  return (
-    <>
-      <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#3b82f6]">{eyebrow}</p>
-      <h2 className={`${DISPLAY} mb-3.5 text-balance text-[clamp(28px,4vw,46px)] font-extrabold leading-[1.12] tracking-[-0.025em] text-[#0f172a]`}>
-        {title[0]}
-        <br />
-        {title[1]}
-      </h2>
-      <p className="mb-13 max-w-[520px] text-[17px] leading-[1.65] text-[#64748b]">{lead}</p>
-    </>
-  );
-}
 
 export default async function Home({ params }: { params?: Promise<{ locale?: string }> }) {
   const resolvedParams = params ? await params : undefined;
@@ -162,7 +138,6 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
 
   if (mode === "CAMPAMENTO_BASE") redirect("/admin");
   if (mode === "PREVIEW") redirect("/preview");
-
   if (host.includes("socialflow")) redirect("/socialflow");
 
   const matchedPath = headersList.get("x-matched-path") || headersList.get("x-invoke-path") || headersList.get("next-url") || "/";
@@ -170,12 +145,68 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
   const prefix = locale === defaultMarketingLocale ? "" : `/${locale}`;
 
   return (
-    <div
-      className={`${syne.variable} ${dmSans.variable} min-h-screen overflow-x-hidden bg-[#f8fafc] font-[family-name:var(--font-dm-sans)] text-base leading-[1.65] text-[#0f172a] scroll-smooth`}
-    >
-      {/* NAV */}
-      <nav className="sticky top-0 z-[100] flex items-center justify-between border-b border-[#e2e8f0] bg-[rgba(248,250,252,0.88)] px-5 py-3.5 backdrop-blur-[18px] md:px-12 md:py-[18px]">
-        <Link href={prefix || "/"} className={`${DISPLAY} ${GRADIENT_TEXT} text-[21px] font-extrabold tracking-[-0.5px]`}>
+    <div className={`${syne.variable} ${dmSans.variable} min-h-screen overflow-x-hidden bg-[#f8fafc] font-[family-name:var(--font-dm-sans)] text-[#0f172a] scroll-smooth`}>
+
+      <style>{`
+        @keyframes shimmer {
+          0%   { background-position: 0% center; }
+          100% { background-position: 200% center; }
+        }
+        @keyframes spin-slow {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes orb-pulse {
+          0%, 100% { opacity: 0.25; transform: scale(1); }
+          50%       { opacity: 0.45; transform: scale(1.08); }
+        }
+        @keyframes badge-border {
+          to { background-position: 200% center; }
+        }
+        @keyframes glow-btn {
+          0%, 100% { box-shadow: 0 0 20px rgba(59,130,246,.4), 0 0 50px rgba(6,182,212,.15); }
+          50%       { box-shadow: 0 0 35px rgba(59,130,246,.7), 0 0 80px rgba(6,182,212,.3); }
+        }
+        .shimmer-text {
+          background: linear-gradient(90deg, #3b82f6, #06b6d4, #818cf8, #06b6d4, #3b82f6);
+          background-size: 300% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: shimmer 4s linear infinite;
+        }
+        .btn-glow {
+          animation: glow-btn 2.8s ease-in-out infinite;
+        }
+        .btn-glow:hover {
+          animation: none;
+          box-shadow: 0 0 40px rgba(59,130,246,.8), 0 0 90px rgba(6,182,212,.4);
+          transform: translateY(-2px) scale(1.02);
+        }
+        .card-glow:hover {
+          box-shadow:
+            0 0 0 1px rgba(59,130,246,.35),
+            0 20px 60px rgba(59,130,246,.14),
+            0 0 80px rgba(6,182,212,.07);
+          transform: translateY(-6px);
+          border-color: rgba(59,130,246,.35);
+        }
+        .stack-pill:hover {
+          box-shadow: 0 0 24px rgba(59,130,246,.35), inset 0 0 12px rgba(59,130,246,.06);
+          border-color: rgba(59,130,246,.55);
+        }
+        .why-card:hover {
+          box-shadow: 0 0 0 1px rgba(59,130,246,.2), 0 16px 48px rgba(59,130,246,.09);
+          transform: translateY(-4px);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .shimmer-text, .btn-glow { animation: none; }
+          .shimmer-text { -webkit-text-fill-color: #3b82f6; }
+        }
+      `}</style>
+
+      {/* ─── NAV ─────────────────────────────────────────────────── */}
+      <nav className="sticky top-0 z-[100] flex items-center justify-between border-b border-white/[0.07] bg-[rgba(4,8,15,0.9)] px-5 py-4 backdrop-blur-[22px] md:px-12 md:py-[18px]">
+        <Link href={prefix || "/"} className={`${DISPLAY} text-[21px] font-extrabold tracking-[-0.5px] shimmer-text`}>
           DRAKO
         </Link>
         <ul className="hidden list-none gap-8 md:flex">
@@ -186,7 +217,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
             { href: `${prefix}/journal`, label: "Journal" },
           ].map((item) => (
             <li key={item.href}>
-              <a href={item.href} className="text-sm font-medium text-[#64748b] transition-colors hover:text-[#0f172a]">
+              <a href={item.href} className="text-sm font-medium text-white/50 transition-colors duration-200 hover:text-white">
                 {item.label}
               </a>
             </li>
@@ -194,86 +225,142 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
         </ul>
         <a
           href="#contacto"
-          className="inline-block rounded-lg bg-[#3b82f6] px-5 py-[9px] text-sm font-semibold leading-none text-white transition-all duration-200 hover:-translate-y-px hover:bg-[#2563eb] hover:shadow-[0_4px_16px_rgba(59,130,246,.4)]"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-5 py-[10px] text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-px hover:shadow-[0_0_24px_rgba(59,130,246,.6),0_0_48px_rgba(6,182,212,.25)]"
         >
           Hablar con Drako
         </a>
       </nav>
 
-      {/* HERO */}
-      <section className="relative flex min-h-[94vh] items-center justify-center overflow-hidden px-5 pb-20 pt-15 md:px-10 md:pb-25 md:pt-20">
-        <NetworkCanvas className="absolute inset-0 h-full w-full" />
+      {/* ─── HERO ────────────────────────────────────────────────── */}
+      <section className="relative flex min-h-[96vh] items-center justify-center overflow-hidden bg-[#04080f] px-5 pb-24 pt-16 md:px-10">
 
-        <div className="relative z-[2] max-w-[840px] text-center">
-          <div className="mb-[30px] inline-flex items-center gap-2 rounded-full border border-[#e2e8f0] bg-white py-1.5 pl-2.5 pr-4 text-xs font-semibold tracking-[0.03em] text-[#64748b] shadow-[0_1px_3px_rgba(15,23,42,.06),0_1px_2px_rgba(15,23,42,.04)]">
-            <span className="h-2 w-2 animate-spin rounded-full bg-[conic-gradient(#3b82f6,#06b6d4,#3b82f6)] [animation-duration:3s]" />
-            Holding Tecnológico · IA en el core
+        {/* Orbes de luz */}
+        <div
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(59,130,246,0.13) 0%, transparent 70%)", animation: "orb-pulse 5s ease-in-out infinite" }}
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -right-[10%] top-[20%] h-[400px] w-[400px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(6,182,212,0.1) 0%, transparent 65%)", animation: "orb-pulse 7s ease-in-out infinite 1.5s" }}
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -left-[5%] bottom-[15%] h-[300px] w-[300px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 65%)", animation: "orb-pulse 6s ease-in-out infinite 3s" }}
+          aria-hidden="true"
+        />
+
+        {/* Red neuronal de fondo */}
+        <NetworkCanvas className="absolute inset-0 h-full w-full opacity-40" />
+
+        {/* Contenido */}
+        <div className="relative z-[2] max-w-[880px] text-center">
+
+          {/* Badge */}
+          <div className="mb-9 inline-flex items-center gap-2.5 rounded-full px-[1px] py-[1px]"
+            style={{ background: "linear-gradient(90deg,#3b82f6,#06b6d4,#818cf8,#3b82f6)", backgroundSize: "300% auto", animation: "badge-border 4s linear infinite" }}>
+            <div className="flex items-center gap-2 rounded-full bg-[#04080f] px-4 py-2 text-[12px] font-semibold tracking-wide text-white/70">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ background: "linear-gradient(90deg,#3b82f6,#06b6d4)", animation: "spin-slow 3s linear infinite" }}
+              />
+              Holding Tecnológico · IA en el core
+            </div>
           </div>
 
-          <h1 className={`${DISPLAY} mb-6 text-balance text-[clamp(40px,6.5vw,76px)] font-extrabold leading-[1.06] tracking-[-0.035em] text-[#0f172a]`}>
-            Software que <span className={GRADIENT_TEXT}>automatiza</span>
+          {/* Headline */}
+          <h1 className={`${DISPLAY} mb-7 text-[clamp(44px,7vw,88px)] font-extrabold leading-[1.04] tracking-[-0.04em] text-white`}>
+            Software que{" "}
+            <span className="shimmer-text">automatiza</span>
             <br />
             industrias completas
           </h1>
-          <p className="mx-auto mb-11 max-w-[560px] text-balance text-[clamp(16px,2vw,20px)] leading-[1.65] text-[#64748b]">
+
+          <p className="mx-auto mb-12 max-w-[540px] text-[clamp(16px,2vw,19px)] leading-[1.7] text-white/55">
             Drako crea SaaS verticales impulsados por inteligencia artificial. Cada producto resuelve un sector con agentes autónomos, edge computing y arquitectura de primer nivel.
           </p>
 
-          <div className="mb-18 flex flex-wrap items-center justify-center gap-3">
-            <a href="#productos" className={BTN_PRIMARY}>
-              Ver el ecosistema →
+          {/* Botones */}
+          <div className="mb-20 flex flex-wrap items-center justify-center gap-4">
+            <a
+              href="#productos"
+              className={`btn-glow inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-8 py-4 text-[15px] font-bold text-white transition-all duration-300`}
+              style={{ boxShadow: "0 0 20px rgba(59,130,246,.4), 0 0 50px rgba(6,182,212,.15)" }}
+            >
+              Ver el ecosistema
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
             </a>
-            <a href="#stack" className={BTN_SECONDARY}>
+            <a
+              href="#stack"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/[0.06] px-8 py-4 text-[15px] font-semibold text-white/80 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(59,130,246,.5)] hover:bg-white/[0.1] hover:text-white hover:shadow-[0_4px_24px_rgba(59,130,246,.15)]"
+            >
               Nuestra arquitectura
             </a>
           </div>
 
-          <div className="flex flex-col overflow-hidden rounded-[22px] border border-[#e2e8f0] bg-white shadow-[0_1px_3px_rgba(15,23,42,.06),0_1px_2px_rgba(15,23,42,.04)] md:flex-row">
+          {/* Stats */}
+          <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-white/[0.09] bg-white/[0.04] backdrop-blur-sm md:grid-cols-4">
             {STATS.map((stat, i) => (
               <div
                 key={stat.label}
-                className={`relative flex-[1_1_150px] px-5 py-6 text-center ${
-                  i > 0 ? "md:before:absolute md:before:inset-y-[20%] md:before:left-0 md:before:w-px md:before:bg-[#e2e8f0] md:before:content-['']" : ""
-                }`}
+                className={`relative px-5 py-6 text-center ${i > 0 ? "border-l border-white/[0.08]" : ""} ${i >= 2 ? "border-t border-white/[0.08] md:border-t-0" : ""}`}
               >
                 <StatCounter
                   value={stat.value}
                   prefix={stat.prefix}
                   suffix={stat.suffix}
-                  className={`${DISPLAY} ${GRADIENT_TEXT} mb-1.5 block text-[30px] font-extrabold leading-none tracking-[-0.025em] tabular-nums`}
+                  className={`${DISPLAY} shimmer-text mb-1.5 block text-[32px] font-extrabold leading-none tracking-[-0.025em] tabular-nums`}
                 />
-                <span className="text-xs font-medium leading-[1.4] text-[#64748b]">{stat.label}</span>
+                <span className="text-[11px] font-medium leading-[1.4] text-white/45">{stat.label}</span>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* PRODUCTOS */}
-      <div className="mx-auto max-w-[1160px] px-5 md:px-10">
-        <section id="productos" className="scroll-mt-20 py-16 md:py-24">
-          <SectionIntro
-            eyebrow="El ecosistema"
-            title={["Seis productos.", "Un solo stack."]}
-            lead="Cada SaaS opera de forma independiente y comparte infraestructura, agentes IA y conocimiento acumulado. Lo que uno aprende, lo aprovechan todos."
-          />
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(310px,100%),1fr))] gap-[18px]">
+      {/* ─── PRODUCTOS ───────────────────────────────────────────── */}
+      <section id="productos" className="scroll-mt-20 bg-[#f8fafc] px-5 py-16 md:px-10 md:py-24">
+        <div className="mx-auto max-w-[1160px]">
+          <div className="mb-14 max-w-[580px]">
+            <p className="mb-3 text-[12px] font-bold text-[#3b82f6]">El ecosistema</p>
+            <h2 className={`${DISPLAY} mb-4 text-[clamp(30px,4vw,48px)] font-extrabold leading-[1.1] tracking-[-0.03em] text-[#0a0f1e]`}>
+              Seis productos.<br />Un solo stack.
+            </h2>
+            <p className="text-[17px] leading-[1.65] text-[#64748b]">
+              Cada SaaS opera de forma independiente y comparte infraestructura, agentes IA y conocimiento acumulado. Lo que uno aprende, lo aprovechan todos.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(320px,100%),1fr))] gap-5">
             {PRODUCTS.map((product) => {
               const badge = STATUS_BADGE[product.status];
               return (
                 <article
                   key={product.name}
-                  className="relative overflow-hidden rounded-[22px] border border-[#e2e8f0] bg-white p-7 transition-all duration-[280ms] after:absolute after:inset-x-0 after:top-0 after:h-[3px] after:bg-gradient-to-r after:from-[#3b82f6] after:to-[#06b6d4] after:opacity-0 after:transition-opacity after:duration-300 after:content-[''] hover:-translate-y-[5px] hover:border-[rgba(59,130,246,.3)] hover:shadow-[0_0_0_1px_rgba(59,130,246,.25),0_8px_32px_rgba(59,130,246,.14)] hover:after:opacity-100"
+                  className="card-glow group relative overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white p-7 transition-all duration-300"
                 >
-                  <span className={`absolute right-5 top-5 rounded-full px-2.5 py-[3px] text-[11px] font-semibold ${badge.className}`}>{badge.label}</span>
-                  <div className={`mb-[18px] flex h-12 w-12 items-center justify-center rounded-xl text-[22px] ${TONE_WASH[product.tone]}`} aria-hidden="true">
-                    {product.icon}
+                  {/* Top glow strip — aparece en hover via group */}
+                  <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+                  <div className="mb-4 flex items-start justify-between">
+                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl text-[22px] ${product.tone === "b" ? "bg-blue-50" : "bg-cyan-50"}`}>
+                      {product.icon}
+                    </div>
+                    <span className={`rounded-full px-2.5 py-[4px] text-[11px] font-semibold ${badge.className}`}>
+                      {badge.label}
+                    </span>
                   </div>
-                  <h3 className={`${DISPLAY} mb-2 text-[17px] font-bold text-[#0f172a]`}>{product.name}</h3>
-                  <p className="mb-5 text-sm leading-[1.62] text-[#64748b]">{product.description}</p>
+
+                  <h3 className={`${DISPLAY} mb-2 text-[18px] font-bold text-[#0a0f1e]`}>{product.name}</h3>
+                  <p className="mb-5 text-sm leading-[1.65] text-[#64748b]">{product.description}</p>
+
                   <div className="flex flex-wrap gap-1.5">
                     {product.tags.map(([tag, tone]) => (
-                      <span key={tag} className={`rounded-full px-2.5 py-[3px] text-[11px] font-semibold ${TAG_TONE[tone]}`}>
+                      <span
+                        key={tag}
+                        className={`rounded-full px-2.5 py-[3px] text-[11px] font-semibold ${tone === "b" ? "bg-blue-50 text-[#3b82f6]" : "bg-cyan-50 text-[#0891b2]"}`}
+                      >
                         {tag}
                       </span>
                     ))}
@@ -282,18 +369,20 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
               );
             })}
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
-      {/* STACK */}
-      <section id="stack" className="scroll-mt-20 bg-[#020c1a] px-5 py-12 md:px-10 md:py-15">
+      {/* ─── STACK ───────────────────────────────────────────────── */}
+      <section id="stack" className="scroll-mt-20 bg-[#04080f] px-5 py-14 md:px-10 md:py-18">
         <div className="mx-auto max-w-[1160px]">
-          <p className="mb-8 text-center text-[11px] font-bold uppercase tracking-[0.1em] text-white/35">Infraestructura compartida en todos los productos</p>
-          <div className="flex flex-wrap justify-center gap-2.5">
+          <p className="mb-10 text-center text-[12px] font-semibold tracking-[0.12em] text-white/30">
+            Infraestructura compartida en todos los productos
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
             {STACK.map(([item, tone]) => (
               <div
                 key={item}
-                className="flex items-center gap-2 rounded-lg border border-white/[0.09] bg-white/[0.05] px-[18px] py-2.5 text-[13px] font-medium text-white/65 transition-colors duration-200 hover:border-[rgba(59,130,246,.4)] hover:bg-[rgba(59,130,246,.12)] hover:text-white"
+                className="stack-pill flex items-center gap-2 rounded-lg border border-white/[0.1] bg-white/[0.04] px-5 py-2.5 text-[13px] font-medium text-white/60 transition-all duration-200 hover:bg-[rgba(59,130,246,.08)] hover:text-white"
               >
                 <span className={`h-1.5 w-1.5 rounded-full ${tone === "b" ? "bg-[#3b82f6]" : "bg-[#06b6d4]"}`} />
                 {item}
@@ -303,56 +392,79 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
         </div>
       </section>
 
-      {/* POR QUÉ DRAKO */}
-      <div className="mx-auto max-w-[1160px] px-5 md:px-10">
-        <section id="por-que" className="scroll-mt-20 py-16 md:py-24">
-          <SectionIntro
-            eyebrow="Por qué Drako"
-            title={["IA estructural,", "no decorativa."]}
-            lead="La inteligencia artificial no es una función que añadimos. Está en el núcleo de cada decisión de arquitectura, desde el primer día."
-          />
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(250px,100%),1fr))] gap-[18px]">
+      {/* ─── POR QUÉ DRAKO ───────────────────────────────────────── */}
+      <section id="por-que" className="scroll-mt-20 bg-[#f8fafc] px-5 py-16 md:px-10 md:py-24">
+        <div className="mx-auto max-w-[1160px]">
+          <div className="mb-14 max-w-[520px]">
+            <p className="mb-3 text-[12px] font-bold text-[#3b82f6]">Por qué Drako</p>
+            <h2 className={`${DISPLAY} mb-4 text-[clamp(30px,4vw,48px)] font-extrabold leading-[1.1] tracking-[-0.03em] text-[#0a0f1e]`}>
+              IA estructural,<br />no decorativa.
+            </h2>
+            <p className="text-[17px] leading-[1.65] text-[#64748b]">
+              La inteligencia artificial no es una función que añadimos. Está en el núcleo de cada decisión de arquitectura, desde el primer día.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(260px,100%),1fr))] gap-5">
             {WHY.map((item) => (
               <div
                 key={item.title}
-                className="rounded-[14px] border border-[#e2e8f0] bg-white p-7 transition-all duration-[250ms] hover:-translate-y-[3px] hover:shadow-[0_6px_24px_rgba(15,23,42,.08)]"
+                className="why-card group rounded-2xl border border-[#e2e8f0] bg-white p-8 transition-all duration-300"
               >
-                <span className="mb-3.5 block text-[26px]" aria-hidden="true">{item.icon}</span>
-                <h3 className={`${DISPLAY} mb-2 text-base font-bold text-[#0f172a]`}>{item.title}</h3>
-                <p className="text-sm leading-[1.65] text-[#64748b]">{item.text}</p>
+                <span className="mb-5 block text-[32px]" aria-hidden="true">{item.icon}</span>
+                <h3 className={`${DISPLAY} mb-2.5 text-[16px] font-bold text-[#0a0f1e]`}>{item.title}</h3>
+                <p className="text-sm leading-[1.7] text-[#64748b]">{item.text}</p>
               </div>
             ))}
           </div>
-        </section>
-      </div>
-
-      {/* CTA */}
-      <section id="contacto" className="scroll-mt-20 px-5 py-12 text-center md:px-10 md:py-20">
-        <div className="relative mx-auto max-w-[640px] overflow-hidden rounded-[26px] border border-[rgba(59,130,246,.18)] bg-[linear-gradient(145deg,rgba(59,130,246,.07),rgba(6,182,212,.07))] px-6 py-10 md:px-12 md:py-16">
-          <span aria-hidden="true" className="pointer-events-none absolute -right-[60px] -top-[60px] h-[200px] w-[200px] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,.12),transparent_70%)]" />
-          <span aria-hidden="true" className="pointer-events-none absolute -bottom-[50px] -left-[50px] h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(6,182,212,.1),transparent_70%)]" />
-          <h2 className={`${DISPLAY} relative z-[1] mb-4 text-balance text-[clamp(24px,4vw,36px)] font-extrabold tracking-[-0.02em] text-[#0f172a]`}>
-            ¿Tu sector necesita un SaaS especializado en IA?
-          </h2>
-          <p className="relative z-[1] mb-8 text-base leading-[1.65] text-[#64748b]">
-            Drako construye productos verticales con arquitectura de primer nivel. Hablamos, identificamos el problema y lo automatizamos.
-          </p>
-          <Link href={`${prefix}/contact`} className={`${BTN_PRIMARY} relative z-[1]`}>
-            Contactar con Drako →
-          </Link>
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="mx-auto flex max-w-[1160px] flex-wrap items-center justify-between gap-3 border-t border-[#e2e8f0] px-5 py-7 md:px-10 md:py-9">
-        <span className={`${DISPLAY} ${GRADIENT_TEXT} text-base font-extrabold`}>DRAKO</span>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-[#64748b]">
-          <Link href="/aviso-legal" className="transition-colors hover:text-[#0f172a]">Aviso legal</Link>
-          <Link href="/privacidad" className="transition-colors hover:text-[#0f172a]">Privacidad</Link>
-          <Link href="/cookies" className="transition-colors hover:text-[#0f172a]">Cookies</Link>
-          <span>© 2026 Drako Systems · Holding Tecnológico</span>
+      {/* ─── CTA ─────────────────────────────────────────────────── */}
+      <section id="contacto" className="scroll-mt-20 bg-[#04080f] px-5 py-16 text-center md:px-10 md:py-24">
+        <div className="relative mx-auto max-w-[700px]">
+
+          {/* Orbe central */}
+          <div
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(59,130,246,0.12) 0%, rgba(6,182,212,0.07) 40%, transparent 70%)", animation: "orb-pulse 4s ease-in-out infinite" }}
+            aria-hidden="true"
+          />
+
+          <div className="relative z-[1]">
+            <p className="mb-5 text-[12px] font-semibold tracking-[0.12em] text-white/30">¿Tu sector necesita automatización?</p>
+            <h2 className={`${DISPLAY} mb-5 text-balance text-[clamp(32px,5vw,58px)] font-extrabold leading-[1.08] tracking-[-0.03em] text-white`}>
+              Construimos el SaaS<br />
+              <span className="shimmer-text">que tu industria necesita.</span>
+            </h2>
+            <p className="mx-auto mb-10 max-w-[480px] text-[17px] leading-[1.65] text-white/50">
+              Identificamos el problema, diseñamos la arquitectura y automatizamos el sector con agentes IA especializados.
+            </p>
+            <Link
+              href={`${prefix}/contact`}
+              className="btn-glow inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] px-10 py-[18px] text-[16px] font-bold text-white transition-all duration-300"
+              style={{ boxShadow: "0 0 20px rgba(59,130,246,.4), 0 0 50px rgba(6,182,212,.15)" }}
+            >
+              Hablar con Drako
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── FOOTER ──────────────────────────────────────────────── */}
+      <footer className="bg-[#04080f] border-t border-white/[0.07]">
+        <div className="mx-auto flex max-w-[1160px] flex-wrap items-center justify-between gap-3 px-5 py-8 md:px-10">
+          <span className={`${DISPLAY} shimmer-text text-base font-extrabold`}>DRAKO</span>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-white/35">
+            <Link href="/aviso-legal" className="transition-colors hover:text-white/70">Aviso legal</Link>
+            <Link href="/privacidad" className="transition-colors hover:text-white/70">Privacidad</Link>
+            <Link href="/cookies" className="transition-colors hover:text-white/70">Cookies</Link>
+            <span>© 2026 Drako Systems</span>
+          </div>
         </div>
       </footer>
+
     </div>
   );
 }
