@@ -426,9 +426,7 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
           {STATS.map((s) => (
             <div key={s.label} className="stat-item">
               <p className={`${DISPLAY} text-4xl font-extrabold text-[#0a0f1e] mb-1`}>
-                {s.prefix && <span className="text-gradient">{s.prefix}</span>}
-                <StatCounter target={s.value} />
-                {s.suffix && <span className="text-gradient">{s.suffix}</span>}
+                <StatCounter value={s.value} prefix={s.prefix} suffix={s.suffix} />
               </p>
               <p className="text-sm text-slate-500 font-medium">{s.label}</p>
             </div>
