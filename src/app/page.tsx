@@ -89,7 +89,6 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
   const headerMode = hdrs.get("x-drako-host-mode");
   const hostMode = isHostMode(headerMode) ? headerMode : resolveHostMode(host);
   if (hostMode === "CAMPAMENTO_BASE") redirect("/admin");
-  if (hostMode === "PUBLIC_SAAS") redirect("/app");
 
   const locale = resolveMarketingLocale(undefined) ?? defaultMarketingLocale;
 
