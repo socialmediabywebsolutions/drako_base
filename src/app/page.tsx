@@ -1,18 +1,25 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { DM_Sans, Syne } from "next/font/google";
+import { Space_Grotesk } from "next/font/google";
 import { HostMode, resolveHostMode } from "@/lib/hosts";
 import { resolveMarketingLocale, defaultMarketingLocale } from "@/lib/i18n/marketing";
 import { StatCounter } from "@/components/marketing/home/StatCounter";
 
-const syne = Syne({ subsets: ["latin"], weight: ["700", "800"], variable: "--font-syne", display: "swap" });
-const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans", display: "swap" });
+// ─── NUEVA TIPOGRAFÍA: Space Grotesk (nada de Syne) ───────────────────────
+const sg = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--sg",
+  display: "swap",
+});
 
-const isHostMode = (value: string | null): value is HostMode =>
-  value === "CAMPAMENTO_BASE" || value === "PREVIEW" || value === "PUBLIC_SAAS";
+// ─── ASSETS DRAKO EN R2 ───────────────────────────────────────────────────
+const LOGO =
+  "https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo%20drako.png";
 
-const SY = "font-[family-name:var(--font-syne)]";
+const isHostMode = (v: string | null): v is HostMode =>
+  v === "CAMPAMENTO_BASE" || v === "PREVIEW" || v === "PUBLIC_SAAS";
 
 type PStatus = "live" | "beta" | "dev";
 
@@ -20,90 +27,84 @@ interface Product {
   name: string;
   sector: string;
   outcome: string;
-  description: string;
+  body: string;
   status: PStatus;
-  statusLabel: string;
+  label: string;
   url?: string;
   icon: string;
+  accent: "blue" | "cyan";
 }
 
 const PRODUCTS: Product[] = [
   {
     name: "Socialcors",
-    sector: "Marketing digital · Redes sociales",
+    sector: "Marketing · Redes sociales",
     outcome: "30+ posts al mes sin tocar nada",
-    description:
-      "El Cerebro crea, programa y publica en Instagram, LinkedIn, TikTok y más — aprendiendo de tu marca y de las tendencias del momento. Tu comunidad crece mientras tú haces otra cosa.",
+    body: "El Cerebro crea, programa y publica en Instagram, LinkedIn y TikTok — aprendiendo de tu marca y tendencias. Tu comunidad crece sola.",
     status: "live",
-    statusLabel: "Disponible ahora",
+    label: "Disponible ahora",
     url: "https://socialcors.com",
     icon: "📱",
+    accent: "blue",
   },
   {
     name: "Mentoría",
-    sector: "Educación · Apoyo académico",
-    outcome: "Cada alumno aprende a su ritmo, sin más profesores",
-    description:
-      "Tutores IA que se adaptan al nivel de cada estudiante. Los padres siguen el progreso por WhatsApp en tiempo real. Sin contratar.",
+    sector: "Educación",
+    outcome: "Cada alumno aprende a su ritmo",
+    body: "Tutores IA que se adaptan al nivel de cada estudiante. Padres informados por WhatsApp. Sin contratar más profesores.",
     status: "beta",
-    statusLabel: "Beta",
+    label: "Beta",
     icon: "🎓",
+    accent: "cyan",
   },
   {
     name: "Crypto IA",
     sector: "Inversión · Trading",
-    outcome: "El mercado, analizado las 24 horas",
-    description:
-      "Agentes especializados que monitorizan y alertan sobre oportunidades — RSI, MACD, Fibonacci — explicados en lenguaje humano.",
+    outcome: "El mercado, analizado 24 horas",
+    body: "Agentes que monitorizan y alertan sobre oportunidades — RSI, MACD, Fibonacci — en lenguaje humano, en tiempo real.",
     status: "dev",
-    statusLabel: "Próximamente",
+    label: "Próximamente",
     icon: "📊",
+    accent: "blue",
   },
   {
     name: "Cazh",
-    sector: "Finanzas · Pagos",
+    sector: "Finanzas empresariales",
     outcome: "Pagos y cobros sin gestión manual",
-    description:
-      "Wallet, transferencias y tarjetas virtuales con scoring financiero automatizado. La cuenta bancaria inteligente para tu empresa.",
+    body: "Wallet, transferencias y tarjetas virtuales con scoring financiero automatizado. La cuenta bancaria inteligente.",
     status: "dev",
-    statusLabel: "Próximamente",
+    label: "Próximamente",
     icon: "💳",
+    accent: "cyan",
   },
   {
     name: "Rentia",
     sector: "Inmobiliaria · Alquileres",
     outcome: "Tu cartera inmobiliaria, autogestionada",
-    description:
-      "La IA gestiona contratos, cobros e incidencias. Evalúa inquilinos y predice riesgos de impago antes de que ocurran.",
+    body: "La IA gestiona contratos, cobros e incidencias. Evalúa inquilinos y predice riesgos de impago antes de que ocurran.",
     status: "dev",
-    statusLabel: "Próximamente",
+    label: "Próximamente",
     icon: "🏠",
+    accent: "blue",
   },
 ];
 
 const TICKER = [
   "📱 Post publicado en Instagram — Restaurante La Mar — +847 likes",
-  "📈 +45% engagement esta semana — Clínica Dental Plus",
+  "📈 +45% engagement — Clínica Dental Plus",
   "✍️ 12 posts generados para la semana — Academia FitLife",
-  "🚀 Campaña lanzada en LinkedIn — Inmobiliaria Torres — +230 impresiones",
-  "💬 Respuestas automáticas activas 24h — E-commerce Modavida",
+  "🚀 Campaña LinkedIn lanzada — Inmobiliaria Torres — +230 impresiones",
+  "💬 Respuestas automáticas 24h activas — E-commerce Modavida",
   "📊 Análisis mensual completado — Bufete García",
-  "🎯 Nuevo lead captado vía contenido IA — SaaS TechPro",
+  "🎯 Nuevo lead captado — SaaS TechPro",
   "⚡ 98 posts publicados este mes — Agencia Digital X",
 ];
 
-const METRICS = [
-  { value: 98,  suffix: "%", label: "más engagement" },
-  { value: 5,   suffix: "x", label: "más publicaciones" },
-  { value: 24,  suffix: "h", label: "operación continua" },
-  { value: 30,  suffix: "%", label: "menos costes marketing" },
-];
-
 const FEED = [
-  { icon: "📸", action: "Post publicado en Instagram", client: "Restaurante La Mar", result: "+847 likes" },
-  { icon: "📈", action: "Análisis completado", client: "Clínica Dental Plus", result: "+45% reach" },
-  { icon: "✍️", action: "12 posts generados", client: "Academia FitLife", result: "semana próxima" },
-  { icon: "🚀", action: "Campaña LinkedIn activa", client: "Inmobiliaria Torres", result: "+230 imprs." },
+  { icon: "📸", action: "Post publicado en Instagram", client: "Restaurante La Mar",   result: "+847 likes" },
+  { icon: "📈", action: "Análisis completado",         client: "Clínica Dental Plus",  result: "+45% reach" },
+  { icon: "✍️", action: "12 posts generados",          client: "Academia FitLife",     result: "semana próxima" },
+  { icon: "🚀", action: "Campaña LinkedIn activa",     client: "Inmobiliaria Torres",  result: "+230 imprs." },
 ];
 
 export default async function Home({ params }: { params?: Promise<{ locale?: string }> }) {
@@ -126,531 +127,559 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
     resolvedParams?.locale ?? (matchedPath.split("/")[1] || undefined)
   );
   const prefix = locale === defaultMarketingLocale ? "" : `/${locale}`;
-
-  const tickerDouble = [...TICKER, ...TICKER];
+  const ticker2 = [...TICKER, ...TICKER];
 
   return (
-    <div
-      className={`${syne.variable} ${dmSans.variable} min-h-screen overflow-x-hidden bg-white font-[family-name:var(--font-dm-sans)] text-[#07111f]`}
-    >
+    <div className={`${sg.variable} min-h-screen overflow-x-hidden bg-white text-[#07111f]`}
+         style={{ fontFamily: "var(--sg), system-ui, sans-serif" }}>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          ESTILOS GLOBALES
+      ══════════════════════════════════════════════════════════════════ */}
       <style>{`
-        /* ── TOKENS ─────────────────────────────── */
+        /* ─── TOKENS ─────────────────────────────────────────────────── */
         :root {
-          --bl: #3b82f6;
-          --cy: #06b6d4;
-          --nv: #07111f;
-          --sf: #f0f6ff;
-          --bdr: #dbeafe;
-          --mid: #64748b;
+          --bl:   #3b82f6;
+          --cy:   #06b6d4;
+          --nv:   #07111f;
+          --sf:   #f0f8ff;
+          --stf:  #e8fbff;          /* turquoise surface */
+          --bdr:  #dbeafe;
+          --cbdr: #a5f3fc;          /* turquoise border */
+          --mid:  #64748b;
+          --sg:   'Space Grotesk', system-ui, sans-serif;
         }
 
-        /* ── GRADIENT TEXT ───────────────────────── */
-        .g {
-          background: linear-gradient(110deg, var(--bl) 10%, var(--cy) 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
+        /* ─── GRADIENT TEXT ───────────────────────────────────────────── */
+        .G  { background: linear-gradient(110deg,#3b82f6 0%,#06b6d4 100%);
+              -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+              background-clip:text; }
+        .GC { background: linear-gradient(110deg,#06b6d4 0%,#3b82f6 100%);
+              -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+              background-clip:text; }
 
-        /* ── NAV ─────────────────────────────────── */
+        /* ─── NAV ─────────────────────────────────────────────────────── */
         .topnav {
           background: rgba(255,255,255,.92);
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
+          backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
         }
-        .nl {
-          font-size: 14px; font-weight: 500; color: var(--mid);
-          transition: color .18s;
-        }
-        .nl:hover { color: var(--nv); }
+        .nl { font-size:14px; font-weight:600; color:var(--mid); transition:color .18s; }
+        .nl:hover { color:var(--nv); }
 
-        /* ── CTA BUTTONS ─────────────────────────── */
-        .cbtn {
-          display: inline-flex; align-items: center; gap: 8px;
-          background: linear-gradient(108deg, var(--bl) 0%, var(--cy) 100%);
-          color: #fff;
-          font-family: var(--font-syne), sans-serif;
-          font-weight: 800; font-size: 15px;
-          padding: 14px 28px; border-radius: 12px;
-          box-shadow: 0 4px 24px rgba(59,130,246,.32);
-          transition: transform .2s, box-shadow .2s;
-          white-space: nowrap;
+        /* ─── BUTTONS ─────────────────────────────────────────────────── */
+        .btn-blue {
+          display:inline-flex; align-items:center; gap:8px;
+          background:linear-gradient(108deg,#3b82f6,#06b6d4);
+          color:#fff; font-weight:700; font-size:15px; font-family:var(--sg);
+          padding:14px 28px; border-radius:12px;
+          box-shadow:0 4px 24px rgba(59,130,246,.35);
+          transition:transform .2s, box-shadow .2s;
         }
-        .cbtn:hover { transform: translateY(-3px); box-shadow: 0 10px 40px rgba(59,130,246,.42); }
+        .btn-blue:hover { transform:translateY(-3px); box-shadow:0 10px 40px rgba(59,130,246,.45); }
 
-        .cbtn-sm {
-          padding: 10px 20px; font-size: 14px; border-radius: 10px;
+        .btn-cyan {
+          display:inline-flex; align-items:center; gap:8px;
+          background:linear-gradient(108deg,#06b6d4,#3b82f6);
+          color:#fff; font-weight:700; font-size:15px; font-family:var(--sg);
+          padding:14px 28px; border-radius:12px;
+          box-shadow:0 4px 24px rgba(6,182,212,.35);
+          transition:transform .2s, box-shadow .2s;
         }
+        .btn-cyan:hover { transform:translateY(-3px); box-shadow:0 10px 40px rgba(6,182,212,.45); }
 
-        .obtn {
-          display: inline-flex; align-items: center; gap: 8px;
-          background: transparent; color: var(--bl);
-          font-family: var(--font-syne), sans-serif;
-          font-weight: 700; font-size: 15px;
-          padding: 13px 26px; border-radius: 12px;
-          border: 1.5px solid rgba(59,130,246,.28);
-          transition: all .2s;
+        .btn-out {
+          display:inline-flex; align-items:center; gap:8px;
+          background:transparent; color:var(--cy);
+          font-weight:700; font-size:15px; font-family:var(--sg);
+          padding:13px 26px; border-radius:12px;
+          border:2px solid rgba(6,182,212,.4);
+          transition:all .2s;
         }
-        .obtn:hover { background: rgba(59,130,246,.05); border-color: var(--bl); transform: translateY(-2px); }
+        .btn-out:hover { background:rgba(6,182,212,.07); border-color:var(--cy); transform:translateY(-2px); }
 
-        /* ── HERO BG ─────────────────────────────── */
-        .hero-blobs { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-        .blob {
-          position: absolute; border-radius: 50%;
-          filter: blur(100px);
-        }
-        .b1 {
-          width: 720px; height: 520px; top: -120px; right: -100px;
-          background: radial-gradient(ellipse, rgba(59,130,246,.11), transparent 68%);
-          animation: bdrift 13s ease-in-out infinite;
-        }
-        .b2 {
-          width: 480px; height: 400px; bottom: -60px; left: -80px;
-          background: radial-gradient(ellipse, rgba(6,182,212,.09), transparent 65%);
-          animation: bdrift 17s ease-in-out infinite reverse;
-        }
-        .b3 {
-          width: 380px; height: 280px; top: 55%; left: 38%;
-          background: radial-gradient(ellipse, rgba(59,130,246,.06), transparent 65%);
-          animation: bdrift 22s ease-in-out infinite;
-        }
-        @keyframes bdrift {
-          0%,100% { transform: translate(0,0); }
-          33%      { transform: translate(38px,-28px); }
-          66%      { transform: translate(-24px,18px); }
-        }
+        .btn-sm { padding:10px 20px !important; font-size:14px !important; border-radius:10px !important; }
 
-        /* ── LIVE BADGE ──────────────────────────── */
-        .live-badge {
-          display: inline-flex; align-items: center; gap: 8px;
-          background: rgba(59,130,246,.07);
-          border: 1px solid rgba(59,130,246,.2);
-          border-radius: 999px; padding: 6px 16px 6px 10px;
-          font-size: 13px; font-weight: 600; color: var(--bl);
-        }
+        /* ─── LIVE DOT ────────────────────────────────────────────────── */
         .ldot {
-          width: 8px; height: 8px; border-radius: 50%;
-          background: #10b981;
-          animation: ldot-pulse 2s ease-in-out infinite;
+          width:9px; height:9px; border-radius:50%;
+          background:#10b981;
+          animation:ldot 2s ease-in-out infinite;
         }
-        @keyframes ldot-pulse {
-          0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,.5); }
-          50%      { box-shadow: 0 0 0 5px rgba(16,185,129,.0); }
+        @keyframes ldot {
+          0%,100% { box-shadow:0 0 0 0 rgba(16,185,129,.5); }
+          50%      { box-shadow:0 0 0 6px rgba(16,185,129,.0); }
         }
 
-        /* ── AI FEED CARD ────────────────────────── */
+        /* ─── HERO BACKGROUND ─────────────────────────────────────────── */
+        .hero-section {
+          background: white;
+          position: relative; overflow:hidden;
+        }
+        /* Dot grid */
+        .hero-section::before {
+          content:'';
+          position:absolute; inset:0; pointer-events:none;
+          background-image: radial-gradient(circle, rgba(59,130,246,.14) 1.5px, transparent 1.5px);
+          background-size:36px 36px;
+        }
+        .hblob {
+          position:absolute; border-radius:50%; filter:blur(90px); pointer-events:none;
+        }
+        .hb1 {
+          width:700px; height:500px; top:-100px; right:-80px;
+          background: radial-gradient(ellipse, rgba(59,130,246,.14), transparent 65%);
+          animation: hbmove 12s ease-in-out infinite;
+        }
+        .hb2 {
+          width:500px; height:400px; bottom:-60px; left:-60px;
+          background: radial-gradient(ellipse, rgba(6,182,212,.12), transparent 65%);
+          animation: hbmove 17s ease-in-out infinite reverse;
+        }
+        .hb3 {
+          width:350px; height:280px; top:50%; left:42%;
+          background: radial-gradient(ellipse, rgba(6,182,212,.08), transparent 65%);
+          animation: hbmove 22s ease-in-out infinite;
+        }
+        @keyframes hbmove {
+          0%,100% { transform:translate(0,0); }
+          33%      { transform:translate(40px,-28px); }
+          66%      { transform:translate(-28px,20px); }
+        }
+
+        /* ─── AI FEED CARD ────────────────────────────────────────────── */
         .ai-card {
-          background: #fff;
-          border: 1px solid var(--bdr);
-          border-radius: 22px;
-          box-shadow: 0 24px 80px rgba(59,130,246,.1), 0 4px 20px rgba(0,0,0,.04);
-          overflow: hidden;
+          background:#fff;
+          border:1.5px solid var(--cbdr);
+          border-radius:22px;
+          box-shadow:0 0 0 4px rgba(6,182,212,.06), 0 24px 72px rgba(6,182,212,.12), 0 4px 16px rgba(0,0,0,.04);
+          overflow:hidden;
         }
-        .ai-header {
-          padding: 15px 20px;
-          background: var(--sf);
-          border-bottom: 1px solid var(--bdr);
-          display: flex; align-items: center; gap: 10px;
+        .ai-hdr {
+          padding:14px 18px;
+          background: linear-gradient(135deg, #f0fbff, #e8f4ff);
+          border-bottom:1.5px solid var(--cbdr);
+          display:flex; align-items:center; gap:10px;
         }
-        .ai-live-label {
-          margin-left: auto;
-          font-size: 11px; font-weight: 800; letter-spacing: .1em;
-          color: #10b981;
+        .ai-live {
+          margin-left:auto;
+          font-size:10px; font-weight:800; letter-spacing:.12em; color:#06b6d4;
+          border:1.5px solid rgba(6,182,212,.3);
+          background:rgba(6,182,212,.07);
+          padding:3px 8px; border-radius:6px;
         }
         .fi {
-          display: flex; align-items: center; gap: 12px;
-          padding: 14px 20px;
-          border-bottom: 1px solid rgba(219,234,254,.4);
-          opacity: 0;
-          animation: fi-in .4s ease forwards;
+          display:flex; align-items:center; gap:12px;
+          padding:13px 18px;
+          border-bottom:1px solid rgba(165,243,252,.3);
+          opacity:0;
+          animation:fiin .4s ease forwards;
         }
-        .fi:last-of-type { border-bottom: none; }
-        @keyframes fi-in {
-          from { opacity: 0; transform: translateX(18px); }
-          to   { opacity: 1; transform: translateX(0); }
+        .fi:last-of-type { border-bottom:none; }
+        @keyframes fiin { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:none} }
+        .fi:nth-child(1){animation-delay:.4s}
+        .fi:nth-child(2){animation-delay:.9s}
+        .fi:nth-child(3){animation-delay:1.4s}
+        .fi:nth-child(4){animation-delay:1.9s}
+        .fi-tag {
+          margin-left:auto; white-space:nowrap;
+          font-size:11px; font-weight:700; color:#059669;
+          background:rgba(16,185,129,.1); padding:3px 8px; border-radius:99px;
         }
-        .fi:nth-child(1) { animation-delay: .4s; }
-        .fi:nth-child(2) { animation-delay: .9s; }
-        .fi:nth-child(3) { animation-delay: 1.4s; }
-        .fi:nth-child(4) { animation-delay: 1.9s; }
-        .fi-result {
-          margin-left: auto; white-space: nowrap;
-          font-size: 12px; font-weight: 700; color: #059669;
-          background: rgba(16,185,129,.1);
-          padding: 3px 9px; border-radius: 99px;
-        }
-        .prog-bar { height: 5px; background: var(--bdr); border-radius: 5px; overflow: hidden; }
+        .prog-bar { height:5px; background:rgba(6,182,212,.15); border-radius:5px; overflow:hidden; }
         .prog-fill {
-          height: 100%;
-          background: linear-gradient(90deg, var(--bl), var(--cy));
-          border-radius: 5px; width: 0;
-          animation: pfill 2.8s ease-out 2.4s forwards;
+          height:100%;
+          background:linear-gradient(90deg,#3b82f6,#06b6d4);
+          border-radius:5px; width:0;
+          animation:pfill 2.8s ease-out 2.4s forwards;
         }
-        @keyframes pfill { to { width: 73%; } }
+        @keyframes pfill { to{width:73%} }
 
-        /* ── TICKER ──────────────────────────────── */
-        .ticker-outer { overflow: hidden; background: var(--sf); border-top: 1px solid var(--bdr); border-bottom: 1px solid var(--bdr); }
+        /* ─── TICKER ──────────────────────────────────────────────────── */
+        .ticker-wrap {
+          overflow:hidden;
+          background:linear-gradient(90deg, rgba(6,182,212,.08) 0%, rgba(59,130,246,.06) 100%);
+          border-top:1.5px solid rgba(6,182,212,.2);
+          border-bottom:1.5px solid rgba(6,182,212,.2);
+        }
         .ticker-track {
-          display: flex; width: max-content;
-          animation: tick 32s linear infinite;
+          display:flex; width:max-content;
+          animation:tick 32s linear infinite;
         }
-        .ticker-track:hover { animation-play-state: paused; }
-        @keyframes tick {
-          from { transform: translateX(0); }
-          to   { transform: translateX(-50%); }
-        }
+        .ticker-track:hover { animation-play-state:paused; }
+        @keyframes tick { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         .ti {
-          padding: 13px 40px;
-          font-size: 14px; font-weight: 500; color: var(--mid);
-          white-space: nowrap;
-          border-right: 1px solid var(--bdr);
+          padding:13px 36px;
+          font-size:13px; font-weight:600; color:#0e7490;
+          white-space:nowrap;
+          border-right:1.5px solid rgba(6,182,212,.2);
         }
 
-        /* ── METRIC CELLS ────────────────────────── */
+        /* ─── METRICS ─────────────────────────────────────────────────── */
         .mcell {
-          text-align: center; padding: 44px 20px;
-          border-right: 1px solid var(--bdr);
+          text-align:center; padding:44px 20px;
+          border-right:1px solid var(--bdr);
         }
-        .mcell:last-child { border-right: none; }
+        .mcell:last-child { border-right:none; }
 
-        /* ── PRODUCT CARDS ───────────────────────── */
+        /* ─── PRODUCT CARDS — Gradient border always visible ──────────── */
+        /* Technique: ::before pseudo with mask to create gradient border  */
         .pc {
-          background: #fff;
-          border: 1.5px solid var(--bdr);
-          border-radius: 20px;
-          padding: 32px;
-          position: relative;
-          transition: transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s, border-color .25s;
-          overflow: hidden;
+          background:#fff;
+          border-radius:18px;
+          padding:32px;
+          position:relative;
+          isolation:isolate;
+          transition:transform .28s cubic-bezier(.4,0,.2,1), box-shadow .28s;
         }
-        .pc::after {
-          content: '';
-          position: absolute; top: 0; left: 0; right: 0;
-          height: 3px;
-          background: linear-gradient(90deg, var(--bl), var(--cy));
-          opacity: 0;
-          transition: opacity .25s;
+        /* gradient border at 35% opacity at rest */
+        .pc::before {
+          content:'';
+          position:absolute; inset:0; border-radius:18px; padding:1.5px;
+          background:linear-gradient(135deg, rgba(59,130,246,.4), rgba(6,182,212,.4));
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: destination-out;
+          mask-composite: exclude;
+          transition:background .28s;
         }
-        .pc:hover { transform: translateY(-6px); box-shadow: 0 20px 56px rgba(59,130,246,.13); border-color: rgba(59,130,246,.3); }
-        .pc:hover::after { opacity: 1; }
-        .pc-icon { font-size: 40px; line-height: 1; display: block; margin-bottom: 20px; }
+        .pc:hover { transform:translateY(-8px); box-shadow:0 0 40px rgba(6,182,212,.22), 0 12px 48px rgba(59,130,246,.12); }
+        .pc:hover::before {
+          background:linear-gradient(135deg,#3b82f6,#06b6d4);
+        }
+        /* cyan accent cards */
+        .pc.ac-cyan::before {
+          background:linear-gradient(135deg, rgba(6,182,212,.45), rgba(59,130,246,.35));
+        }
+        .pc.ac-cyan:hover::before {
+          background:linear-gradient(135deg,#06b6d4,#3b82f6);
+        }
+        .pc.ac-cyan:hover { box-shadow:0 0 40px rgba(6,182,212,.28), 0 12px 48px rgba(6,182,212,.12); }
+
+        .pc-icon { font-size:40px; line-height:1; display:block; margin-bottom:20px; }
         .pc-sector {
-          font-size: 11px; font-weight: 700; letter-spacing: .14em;
-          text-transform: uppercase; color: var(--bl); margin-bottom: 8px;
+          font-size:11px; font-weight:700; letter-spacing:.15em;
+          text-transform:uppercase; margin-bottom:8px;
         }
-        .pc-name {
-          font-family: var(--font-syne), sans-serif;
-          font-weight: 800; font-size: 24px; color: var(--nv);
-          margin-bottom: 10px;
-        }
-        .pc-outcome {
-          font-family: var(--font-syne), sans-serif;
-          font-weight: 700; font-size: 18px;
-          color: var(--nv); line-height: 1.25;
-          margin-bottom: 14px;
-        }
-        .pc-desc { font-size: 14px; line-height: 1.65; color: var(--mid); margin-bottom: 24px; }
-        .sp-live { background: rgba(16,185,129,.1); color: #059669; }
-        .sp-beta { background: rgba(245,158,11,.1); color: #d97706; }
-        .sp-dev  { background: rgba(148,163,184,.1); color: #64748b; }
+        .pc-name { font-weight:700; font-size:24px; color:var(--nv); margin-bottom:10px; }
+        .pc-out  { font-weight:700; font-size:18px; color:var(--nv); line-height:1.25; margin-bottom:14px; }
+        .pc-body { font-size:14px; line-height:1.65; color:var(--mid); margin-bottom:24px; }
         .sp {
-          display: inline-flex; align-items: center; gap: 6px;
-          font-size: 12px; font-weight: 700;
-          padding: 4px 12px; border-radius: 99px;
+          display:inline-flex; align-items:center; gap:6px;
+          font-size:12px; font-weight:700; padding:4px 12px; border-radius:99px;
         }
-        .cl {
-          font-family: var(--font-syne), sans-serif;
-          font-weight: 700; font-size: 14px; color: var(--bl);
-          display: inline-flex; align-items: center; gap: 5px;
-          transition: gap .2s, color .2s;
+        .sp-live { background:rgba(16,185,129,.1); color:#059669; }
+        .sp-beta { background:rgba(245,158,11,.1); color:#d97706; }
+        .sp-dev  { background:rgba(148,163,184,.12); color:#64748b; }
+        .clink {
+          font-weight:700; font-size:14px; color:var(--bl);
+          display:inline-flex; align-items:center; gap:5px;
+          transition:gap .2s, color .2s;
         }
-        .cl:hover { gap: 9px; color: var(--cy); }
+        .clink:hover { gap:9px; color:var(--cy); }
 
-        /* ── FEATURED CARD ───────────────────────── */
-        .pc-featured {
-          background: linear-gradient(135deg, #f0f6ff 0%, #e8f4ff 100%);
-          border: 1.5px solid rgba(59,130,246,.2);
-          border-radius: 24px;
-          padding: 48px;
-          position: relative;
-          overflow: hidden;
-          transition: box-shadow .25s, transform .25s;
-          margin-bottom: 24px;
+        /* ─── FEATURED SOCIALCORS ─────────────────────────────────────── */
+        .pc-feat {
+          border-radius:22px; padding:48px;
+          position:relative; isolation:isolate;
+          background: linear-gradient(145deg, #f0f8ff 0%, #e8fbff 100%);
+          transition:transform .28s, box-shadow .28s;
+          margin-bottom:24px;
         }
-        .pc-featured::after {
-          content: '';
-          position: absolute; top: 0; left: 0; right: 0;
-          height: 4px;
-          background: linear-gradient(90deg, var(--bl), var(--cy));
+        .pc-feat::before {
+          content:'';
+          position:absolute; inset:0; border-radius:22px; padding:2px;
+          background:linear-gradient(135deg,#3b82f6,#06b6d4);
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: destination-out;
+          mask-composite: exclude;
         }
-        .pc-featured:hover { transform: translateY(-4px); box-shadow: 0 24px 64px rgba(59,130,246,.15); }
+        .pc-feat:hover { transform:translateY(-5px); box-shadow:0 0 48px rgba(6,182,212,.2), 0 16px 56px rgba(59,130,246,.15); }
 
-        /* ── REVEAL ──────────────────────────────── */
-        .rv {
-          opacity: 0; transform: translateY(26px);
-          transition: opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1);
+        /* ─── SECTION LABELS (turquoise not blue) ─────────────────────── */
+        .label-cy {
+          font-size:11px; font-weight:800; letter-spacing:.18em;
+          text-transform:uppercase; color:#06b6d4;
+          display:block; margin-bottom:16px;
         }
-        .rv.vis { opacity: 1; transform: none; }
+        .label-bl {
+          font-size:11px; font-weight:800; letter-spacing:.18em;
+          text-transform:uppercase; color:#3b82f6;
+          display:block; margin-bottom:16px;
+        }
+
+        /* ─── WHY SECTION ─────────────────────────────────────────────── */
+        .why-number {
+          font-weight:800; font-size:48px; line-height:1;
+          margin-bottom:4px;
+        }
+
+        /* ─── REVEAL ──────────────────────────────────────────────────── */
+        .rv { opacity:0; transform:translateY(28px);
+              transition:opacity .72s cubic-bezier(.16,1,.3,1), transform .72s cubic-bezier(.16,1,.3,1); }
+        .rv.vis { opacity:1; transform:none; }
         .d1{transition-delay:.06s} .d2{transition-delay:.14s}
         .d3{transition-delay:.22s} .d4{transition-delay:.30s}
         .d5{transition-delay:.38s}
 
-        /* ── CTA SECTION ─────────────────────────── */
-        .cta-section {
-          background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 35%, #0284c7 65%, #0891b2 100%);
-          position: relative; overflow: hidden;
+        /* ─── CTA ─────────────────────────────────────────────────────── */
+        .cta-sec {
+          background:linear-gradient(135deg,#0c2461 0%,#1d4ed8 40%,#0284c7 70%,#06b6d4 100%);
+          position:relative; overflow:hidden;
         }
-        .cta-section::before {
-          content: '';
-          position: absolute; inset: 0;
+        .cta-sec::before {
+          content:'';
+          position:absolute; inset:0;
           background:
-            radial-gradient(ellipse 900px 600px at 15% 50%, rgba(255,255,255,.07), transparent),
-            radial-gradient(ellipse 600px 400px at 85% 50%, rgba(6,182,212,.25), transparent);
-          pointer-events: none;
+            radial-gradient(ellipse 900px 600px at 10% 50%, rgba(255,255,255,.07), transparent),
+            radial-gradient(ellipse 600px 400px at 90% 50%, rgba(6,182,212,.3), transparent);
+          pointer-events:none;
         }
-        .wbtn {
-          display: inline-flex; align-items: center; gap: 8px;
-          background: #fff; color: #1d4ed8;
-          font-family: var(--font-syne), sans-serif;
-          font-weight: 800; font-size: 16px;
-          padding: 17px 34px; border-radius: 14px;
-          box-shadow: 0 8px 36px rgba(0,0,0,.14);
-          transition: transform .2s, box-shadow .2s;
+        .btn-wh {
+          display:inline-flex; align-items:center; gap:8px;
+          background:#fff; color:#1d4ed8;
+          font-weight:800; font-size:16px; font-family:var(--sg);
+          padding:17px 34px; border-radius:14px;
+          box-shadow:0 8px 36px rgba(0,0,0,.15);
+          transition:transform .2s, box-shadow .2s;
         }
-        .wbtn:hover { transform: translateY(-3px); box-shadow: 0 16px 48px rgba(0,0,0,.22); }
+        .btn-wh:hover { transform:translateY(-3px); box-shadow:0 16px 48px rgba(0,0,0,.22); }
 
-        /* ── ARROW ───────────────────────────────── */
-        .arr { display: inline-block; transition: transform .2s; }
-        a:hover .arr, button:hover .arr { transform: translateX(4px); }
+        /* ─── ARROW ───────────────────────────────────────────────────── */
+        .arr { display:inline-block; transition:transform .2s; }
+        a:hover .arr, button:hover .arr { transform:translateX(5px); }
 
-        /* ── REDUCED MOTION ──────────────────────── */
-        @media (prefers-reduced-motion: reduce) {
-          *, *::before, *::after { animation: none !important; transition: none !important; }
-          .rv { opacity: 1 !important; transform: none !important; }
+        /* ─── REDUCED MOTION ──────────────────────────────────────────── */
+        @media (prefers-reduced-motion:reduce) {
+          *,*::before,*::after { animation:none !important; transition:none !important; }
+          .rv { opacity:1 !important; transform:none !important; }
         }
 
-        /* ── MOBILE ──────────────────────────────── */
-        @media (max-width: 900px) {
-          .hero-grid { grid-template-columns: 1fr !important; }
-          .feed-col  { display: none !important; }
+        /* ─── RESPONSIVE ──────────────────────────────────────────────── */
+        @media (max-width:920px) {
+          .hero-grid  { grid-template-columns:1fr !important; }
+          .feed-col   { display:none !important; }
         }
-        @media (max-width: 768px) {
-          .met-grid { grid-template-columns: 1fr 1fr !important; }
-          .mcell { border-right: none; border-bottom: 1px solid var(--bdr); }
-          .mcell:nth-child(odd) { border-right: 1px solid var(--bdr) !important; }
-          .prod-grid { grid-template-columns: 1fr !important; }
-          .pc-featured { padding: 32px; }
-          .feat-inner { grid-template-columns: 1fr !important; }
+        @media (max-width:768px) {
+          .met-grid   { grid-template-columns:1fr 1fr !important; }
+          .mcell      { border-right:none; border-bottom:1px solid var(--bdr); }
+          .mcell:nth-child(odd) { border-right:1px solid var(--bdr) !important; }
+          .prod-grid  { grid-template-columns:1fr !important; }
+          .why-grid   { grid-template-columns:1fr !important; }
+          .feat-inner { grid-template-columns:1fr !important; }
+          .pc-feat    { padding:32px; }
         }
       `}</style>
 
-      {/* ═══ NAV ═══ */}
+      {/* ══════════════════════════════════════════════════════════════════
+          NAV — Logo real de R2
+      ══════════════════════════════════════════════════════════════════ */}
       <nav className="topnav sticky top-0 z-50 border-b border-slate-100/70">
         <div className="max-w-6xl mx-auto px-6 h-[64px] flex items-center justify-between gap-8">
-          <Link href={`${prefix}/`} className={`${SY} text-[22px] font-extrabold tracking-tight text-[#07111f]`}>
-            drako<span className="g">.</span>
+          {/* Logo imagen desde R2 */}
+          <Link href={`${prefix}/`} className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={LOGO} alt="Drako" width={36} height={36}
+                 style={{ width:36, height:36, objectFit:"contain" }} />
+            <span style={{ fontFamily:"var(--sg),sans-serif", fontWeight:700, fontSize:20, color:"#07111f", letterSpacing:"-0.02em" }}>
+              drako<span className="G">.</span>
+            </span>
           </Link>
+
           <div className="hidden md:flex items-center gap-8">
             <Link href={`${prefix}/ecosystem`} className="nl">Ecosistema</Link>
             <Link href={`${prefix}/journal`}    className="nl">Journal IA</Link>
             <Link href="https://socialcors.com" className="nl" target="_blank">Socialcors</Link>
           </div>
-          <Link href="https://socialcors.com" target="_blank" className="cbtn cbtn-sm">
+
+          <Link href="https://socialcors.com" target="_blank" className="btn-blue btn-sm">
             Empieza gratis <span className="arr">→</span>
           </Link>
         </div>
       </nav>
 
-      {/* ═══ HERO ═══ */}
-      <section className="relative flex items-center min-h-screen py-24 px-6 bg-white overflow-hidden">
-        <div className="hero-blobs">
-          <div className="blob b1" />
-          <div className="blob b2" />
-          <div className="blob b3" />
-        </div>
+      {/* ══════════════════════════════════════════════════════════════════
+          HERO — dot grid + blobs de color + split layout
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="hero-section min-h-screen flex items-center py-24 px-6">
+        <div className="hblob hb1" />
+        <div className="hblob hb2" />
+        <div className="hblob hb3" />
 
         <div className="relative z-10 max-w-6xl mx-auto w-full">
-          <div
-            className="hero-grid"
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "72px", alignItems: "center" }}
-          >
-            {/* LEFT */}
+          <div className="hero-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:72, alignItems:"center" }}>
+
+            {/* IZQUIERDA */}
             <div>
-              <div className="live-badge mb-10">
+              {/* Badge live */}
+              <div className="inline-flex items-center gap-2 mb-9"
+                   style={{ background:"rgba(6,182,212,.08)", border:"1.5px solid rgba(6,182,212,.25)",
+                            borderRadius:999, padding:"6px 16px 6px 10px" }}>
                 <span className="ldot" />
-                Socialcors disponible — sin tarjeta de crédito
+                <span style={{ fontSize:13, fontWeight:700, color:"#0891b2" }}>
+                  Socialcors disponible — sin tarjeta de crédito
+                </span>
               </div>
 
-              <h1
-                className={`${SY} font-extrabold leading-[.92] tracking-tight text-[#07111f] mb-6`}
-                style={{ fontSize: "clamp(46px, 6.5vw, 84px)" }}
-              >
-                Automatiza<br />
-                tu empresa<br />
-                <span className="g">con IA.</span>
+              {/* Titular — SIN Syne, Space Grotesk */}
+              <h1 style={{ fontWeight:800, lineHeight:.92, letterSpacing:"-0.03em",
+                           fontSize:"clamp(48px,7vw,88px)", color:"#07111f",
+                           marginBottom:24 }}>
+                Resolvemos<br />
+                tus problemas<br />
+                <span className="G">con IA.</span>
               </h1>
 
-              <p
-                className="text-[#64748b] leading-relaxed mb-10"
-                style={{ fontSize: "clamp(17px, 1.8vw, 20px)", maxWidth: "480px" }}
-              >
-                Drako construye agentes de inteligencia artificial que gestionan sectores completos — marketing, educación, finanzas, inversión, inmobiliaria.
-                Tu equipo hace lo que importa. La IA hace el resto, las 24 horas.
+              <p style={{ fontSize:"clamp(17px,1.8vw,20px)", color:"#475569",
+                          lineHeight:1.65, maxWidth:480, marginBottom:40 }}>
+                Drako construye agentes de inteligencia artificial que automatizan sectores completos. Marketing, educación, finanzas, inversión, inmobiliaria. Tu equipo hace lo que importa. La IA hace el resto.
               </p>
 
               <div className="flex flex-wrap gap-4">
-                <Link href="https://socialcors.com" target="_blank" className="cbtn">
+                <Link href="https://socialcors.com" target="_blank" className="btn-blue">
                   Ver Socialcors <span className="arr">→</span>
                 </Link>
-                <Link href={`${prefix}/ecosystem`} className="obtn">
-                  Explorar el ecosistema
+                <Link href={`${prefix}/ecosystem`} className="btn-out">
+                  Explorar ecosistema
                 </Link>
               </div>
 
-              <div
-                className="mt-14 pt-10 border-t border-[#dbeafe]"
-                style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}
-              >
+              {/* Mini stats row */}
+              <div className="mt-14 pt-10"
+                   style={{ borderTop:"1.5px solid rgba(6,182,212,.2)",
+                            display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
                 {[
-                  { v: "5", label: "SaaS de IA" },
-                  { v: "24h", label: "sin parar" },
-                  { v: "0€", label: "para empezar" },
+                  { v: "5",   c: "cy", l: "SaaS de IA" },
+                  { v: "24h", c: "bl", l: "sin parar" },
+                  { v: "0€",  c: "cy", l: "para empezar" },
                 ].map((s) => (
-                  <div key={s.label}>
-                    <p className={`${SY} font-extrabold text-[28px] g leading-none mb-1`}>{s.v}</p>
-                    <p className="text-[13px] text-[#94a3b8] font-medium">{s.label}</p>
+                  <div key={s.l}>
+                    <p style={{ fontWeight:800, fontSize:32, lineHeight:1, marginBottom:4 }}
+                       className={s.c === "cy" ? "GC" : "G"}>{s.v}</p>
+                    <p style={{ fontSize:13, color:"#94a3b8", fontWeight:600 }}>{s.l}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* RIGHT — AI feed */}
+            {/* DERECHA — feed IA en vivo */}
             <div className="feed-col">
               <div className="ai-card">
-                <div className="ai-header">
+                <div className="ai-hdr">
                   <span className="ldot" />
-                  <span className={`${SY} font-bold text-[13px] text-[#07111f]`}>
-                    Cerebro Socialcors
-                  </span>
-                  <span className="ai-live-label">EN VIVO</span>
+                  <span style={{ fontWeight:700, fontSize:13, color:"#07111f" }}>Cerebro Socialcors</span>
+                  <span className="ai-live">EN VIVO</span>
                 </div>
 
                 <div>
                   {FEED.map((item, i) => (
                     <div key={i} className="fi">
-                      <span style={{ fontSize: "20px", flexShrink: 0 }}>{item.icon}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p className="text-[13px] font-semibold text-[#07111f] leading-none mb-1">
+                      <span style={{ fontSize:20, flexShrink:0 }}>{item.icon}</span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <p style={{ fontSize:13, fontWeight:700, color:"#07111f", lineHeight:1, marginBottom:3 }}>
                           {item.action}
                         </p>
-                        <p className="text-[12px] text-[#94a3b8]">{item.client}</p>
+                        <p style={{ fontSize:12, color:"#94a3b8" }}>{item.client}</p>
                       </div>
-                      <span className="fi-result">{item.result}</span>
+                      <span className="fi-tag">{item.result}</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="px-5 py-4 border-t border-[#dbeafe]">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[12px] text-[#64748b]">Generando semana del 7 oct…</span>
-                    <span className={`${SY} text-[12px] font-bold text-[#3b82f6]`}>73%</span>
+                <div style={{ padding:"14px 18px", borderTop:"1.5px solid rgba(165,243,252,.4)" }}>
+                  <div className="flex items-center justify-between" style={{ marginBottom:8 }}>
+                    <span style={{ fontSize:12, color:"#64748b" }}>Generando semana del 7 oct…</span>
+                    <span style={{ fontSize:12, fontWeight:800, color:"#06b6d4" }}>73%</span>
                   </div>
-                  <div className="prog-bar">
-                    <div className="prog-fill" />
-                  </div>
+                  <div className="prog-bar"><div className="prog-fill" /></div>
                 </div>
 
-                <div className="px-5 py-4 bg-[#f0f6ff] border-t border-[#dbeafe]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] text-[#64748b]">Próxima publicación programada</span>
-                    <span className={`${SY} text-[12px] font-bold text-[#07111f]`}>mañana 09:00</span>
-                  </div>
+                <div style={{ padding:"12px 18px", background:"linear-gradient(135deg,#f0fbff,#e8f4ff)",
+                              borderTop:"1.5px solid rgba(165,243,252,.4)",
+                              display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:12, color:"#64748b" }}>Próxima publicación</span>
+                  <span style={{ fontSize:12, fontWeight:800, color:"#07111f" }}>mañana 09:00</span>
                 </div>
               </div>
             </div>
+
           </div>
         </div>
       </section>
 
-      {/* ═══ TICKER ═══ */}
-      <div className="ticker-outer">
+      {/* ══════════════════════════════════════════════════════════════════
+          TICKER — turquesa visible, no azul
+      ══════════════════════════════════════════════════════════════════ */}
+      <div className="ticker-wrap">
         <div className="ticker-track">
-          {tickerDouble.map((item, i) => (
+          {ticker2.map((item, i) => (
             <div key={i} className="ti">{item}</div>
           ))}
         </div>
       </div>
 
-      {/* ═══ METRICS ═══ */}
-      <section className="bg-white border-b border-[#dbeafe]">
+      {/* ══════════════════════════════════════════════════════════════════
+          MÉTRICAS — alternando azul y turquesa
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="bg-white" style={{ borderBottom:"1px solid #dbeafe" }}>
         <div className="max-w-5xl mx-auto">
-          <div
-            className="met-grid"
-            style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)" }}
-          >
-            {METRICS.map((m, i) => (
-              <div key={m.label} className={`mcell rv d${i + 1}`}>
-                <p className={`${SY} font-extrabold g leading-none mb-2`} style={{ fontSize: "52px" }}>
+          <div className="met-grid" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)" }}>
+            {[
+              { value:98,  suffix:"%", label:"más engagement",          cls:"G"  },
+              { value:5,   suffix:"x", label:"más publicaciones",       cls:"GC" },
+              { value:24,  suffix:"h", label:"de operación continua",   cls:"G"  },
+              { value:30,  suffix:"%", label:"menos costes marketing",  cls:"GC" },
+            ].map((m, i) => (
+              <div key={m.label} className={`mcell rv d${i+1}`}>
+                <p className={m.cls} style={{ fontWeight:800, fontSize:56, lineHeight:1, marginBottom:8 }}>
                   <StatCounter value={m.value} suffix={m.suffix} />
                 </p>
-                <p className="text-[14px] text-[#64748b] font-medium">{m.label}</p>
+                <p style={{ fontSize:14, color:"#64748b", fontWeight:600 }}>{m.label}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ═══ PRODUCTS ═══ */}
-      <section className="py-28 px-6 bg-[#f7faff]">
+      {/* ══════════════════════════════════════════════════════════════════
+          PRODUCTOS — fondo turquesa suave + cards con borde degradado
+      ══════════════════════════════════════════════════════════════════ */}
+      <section style={{ padding:"112px 24px", background:"linear-gradient(160deg,#f0f8ff 0%,#e8fbff 50%,#f0f8ff 100%)" }}>
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16 rv">
-            <p
-              className={`${SY} font-bold tracking-[.18em] uppercase text-[#3b82f6] mb-4`}
-              style={{ fontSize: "11px" }}
-            >
-              El ecosistema Drako
-            </p>
-            <h2
-              className={`${SY} font-extrabold text-[#07111f] leading-[1.01]`}
-              style={{ fontSize: "clamp(36px, 4.5vw, 56px)" }}
-            >
+          {/* Cabecera */}
+          <div className="text-center rv" style={{ marginBottom:56 }}>
+            <span className="label-cy">El ecosistema Drako</span>
+            <h2 style={{ fontWeight:800, fontSize:"clamp(36px,4.5vw,58px)",
+                         lineHeight:.98, letterSpacing:"-0.025em", color:"#07111f" }}>
               Tu sector, automatizado.<br />
-              <span className="g">Elige el que te corresponde.</span>
+              <span className="GC">Elige el que te corresponde.</span>
             </h2>
           </div>
 
-          {/* Featured: Socialcors */}
-          <div className="pc-featured rv">
-            <div
-              className="feat-inner"
-              style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px", alignItems: "center" }}
-            >
+          {/* FEATURED: Socialcors */}
+          <div className="pc-feat rv">
+            <div className="feat-inner"
+                 style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:48, alignItems:"center" }}>
               <div>
                 <span className="pc-icon">{PRODUCTS[0].icon}</span>
-                <p className="pc-sector">{PRODUCTS[0].sector}</p>
-                <h3 className={`${SY} font-extrabold text-[#07111f] mb-3`} style={{ fontSize: "36px" }}>
+                <span className="pc-sector" style={{ color:"#06b6d4" }}>{PRODUCTS[0].sector}</span>
+                <h3 style={{ fontWeight:800, fontSize:40, color:"#07111f",
+                             letterSpacing:"-0.025em", marginBottom:12, lineHeight:1 }}>
                   {PRODUCTS[0].name}
                 </h3>
-                <p className={`${SY} font-bold text-[22px] text-[#07111f] leading-snug`}>
+                <p style={{ fontWeight:700, fontSize:22, color:"#07111f", lineHeight:1.2 }}>
                   {PRODUCTS[0].outcome}.
                 </p>
               </div>
               <div>
-                <p className="text-[16px] text-[#475569] leading-relaxed mb-8">
-                  {PRODUCTS[0].description}
+                <p style={{ fontSize:16, color:"#475569", lineHeight:1.65, marginBottom:28 }}>
+                  {PRODUCTS[0].body}
                 </p>
-                <div className="flex items-center gap-5">
+                <div className="flex items-center gap-5 flex-wrap">
                   <span className="sp sp-live">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
-                    {PRODUCTS[0].statusLabel}
+                    <span style={{ width:7, height:7, borderRadius:"50%", background:"#10b981", display:"inline-block" }} />
+                    {PRODUCTS[0].label}
                   </span>
-                  <a
-                    href={PRODUCTS[0].url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="cbtn"
-                    style={{ fontSize: "14px", padding: "11px 22px", borderRadius: "10px" }}
-                  >
+                  <a href={PRODUCTS[0].url} target="_blank" rel="noopener noreferrer"
+                     className="btn-cyan btn-sm">
                     Acceder a Socialcors <span className="arr">→</span>
                   </a>
                 </div>
@@ -658,21 +687,21 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
             </div>
           </div>
 
-          {/* 4 remaining products */}
-          <div
-            className="prod-grid"
-            style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "24px" }}
-          >
+          {/* 4 productos restantes */}
+          <div className="prod-grid"
+               style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:24 }}>
             {PRODUCTS.slice(1).map((p, i) => {
               const sc = p.status === "beta" ? "sp-beta" : "sp-dev";
               return (
-                <div key={p.name} className={`pc rv d${i + 1}`}>
+                <div key={p.name} className={`pc rv d${i+1}${p.accent==="cyan"?" ac-cyan":""}`}>
                   <span className="pc-icon">{p.icon}</span>
-                  <p className="pc-sector">{p.sector}</p>
+                  <span className="pc-sector" style={{ color: p.accent==="cyan" ? "#06b6d4" : "#3b82f6" }}>
+                    {p.sector}
+                  </span>
                   <h3 className="pc-name">{p.name}</h3>
-                  <p className="pc-outcome">{p.outcome}.</p>
-                  <p className="pc-desc">{p.description}</p>
-                  <span className={`sp ${sc}`}>{p.statusLabel}</span>
+                  <p className="pc-out">{p.outcome}.</p>
+                  <p className="pc-body">{p.body}</p>
+                  <span className={`sp ${sc}`}>{p.label}</span>
                 </div>
               );
             })}
@@ -680,148 +709,140 @@ export default async function Home({ params }: { params?: Promise<{ locale?: str
         </div>
       </section>
 
-      {/* ═══ WHY ═══ */}
-      <section className="py-28 px-6 bg-white">
+      {/* ══════════════════════════════════════════════════════════════════
+          POR QUÉ DRAKO — blanco, turquesa en números
+      ══════════════════════════════════════════════════════════════════ */}
+      <section style={{ padding:"112px 24px", background:"#fff" }}>
         <div className="max-w-5xl mx-auto">
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "80px", alignItems: "start" }}
-          >
+          <div className="why-grid"
+               style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:80, alignItems:"start" }}>
+
+            {/* Izquierda */}
             <div className="rv">
-              <p
-                className={`${SY} font-bold tracking-[.18em] uppercase text-[#3b82f6] mb-4`}
-                style={{ fontSize: "11px" }}
-              >
-                Por qué Drako
-              </p>
-              <h2
-                className={`${SY} font-extrabold text-[#07111f] leading-[1.03]`}
-                style={{ fontSize: "clamp(32px, 3.8vw, 50px)" }}
-              >
-                Tu negocio, multiplicado<br />
-                <span className="g">por inteligencia artificial.</span>
+              <span className="label-bl">Por qué Drako</span>
+              <h2 style={{ fontWeight:800, fontSize:"clamp(32px,4vw,52px)",
+                           lineHeight:1.02, letterSpacing:"-0.025em", color:"#07111f",
+                           marginBottom:20 }}>
+                Tu negocio,<br />multiplicado<br />
+                <span className="G">por IA.</span>
               </h2>
-              <p className="text-[#64748b] leading-relaxed mt-6 text-[16px]">
+              <p style={{ fontSize:16, color:"#64748b", lineHeight:1.65 }}>
                 No vendemos software. Vendemos tiempo, escala y resultados. Cada SaaS de Drako automatiza un departamento completo — sin contratar, sin formar, sin esperar.
               </p>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "40px" }}>
+            {/* Derecha — 3 puntos numerados, turquesa en los números */}
+            <div style={{ display:"flex", flexDirection:"column", gap:36 }}>
               {[
-                {
-                  n: "01",
-                  h: "Sin curva de aprendizaje",
-                  b: "La IA aprende de tu negocio, tu voz y tus resultados. Cuanto más la usas, mejor trabaja — sin que toques una sola configuración.",
-                },
-                {
-                  n: "02",
-                  h: "Resultados desde el primer día",
-                  b: "Cada acción genera métricas reales. Publicaciones que llegan a más personas, clientes que responden, tiempo que recuperas.",
-                },
-                {
-                  n: "03",
-                  h: "Escala sin contratar a nadie",
-                  b: "La misma IA que gestiona 10 clientes gestiona 1.000. Tu empresa crece sin que crezcan tus costes de personal.",
-                },
+                { n:"01", c:"GC", h:"Sin curva de aprendizaje",
+                  b:"La IA aprende de tu negocio y mejora sola. No hay configuraciones ni formación. Funciona el primer día." },
+                { n:"02", c:"G",  h:"Resultados desde el primer día",
+                  b:"Cada acción genera métricas reales: publicaciones que llegan a más personas, clientes que responden." },
+                { n:"03", c:"GC", h:"Escala sin contratar a nadie",
+                  b:"La misma IA que gestiona 10 clientes gestiona 1.000. Tu empresa crece sin que crezcan tus costes." },
               ].map((s) => (
-                <div key={s.n} className="rv" style={{ display: "flex", gap: "24px" }}>
-                  <span className={`${SY} font-extrabold text-[28px] g leading-none`} style={{ flexShrink: 0 }}>
-                    {s.n}
-                  </span>
+                <div key={s.n} className="rv" style={{ display:"flex", gap:22 }}>
+                  <span className={`why-number ${s.c}`} style={{ flexShrink:0 }}>{s.n}</span>
                   <div>
-                    <h3 className={`${SY} font-bold text-[18px] text-[#07111f] mb-2`}>{s.h}</h3>
-                    <p className="text-[14px] text-[#64748b] leading-relaxed">{s.b}</p>
+                    <h3 style={{ fontWeight:700, fontSize:18, color:"#07111f", marginBottom:8 }}>{s.h}</h3>
+                    <p style={{ fontSize:14, color:"#64748b", lineHeight:1.65 }}>{s.b}</p>
                   </div>
                 </div>
               ))}
             </div>
+
           </div>
         </div>
       </section>
 
-      {/* ═══ CTA ═══ */}
-      <section className="cta-section py-36 px-6">
+      {/* ══════════════════════════════════════════════════════════════════
+          CTA — gradiente azul → turquesa
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="cta-sec" style={{ padding:"144px 24px" }}>
         <div className="relative z-10 max-w-3xl mx-auto text-center">
-          <h2
-            className={`${SY} font-extrabold text-white leading-[.94] mb-7`}
-            style={{ fontSize: "clamp(40px, 5.5vw, 72px)" }}
-          >
+          <h2 style={{ fontWeight:800, fontSize:"clamp(40px,5.5vw,74px)",
+                       lineHeight:.93, letterSpacing:"-0.03em",
+                       color:"#fff", marginBottom:28 }}>
             La IA trabaja.<br />
             Tú decides qué hacer<br />
             con el tiempo libre.
           </h2>
-          <p className="text-blue-100/80 leading-relaxed mb-12 max-w-xl mx-auto" style={{ fontSize: "18px" }}>
+          <p style={{ fontSize:18, color:"rgba(186,230,253,.85)", lineHeight:1.6,
+                      marginBottom:48, maxWidth:520, marginInline:"auto" }}>
             Socialcors está en producción hoy. Sin permanencias, sin tarjeta de crédito.
             14 días gratis — ve los resultados antes de pagar.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="https://socialcors.com" target="_blank" className="wbtn">
+            <Link href="https://socialcors.com" target="_blank" className="btn-wh">
               Empezar gratis — 14 días <span className="arr">→</span>
             </Link>
-            <Link
-              href={`${prefix}/ecosystem`}
-              className={`${SY} inline-flex items-center gap-2 text-white/70 hover:text-white font-bold text-[15px] transition-colors`}
-            >
+            <Link href={`${prefix}/ecosystem`}
+                  style={{ fontWeight:700, fontSize:15, color:"rgba(255,255,255,.75)",
+                           display:"inline-flex", alignItems:"center", gap:6,
+                           transition:"color .2s" }}>
               Ver todo el ecosistema <span className="arr">→</span>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* ═══ FOOTER ═══ */}
-      <footer className="bg-white border-t border-[#dbeafe] py-10 px-6">
+      {/* ══════════════════════════════════════════════════════════════════
+          FOOTER
+      ══════════════════════════════════════════════════════════════════ */}
+      <footer style={{ background:"#fff", borderTop:"1.5px solid #dbeafe", padding:"40px 24px" }}>
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-5">
-          <span className={`${SY} text-[20px] font-extrabold text-[#07111f] tracking-tight`}>
-            drako<span className="g">.</span>
-          </span>
+          <Link href={`${prefix}/`} className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={LOGO} alt="Drako" width={28} height={28}
+                 style={{ width:28, height:28, objectFit:"contain" }} />
+            <span style={{ fontWeight:700, fontSize:18, color:"#07111f", letterSpacing:"-0.02em" }}>
+              drako<span className="G">.</span>
+            </span>
+          </Link>
           <div className="flex flex-wrap items-center justify-center gap-6">
             {[
-              { label: "Ecosistema", href: `${prefix}/ecosystem` },
-              { label: "Journal IA",  href: `${prefix}/journal` },
-              { label: "Socialcors",  href: "https://socialcors.com", ext: true },
+              { label:"Ecosistema", href:`${prefix}/ecosystem` },
+              { label:"Journal IA",  href:`${prefix}/journal` },
+              { label:"Socialcors",  href:"https://socialcors.com", ext:true },
             ].map((l) => (
-              <Link
-                key={l.label}
-                href={l.href}
-                {...(l.ext ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                className="text-sm text-[#94a3b8] hover:text-[#3b82f6] transition-colors font-medium"
-              >
+              <Link key={l.label} href={l.href}
+                    {...(l.ext ? { target:"_blank", rel:"noopener noreferrer" } : {})}
+                    style={{ fontSize:14, color:"#94a3b8", fontWeight:600,
+                             transition:"color .2s" }}
+                    className="hover:text-[#06b6d4]">
                 {l.label}
               </Link>
             ))}
           </div>
-          <p className="text-xs text-[#cbd5e1]">© {new Date().getFullYear()} Drako Systems</p>
+          <p style={{ fontSize:12, color:"#cbd5e1" }}>© {new Date().getFullYear()} Drako Systems</p>
         </div>
       </footer>
 
-      {/* ═══ SCRIPTS ═══ */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
+      {/* ══════════════════════════════════════════════════════════════════
+          SCRIPTS
+      ══════════════════════════════════════════════════════════════════ */}
+      <script dangerouslySetInnerHTML={{ __html:`
 (function(){
   // Scroll reveal
-  var io = new IntersectionObserver(function(entries){
-    entries.forEach(function(e){
-      if(e.isIntersecting){ e.target.classList.add('vis'); io.unobserve(e.target); }
-    });
+  var io=new IntersectionObserver(function(e){
+    e.forEach(function(x){ if(x.isIntersecting){x.target.classList.add('vis');io.unobserve(x.target);} });
   },{threshold:0.1});
-  document.querySelectorAll('.rv').forEach(function(el){ io.observe(el); });
+  document.querySelectorAll('.rv').forEach(function(el){io.observe(el);});
 
-  // 3-D card tilt
-  document.querySelectorAll('.pc').forEach(function(card){
+  // 3D tilt suave en product cards
+  document.querySelectorAll('.pc,.pc-feat').forEach(function(card){
     card.addEventListener('mousemove',function(e){
       var r=card.getBoundingClientRect();
-      var rx=((e.clientY-r.top)/r.height-.5)*-10;
-      var ry=((e.clientX-r.left)/r.width-.5)*10;
-      card.style.transform='perspective(900px) rotateX('+rx+'deg) rotateY('+ry+'deg) translateY(-6px)';
+      var rx=((e.clientY-r.top)/r.height-.5)*-12;
+      var ry=((e.clientX-r.left)/r.width-.5)*12;
+      card.style.transform='perspective(1000px) rotateX('+rx+'deg) rotateY('+ry+'deg) translateY(-8px)';
     });
     card.addEventListener('mouseleave',function(){
       card.style.transform='';
     });
   });
 })();
-          `,
-        }}
-      />
+      `}} />
     </div>
   );
 }
