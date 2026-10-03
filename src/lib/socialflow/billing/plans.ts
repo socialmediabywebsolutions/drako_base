@@ -60,7 +60,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
     ],
     notIncluded: ["Página de Facebook", "Análisis de competencia", "CRM Social", "Soporte prioritario"],
     accountType: "influencer",
-    stripePriceId: "price_1U58y82drYIYdjRXP5JR5Qvt",
+    stripePriceId: "price_1UMQTOKHYVGRlFh9i3q53ltl",
   },
   influencer_basico: {
     code: "influencer_basico",
@@ -82,7 +82,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
     ],
     notIncluded: ["CRM Social", "Soporte prioritario"],
     accountType: "influencer",
-    stripePriceId: "price_1U58yE2drYIYdjRXAZhRWgwe",
+    stripePriceId: "price_1UMQTOKHYVGRlFh9UDbJZFMb",
   },
   influencer_pro: {
     code: "influencer_pro",
@@ -106,7 +106,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
     ],
     notIncluded: [],
     accountType: "influencer",
-    stripePriceId: "price_1U58yL2drYIYdjRXo8UF0HOl",
+    stripePriceId: "price_1UMQTPKHYVGRlFh9dfwX1PCq",
   },
   empresa_starter: {
     code: "empresa_starter",
@@ -126,7 +126,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
     ],
     notIncluded: ["CRM Social", "Análisis de competencia", "Soporte prioritario"],
     accountType: "empresa",
-    stripePriceId: "price_1U58yR2drYIYdjRXjz92VWoL",
+    stripePriceId: "price_1UMQTPKHYVGRlFh98BP67N8D",
   },
   empresa_basico: {
     code: "empresa_basico",
@@ -148,7 +148,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
     ],
     notIncluded: ["CRM Social", "Soporte prioritario"],
     accountType: "empresa",
-    stripePriceId: "price_1U58yX2drYIYdjRXXumbjZSb",
+    stripePriceId: "price_1UMQTQKHYVGRlFh9cmiwrEBi",
   },
   empresa_pro: {
     code: "empresa_pro",
@@ -172,7 +172,7 @@ const SOCIALFLOW_PLANS: Record<SocialFlowPlanCode, SocialFlowPlanDefinition> = {
     ],
     notIncluded: [],
     accountType: "empresa",
-    stripePriceId: "price_1U58yd2drYIYdjRXfwSygOoD",
+    stripePriceId: "price_1UMQTQKHYVGRlFh9xFSzgkeP",
   },
 };
 
