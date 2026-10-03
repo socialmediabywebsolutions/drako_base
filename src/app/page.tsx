@@ -7,7 +7,7 @@ import { StatCounter } from "@/components/marketing/home/StatCounter";
 
 const sg = Space_Grotesk({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
   variable: "--sg",
   display: "swap",
 });
@@ -52,7 +52,7 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
           border-bottom: 1px solid rgba(0,0,0,.06);
         }
         #nav-logo { display:flex; align-items:center; gap:9px; text-decoration:none; }
-        #nav-logo b { font-size:1.1rem; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
+        #nav-logo b { font-size:1.1rem; font-weight:700; letter-spacing:-.03em; color:var(--ink); }
         #nav-r { display:flex; align-items:center; gap:2.25rem; }
         #nav-r a { font-size:.875rem; font-weight:500; color:var(--ink2); text-decoration:none; transition:color .18s; }
         #nav-r a:hover { color:var(--b); }
@@ -118,7 +118,7 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
           margin-bottom: 1.5rem;
         }
         #hero h1 em { font-style:normal; color:var(--b); }
-        #hero h1 strong { font-style:normal; color:var(--c); font-weight:800; }
+        #hero h1 strong { font-style:normal; color:var(--c); font-weight:700; }
         #hero-sub {
           font-size:1.15rem; color:var(--ink2); line-height:1.7;
           max-width:520px; margin-bottom:2.5rem; font-weight:400;
@@ -173,9 +173,9 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
         /* ─── PORTFOLIO ───────────────────────────────────────── */
         #portfolio { padding: 7rem 6vw; background:#fff; }
         #portfolio-hd { margin-bottom:4rem; }
-        #portfolio-hd .pl { font-size:.72rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--c2); margin-bottom:.75rem; }
+        #portfolio-hd .pl { font-size:.72rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--c2); margin-bottom:.75rem; }
         #portfolio-hd h2 {
-          font-size:clamp(2rem,3.5vw,3rem); font-weight:800;
+          font-size:clamp(2rem,3.5vw,3rem); font-weight:700;
           letter-spacing:-.04em; line-height:1.08; color:var(--ink);
         }
         #plist { display:flex; flex-direction:column; gap:0; }
@@ -200,7 +200,7 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
           font-size:2.5rem; font-weight:900; letter-spacing:-.06em;
           color:rgba(0,0,0,.07); line-height:1; text-align:center;
         }
-        .prow-name { font-size:1.35rem; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
+        .prow-name { font-size:1.35rem; font-weight:700; letter-spacing:-.03em; color:var(--ink); }
         .prow-sub { font-size:.875rem; color:var(--ink2); margin-top:.2rem; }
         .prow-sector { font-size:.8rem; font-weight:600; color:var(--c2); letter-spacing:.05em; text-transform:uppercase; }
         .prow-tag {
@@ -220,8 +220,8 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
           overflow:hidden;
         }
         #arch-hd { margin-bottom: 4rem; }
-        #arch-hd .pl { font-size:.72rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--b); margin-bottom:.75rem; }
-        #arch-hd h2 { font-size:clamp(2rem,3.5vw,3rem); font-weight:800; letter-spacing:-.04em; line-height:1.08; color:var(--ink); }
+        #arch-hd .pl { font-size:.72rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--b); margin-bottom:.75rem; }
+        #arch-hd h2 { font-size:clamp(2rem,3.5vw,3rem); font-weight:700; letter-spacing:-.04em; line-height:1.08; color:var(--ink); }
         #arch-grid { display:grid; grid-template-columns:1fr 1fr; gap:5rem; align-items:center; }
         #arch-diagram {
           position:relative; height:380px;
@@ -250,7 +250,7 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
           background:#fff;
           border:2px solid rgba(59,130,246,.25);
           display:flex; align-items:center; justify-content:center;
-          font-size:.62rem; font-weight:800; color:var(--b); letter-spacing:.04em; text-align:center; text-transform:uppercase;
+          font-size:.62rem; font-weight:700; color:var(--b); letter-spacing:.04em; text-align:center; text-transform:uppercase;
           box-shadow:0 2px 12px rgba(0,0,0,.08);
         }
         .d1 { transform:rotate(0deg) translateX(100px) rotate(0deg); }
@@ -280,7 +280,7 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
           display:grid; grid-template-columns:1fr 1fr; gap:4rem; align-items:center;
         }
         #tband h2 {
-          font-size:clamp(1.9rem,3.5vw,2.8rem); font-weight:800;
+          font-size:clamp(1.9rem,3.5vw,2.8rem); font-weight:700;
           letter-spacing:-.04em; line-height:1.1; color:#fff;
           margin-bottom:1rem;
         }
@@ -333,7 +333,7 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
         }
         #cta h2 {
           position:relative; z-index:1;
-          font-size:clamp(2.2rem,4.5vw,4rem); font-weight:800;
+          font-size:clamp(2.2rem,4.5vw,4rem); font-weight:700;
           letter-spacing:-.04em; line-height:1.05; color:#fff;
           max-width:700px; margin:0 auto 1.25rem;
         }
@@ -344,7 +344,7 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
           display:inline-flex; align-items:center; gap:.5rem;
           background:var(--c); color:var(--ink);
           padding:.85rem 2.25rem; border-radius:12px;
-          font-size:1rem; font-weight:800;
+          font-size:1rem; font-weight:700;
           text-decoration:none;
           transition:all .2s;
           box-shadow:0 4px 24px rgba(6,182,212,.4);
@@ -367,7 +367,7 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
           display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1.5rem;
         }
         #ft-brand { display:flex; align-items:center; gap:9px; }
-        #ft-brand b { font-size:1rem; font-weight:800; color:#fff; }
+        #ft-brand b { font-size:1rem; font-weight:700; color:#fff; }
         #ft-copy { font-size:.78rem; color:rgba(255,255,255,.3); }
         #ft-links { display:flex; gap:1.75rem; }
         #ft-links a { font-size:.78rem; color:rgba(255,255,255,.4); text-decoration:none; transition:color .18s; }
