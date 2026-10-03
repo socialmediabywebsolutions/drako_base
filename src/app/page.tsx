@@ -4,6 +4,7 @@ import { Space_Grotesk } from "next/font/google";
 import { HostMode, resolveHostMode } from "@/lib/hosts";
 import { resolveMarketingLocale, defaultMarketingLocale } from "@/lib/i18n/marketing";
 import { StatCounter } from "@/components/marketing/home/StatCounter";
+import { NavLeadButton, HeroLeadButton, CtaLeadButton } from "@/components/marketing/home/DrakoLeadButtons";
 
 const sg = Space_Grotesk({
   subsets: ["latin"],
@@ -423,7 +424,7 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
         <div id="nav-r">
           <a href="#portfolio">Productos</a>
           <a href="#arch">Arquitectura</a>
-          <a href="https://socialcors.com" className="nb">Empezar →</a>
+          <NavLeadButton />
         </div>
       </nav>
 
@@ -444,7 +445,7 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
             Una infraestructura. Inteligencia compartida.
           </p>
           <div id="hero-acts">
-            <a href="https://socialcors.com" className="ha ha-p">Ver Socialcors →</a>
+            <HeroLeadButton />
             <a href="#portfolio" className="ha ha-s">Explorar el ecosistema</a>
           </div>
         </div>
@@ -586,11 +587,11 @@ export default async function HomePage(_props?: { params?: Promise<{ locale?: st
 
       {/* ── CTA ── */}
       <section id="cta">
-        <h2 className="rv">¿Listo para que la <span>IA</span><br />trabaje por ti?</h2>
-        <p className="rv">Empieza con Socialcors y descubre en 30 días cómo la IA gestiona tu presencia digital de principio a fin.</p>
+        <h2 className="rv">¿Quieres que la <span>IA</span><br />trabaje en tu empresa?</h2>
+        <p className="rv">Cuéntanos qué proceso quieres automatizar. En menos de 24 horas te enviamos una valoración inicial sin compromiso.</p>
         <div id="cta-btns" className="rv">
-          <a href="https://socialcors.com" className="cb1">Probar Socialcors gratis →</a>
-          <a href="mailto:hola@drako.systems" className="cb2">Hablar con el equipo</a>
+          <CtaLeadButton className="cb1" />
+          <a href="https://socialcors.com" className="cb2">Ver Socialcors →</a>
         </div>
       </section>
 

@@ -16,9 +16,11 @@
 		"binding": "AI"
 	},
 	"vars": {
-		// Test-mode Stripe price IDs; replace with live-mode IDs before enabling real payments
+		// Test-mode Stripe price IDs — dead code, kept for reference; real IDs are in plans.ts
 		"SOCIALFLOW_STRIPE_PRICE_PRO": "price_1TiSu1BflYSFyTbP1gQOsicz",
-		"SOCIALFLOW_STRIPE_PRICE_CREATOR": "price_1TiSvUBflYSFyTbP0SnF7VAj"
+		"SOCIALFLOW_STRIPE_PRICE_CREATOR": "price_1TiSvUBflYSFyTbP0SnF7VAj",
+		// Email sender address for Resend — set RESEND_API_KEY as a Cloudflare secret
+		"RESEND_FROM_EMAIL": "Drako <noreply@drako.systems>"
 	},
 	"d1_databases": [
 		{

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, run } from "@/lib/db";
+import { sendEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,25 @@ ${message}
     if (!success) {
       throw new Error("Failed to insert into inbox_messages");
     }
+
+    // Notificación interna a hola@drako.systems (best-effort — no falla si Resend no está configurado)
+    void sendEmail({
+      to: "hola@drako.systems",
+      subject: `🔔 Nuevo lead: ${name}${role ? ` · ${role}` : ""}`,
+      html: `
+        <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:2rem;color:#0a0f1e">
+          <h2 style="font-size:1.3rem;margin-bottom:1rem">Nuevo lead desde drako.systems</h2>
+          <table style="width:100%;border-collapse:collapse;font-size:.92rem">
+            <tr><td style="padding:.4rem 0;color:#64748b;width:120px">Nombre</td><td><strong>${name}</strong></td></tr>
+            <tr><td style="padding:.4rem 0;color:#64748b">Email</td><td><a href="mailto:${email}" style="color:#3b82f6">${email}</a></td></tr>
+            ${role ? `<tr><td style="padding:.4rem 0;color:#64748b">Empresa</td><td>${role}</td></tr>` : ""}
+            ${interest ? `<tr><td style="padding:.4rem 0;color:#64748b">Presupuesto</td><td>${interest}</td></tr>` : ""}
+          </table>
+          <div style="margin-top:1.25rem;padding:1rem;background:#f8fafc;border-radius:8px;font-size:.92rem;line-height:1.6;white-space:pre-wrap">${message}</div>
+          <p style="margin-top:1.5rem;font-size:.8rem;color:#94a3b8">ID: ${id} · ${now}</p>
+        </div>
+      `,
+    });
 
     return NextResponse.json({ ok: true, id });
   } catch (error) {
