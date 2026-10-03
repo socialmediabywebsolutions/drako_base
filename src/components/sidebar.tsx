@@ -12,6 +12,7 @@ import {
   Share2,
   ShieldCheck,
   TrendingUp,
+  GraduationCap,
 } from "lucide-react";
 
 type Item = { href: string; label: string; icon: ReactNode; description?: string };
@@ -42,6 +43,12 @@ const grupos: { titulo: string; items: Item[] }[] = [
         label: "Socialcors",
         description: "Redes · IA · Campañas",
         icon: <Share2 className="h-4 w-4" />,
+      },
+      {
+        href: "/operator/mentoria",
+        label: "Mentoría",
+        description: "Alumnos · Sesiones · Planes",
+        icon: <GraduationCap className="h-4 w-4" />,
       },
       {
         href: "/metrics",
