@@ -83,7 +83,7 @@ const PRODUCTS: Product[] = [
   },
 ];
 
-export default async function HomePage() {
+export default async function HomePage(_props?: { params?: Promise<{ locale?: string }> }) {
   const hdrs = await headers();
   const host = hdrs.get("x-drako-effective-host") ?? hdrs.get("host") ?? "";
   const headerMode = hdrs.get("x-drako-host-mode");
