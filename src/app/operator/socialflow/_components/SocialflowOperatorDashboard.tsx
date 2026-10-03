@@ -93,21 +93,21 @@ function PlanPill({ plan, isInternal }: { plan: string | null; isInternal?: bool
 }
 
 // Fila de P&L con línea separadora opcional
-function PLRow({ label, value, sub, positive, negative, bold, separator, indent }: {
-  label: string; value: string; sub?: string;
-  positive?: boolean; negative?: boolean; bold?: boolean; separator?: boolean; indent?: boolean;
+function PLRow({ label, value, sub, positive, negative, bold, separator, indent, dim }: {
+  label?: string; value?: string; sub?: string;
+  positive?: boolean; negative?: boolean; bold?: boolean; separator?: boolean; indent?: boolean; dim?: boolean;
 }) {
   if (separator) return <div className="h-px bg-gray-100 my-2" />;
   return (
     <div className={`flex items-baseline justify-between py-2 ${indent ? "pl-4" : ""}`}>
       <div>
-        <span className={`text-sm ${bold ? "font-bold text-gray-900" : "text-gray-600"}`}>{label}</span>
+        <span className={`text-sm ${bold ? "font-bold text-gray-900" : dim ? "text-gray-400" : "text-gray-600"}`}>{label}</span>
         {sub && <span className="ml-2 text-[11px] text-gray-400">{sub}</span>}
       </div>
       <span className={[
         "text-sm font-black tabular-nums",
         bold ? "text-base" : "",
-        positive ? "text-emerald-600" : negative ? "text-red-600" : bold ? "text-gray-900" : "text-gray-700",
+        positive ? "text-emerald-600" : negative ? "text-red-600" : bold ? "text-gray-900" : dim ? "text-gray-400" : "text-gray-700",
       ].join(" ")}>{value}</span>
     </div>
   );
