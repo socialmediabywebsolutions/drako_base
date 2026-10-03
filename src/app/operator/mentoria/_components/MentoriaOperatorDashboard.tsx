@@ -460,10 +460,10 @@ export default function MentoriaOperatorDashboard() {
     setError(null);
     try {
       const [healthRes, familiesRes, studentsRes, sessionsRes] = await Promise.allSettled([
-        fetch("/api/operator/mentoria/health/system").then((r) => r.json()),
-        fetch("/api/operator/mentoria/families").then((r) => r.json()),
-        fetch("/api/operator/mentoria/students").then((r) => r.json()),
-        fetch("/api/operator/mentoria/sessions/metrics").then((r) => r.json()),
+        fetch("/api/operator/mentoria/health/system").then((r) => r.json() as Promise<Record<string, unknown>>),
+        fetch("/api/operator/mentoria/families").then((r) => r.json() as Promise<Record<string, unknown>>),
+        fetch("/api/operator/mentoria/students").then((r) => r.json() as Promise<Record<string, unknown>>),
+        fetch("/api/operator/mentoria/sessions/metrics").then((r) => r.json() as Promise<Record<string, unknown>>),
       ]);
 
       if (healthRes.status === "fulfilled" && healthRes.value?.ok) {

@@ -27,7 +27,7 @@ export async function GET(request: Request) {
        WHERE saas_slug = 'mentoria'
        ORDER BY created_at DESC
        LIMIT 200`,
-    ) as { tenant_id: string; plan_code: string | null; status: string; trial_ends_at: string | null; created_at: string }[];
+    ) as unknown as { tenant_id: string; plan_code: string | null; status: string; trial_ends_at: string | null; created_at: string }[];
 
     const db = getDb();
 
