@@ -6,7 +6,6 @@ import { HostMode, resolveHostMode } from "@/lib/hosts";
 import { resolveMarketingLocale, defaultMarketingLocale } from "@/lib/i18n/marketing";
 import { StatCounter } from "@/components/marketing/home/StatCounter";
 
-// ─── NUEVA TIPOGRAFÍA: Space Grotesk (nada de Syne) ───────────────────────
 const sg = Space_Grotesk({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -14,9 +13,10 @@ const sg = Space_Grotesk({
   display: "swap",
 });
 
-// ─── ASSETS DRAKO EN R2 ───────────────────────────────────────────────────
 const LOGO =
   "https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo%20drako.png";
+const CABECERA =
+  "https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/cabecera%20drako%20%20linkedin.png";
 
 const isHostMode = (v: string | null): v is HostMode =>
   v === "CAMPAMENTO_BASE" || v === "PREVIEW" || v === "PUBLIC_SAAS";
@@ -26,822 +26,689 @@ type PStatus = "live" | "beta" | "dev";
 interface Product {
   name: string;
   sector: string;
-  outcome: string;
+  tagline: string;
   body: string;
   status: PStatus;
   label: string;
   url?: string;
   icon: string;
-  accent: "blue" | "cyan";
 }
 
 const PRODUCTS: Product[] = [
   {
     name: "Socialcors",
-    sector: "Marketing · Redes sociales",
-    outcome: "30+ posts al mes sin tocar nada",
-    body: "El Cerebro crea, programa y publica en Instagram, LinkedIn y TikTok — aprendiendo de tu marca y tendencias. Tu comunidad crece sola.",
+    sector: "Redes sociales",
+    tagline: "30 posts al mes, cero esfuerzo",
+    body: "IA que crea, programa y publica en Instagram, LinkedIn y TikTok — aprende tu marca y lo hace todo sola.",
     status: "live",
-    label: "Disponible ahora",
+    label: "Disponible",
     url: "https://socialcors.com",
-    icon: "📱",
-    accent: "blue",
+    icon: "◈",
   },
   {
     name: "Mentoría",
     sector: "Educación",
-    outcome: "Cada alumno aprende a su ritmo",
-    body: "Tutores IA que se adaptan al nivel de cada estudiante. Padres informados por WhatsApp. Sin contratar más profesores.",
+    tagline: "Tutor IA 24/7 para tus hijos",
+    body: "Apoyo personalizado en matemáticas, idiomas y más. Seguimiento de rendimiento directo a los padres por WhatsApp.",
     status: "beta",
     label: "Beta",
-    icon: "🎓",
-    accent: "cyan",
+    icon: "◉",
   },
   {
     name: "Crypto IA",
-    sector: "Inversión · Trading",
-    outcome: "El mercado, analizado 24 horas",
-    body: "Agentes que monitorizan y alertan sobre oportunidades — RSI, MACD, Fibonacci — en lenguaje humano, en tiempo real.",
+    sector: "Finanzas",
+    tagline: "Análisis de mercado en tiempo real",
+    body: "Agentes especializados que monitorizan, analizan señales y gestionan riesgo. Decisiones basadas en datos, no en intuición.",
     status: "dev",
     label: "Próximamente",
-    icon: "📊",
-    accent: "blue",
+    icon: "◆",
   },
   {
     name: "Cazh",
-    sector: "Finanzas empresariales",
-    outcome: "Pagos y cobros sin gestión manual",
-    body: "Wallet, transferencias y tarjetas virtuales con scoring financiero automatizado. La cuenta bancaria inteligente.",
+    sector: "Pagos",
+    tagline: "Wallet inteligente con IA",
+    body: "Transferencias, tarjetas y scoring financiero. Tu dinero gestionado por inteligencia artificial.",
     status: "dev",
     label: "Próximamente",
-    icon: "💳",
-    accent: "cyan",
+    icon: "◇",
   },
   {
     name: "Rentia",
-    sector: "Inmobiliaria · Alquileres",
-    outcome: "Tu cartera inmobiliaria, autogestionada",
-    body: "La IA gestiona contratos, cobros e incidencias. Evalúa inquilinos y predice riesgos de impago antes de que ocurran.",
+    sector: "Inmobiliario",
+    tagline: "Gestión de alquileres automatizada",
+    body: "Contratos, cobros, incidencias y evaluación de inquilinos. Todo gestionado por IA sin intervención manual.",
     status: "dev",
     label: "Próximamente",
-    icon: "🏠",
-    accent: "blue",
+    icon: "◎",
   },
 ];
 
-const TICKER = [
-  "📱 Post publicado en Instagram — Restaurante La Mar — +847 likes",
-  "📈 +45% engagement — Clínica Dental Plus",
-  "✍️ 12 posts generados para la semana — Academia FitLife",
-  "🚀 Campaña LinkedIn lanzada — Inmobiliaria Torres — +230 impresiones",
-  "💬 Respuestas automáticas 24h activas — E-commerce Modavida",
-  "📊 Análisis mensual completado — Bufete García",
-  "🎯 Nuevo lead captado — SaaS TechPro",
-  "⚡ 98 posts publicados este mes — Agencia Digital X",
-];
+export default async function HomePage() {
+  const hdrs = await headers();
+  const hostMode = resolveHostMode(hdrs);
+  if (hostMode === "CAMPAMENTO_BASE") redirect("/admin");
+  if (hostMode === "PUBLIC_SAAS") redirect("/app");
 
-const FEED = [
-  { icon: "📸", action: "Post publicado en Instagram", client: "Restaurante La Mar",   result: "+847 likes" },
-  { icon: "📈", action: "Análisis completado",         client: "Clínica Dental Plus",  result: "+45% reach" },
-  { icon: "✍️", action: "12 posts generados",          client: "Academia FitLife",     result: "semana próxima" },
-  { icon: "🚀", action: "Campaña LinkedIn activa",     client: "Inmobiliaria Torres",  result: "+230 imprs." },
-];
-
-export default async function Home({ params }: { params?: Promise<{ locale?: string }> }) {
-  const resolvedParams = params ? await params : undefined;
-  const headersList = await headers();
-  const host = headersList.get("x-drako-effective-host") ?? headersList.get("host") ?? "";
-  const headerMode = headersList.get("x-drako-host-mode");
-  const mode = isHostMode(headerMode) ? headerMode : resolveHostMode(host);
-
-  if (mode === "CAMPAMENTO_BASE") redirect("/admin");
-  if (mode === "PREVIEW") redirect("/preview");
-  if (host.includes("socialflow")) redirect("/socialflow");
-
-  const matchedPath =
-    headersList.get("x-matched-path") ||
-    headersList.get("x-invoke-path") ||
-    headersList.get("next-url") ||
-    "/";
-  const locale = resolveMarketingLocale(
-    resolvedParams?.locale ?? (matchedPath.split("/")[1] || undefined)
-  );
-  const prefix = locale === defaultMarketingLocale ? "" : `/${locale}`;
-  const ticker2 = [...TICKER, ...TICKER];
+  const locale = resolveMarketingLocale(hdrs) ?? defaultMarketingLocale;
 
   return (
-    <div className={`${sg.variable} min-h-screen overflow-x-hidden bg-white text-[#07111f]`}
-         style={{ fontFamily: "var(--sg), system-ui, sans-serif" }}>
-
-      {/* ══════════════════════════════════════════════════════════════════
-          ESTILOS GLOBALES
-      ══════════════════════════════════════════════════════════════════ */}
+    <div className={`${sg.variable} drako-root`}>
       <style>{`
-        /* ─── TOKENS ─────────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
         :root {
-          --bl:   #3b82f6;
-          --cy:   #06b6d4;
-          --nv:   #07111f;
-          --sf:   #f0f8ff;
-          --stf:  #e8fbff;          /* turquoise surface */
-          --bdr:  #dbeafe;
-          --cbdr: #a5f3fc;          /* turquoise border */
-          --mid:  #64748b;
-          --sg:   'Space Grotesk', system-ui, sans-serif;
+          --bl: #3b82f6;
+          --cy: #06b6d4;
+          --bl2: #1d4ed8;
+          --cy2: #0891b2;
+          --txt: #0f172a;
+          --txt2: #475569;
+          --bg: #ffffff;
+          --bg2: #f8faff;
+          --sg: 'Space Grotesk', system-ui, sans-serif;
         }
+        html { scroll-behavior: smooth; }
+        body { background: var(--bg); color: var(--txt); font-family: var(--sg); -webkit-font-smoothing: antialiased; }
+        .drako-root { overflow-x: hidden; }
 
-        /* ─── GRADIENT TEXT ───────────────────────────────────────────── */
-        .G  { background: linear-gradient(110deg,#3b82f6 0%,#06b6d4 100%);
-              -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-              background-clip:text; }
-        .GC { background: linear-gradient(110deg,#06b6d4 0%,#3b82f6 100%);
-              -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-              background-clip:text; }
-
-        /* ─── NAV ─────────────────────────────────────────────────────── */
-        .topnav {
+        /* ── NAV ──────────────────────────────── */
+        .nav {
+          position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 0 5vw; height: 64px;
           background: rgba(255,255,255,.92);
-          backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+          backdrop-filter: blur(16px);
+          border-bottom: 1px solid rgba(59,130,246,.12);
         }
-        .nl { font-size:14px; font-weight:600; color:var(--mid); transition:color .18s; }
-        .nl:hover { color:var(--nv); }
+        .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .nav-brand span { font-size: 1.15rem; font-weight: 700; color: var(--txt); letter-spacing: -.02em; }
+        .nav-links { display: flex; align-items: center; gap: 2rem; }
+        .nav-links a { font-size: .875rem; font-weight: 500; color: var(--txt2); text-decoration: none; transition: color .2s; }
+        .nav-links a:hover { color: var(--bl); }
+        .nav-cta {
+          background: var(--bl); color: #fff !important;
+          padding: .45rem 1.2rem; border-radius: 8px;
+          font-size: .875rem; font-weight: 600;
+          transition: background .2s, transform .15s !important;
+        }
+        .nav-cta:hover { background: var(--bl2) !important; transform: translateY(-1px); }
 
-        /* ─── BUTTONS ─────────────────────────────────────────────────── */
-        .btn-blue {
-          display:inline-flex; align-items:center; gap:8px;
-          background:linear-gradient(108deg,#3b82f6,#06b6d4);
-          color:#fff; font-weight:700; font-size:15px; font-family:var(--sg);
-          padding:14px 28px; border-radius:12px;
-          box-shadow:0 4px 24px rgba(59,130,246,.35);
-          transition:transform .2s, box-shadow .2s;
+        /* ── HERO CABECERA ────────────────────── */
+        .hero {
+          margin-top: 64px;
+          position: relative;
+          width: 100%;
+          background: #000;
+          overflow: hidden;
         }
-        .btn-blue:hover { transform:translateY(-3px); box-shadow:0 10px 40px rgba(59,130,246,.45); }
+        .hero-img {
+          width: 100%;
+          display: block;
+          object-fit: cover;
+          object-position: center top;
+          max-height: 520px;
+        }
+        .hero-overlay {
+          position: absolute; inset: 0;
+          background: linear-gradient(
+            to bottom,
+            rgba(0,0,0,.08) 0%,
+            rgba(0,0,0,.15) 50%,
+            rgba(255,255,255,1) 100%
+          );
+        }
+        .hero-text {
+          position: absolute;
+          bottom: 0; left: 0; right: 0;
+          padding: 3rem 5vw 3.5rem;
+        }
+        .hero-tagline {
+          display: inline-flex; align-items: center; gap: .5rem;
+          background: rgba(6,182,212,.12);
+          border: 1px solid rgba(6,182,212,.35);
+          color: var(--cy2);
+          font-size: .8rem; font-weight: 600; letter-spacing: .04em;
+          padding: .3rem .9rem; border-radius: 100px;
+          margin-bottom: 1.25rem;
+          text-transform: uppercase;
+        }
+        .hero-tagline::before {
+          content: ''; width: 7px; height: 7px;
+          background: var(--cy); border-radius: 50%;
+          animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+          0%,100%{ opacity:1; transform:scale(1); }
+          50%{ opacity:.5; transform:scale(1.4); }
+        }
+        .hero-h1 {
+          font-size: clamp(2.4rem, 5vw, 4rem);
+          font-weight: 800;
+          letter-spacing: -.03em;
+          line-height: 1.08;
+          color: var(--txt);
+          max-width: 720px;
+          margin-bottom: 1.25rem;
+        }
+        .hero-h1 .hl-bl { color: var(--bl); }
+        .hero-h1 .hl-cy { color: var(--cy); }
+        .hero-sub {
+          font-size: 1.1rem; color: var(--txt2); font-weight: 400;
+          max-width: 540px; line-height: 1.65;
+          margin-bottom: 2rem;
+        }
+        .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+        .btn-pri {
+          display: inline-flex; align-items: center; gap: .5rem;
+          background: var(--bl); color: #fff;
+          padding: .75rem 1.75rem; border-radius: 10px;
+          font-size: 1rem; font-weight: 600;
+          text-decoration: none;
+          transition: background .2s, transform .15s, box-shadow .2s;
+          box-shadow: 0 4px 20px rgba(59,130,246,.35);
+        }
+        .btn-pri:hover { background: var(--bl2); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(59,130,246,.45); }
+        .btn-sec {
+          display: inline-flex; align-items: center; gap: .5rem;
+          background: transparent; color: var(--cy2);
+          padding: .75rem 1.75rem; border-radius: 10px;
+          font-size: 1rem; font-weight: 600;
+          text-decoration: none;
+          border: 2px solid var(--cy);
+          transition: background .2s, transform .15s;
+        }
+        .btn-sec:hover { background: rgba(6,182,212,.08); transform: translateY(-2px); }
 
-        .btn-cyan {
-          display:inline-flex; align-items:center; gap:8px;
-          background:linear-gradient(108deg,#06b6d4,#3b82f6);
-          color:#fff; font-weight:700; font-size:15px; font-family:var(--sg);
-          padding:14px 28px; border-radius:12px;
-          box-shadow:0 4px 24px rgba(6,182,212,.35);
-          transition:transform .2s, box-shadow .2s;
+        /* ── STATS BAR ────────────────────────── */
+        .stats-bar {
+          background: linear-gradient(90deg, #f0f8ff, #e8fbff, #f0f8ff);
+          border-top: 1.5px solid rgba(6,182,212,.18);
+          border-bottom: 1.5px solid rgba(59,130,246,.14);
+          padding: 2.5rem 5vw;
+          display: flex; align-items: center; justify-content: space-around;
+          flex-wrap: wrap; gap: 2rem;
         }
-        .btn-cyan:hover { transform:translateY(-3px); box-shadow:0 10px 40px rgba(6,182,212,.45); }
+        .stat-item { text-align: center; }
+        .stat-num {
+          font-size: 2.4rem; font-weight: 800;
+          letter-spacing: -.04em; line-height: 1;
+          background: linear-gradient(135deg, var(--bl), var(--cy));
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .stat-label { font-size: .85rem; color: var(--txt2); font-weight: 500; margin-top: .35rem; }
+        .stat-sep { width: 1px; height: 40px; background: rgba(59,130,246,.2); }
 
-        .btn-out {
-          display:inline-flex; align-items:center; gap:8px;
-          background:transparent; color:var(--cy);
-          font-weight:700; font-size:15px; font-family:var(--sg);
-          padding:13px 26px; border-radius:12px;
-          border:2px solid rgba(6,182,212,.4);
-          transition:all .2s;
+        /* ── SECCIÓN: CÓMO FUNCIONA ───────────── */
+        .section {
+          padding: 6rem 5vw;
         }
-        .btn-out:hover { background:rgba(6,182,212,.07); border-color:var(--cy); transform:translateY(-2px); }
+        .section-alt { background: var(--bg2); }
+        .section-label {
+          font-size: .75rem; font-weight: 700; letter-spacing: .1em;
+          color: var(--cy2); text-transform: uppercase;
+          margin-bottom: .75rem;
+        }
+        .section-h2 {
+          font-size: clamp(1.8rem, 3.5vw, 2.75rem);
+          font-weight: 800; letter-spacing: -.03em;
+          line-height: 1.12; color: var(--txt);
+          max-width: 600px; margin-bottom: 1rem;
+        }
+        .section-sub {
+          font-size: 1.05rem; color: var(--txt2);
+          max-width: 520px; line-height: 1.7;
+          margin-bottom: 3rem;
+        }
 
-        .btn-sm { padding:10px 20px !important; font-size:14px !important; border-radius:10px !important; }
+        /* ── STEPS ────────────────────────────── */
+        .steps-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: 1.5rem;
+        }
+        .step-card {
+          background: #fff;
+          border: 1.5px solid rgba(59,130,246,.12);
+          border-radius: 16px;
+          padding: 2rem 1.75rem;
+          position: relative;
+          transition: transform .25s, box-shadow .25s, border-color .25s;
+        }
+        .step-card:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 16px 40px rgba(59,130,246,.14);
+          border-color: var(--bl);
+        }
+        .step-n {
+          font-size: 3rem; font-weight: 900; letter-spacing: -.05em;
+          line-height: 1;
+          background: linear-gradient(135deg, rgba(59,130,246,.2), rgba(6,182,212,.2));
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-clip: text;
+          margin-bottom: .75rem;
+        }
+        .step-card:nth-child(even) .step-n {
+          background: linear-gradient(135deg, rgba(6,182,212,.25), rgba(59,130,246,.2));
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .step-title { font-size: 1.1rem; font-weight: 700; color: var(--txt); margin-bottom: .5rem; }
+        .step-body { font-size: .9rem; color: var(--txt2); line-height: 1.6; }
+        .step-accent {
+          position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+          border-radius: 0 0 14px 14px;
+          background: linear-gradient(90deg, var(--bl), var(--cy));
+          transform: scaleX(0); transform-origin: left;
+          transition: transform .3s;
+        }
+        .step-card:hover .step-accent { transform: scaleX(1); }
 
-        /* ─── LIVE DOT ────────────────────────────────────────────────── */
-        .ldot {
-          width:9px; height:9px; border-radius:50%;
-          background:#10b981;
-          animation:ldot 2s ease-in-out infinite;
+        /* ── PRODUCTOS ────────────────────────── */
+        .products-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 1.5rem;
+          margin-top: 1rem;
         }
-        @keyframes ldot {
-          0%,100% { box-shadow:0 0 0 0 rgba(16,185,129,.5); }
-          50%      { box-shadow:0 0 0 6px rgba(16,185,129,.0); }
+        .pcard {
+          background: #fff;
+          border-radius: 20px;
+          overflow: hidden;
+          position: relative;
+          transition: transform .28s, box-shadow .28s;
+          cursor: default;
         }
-
-        /* ─── HERO BACKGROUND ─────────────────────────────────────────── */
-        .hero-section {
-          background: white;
-          position: relative; overflow:hidden;
-        }
-        /* Dot grid */
-        .hero-section::before {
+        .pcard::before {
           content:'';
-          position:absolute; inset:0; pointer-events:none;
-          background-image: radial-gradient(circle, rgba(59,130,246,.14) 1.5px, transparent 1.5px);
-          background-size:36px 36px;
+          position:absolute; inset:0; border-radius:20px; padding:2px;
+          background: linear-gradient(135deg, var(--bl), var(--cy));
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: destination-out;
+          mask-composite: exclude;
+          opacity: .25;
+          transition: opacity .28s;
+          pointer-events: none;
         }
-        .hblob {
-          position:absolute; border-radius:50%; filter:blur(90px); pointer-events:none;
+        .pcard:hover { transform: translateY(-8px); box-shadow: 0 20px 48px rgba(59,130,246,.18); }
+        .pcard:hover::before { opacity: 1; }
+        .pcard-head {
+          padding: 2rem 1.75rem 1.25rem;
+          display: flex; align-items: flex-start; justify-content: space-between;
+          gap: 1rem;
         }
-        .hb1 {
-          width:700px; height:500px; top:-100px; right:-80px;
-          background: radial-gradient(ellipse, rgba(59,130,246,.14), transparent 65%);
-          animation: hbmove 12s ease-in-out infinite;
+        .pcard-icon {
+          width: 52px; height: 52px;
+          background: linear-gradient(135deg, rgba(59,130,246,.1), rgba(6,182,212,.08));
+          border-radius: 14px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 1.5rem;
+          flex-shrink: 0;
+          border: 1px solid rgba(59,130,246,.14);
+          transition: background .28s, transform .28s;
         }
-        .hb2 {
-          width:500px; height:400px; bottom:-60px; left:-60px;
-          background: radial-gradient(ellipse, rgba(6,182,212,.12), transparent 65%);
-          animation: hbmove 17s ease-in-out infinite reverse;
+        .pcard:nth-child(even) .pcard-icon {
+          background: linear-gradient(135deg, rgba(6,182,212,.1), rgba(59,130,246,.08));
         }
-        .hb3 {
-          width:350px; height:280px; top:50%; left:42%;
-          background: radial-gradient(ellipse, rgba(6,182,212,.08), transparent 65%);
-          animation: hbmove 22s ease-in-out infinite;
+        .pcard:hover .pcard-icon { transform: scale(1.1) rotate(5deg); }
+        .pcard-status {
+          font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+          padding: .25rem .75rem; border-radius: 100px;
+          white-space: nowrap;
+          text-transform: uppercase;
         }
-        @keyframes hbmove {
-          0%,100% { transform:translate(0,0); }
-          33%      { transform:translate(40px,-28px); }
-          66%      { transform:translate(-28px,20px); }
+        .st-live { background: rgba(6,182,212,.12); color: var(--cy2); border: 1px solid rgba(6,182,212,.3); }
+        .st-beta { background: rgba(59,130,246,.1); color: var(--bl); border: 1px solid rgba(59,130,246,.25); }
+        .st-dev { background: rgba(100,116,139,.08); color: #64748b; border: 1px solid rgba(100,116,139,.2); }
+        .pcard-body { padding: 0 1.75rem 2rem; }
+        .pcard-sector {
+          font-size: .75rem; font-weight: 600; letter-spacing: .06em;
+          color: var(--cy2); text-transform: uppercase; margin-bottom: .5rem;
         }
+        .pcard:nth-child(even) .pcard-sector { color: var(--bl); }
+        .pcard-name { font-size: 1.35rem; font-weight: 800; letter-spacing: -.02em; color: var(--txt); margin-bottom: .3rem; }
+        .pcard-tagline { font-size: .9rem; font-weight: 600; color: var(--bl); margin-bottom: .6rem; }
+        .pcard:nth-child(even) .pcard-tagline { color: var(--cy2); }
+        .pcard-desc { font-size: .875rem; color: var(--txt2); line-height: 1.65; margin-bottom: 1.25rem; }
+        .pcard-link {
+          display: inline-flex; align-items: center; gap: .4rem;
+          font-size: .85rem; font-weight: 600; color: var(--bl);
+          text-decoration: none;
+          transition: gap .2s, color .2s;
+        }
+        .pcard-link:hover { gap: .7rem; color: var(--bl2); }
 
-        /* ─── AI FEED CARD ────────────────────────────────────────────── */
-        .ai-card {
-          background:#fff;
-          border:1.5px solid var(--cbdr);
-          border-radius:22px;
-          box-shadow:0 0 0 4px rgba(6,182,212,.06), 0 24px 72px rgba(6,182,212,.12), 0 4px 16px rgba(0,0,0,.04);
-          overflow:hidden;
+        /* ── WHY DRAKO ────────────────────────── */
+        .why-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 1.25rem;
         }
-        .ai-hdr {
-          padding:14px 18px;
-          background: linear-gradient(135deg, #f0fbff, #e8f4ff);
-          border-bottom:1.5px solid var(--cbdr);
-          display:flex; align-items:center; gap:10px;
+        .why-card {
+          padding: 2rem 1.5rem;
+          border-radius: 16px;
+          background: #fff;
+          border: 1.5px solid rgba(59,130,246,.1);
+          transition: border-color .25s, box-shadow .25s, transform .25s;
         }
-        .ai-live {
-          margin-left:auto;
-          font-size:10px; font-weight:800; letter-spacing:.12em; color:#06b6d4;
-          border:1.5px solid rgba(6,182,212,.3);
-          background:rgba(6,182,212,.07);
-          padding:3px 8px; border-radius:6px;
+        .why-card:hover {
+          border-color: var(--cy);
+          box-shadow: 0 8px 32px rgba(6,182,212,.12);
+          transform: translateY(-4px);
         }
-        .fi {
-          display:flex; align-items:center; gap:12px;
-          padding:13px 18px;
-          border-bottom:1px solid rgba(165,243,252,.3);
-          opacity:0;
-          animation:fiin .4s ease forwards;
+        .why-ic {
+          width: 44px; height: 44px;
+          background: linear-gradient(135deg, var(--bl), var(--cy));
+          border-radius: 12px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 1.25rem;
+          margin-bottom: 1rem;
+          transition: transform .25s;
         }
-        .fi:last-of-type { border-bottom:none; }
-        @keyframes fiin { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:none} }
-        .fi:nth-child(1){animation-delay:.4s}
-        .fi:nth-child(2){animation-delay:.9s}
-        .fi:nth-child(3){animation-delay:1.4s}
-        .fi:nth-child(4){animation-delay:1.9s}
-        .fi-tag {
-          margin-left:auto; white-space:nowrap;
-          font-size:11px; font-weight:700; color:#059669;
-          background:rgba(16,185,129,.1); padding:3px 8px; border-radius:99px;
+        .why-card:nth-child(even) .why-ic {
+          background: linear-gradient(135deg, var(--cy), var(--bl));
         }
-        .prog-bar { height:5px; background:rgba(6,182,212,.15); border-radius:5px; overflow:hidden; }
-        .prog-fill {
-          height:100%;
-          background:linear-gradient(90deg,#3b82f6,#06b6d4);
-          border-radius:5px; width:0;
-          animation:pfill 2.8s ease-out 2.4s forwards;
-        }
-        @keyframes pfill { to{width:73%} }
+        .why-card:hover .why-ic { transform: scale(1.1) rotate(-5deg); }
+        .why-title { font-size: 1rem; font-weight: 700; color: var(--txt); margin-bottom: .4rem; }
+        .why-body { font-size: .875rem; color: var(--txt2); line-height: 1.6; }
 
-        /* ─── TICKER ──────────────────────────────────────────────────── */
+        /* ── CTA FINAL ────────────────────────── */
+        .cta-section {
+          padding: 7rem 5vw;
+          background: linear-gradient(135deg, #0c2461 0%, #1d4ed8 40%, #0284c7 75%, #06b6d4 100%);
+          text-align: center;
+          position: relative;
+          overflow: hidden;
+        }
+        .cta-section::before {
+          content: '';
+          position: absolute; inset: 0;
+          background-image: radial-gradient(circle, rgba(255,255,255,.06) 1px, transparent 1px);
+          background-size: 32px 32px;
+          pointer-events: none;
+        }
+        .cta-label {
+          display: inline-block;
+          background: rgba(255,255,255,.15);
+          border: 1px solid rgba(255,255,255,.3);
+          color: #a5f3fc;
+          font-size: .75rem; font-weight: 700; letter-spacing: .1em;
+          padding: .3rem 1rem; border-radius: 100px;
+          margin-bottom: 1.5rem;
+          text-transform: uppercase;
+        }
+        .cta-h2 {
+          font-size: clamp(2rem, 4vw, 3.25rem);
+          font-weight: 800; letter-spacing: -.03em;
+          line-height: 1.1; color: #fff;
+          max-width: 640px; margin: 0 auto 1.25rem;
+        }
+        .cta-sub {
+          font-size: 1.1rem; color: rgba(255,255,255,.75);
+          max-width: 480px; margin: 0 auto 2.5rem;
+          line-height: 1.65;
+        }
+        .btn-white {
+          display: inline-flex; align-items: center; gap: .5rem;
+          background: #fff; color: var(--bl2);
+          padding: .85rem 2.25rem; border-radius: 12px;
+          font-size: 1.05rem; font-weight: 700;
+          text-decoration: none;
+          transition: transform .2s, box-shadow .2s;
+          box-shadow: 0 6px 24px rgba(0,0,0,.2);
+        }
+        .btn-white:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(0,0,0,.25); }
+
+        /* ── FOOTER ───────────────────────────── */
+        .footer {
+          background: #f8faff;
+          border-top: 1px solid rgba(59,130,246,.1);
+          padding: 3rem 5vw;
+          display: flex; align-items: center; justify-content: space-between;
+          flex-wrap: wrap; gap: 1.5rem;
+        }
+        .footer-brand { display: flex; align-items: center; gap: 10px; }
+        .footer-brand span { font-size: 1rem; font-weight: 700; color: var(--txt); }
+        .footer-copy { font-size: .8rem; color: var(--txt2); }
+        .footer-links { display: flex; gap: 1.5rem; }
+        .footer-links a { font-size: .8rem; color: var(--txt2); text-decoration: none; transition: color .2s; }
+        .footer-links a:hover { color: var(--bl); }
+
+        /* ── TICKER ───────────────────────────── */
         .ticker-wrap {
-          overflow:hidden;
-          background:linear-gradient(90deg, rgba(6,182,212,.08) 0%, rgba(59,130,246,.06) 100%);
-          border-top:1.5px solid rgba(6,182,212,.2);
-          border-bottom:1.5px solid rgba(6,182,212,.2);
+          overflow: hidden;
+          padding: .9rem 0;
+          background: linear-gradient(90deg, rgba(6,182,212,.07), rgba(59,130,246,.05), rgba(6,182,212,.07));
+          border-top: 1.5px solid rgba(6,182,212,.2);
+          border-bottom: 1.5px solid rgba(6,182,212,.18);
         }
         .ticker-track {
-          display:flex; width:max-content;
-          animation:tick 32s linear infinite;
+          display: flex; gap: 3rem;
+          animation: tick 28s linear infinite;
+          width: max-content;
         }
-        .ticker-track:hover { animation-play-state:paused; }
         @keyframes tick { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         .ti {
-          padding:13px 36px;
-          font-size:13px; font-weight:600; color:#0e7490;
-          white-space:nowrap;
-          border-right:1.5px solid rgba(6,182,212,.2);
+          font-size: .8rem; font-weight: 600; letter-spacing: .04em;
+          color: var(--cy2); white-space: nowrap;
+          display: flex; align-items: center; gap: .5rem;
         }
+        .ti::before { content: '●'; font-size: .5rem; color: var(--cy); }
 
-        /* ─── METRICS ─────────────────────────────────────────────────── */
-        .mcell {
-          text-align:center; padding:44px 20px;
-          border-right:1px solid var(--bdr);
-        }
-        .mcell:last-child { border-right:none; }
+        /* ── REVEAL ───────────────────────────── */
+        .rv { opacity:0; transform:translateY(28px); transition:opacity .55s ease, transform .55s ease; }
+        .vis { opacity:1; transform:translateY(0); }
 
-        /* ─── PRODUCT CARDS — Gradient border always visible ──────────── */
-        /* Technique: ::before pseudo with mask to create gradient border  */
-        .pc {
-          background:#fff;
-          border-radius:18px;
-          padding:32px;
-          position:relative;
-          isolation:isolate;
-          transition:transform .28s cubic-bezier(.4,0,.2,1), box-shadow .28s;
+        /* ── RESPONSIVE ───────────────────────── */
+        @media(max-width:680px){
+          .nav-links { display:none; }
+          .hero-img { max-height: 300px; }
+          .hero-text { padding: 1.5rem 5vw 2rem; }
+          .stat-sep { display:none; }
+          .stats-bar { justify-content: center; gap: 1.5rem; }
+          .footer { flex-direction: column; text-align: center; }
+          .footer-links { justify-content: center; }
         }
-        /* gradient border at 35% opacity at rest */
-        .pc::before {
-          content:'';
-          position:absolute; inset:0; border-radius:18px; padding:1.5px;
-          background:linear-gradient(135deg, rgba(59,130,246,.4), rgba(6,182,212,.4));
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: destination-out;
-          mask-composite: exclude;
-          transition:background .28s;
-        }
-        .pc:hover { transform:translateY(-8px); box-shadow:0 0 40px rgba(6,182,212,.22), 0 12px 48px rgba(59,130,246,.12); }
-        .pc:hover::before {
-          background:linear-gradient(135deg,#3b82f6,#06b6d4);
-        }
-        /* cyan accent cards */
-        .pc.ac-cyan::before {
-          background:linear-gradient(135deg, rgba(6,182,212,.45), rgba(59,130,246,.35));
-        }
-        .pc.ac-cyan:hover::before {
-          background:linear-gradient(135deg,#06b6d4,#3b82f6);
-        }
-        .pc.ac-cyan:hover { box-shadow:0 0 40px rgba(6,182,212,.28), 0 12px 48px rgba(6,182,212,.12); }
-
-        .pc-icon { font-size:40px; line-height:1; display:block; margin-bottom:20px; }
-        .pc-sector {
-          font-size:11px; font-weight:700; letter-spacing:.15em;
-          text-transform:uppercase; margin-bottom:8px;
-        }
-        .pc-name { font-weight:700; font-size:24px; color:var(--nv); margin-bottom:10px; }
-        .pc-out  { font-weight:700; font-size:18px; color:var(--nv); line-height:1.25; margin-bottom:14px; }
-        .pc-body { font-size:14px; line-height:1.65; color:var(--mid); margin-bottom:24px; }
-        .sp {
-          display:inline-flex; align-items:center; gap:6px;
-          font-size:12px; font-weight:700; padding:4px 12px; border-radius:99px;
-        }
-        .sp-live { background:rgba(16,185,129,.1); color:#059669; }
-        .sp-beta { background:rgba(245,158,11,.1); color:#d97706; }
-        .sp-dev  { background:rgba(148,163,184,.12); color:#64748b; }
-        .clink {
-          font-weight:700; font-size:14px; color:var(--bl);
-          display:inline-flex; align-items:center; gap:5px;
-          transition:gap .2s, color .2s;
-        }
-        .clink:hover { gap:9px; color:var(--cy); }
-
-        /* ─── FEATURED SOCIALCORS ─────────────────────────────────────── */
-        .pc-feat {
-          border-radius:22px; padding:48px;
-          position:relative; isolation:isolate;
-          background: linear-gradient(145deg, #f0f8ff 0%, #e8fbff 100%);
-          transition:transform .28s, box-shadow .28s;
-          margin-bottom:24px;
-        }
-        .pc-feat::before {
-          content:'';
-          position:absolute; inset:0; border-radius:22px; padding:2px;
-          background:linear-gradient(135deg,#3b82f6,#06b6d4);
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: destination-out;
-          mask-composite: exclude;
-        }
-        .pc-feat:hover { transform:translateY(-5px); box-shadow:0 0 48px rgba(6,182,212,.2), 0 16px 56px rgba(59,130,246,.15); }
-
-        /* ─── SECTION LABELS (turquoise not blue) ─────────────────────── */
-        .label-cy {
-          font-size:11px; font-weight:800; letter-spacing:.18em;
-          text-transform:uppercase; color:#06b6d4;
-          display:block; margin-bottom:16px;
-        }
-        .label-bl {
-          font-size:11px; font-weight:800; letter-spacing:.18em;
-          text-transform:uppercase; color:#3b82f6;
-          display:block; margin-bottom:16px;
-        }
-
-        /* ─── WHY SECTION ─────────────────────────────────────────────── */
-        .why-number {
-          font-weight:800; font-size:48px; line-height:1;
-          margin-bottom:4px;
-        }
-
-        /* ─── REVEAL ──────────────────────────────────────────────────── */
-        .rv { opacity:0; transform:translateY(28px);
-              transition:opacity .72s cubic-bezier(.16,1,.3,1), transform .72s cubic-bezier(.16,1,.3,1); }
-        .rv.vis { opacity:1; transform:none; }
-        .d1{transition-delay:.06s} .d2{transition-delay:.14s}
-        .d3{transition-delay:.22s} .d4{transition-delay:.30s}
-        .d5{transition-delay:.38s}
-
-        /* ─── CTA ─────────────────────────────────────────────────────── */
-        .cta-sec {
-          background:linear-gradient(135deg,#0c2461 0%,#1d4ed8 40%,#0284c7 70%,#06b6d4 100%);
-          position:relative; overflow:hidden;
-        }
-        .cta-sec::before {
-          content:'';
-          position:absolute; inset:0;
-          background:
-            radial-gradient(ellipse 900px 600px at 10% 50%, rgba(255,255,255,.07), transparent),
-            radial-gradient(ellipse 600px 400px at 90% 50%, rgba(6,182,212,.3), transparent);
-          pointer-events:none;
-        }
-        .btn-wh {
-          display:inline-flex; align-items:center; gap:8px;
-          background:#fff; color:#1d4ed8;
-          font-weight:800; font-size:16px; font-family:var(--sg);
-          padding:17px 34px; border-radius:14px;
-          box-shadow:0 8px 36px rgba(0,0,0,.15);
-          transition:transform .2s, box-shadow .2s;
-        }
-        .btn-wh:hover { transform:translateY(-3px); box-shadow:0 16px 48px rgba(0,0,0,.22); }
-
-        /* ─── ARROW ───────────────────────────────────────────────────── */
-        .arr { display:inline-block; transition:transform .2s; }
-        a:hover .arr, button:hover .arr { transform:translateX(5px); }
-
-        /* ─── REDUCED MOTION ──────────────────────────────────────────── */
-        @media (prefers-reduced-motion:reduce) {
-          *,*::before,*::after { animation:none !important; transition:none !important; }
-          .rv { opacity:1 !important; transform:none !important; }
-        }
-
-        /* ─── RESPONSIVE ──────────────────────────────────────────────── */
-        @media (max-width:920px) {
-          .hero-grid  { grid-template-columns:1fr !important; }
-          .feed-col   { display:none !important; }
-        }
-        @media (max-width:768px) {
-          .met-grid   { grid-template-columns:1fr 1fr !important; }
-          .mcell      { border-right:none; border-bottom:1px solid var(--bdr); }
-          .mcell:nth-child(odd) { border-right:1px solid var(--bdr) !important; }
-          .prod-grid  { grid-template-columns:1fr !important; }
-          .why-grid   { grid-template-columns:1fr !important; }
-          .feat-inner { grid-template-columns:1fr !important; }
-          .pc-feat    { padding:32px; }
+        @media(prefers-reduced-motion:reduce){
+          .rv { opacity:1; transform:none; transition:none; }
+          .ticker-track { animation:none; }
         }
       `}</style>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          NAV — Logo real de R2
-      ══════════════════════════════════════════════════════════════════ */}
-      <nav className="topnav sticky top-0 z-50 border-b border-slate-100/70">
-        <div className="max-w-6xl mx-auto px-6 h-[64px] flex items-center justify-between gap-8">
-          {/* Logo imagen desde R2 */}
-          <Link href={`${prefix}/`} className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={LOGO} alt="Drako" width={36} height={36}
-                 style={{ width:36, height:36, objectFit:"contain" }} />
-            <span style={{ fontFamily:"var(--sg),sans-serif", fontWeight:700, fontSize:20, color:"#07111f", letterSpacing:"-0.02em" }}>
-              drako<span className="G">.</span>
-            </span>
-          </Link>
-
-          <div className="hidden md:flex items-center gap-8">
-            <Link href={`${prefix}/ecosystem`} className="nl">Ecosistema</Link>
-            <Link href={`${prefix}/journal`}    className="nl">Journal IA</Link>
-            <Link href="https://socialcors.com" className="nl" target="_blank">Socialcors</Link>
-          </div>
-
-          <Link href="https://socialcors.com" target="_blank" className="btn-blue btn-sm">
-            Empieza gratis <span className="arr">→</span>
-          </Link>
+      {/* NAV */}
+      <nav className="nav">
+        <a href="#" className="nav-brand">
+          <img src={LOGO} alt="Drako" width={36} height={36}
+               style={{ width:36, height:36, objectFit:"contain" }} />
+          <span>Drako</span>
+        </a>
+        <div className="nav-links">
+          <a href="#productos">Productos</a>
+          <a href="#como-funciona">Cómo funciona</a>
+          <a href="#por-que-drako">Por qué Drako</a>
+          <a href="https://socialcors.com" className="nav-cta">Empezar gratis →</a>
         </div>
       </nav>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          HERO — dot grid + blobs de color + split layout
-      ══════════════════════════════════════════════════════════════════ */}
-      <section className="hero-section min-h-screen flex items-center py-24 px-6">
-        <div className="hblob hb1" />
-        <div className="hblob hb2" />
-        <div className="hblob hb3" />
-
-        <div className="relative z-10 max-w-6xl mx-auto w-full">
-          <div className="hero-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:72, alignItems:"center" }}>
-
-            {/* IZQUIERDA */}
-            <div>
-              {/* Badge live */}
-              <div className="inline-flex items-center gap-2 mb-9"
-                   style={{ background:"rgba(6,182,212,.08)", border:"1.5px solid rgba(6,182,212,.25)",
-                            borderRadius:999, padding:"6px 16px 6px 10px" }}>
-                <span className="ldot" />
-                <span style={{ fontSize:13, fontWeight:700, color:"#0891b2" }}>
-                  Socialcors disponible — sin tarjeta de crédito
-                </span>
-              </div>
-
-              {/* Titular — SIN Syne, Space Grotesk */}
-              <h1 style={{ fontWeight:800, lineHeight:.92, letterSpacing:"-0.03em",
-                           fontSize:"clamp(48px,7vw,88px)", color:"#07111f",
-                           marginBottom:24 }}>
-                Resolvemos<br />
-                tus problemas<br />
-                <span className="G">con IA.</span>
-              </h1>
-
-              <p style={{ fontSize:"clamp(17px,1.8vw,20px)", color:"#475569",
-                          lineHeight:1.65, maxWidth:480, marginBottom:40 }}>
-                Drako construye agentes de inteligencia artificial que automatizan sectores completos. Marketing, educación, finanzas, inversión, inmobiliaria. Tu equipo hace lo que importa. La IA hace el resto.
-              </p>
-
-              <div className="flex flex-wrap gap-4">
-                <Link href="https://socialcors.com" target="_blank" className="btn-blue">
-                  Ver Socialcors <span className="arr">→</span>
-                </Link>
-                <Link href={`${prefix}/ecosystem`} className="btn-out">
-                  Explorar ecosistema
-                </Link>
-              </div>
-
-              {/* Mini stats row */}
-              <div className="mt-14 pt-10"
-                   style={{ borderTop:"1.5px solid rgba(6,182,212,.2)",
-                            display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
-                {[
-                  { v: "5",   c: "cy", l: "SaaS de IA" },
-                  { v: "24h", c: "bl", l: "sin parar" },
-                  { v: "0€",  c: "cy", l: "para empezar" },
-                ].map((s) => (
-                  <div key={s.l}>
-                    <p style={{ fontWeight:800, fontSize:32, lineHeight:1, marginBottom:4 }}
-                       className={s.c === "cy" ? "GC" : "G"}>{s.v}</p>
-                    <p style={{ fontSize:13, color:"#94a3b8", fontWeight:600 }}>{s.l}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* DERECHA — feed IA en vivo */}
-            <div className="feed-col">
-              <div className="ai-card">
-                <div className="ai-hdr">
-                  <span className="ldot" />
-                  <span style={{ fontWeight:700, fontSize:13, color:"#07111f" }}>Cerebro Socialcors</span>
-                  <span className="ai-live">EN VIVO</span>
-                </div>
-
-                <div>
-                  {FEED.map((item, i) => (
-                    <div key={i} className="fi">
-                      <span style={{ fontSize:20, flexShrink:0 }}>{item.icon}</span>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <p style={{ fontSize:13, fontWeight:700, color:"#07111f", lineHeight:1, marginBottom:3 }}>
-                          {item.action}
-                        </p>
-                        <p style={{ fontSize:12, color:"#94a3b8" }}>{item.client}</p>
-                      </div>
-                      <span className="fi-tag">{item.result}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ padding:"14px 18px", borderTop:"1.5px solid rgba(165,243,252,.4)" }}>
-                  <div className="flex items-center justify-between" style={{ marginBottom:8 }}>
-                    <span style={{ fontSize:12, color:"#64748b" }}>Generando semana del 7 oct…</span>
-                    <span style={{ fontSize:12, fontWeight:800, color:"#06b6d4" }}>73%</span>
-                  </div>
-                  <div className="prog-bar"><div className="prog-fill" /></div>
-                </div>
-
-                <div style={{ padding:"12px 18px", background:"linear-gradient(135deg,#f0fbff,#e8f4ff)",
-                              borderTop:"1.5px solid rgba(165,243,252,.4)",
-                              display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <span style={{ fontSize:12, color:"#64748b" }}>Próxima publicación</span>
-                  <span style={{ fontSize:12, fontWeight:800, color:"#07111f" }}>mañana 09:00</span>
-                </div>
-              </div>
-            </div>
-
+      {/* HERO — CABECERA REAL */}
+      <section className="hero">
+        <img src={CABECERA} alt="Drako — IA para empresas" className="hero-img" />
+        <div className="hero-overlay" />
+        <div className="hero-text">
+          <div className="hero-tagline">Inteligencia artificial · Ecosistema empresarial</div>
+          <h1 className="hero-h1">
+            Automatizamos tu negocio<br />
+            con <span className="hl-bl">inteligencia</span>{" "}
+            <span className="hl-cy">artificial.</span>
+          </h1>
+          <p className="hero-sub">
+            Holding tecnológico especializado en crear software de IA que resuelve los
+            problemas reales de tu empresa — y lo hace solo.
+          </p>
+          <div className="hero-actions">
+            <a href="https://socialcors.com" className="btn-pri">Ver Socialcors →</a>
+            <a href="#productos" className="btn-sec">Explorar productos</a>
           </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          TICKER — turquesa visible, no azul
-      ══════════════════════════════════════════════════════════════════ */}
-      <div className="ticker-wrap">
+      {/* TICKER */}
+      <div className="ticker-wrap" aria-hidden>
         <div className="ticker-track">
-          {ticker2.map((item, i) => (
-            <div key={i} className="ti">{item}</div>
+          {[...Array(2)].map((_, i) => (
+            <div key={i} style={{display:"flex",gap:"3rem"}}>
+              {["Publicación autónoma en redes","Análisis de tendencias en tiempo real","Agentes IA especializados","Gestión de alquileres sin fricción","Tutores inteligentes 24/7","Análisis crypto con IA","Wallet con scoring financiero","Marketing que se gestiona solo"].map(t=>(
+                <span className="ti" key={t}>{t}</span>
+              ))}
+            </div>
           ))}
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          MÉTRICAS — alternando azul y turquesa
-      ══════════════════════════════════════════════════════════════════ */}
-      <section className="bg-white" style={{ borderBottom:"1px solid #dbeafe" }}>
-        <div className="max-w-5xl mx-auto">
-          <div className="met-grid" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)" }}>
-            {[
-              { value:98,  suffix:"%", label:"más engagement",          cls:"G"  },
-              { value:5,   suffix:"x", label:"más publicaciones",       cls:"GC" },
-              { value:24,  suffix:"h", label:"de operación continua",   cls:"G"  },
-              { value:30,  suffix:"%", label:"menos costes marketing",  cls:"GC" },
-            ].map((m, i) => (
-              <div key={m.label} className={`mcell rv d${i+1}`}>
-                <p className={m.cls} style={{ fontWeight:800, fontSize:56, lineHeight:1, marginBottom:8 }}>
-                  <StatCounter value={m.value} suffix={m.suffix} />
-                </p>
-                <p style={{ fontSize:14, color:"#64748b", fontWeight:600 }}>{m.label}</p>
+      {/* STATS */}
+      <div className="stats-bar">
+        {[
+          { value:98, suffix:"%", label:"Tasa de ejecución autónoma" },
+          { value:5, suffix:"x", label:"Más productividad media" },
+          { value:30, suffix:"+", label:"Posts al mes sin intervención" },
+          { value:24, suffix:"h", label:"IA activa sin parar" },
+        ].map((s, i) => (
+          <div key={s.label} style={{display:"contents"}}>
+            {i > 0 && <div className="stat-sep" />}
+            <div className="stat-item rv">
+              <div className="stat-num">
+                <StatCounter value={s.value} suffix={s.suffix} />
               </div>
-            ))}
+              <div className="stat-label">{s.label}</div>
+            </div>
           </div>
+        ))}
+      </div>
+
+      {/* CÓMO FUNCIONA */}
+      <section className="section" id="como-funciona">
+        <div className="section-label">El proceso</div>
+        <h2 className="section-h2">De cero a automatizado en 24 horas</h2>
+        <p className="section-sub">
+          Sin configuraciones complejas, sin curvas de aprendizaje. Conectas,
+          la IA aprende tu negocio y empieza a trabajar.
+        </p>
+        <div className="steps-grid">
+          {[
+            { n:"01", title:"Conectas tu negocio", body:"Tu marca, tus redes, tus objetivos. La IA absorbe el contexto completo en minutos." },
+            { n:"02", title:"La IA aprende tu voz", body:"Analiza tu historial, tu audiencia y las tendencias de tu sector. Construye tu identidad digital." },
+            { n:"03", title:"Crea y publica solo", body:"Posts, análisis, respuestas. Todo ejecutado de forma autónoma con tu estilo y sin errores." },
+            { n:"04", title:"Aprende y mejora", body:"Cada resultado alimenta el sistema. La IA se vuelve más precisa y efectiva con cada ciclo." },
+          ].map(s => (
+            <div className="step-card rv" key={s.n}>
+              <div className="step-n">{s.n}</div>
+              <div className="step-title">{s.title}</div>
+              <div className="step-body">{s.body}</div>
+              <div className="step-accent" />
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          PRODUCTOS — fondo turquesa suave + cards con borde degradado
-      ══════════════════════════════════════════════════════════════════ */}
-      <section style={{ padding:"112px 24px", background:"linear-gradient(160deg,#f0f8ff 0%,#e8fbff 50%,#f0f8ff 100%)" }}>
-        <div className="max-w-6xl mx-auto">
-          {/* Cabecera */}
-          <div className="text-center rv" style={{ marginBottom:56 }}>
-            <span className="label-cy">El ecosistema Drako</span>
-            <h2 style={{ fontWeight:800, fontSize:"clamp(36px,4.5vw,58px)",
-                         lineHeight:.98, letterSpacing:"-0.025em", color:"#07111f" }}>
-              Tu sector, automatizado.<br />
-              <span className="GC">Elige el que te corresponde.</span>
-            </h2>
-          </div>
-
-          {/* FEATURED: Socialcors */}
-          <div className="pc-feat rv">
-            <div className="feat-inner"
-                 style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:48, alignItems:"center" }}>
-              <div>
-                <span className="pc-icon">{PRODUCTS[0].icon}</span>
-                <span className="pc-sector" style={{ color:"#06b6d4" }}>{PRODUCTS[0].sector}</span>
-                <h3 style={{ fontWeight:800, fontSize:40, color:"#07111f",
-                             letterSpacing:"-0.025em", marginBottom:12, lineHeight:1 }}>
-                  {PRODUCTS[0].name}
-                </h3>
-                <p style={{ fontWeight:700, fontSize:22, color:"#07111f", lineHeight:1.2 }}>
-                  {PRODUCTS[0].outcome}.
-                </p>
+      {/* PRODUCTOS */}
+      <section className="section section-alt" id="productos">
+        <div className="section-label">Ecosistema</div>
+        <h2 className="section-h2">Cinco soluciones. Un ecosistema.</h2>
+        <p className="section-sub">
+          Cada producto resuelve un problema concreto en su sector —
+          todos comparten la misma inteligencia artificial.
+        </p>
+        <div className="products-grid">
+          {PRODUCTS.map((p) => (
+            <div className="pcard rv" key={p.name}>
+              <div className="pcard-head">
+                <div className="pcard-icon">{p.icon}</div>
+                <span className={`pcard-status ${p.status === "live" ? "st-live" : p.status === "beta" ? "st-beta" : "st-dev"}`}>
+                  {p.label}
+                </span>
               </div>
-              <div>
-                <p style={{ fontSize:16, color:"#475569", lineHeight:1.65, marginBottom:28 }}>
-                  {PRODUCTS[0].body}
-                </p>
-                <div className="flex items-center gap-5 flex-wrap">
-                  <span className="sp sp-live">
-                    <span style={{ width:7, height:7, borderRadius:"50%", background:"#10b981", display:"inline-block" }} />
-                    {PRODUCTS[0].label}
-                  </span>
-                  <a href={PRODUCTS[0].url} target="_blank" rel="noopener noreferrer"
-                     className="btn-cyan btn-sm">
-                    Acceder a Socialcors <span className="arr">→</span>
+              <div className="pcard-body">
+                <div className="pcard-sector">{p.sector}</div>
+                <div className="pcard-name">{p.name}</div>
+                <div className="pcard-tagline">{p.tagline}</div>
+                <div className="pcard-desc">{p.body}</div>
+                {p.url ? (
+                  <a href={p.url} className="pcard-link" target="_blank" rel="noopener">
+                    Conocer más <span>→</span>
                   </a>
-                </div>
+                ) : (
+                  <span style={{fontSize:".85rem",color:"#94a3b8",fontWeight:500}}>En desarrollo</span>
+                )}
               </div>
             </div>
-          </div>
-
-          {/* 4 productos restantes */}
-          <div className="prod-grid"
-               style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:24 }}>
-            {PRODUCTS.slice(1).map((p, i) => {
-              const sc = p.status === "beta" ? "sp-beta" : "sp-dev";
-              return (
-                <div key={p.name} className={`pc rv d${i+1}${p.accent==="cyan"?" ac-cyan":""}`}>
-                  <span className="pc-icon">{p.icon}</span>
-                  <span className="pc-sector" style={{ color: p.accent==="cyan" ? "#06b6d4" : "#3b82f6" }}>
-                    {p.sector}
-                  </span>
-                  <h3 className="pc-name">{p.name}</h3>
-                  <p className="pc-out">{p.outcome}.</p>
-                  <p className="pc-body">{p.body}</p>
-                  <span className={`sp ${sc}`}>{p.label}</span>
-                </div>
-              );
-            })}
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          POR QUÉ DRAKO — blanco, turquesa en números
-      ══════════════════════════════════════════════════════════════════ */}
-      <section style={{ padding:"112px 24px", background:"#fff" }}>
-        <div className="max-w-5xl mx-auto">
-          <div className="why-grid"
-               style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:80, alignItems:"start" }}>
-
-            {/* Izquierda */}
-            <div className="rv">
-              <span className="label-bl">Por qué Drako</span>
-              <h2 style={{ fontWeight:800, fontSize:"clamp(32px,4vw,52px)",
-                           lineHeight:1.02, letterSpacing:"-0.025em", color:"#07111f",
-                           marginBottom:20 }}>
-                Tu negocio,<br />multiplicado<br />
-                <span className="G">por IA.</span>
-              </h2>
-              <p style={{ fontSize:16, color:"#64748b", lineHeight:1.65 }}>
-                No vendemos software. Vendemos tiempo, escala y resultados. Cada SaaS de Drako automatiza un departamento completo — sin contratar, sin formar, sin esperar.
-              </p>
+      {/* POR QUÉ DRAKO */}
+      <section className="section" id="por-que-drako">
+        <div className="section-label">Ventaja Drako</div>
+        <h2 className="section-h2">Por qué elegir Drako</h2>
+        <p className="section-sub">
+          No vendemos herramientas. Vendemos resultados.
+          La IA hace el trabajo — tú te llevas el mérito.
+        </p>
+        <div className="why-grid">
+          {[
+            { ic:"⚡", title:"Autonomía total", body:"Los agentes trabajan 24/7 sin supervisión. Tú defines el objetivo, ellos lo ejecutan." },
+            { ic:"🎯", title:"Especializado por sector", body:"Cada producto está diseñado para un mercado concreto. Nada genérico, todo afinado." },
+            { ic:"🔒", title:"Datos aislados", body:"Tu información nunca se mezcla con otros clientes. Arquitectura multi-tenant con aislamiento total." },
+            { ic:"📈", title:"Aprende de tus resultados", body:"El sistema mejora con cada publicación, análisis o decisión. Más tiempo usándolo = mejor rendimiento." },
+            { ic:"🌐", title:"Ecosistema integrado", body:"Todos los productos comparten la misma infraestructura de IA. Lo que aprende uno beneficia al resto." },
+            { ic:"🚀", title:"Listo en horas", body:"Sin onboardings interminables. Conectas, configuras lo básico y la IA empieza a trabajar ese mismo día." },
+          ].map(w => (
+            <div className="why-card rv" key={w.title}>
+              <div className="why-ic">{w.ic}</div>
+              <div className="why-title">{w.title}</div>
+              <div className="why-body">{w.body}</div>
             </div>
-
-            {/* Derecha — 3 puntos numerados, turquesa en los números */}
-            <div style={{ display:"flex", flexDirection:"column", gap:36 }}>
-              {[
-                { n:"01", c:"GC", h:"Sin curva de aprendizaje",
-                  b:"La IA aprende de tu negocio y mejora sola. No hay configuraciones ni formación. Funciona el primer día." },
-                { n:"02", c:"G",  h:"Resultados desde el primer día",
-                  b:"Cada acción genera métricas reales: publicaciones que llegan a más personas, clientes que responden." },
-                { n:"03", c:"GC", h:"Escala sin contratar a nadie",
-                  b:"La misma IA que gestiona 10 clientes gestiona 1.000. Tu empresa crece sin que crezcan tus costes." },
-              ].map((s) => (
-                <div key={s.n} className="rv" style={{ display:"flex", gap:22 }}>
-                  <span className={`why-number ${s.c}`} style={{ flexShrink:0 }}>{s.n}</span>
-                  <div>
-                    <h3 style={{ fontWeight:700, fontSize:18, color:"#07111f", marginBottom:8 }}>{s.h}</h3>
-                    <p style={{ fontSize:14, color:"#64748b", lineHeight:1.65 }}>{s.b}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          CTA — gradiente azul → turquesa
-      ══════════════════════════════════════════════════════════════════ */}
-      <section className="cta-sec" style={{ padding:"144px 24px" }}>
-        <div className="relative z-10 max-w-3xl mx-auto text-center">
-          <h2 style={{ fontWeight:800, fontSize:"clamp(40px,5.5vw,74px)",
-                       lineHeight:.93, letterSpacing:"-0.03em",
-                       color:"#fff", marginBottom:28 }}>
-            La IA trabaja.<br />
-            Tú decides qué hacer<br />
-            con el tiempo libre.
-          </h2>
-          <p style={{ fontSize:18, color:"rgba(186,230,253,.85)", lineHeight:1.6,
-                      marginBottom:48, maxWidth:520, marginInline:"auto" }}>
-            Socialcors está en producción hoy. Sin permanencias, sin tarjeta de crédito.
-            14 días gratis — ve los resultados antes de pagar.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="https://socialcors.com" target="_blank" className="btn-wh">
-              Empezar gratis — 14 días <span className="arr">→</span>
-            </Link>
-            <Link href={`${prefix}/ecosystem`}
-                  style={{ fontWeight:700, fontSize:15, color:"rgba(255,255,255,.75)",
-                           display:"inline-flex", alignItems:"center", gap:6,
-                           transition:"color .2s" }}>
-              Ver todo el ecosistema <span className="arr">→</span>
-            </Link>
-          </div>
-        </div>
+      {/* CTA */}
+      <section className="cta-section">
+        <div className="cta-label">Empieza hoy</div>
+        <h2 className="cta-h2">Tu competencia ya está usando IA.<br />¿Y tú?</h2>
+        <p className="cta-sub">
+          Empieza con Socialcors — nuestro producto más maduro —
+          y comprueba en 30 días lo que la IA hace por tu marca.
+        </p>
+        <a href="https://socialcors.com" className="btn-white">
+          Probar Socialcors gratis →
+        </a>
       </section>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          FOOTER
-      ══════════════════════════════════════════════════════════════════ */}
-      <footer style={{ background:"#fff", borderTop:"1.5px solid #dbeafe", padding:"40px 24px" }}>
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-5">
-          <Link href={`${prefix}/`} className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={LOGO} alt="Drako" width={28} height={28}
-                 style={{ width:28, height:28, objectFit:"contain" }} />
-            <span style={{ fontWeight:700, fontSize:18, color:"#07111f", letterSpacing:"-0.02em" }}>
-              drako<span className="G">.</span>
-            </span>
-          </Link>
-          <div className="flex flex-wrap items-center justify-center gap-6">
-            {[
-              { label:"Ecosistema", href:`${prefix}/ecosystem` },
-              { label:"Journal IA",  href:`${prefix}/journal` },
-              { label:"Socialcors",  href:"https://socialcors.com", ext:true },
-            ].map((l) => (
-              <Link key={l.label} href={l.href}
-                    {...(l.ext ? { target:"_blank", rel:"noopener noreferrer" } : {})}
-                    style={{ fontSize:14, color:"#94a3b8", fontWeight:600,
-                             transition:"color .2s" }}
-                    className="hover:text-[#06b6d4]">
-                {l.label}
-              </Link>
-            ))}
-          </div>
-          <p style={{ fontSize:12, color:"#cbd5e1" }}>© {new Date().getFullYear()} Drako Systems</p>
+      {/* FOOTER */}
+      <footer className="footer">
+        <div className="footer-brand">
+          <img src={LOGO} alt="Drako" width={28} height={28}
+               style={{ width:28, height:28, objectFit:"contain" }} />
+          <span>Drako</span>
+        </div>
+        <span className="footer-copy">© 2026 Drako Systems. Todos los derechos reservados.</span>
+        <div className="footer-links">
+          <a href="https://socialcors.com">Socialcors</a>
+          <a href="mailto:hola@drako.systems">Contacto</a>
         </div>
       </footer>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          SCRIPTS
-      ══════════════════════════════════════════════════════════════════ */}
-      <script dangerouslySetInnerHTML={{ __html:`
-(function(){
-  // Scroll reveal
-  var io=new IntersectionObserver(function(e){
-    e.forEach(function(x){ if(x.isIntersecting){x.target.classList.add('vis');io.unobserve(x.target);} });
-  },{threshold:0.1});
-  document.querySelectorAll('.rv').forEach(function(el){io.observe(el);});
-
-  // 3D tilt suave en product cards
-  document.querySelectorAll('.pc,.pc-feat').forEach(function(card){
-    card.addEventListener('mousemove',function(e){
-      var r=card.getBoundingClientRect();
-      var rx=((e.clientY-r.top)/r.height-.5)*-12;
-      var ry=((e.clientX-r.left)/r.width-.5)*12;
-      card.style.transform='perspective(1000px) rotateX('+rx+'deg) rotateY('+ry+'deg) translateY(-8px)';
-    });
-    card.addEventListener('mouseleave',function(){
-      card.style.transform='';
-    });
-  });
-})();
+      {/* SCROLL REVEAL */}
+      <script dangerouslySetInnerHTML={{ __html: `
+        (function(){
+          var els = document.querySelectorAll('.rv');
+          if(!els.length) return;
+          var io = new IntersectionObserver(function(entries){
+            entries.forEach(function(e){
+              if(e.isIntersecting){ e.target.classList.add('vis'); io.unobserve(e.target); }
+            });
+          }, { threshold:0.12 });
+          els.forEach(function(el){ io.observe(el); });
+        })();
       `}} />
     </div>
   );
