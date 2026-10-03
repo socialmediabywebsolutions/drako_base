@@ -86,7 +86,7 @@ export function LandingNav() {
 // ── HERO ────────────────────────────────────────────────────────────────────
 export function Hero() {
   return (
-    <section aria-labelledby="hero-title" className="px-4 pb-6 pt-12 sm:px-6 md:pt-20">
+    <section aria-labelledby="hero-title" className="px-4 pb-4 pt-6 sm:px-6 md:pt-10">
       <div className="mx-auto max-w-5xl text-center">
         <p className="sc-eyebrow">Para autónomos, profesionales y pequeños negocios</p>
         <h1
@@ -98,7 +98,7 @@ export function Hero() {
           <span className="sc-accent">SocialCors hace el resto.</span>
         </h1>
         <p className="sc-muted mx-auto mt-5 max-w-2xl text-base leading-relaxed sm:text-lg">{SUBHEADLINE}</p>
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link href={HREF_START} className="sc-btn w-full sm:w-auto">
             Probar SocialCors
           </Link>
@@ -200,12 +200,12 @@ const STEPS: { n: string; title: string; text: string; visual: ReactNode }[] = [
 
 export function HowItWorks() {
   return (
-    <section id="como-funciona" aria-labelledby="how-title" className="sy-band px-4 py-14 sm:px-6 md:py-20">
+    <section id="como-funciona" aria-labelledby="how-title" className="sy-band px-4 py-8 sm:px-6 md:py-12">
       <div className="mx-auto max-w-6xl">
         <Reveal>
           <SysHead eyebrow="Cómo funciona" titleId="how-title" title="De una foto a contenido listo para tus redes." />
         </Reveal>
-        <LiveZone className="sy-jour-wrap mt-14">
+        <LiveZone className="sy-jour-wrap mt-8">
           <Reveal className="sy-jour">
             <span className="sy-jline" aria-hidden="true" />
             <span className="sy-jdot" aria-hidden="true" />
@@ -235,9 +235,9 @@ export function HowItWorks() {
 // vídeos de demostración. NO inventar tiempos.
 export function RealTime() {
   return (
-    <section id="tiempo-real" aria-labelledby="realtime-title" className="px-4 py-6 sm:px-6 md:py-8">
+    <section id="tiempo-real" aria-labelledby="realtime-title" className="px-4 py-4 sm:px-6 md:py-6">
       <Reveal className="mx-auto max-w-6xl">
-        <div className="sy-dpanel grid items-center gap-10 rounded-3xl px-6 py-12 md:grid-cols-[1fr_1.05fr] md:px-12 md:py-14">
+        <div className="sy-dpanel grid items-center gap-8 rounded-3xl px-6 py-8 md:grid-cols-[1fr_1.05fr] md:px-12 md:py-10">
           <div>
             <SysHead
               align="left"
@@ -303,7 +303,7 @@ export function RealTime() {
 // ── LA TRANSFORMACIÓN: contenido bruto → SocialCors → contenido preparado ───
 export function BeforeAfter() {
   return (
-    <section id="antes-despues" aria-labelledby="transform-title" className="sy-band px-4 py-14 sm:px-6 md:py-20">
+    <section id="antes-despues" aria-labelledby="transform-title" className="sy-band px-4 py-8 sm:px-6 md:py-12">
       <div className="mx-auto max-w-6xl">
         <Reveal>
           <SysHead
@@ -313,7 +313,7 @@ export function BeforeAfter() {
           />
         </Reveal>
 
-        <LiveZone className="sy-tf mt-12">
+        <LiveZone className="sy-tf mt-7">
           <Reveal className="sy-tf-grid">
             <div className="sy-tf-side">
               <p className="sy-tf-tag">Antes · Contenido bruto</p>
@@ -362,7 +362,7 @@ export function BeforeAfter() {
 // ── TU NEGOCIO YA TE OCUPA SUFICIENTE TIEMPO ────────────────────────────────
 export function YourTime() {
   return (
-    <section aria-labelledby="time-title" className="sy-band sy-band--flat px-4 pb-16 pt-6 sm:px-6 md:pb-24">
+    <section aria-labelledby="time-title" className="sy-band sy-band--flat px-4 pb-10 pt-4 sm:px-6 md:pb-14">
       <Reveal className="mx-auto max-w-3xl text-center">
         <span className="sy-quote-node" aria-hidden="true" />
         <h2 id="time-title" className="sc-ink text-3xl font-black leading-[1.1] tracking-tight md:text-5xl">
@@ -384,7 +384,7 @@ const DEMO_FLOW = ["Cuenta", "Perfil", "Base de conocimiento", "Subir contenido"
 
 export function Demo() {
   return (
-    <section id="demo" aria-labelledby="demo-title" className="px-4 py-10 sm:px-6 md:py-14">
+    <section id="demo" aria-labelledby="demo-title" className="px-4 py-6 sm:px-6 md:py-10">
       <div className="mx-auto max-w-5xl">
         <Reveal>
           <SysHead titleId="demo-title" title="Mira SocialCors en acción." />
@@ -416,7 +416,7 @@ export function Demo() {
 // ── PRUEBA GRATUITA → PLANES: un solo recorrido ─────────────────────────────
 export function TrialAndPlans() {
   return (
-    <section aria-labelledby="trial-title" className="px-4 py-8 sm:px-6 md:py-12">
+    <section aria-labelledby="trial-title" className="px-4 py-5 sm:px-6 md:py-8">
       <Reveal className="mx-auto max-w-5xl">
         <div className="sy-tp">
           <div className="sy-tp-a">
@@ -478,7 +478,7 @@ export function Faq() {
   };
 
   return (
-    <section id="faq" aria-labelledby="faq-title" className="sy-band px-4 py-14 sm:px-6 md:py-20">
+    <section id="faq" aria-labelledby="faq-title" className="sy-band px-4 py-8 sm:px-6 md:py-12">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
@@ -519,7 +519,7 @@ const FINAL_PATHS: WirePath[] = [
 
 export function FinalCta() {
   return (
-    <section aria-labelledby="final-title" className="px-4 py-8 sm:px-6 md:py-12">
+    <section aria-labelledby="final-title" className="px-4 py-5 sm:px-6 md:py-8">
       <Reveal className="mx-auto max-w-5xl">
         <LiveZone className="sy-final">
           <div className="sy-final-wires" aria-hidden="true">

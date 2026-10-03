@@ -908,7 +908,7 @@
 .sy-head--dark .sy-lead { color: rgba(255, 255, 255, 0.72); }
 
 /* Hilo entre secciones */
-.sy-spine { position: relative; height: 84px; display: flex; justify-content: center; }
+.sy-spine { position: relative; height: 48px; display: flex; justify-content: center; }
 .sy-spine-line {
   position: absolute;
   top: 0;
@@ -1322,7 +1322,7 @@
 /* ── Cómo funciona: recorrido ─────────────────────────────────────────────── */
 .sy-jour { position: relative; }
 .sy-jline, .sy-jdot { display: none; }
-.sy-jol { position: relative; list-style: none; display: grid; grid-template-columns: 1fr; gap: 2.2rem; padding: 0 0 0 2.6rem; margin: 0; }
+.sy-jol { position: relative; list-style: none; display: grid; grid-template-columns: 1fr; gap: 1.4rem; padding: 0 0 0 2.6rem; margin: 0; }
 .sy-jol::before {
   content: "";
   position: absolute;
