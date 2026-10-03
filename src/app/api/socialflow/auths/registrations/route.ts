@@ -15,6 +15,8 @@ type RegistrationBody = {
   name?: string;
   /** El cliente debe marcar la casilla de Términos y Política de privacidad. */
   acceptedTerms?: boolean;
+  /** Tipo de cuenta: "influencer" o "empresa". Determina el plan de trial inicial. */
+  accountType?: "influencer" | "empresa";
 };
 
 export async function POST(request: Request) {
@@ -28,6 +30,8 @@ export async function POST(request: Request) {
   if (!body?.email || !body.password) {
     return jsonError("INVALID_INPUT", "Email and password are required.");
   }
+
+  const trialPlanCode = body.accountType === "empresa" ? "empresa_starter" : "influencer_starter";
 
   // Aceptación de los Términos de servicio y la Política de privacidad (casilla del formulario).
   if (body.acceptedTerms !== true) {
@@ -62,10 +66,11 @@ export async function POST(request: Request) {
   const nowIso = new Date().toISOString();
   await run(
     `INSERT INTO saas_subscriptions (id, tenant_id, saas_slug, plan_code, status, current_period_end, created_at, updated_at)
-     VALUES (?, ?, 'socialflow', 'influencer_starter', 'trial', ?, ?, ?)
+     VALUES (?, ?, 'socialflow', ?, 'trial', ?, ?, ?)
      ON CONFLICT(tenant_id, saas_slug) DO NOTHING`,
     `${login.tenantId}:socialflow`,
     login.tenantId,
+    trialPlanCode,
     trialEndsAt,
     nowIso,
     nowIso,

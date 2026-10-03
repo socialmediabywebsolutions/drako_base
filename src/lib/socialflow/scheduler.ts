@@ -1,4 +1,5 @@
 import { env } from "@/lib/cf";
+import { getCloudflareContextSafeAsync } from "@/lib/cloudflare/runtime";
 import { publishSocialPostLive } from "@/lib/socialflow/live-publishing";
 import { recoverStalePublishingPosts, resolveSocialContext } from "@/lib/socialflow/repository";
 import { isAutoPublishBlockedByPrivatePilotMode } from "@/lib/socialflow/private-pilot";
@@ -88,9 +89,18 @@ export async function processScheduledPosts(): Promise<{ results: SchedulerPostR
 
   // Fetch metrics for Instagram posts published 15 min–2 h ago with no metrics row yet.
   // Runs every scheduler tick (every 5 min) so the window is always covered.
-  processDeferredInstagramMetrics().catch((err) => {
+  // Use ctx.waitUntil so the Cloudflare isolate stays alive until the async work finishes.
+  const metricsWork = processDeferredInstagramMetrics().catch((err) => {
     console.warn("[SocialFlow Scheduler] Deferred metrics error:", err instanceof Error ? err.message : String(err));
   });
+  getCloudflareContextSafeAsync()
+    .then((cfCtx) => {
+      const ctx = (cfCtx as { ctx?: { waitUntil?: (p: Promise<unknown>) => void } } | null)?.ctx;
+      if (ctx?.waitUntil) {
+        ctx.waitUntil(metricsWork);
+      }
+    })
+    .catch(() => { /* best-effort */ });
 
   return { results, recovered };
 }

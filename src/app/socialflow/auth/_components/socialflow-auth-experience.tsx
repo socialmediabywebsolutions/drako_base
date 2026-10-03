@@ -97,7 +97,9 @@ export default function SocialFlowAuthExperience() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(
-          mode === "login" ? { email, password } : { email, name, password, acceptedTerms: true },
+          mode === "login"
+            ? { email, password }
+            : { email, name, password, acceptedTerms: true, accountType: accountType ?? undefined },
         ),
       });
 
