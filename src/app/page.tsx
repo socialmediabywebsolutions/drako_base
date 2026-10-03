@@ -85,11 +85,13 @@ const PRODUCTS: Product[] = [
 
 export default async function HomePage() {
   const hdrs = await headers();
-  const hostMode = resolveHostMode(hdrs);
+  const host = hdrs.get("x-drako-effective-host") ?? hdrs.get("host") ?? "";
+  const headerMode = hdrs.get("x-drako-host-mode");
+  const hostMode = isHostMode(headerMode) ? headerMode : resolveHostMode(host);
   if (hostMode === "CAMPAMENTO_BASE") redirect("/admin");
   if (hostMode === "PUBLIC_SAAS") redirect("/app");
 
-  const locale = resolveMarketingLocale(hdrs) ?? defaultMarketingLocale;
+  const locale = resolveMarketingLocale(undefined) ?? defaultMarketingLocale;
 
   return (
     <div className={`${sg.variable} drako-root`}>
