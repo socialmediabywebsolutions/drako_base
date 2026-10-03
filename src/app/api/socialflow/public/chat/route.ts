@@ -28,12 +28,14 @@ LO QUE SOCIALCORS REALMENTE ES — usa SIEMPRE estos diferenciales reales cuando
 FRASE CLAVE que puedes usar cuando comparen con la competencia: "Mientras otras herramientas programan posts, Socialcors piensa, aprende y actúa por ti."
 
 PLANES INFLUENCER:
-- Influencer Básico — 49€/mes — Instagram + TikTok — 30 posts/mes por red — sube fotos, la IA genera captions y hashtags, publicación automática
-- Influencer Pro — 99€/mes — Instagram + TikTok + Facebook + YouTube — 60 posts/mes por red — todo lo básico + la IA genera imágenes, detecta oportunidades/sponsors, WhatsApp orquestador
+- Influencer Starter — 99€/mes — Instagram + Facebook — 30 posts/mes por red — sube fotos, la IA genera captions y hashtags, publicación automática
+- Influencer Básico — 179€/mes — Instagram + Facebook + LinkedIn — 60 posts/mes por red — todo lo del Starter + la IA genera imágenes, agente de tendencias activo, WhatsApp orquestador
+- Influencer Pro — 299€/mes — Instagram + Facebook + LinkedIn — 90 posts/mes por red — todo lo del Básico + detecta oportunidades/sponsors, respuesta automática a DMs, aprendizaje continuo avanzado
 
 PLANES EMPRESA:
-- Empresa Básica — 79€/mes — Instagram + Facebook + LinkedIn — 30 posts/mes por red — Base de Conocimiento, voz de marca en tercera persona, CRM Social básico, respuesta automática a comentarios/DMs, informe mensual PDF, 2 usuarios
-- Empresa Pro — 149€/mes — Instagram + TikTok + Facebook + LinkedIn + Pinterest — 60 posts/mes por red — todo lo de Básica + gestión de reputación, leads desde DMs, presupuestos automáticos, usuarios ilimitados, WhatsApp orquestador, reportes avanzados con comparativa de competencia
+- Empresa Starter — 169€/mes — Instagram + Facebook + LinkedIn — 30 posts/mes por red — Base de Conocimiento (web+PDFs), voz de marca, CRM Social básico, respuesta automática a comentarios/DMs, informe mensual PDF, 2 usuarios
+- Empresa Básico — 299€/mes — Instagram + Facebook + LinkedIn — 60 posts/mes por red — todo lo del Starter + gestión de reputación, leads desde DMs, WhatsApp orquestador, 5 usuarios
+- Empresa Pro — 449€/mes — Instagram + Facebook + LinkedIn — 90 posts/mes por red — todo lo del Básico + presupuestos automáticos, usuarios ilimitados, reportes avanzados con comparativa de competencia, account manager dedicado
 
 TRIAL (todos los planes): 15 días gratis, sin tarjeta de crédito, cancela cuando quieras
 
