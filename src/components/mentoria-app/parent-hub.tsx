@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { WorkspaceShell } from "@/components/mentoria-app/workspace-shell";
 import { ParentWeeklySummary } from "@/components/mentoria-app/parent-weekly-summary";
+import { ParentStudentDashboard } from "@/components/mentoria-app/parent-student-dashboard";
 import { getMicrocopy, getParentHubUiCopy, MENTORIA_PARENT_SLOT_A, MENTORIA_PARENT_SLOT_B } from "@/lib/mentoria/microcopy";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
 import {
@@ -496,6 +497,9 @@ export function MentoriaParentHub() {
 
             {/* Resumen semanal — visible para el padre */}
             <ParentWeeklySummary studentId={selectedStudentId ?? undefined} />
+
+            {/* Dashboard completo del alumno: notas, materias, asistencia, comportamiento, estado IA */}
+            <ParentStudentDashboard studentId={selectedStudentId ?? student.id} />
 
             <section className="rounded-xl border border-slate-200 bg-white p-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
