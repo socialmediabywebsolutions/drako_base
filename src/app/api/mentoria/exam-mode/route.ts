@@ -30,10 +30,10 @@ export async function GET(req: NextRequest) {
          ORDER BY exam_date ASC`,
       )
       .bind(actor.studentId)
-      .all<Record<string, unknown>>();
+      .all() as { results: Record<string, unknown>[] };
 
     return NextResponse.json({
-      exams: (exams.results ?? []).map((e) => ({
+      exams: (exams.results ?? []).map((e: Record<string, unknown>) => ({
         id: String(e.id),
         subjectId: String(e.subject_id),
         subjectName: String(e.subject_name),
@@ -51,14 +51,14 @@ export async function GET(req: NextRequest) {
     const exam = await db
       .prepare("SELECT * FROM mentoria_declared_exams WHERE id = ? AND student_id = ?")
       .bind(examId, actor.studentId)
-      .first<Record<string, unknown>>();
+      .first() as Record<string, unknown> | null;
 
     if (!exam) return NextResponse.json({ error: "exam_not_found" }, { status: 404 });
 
     const student = await db
       .prepare("SELECT * FROM mentoria_students WHERE id = ?")
       .bind(actor.studentId)
-      .first<Record<string, unknown>>();
+      .first() as Record<string, unknown> | null;
 
     if (!student) return NextResponse.json({ error: "student_not_found" }, { status: 404 });
 
@@ -86,14 +86,14 @@ export async function GET(req: NextRequest) {
     const exam = await db
       .prepare("SELECT * FROM mentoria_declared_exams WHERE id = ? AND student_id = ?")
       .bind(examId, actor.studentId)
-      .first<Record<string, unknown>>();
+      .first() as Record<string, unknown> | null;
 
     if (!exam) return NextResponse.json({ error: "exam_not_found" }, { status: 404 });
 
     const student = await db
       .prepare("SELECT * FROM mentoria_students WHERE id = ?")
       .bind(actor.studentId)
-      .first<Record<string, unknown>>();
+      .first() as Record<string, unknown> | null;
 
     if (!student) return NextResponse.json({ error: "student_not_found" }, { status: 404 });
 
@@ -199,7 +199,7 @@ export async function PATCH(req: NextRequest) {
   const exam = await db
     .prepare("SELECT * FROM mentoria_declared_exams WHERE id = ? AND student_id = ?")
     .bind(examId, actor.studentId)
-    .first<Record<string, unknown>>();
+    .first() as Record<string, unknown> | null;
 
   if (!exam) return NextResponse.json({ error: "exam_not_found" }, { status: 404 });
 

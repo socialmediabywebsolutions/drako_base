@@ -137,10 +137,7 @@ Responde SOLO con JSON válido. Sin markdown. Sin texto extra. Exactamente este 
   "examTip": "<consejo final para el alumno>"
 }`;
 
-  const result = await runMentoriaLlm({
-    messages: [{ role: "user", content: prompt }],
-    mode: "smart",
-  });
+  const result = await runMentoriaLlm([{ role: "user", content: prompt }]);
 
   const parsed = parseJsonSafe<Omit<ExamPlan, "sessions"> & { sessions: Omit<ExamDaySession, "date">[] }>(result.text);
 
@@ -224,10 +221,7 @@ Schema exacto:
   "simulacroLabel": "<título del simulacro>"
 }`;
 
-  const result = await runMentoriaLlm({
-    messages: [{ role: "user", content: prompt }],
-    mode: "smart",
-  });
+  const result = await runMentoriaLlm([{ role: "user", content: prompt }]);
 
   const parsed = parseJsonSafe<Pick<SimulationResult, "questions" | "simulacroLabel">>(result.text);
 
@@ -288,10 +282,7 @@ SOLO JSON válido. Sin texto extra:
   ]
 }`;
 
-  const result = await runMentoriaLlm({
-    messages: [{ role: "user", content: prompt }],
-    mode: "fast",
-  });
+  const result = await runMentoriaLlm([{ role: "user", content: prompt }]);
 
   const parsed = parseJsonSafe<{ weakTopics: WeakTopicAnalysis[] }>(result.text);
   return parsed?.weakTopics ?? [];
