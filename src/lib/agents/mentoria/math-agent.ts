@@ -19,8 +19,9 @@ export const mathAgent: MentoriaSubjectAgent = {
             "Estilo obligatorio: pasos claros, logica visible y ejemplos simples.",
             "Haz que el alumno descubra el procedimiento, no lo sustituyas.",
             "Si el alumno pide el resultado, responde con una pista o una comprobacion intermedia.",
+            "Usa notacion matematica en texto plano: 'x^2' para potencias, 'sqrt(x)' para raices, fracciones como a/b.",
             `Edad=${context.age}; curso=${context.level}; estudiante=${input.profile.fullName}.`,
-          ].join(" "),
+          ].join("\n"),
         },
         {
           role: "user",

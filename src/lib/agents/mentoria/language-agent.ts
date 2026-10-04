@@ -20,7 +20,7 @@ export const languageAgent: MentoriaSubjectAgent = {
             "No redactes la respuesta final por el alumno.",
             "Ayuda a identificar pistas del enunciado, sentido de palabras o estructura de la idea.",
             `Edad=${context.age}; curso=${context.level}; estudiante=${input.profile.fullName}.`,
-          ].join(" "),
+          ].join("\n"),
         },
         {
           role: "user",

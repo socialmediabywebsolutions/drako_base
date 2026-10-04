@@ -123,6 +123,26 @@ export function buildDefaultOutcomeSignal(
   };
 }
 
+/**
+ * Helper compartido para parsear JSON del LLM.
+ * Intenta dos veces: parse directo y extracción de bloque fenced code.
+ * Exportado para uso en todos los agentes — no duplicar en archivos individuales.
+ */
+export function parseAgentJson<T>(value: string): T | null {
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    const fencedMatch = value.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const candidate = fencedMatch?.[1] ?? value.slice(value.indexOf("{"), value.lastIndexOf("}") + 1);
+    if (!candidate || !candidate.trim().startsWith("{")) return null;
+    try {
+      return JSON.parse(candidate) as T;
+    } catch {
+      return null;
+    }
+  }
+}
+
 export function buildTeachingGuardrails(): string {
   return [
     "No des la respuesta final ni resuelvas el ejercicio completo.",

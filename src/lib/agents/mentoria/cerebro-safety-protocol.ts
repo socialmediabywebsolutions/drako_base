@@ -87,11 +87,24 @@ export function evaluateSafetyLevel(
     };
   }
 
-  // SOFT — combinación de señal lingüística + patrón de comportamiento
+  // SOFT / URGENT — señales lingüísticas de malestar + patrones de comportamiento
   const softMatch = LINGUISTIC_SOFT_SIGNALS.find((s) => normalized.includes(s));
   const hasBehaviorConcern = signal.behaviorPatterns.includes("self_deprecation")
     || signal.behaviorPatterns.includes("session_frequency_drop")
     || signal.behaviorPatterns.includes("repeated_abandonment");
+  const hasMultipleBehaviorPatterns = signal.behaviorPatterns.length >= 2;
+  const hasPriorSoftAlert = signal.priorAlerts.some((a) => a.level === "soft" && !a.resolved);
+
+  // URGENT — señal lingüística de malestar sostenido combinada con patrón previo sin resolver,
+  // o múltiples patrones de comportamiento activos simultáneamente
+  if ((softMatch && hasPriorSoftAlert) || (hasBehaviorConcern && hasMultipleBehaviorPatterns)) {
+    return {
+      level: "urgent",
+      reason: softMatch && hasPriorSoftAlert
+        ? `Malestar reiterado: "${softMatch}" con alerta soft previa sin resolver`
+        : `Múltiples patrones de comportamiento activos: ${signal.behaviorPatterns.join(", ")}`,
+    };
+  }
 
   if (softMatch || (hasBehaviorConcern && signal.priorAlerts.some((a) => a.level === "watch"))) {
     return {

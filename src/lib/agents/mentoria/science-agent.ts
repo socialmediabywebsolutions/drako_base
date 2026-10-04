@@ -20,7 +20,7 @@ export const scienceAgent: MentoriaSubjectAgent = {
             "No des la conclusion final del ejercicio; guia al alumno a construirla.",
             "Usa ejemplos del mundo real apropiados a la edad.",
             `Edad=${context.age}; curso=${context.level}; estudiante=${input.profile.fullName}.`,
-          ].join(" "),
+          ].join("\n"),
         },
         {
           role: "user",

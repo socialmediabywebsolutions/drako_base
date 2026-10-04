@@ -9,7 +9,7 @@
  */
 
 import { runMentoriaLlm } from "@/lib/agents/mentoria/llm-client";
-import { buildLevelInstruction } from "@/lib/agents/mentoria/base-agent";
+import { buildLevelInstruction, parseAgentJson } from "@/lib/agents/mentoria/base-agent";
 import type { StudentProfile } from "@/lib/mentoria/types";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -66,20 +66,7 @@ export type WeakTopicAnalysis = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function parseJsonSafe<T>(text: string): T | null {
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    const match = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    const candidate = match?.[1] ?? text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
-    if (!candidate?.trim().startsWith("{") && !candidate?.trim().startsWith("[")) return null;
-    try {
-      return JSON.parse(candidate) as T;
-    } catch {
-      return null;
-    }
-  }
-}
+// parseAgentJson importado desde base-agent — no duplicar aquí.
 
 function daysUntil(examDate: string): number {
   const now = new Date();
@@ -139,7 +126,7 @@ Responde SOLO con JSON válido. Sin markdown. Sin texto extra. Exactamente este 
 
   const result = await runMentoriaLlm([{ role: "user", content: prompt }]);
 
-  const parsed = parseJsonSafe<Omit<ExamPlan, "sessions"> & { sessions: Omit<ExamDaySession, "date">[] }>(result.text);
+  const parsed = parseAgentJson<Omit<ExamPlan, "sessions"> & { sessions: Omit<ExamDaySession, "date">[] }>(result.text);
 
   if (!parsed?.sessions?.length) {
     // Fallback: plan genérico si el LLM falla
@@ -223,7 +210,7 @@ Schema exacto:
 
   const result = await runMentoriaLlm([{ role: "user", content: prompt }]);
 
-  const parsed = parseJsonSafe<Pick<SimulationResult, "questions" | "simulacroLabel">>(result.text);
+  const parsed = parseAgentJson<Pick<SimulationResult, "questions" | "simulacroLabel">>(result.text);
 
   if (!parsed?.questions?.length) {
     return {
@@ -284,7 +271,7 @@ SOLO JSON válido. Sin texto extra:
 
   const result = await runMentoriaLlm([{ role: "user", content: prompt }]);
 
-  const parsed = parseJsonSafe<{ weakTopics: WeakTopicAnalysis[] }>(result.text);
+  const parsed = parseAgentJson<{ weakTopics: WeakTopicAnalysis[] }>(result.text);
   return parsed?.weakTopics ?? [];
 }
 

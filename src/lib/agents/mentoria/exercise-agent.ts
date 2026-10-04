@@ -1,4 +1,5 @@
 import { runMentoriaLlm } from "@/lib/agents/mentoria/llm-client";
+import { parseAgentJson } from "@/lib/agents/mentoria/base-agent";
 import { buildInterventionResponse } from "@/lib/mentoria/intervention-engine";
 import { getLearningProfile } from "@/lib/mentoria/learning-profile";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
@@ -6,23 +7,6 @@ import { getMicrocopy } from "@/lib/mentoria/microcopy";
 import { buildEvolutionAdaptiveSignals } from "@/lib/mentoria/student-evolution";
 import type { StudentEvolutionProfile } from "@/lib/mentoria/student-evolution";
 import type { DailyPlan, MentoriaBillingSummary, MentoriaExercise, MentoriaIntervention, MentoriaSubject, StudentProfile } from "@/lib/mentoria/types";
-
-function parseJson<T>(value: string): T | null {
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    const fencedMatch = value.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    const candidate = fencedMatch?.[1] ?? value.slice(value.indexOf("{"), value.lastIndexOf("}") + 1);
-    if (!candidate || !candidate.trim().startsWith("{")) {
-      return null;
-    }
-    try {
-      return JSON.parse(candidate) as T;
-    } catch {
-      return null;
-    }
-  }
-}
 
 export async function generateExercise(input: {
   profile: StudentProfile;
@@ -100,7 +84,7 @@ export async function generateExercise(input: {
       },
     ]);
 
-    const parsed = parseJson<{
+    const parsed = parseAgentJson<{
       prompt?: string;
       expectedCompetency?: string;
       hints?: string[];
@@ -183,7 +167,7 @@ export async function correctExercise(input: {
       },
     ]);
 
-    const parsed = parseJson<{ feedback?: string; score?: number }>(llm.text);
+    const parsed = parseAgentJson<{ feedback?: string; score?: number }>(llm.text);
     return {
       feedback:
         parsed?.feedback ??
@@ -194,7 +178,11 @@ export async function correctExercise(input: {
           : learningProfile.stage === "bachillerato"
             ? `${errorCopy} Vamos a revisar el razonamiento y afinar la justificacion.`
             : `${errorCopy} Vamos a revisar el razonamiento paso a paso para reforzarlo.`),
-      score: Math.max(0, Math.min(100, Number(parsed?.score ?? 70))),
+      // Si el LLM no devuelve score, no asumimos aprobado: devolvemos null
+      // para que el sistema de progreso no registre un avance ficticio.
+      score: parsed?.score !== undefined && parsed.score !== null
+        ? Math.max(0, Math.min(100, Number(parsed.score)))
+        : null as unknown as number,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
