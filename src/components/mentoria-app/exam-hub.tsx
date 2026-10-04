@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { BookOpen, Calendar, ChevronRight, Clock, Plus, Target, Trophy, X, Zap } from "lucide-react";
-import { WorkspaceShell } from "@/components/mentoria-app/workspace-shell";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -205,7 +204,7 @@ function ExamPlanPanel({ exam, onClose }: { exam: DeclaredExam; onClose: () => v
   useEffect(() => {
     fetch(`/api/mentoria/exam-mode?action=plan&exam_id=${exam.id}`)
       .then((r) => r.json())
-      .then((data: { plan?: ExamPlan }) => setPlan(data.plan ?? null))
+      .then((data) => { const d = data as { plan?: ExamPlan }; setPlan(d.plan ?? null); })
       .finally(() => setLoading(false));
   }, [exam.id]);
 
@@ -326,7 +325,7 @@ function SimulationPanel({ exam, onClose }: { exam: DeclaredExam; onClose: () =>
   useEffect(() => {
     fetch(`/api/mentoria/exam-mode?action=simulation&exam_id=${exam.id}`)
       .then((r) => r.json())
-      .then((data: { simulation?: Simulation }) => setSimulation(data.simulation ?? null))
+      .then((data) => { const d = data as { simulation?: Simulation }; setSimulation(d.simulation ?? null); })
       .finally(() => setLoading(false));
   }, [exam.id]);
 
@@ -583,7 +582,7 @@ export function MentoriaExamHub() {
   }
 
   return (
-    <WorkspaceShell>
+    <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-2xl px-4 py-6">
         {/* Cabecera */}
         <div className="mb-6 flex items-center justify-between">
@@ -665,6 +664,6 @@ export function MentoriaExamHub() {
           </div>
         )}
       </div>
-    </WorkspaceShell>
+    </div>
   );
 }
