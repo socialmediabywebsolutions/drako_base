@@ -77,6 +77,36 @@ export async function getCurrentMentoriaSessionFromRequest(request: Request): Pr
   };
 }
 
+// ─── Actor simplificado para rutas de Modo Examen y Progresión ───────────────
+
+export type MentoriaActor = {
+  tenantId: string;
+  studentId: string;
+  role: "student" | "guardian";
+};
+
+/**
+ * Extrae un actor con rol y studentId para las rutas que requieren
+ * identificar al alumno directamente (exam-mode, progression).
+ * Retorna null si no hay sesión autenticada o el alumno no puede ser identificado.
+ */
+export async function getMentoriaActor(request: Request): Promise<MentoriaActor | null> {
+  const session = await getCurrentMentoriaSessionFromRequest(request);
+  if (!session) return null;
+
+  const studentId = session.studentProfileId;
+  if (!studentId) return null;
+
+  const role: "student" | "guardian" =
+    session.actorType === "student" ? "student" : "guardian";
+
+  return {
+    tenantId: session.tenantId,
+    studentId,
+    role,
+  };
+}
+
 export async function requireCurrentMentoriaSession(request: Request): Promise<MentoriaRequestSession> {
   const session = await getCurrentMentoriaSessionFromRequest(request);
   if (!session) {
