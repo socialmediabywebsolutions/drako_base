@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Sidebar from "@/components/sidebar";
-import RightPanel from "@/components/right-panel";
 import ThemeToggle from "@/components/ui/theme-toggle";
 
 interface ShellLayoutProps {
@@ -11,11 +10,8 @@ interface ShellLayoutProps {
 
 export default function ShellLayout({ children }: ShellLayoutProps) {
   const [leftWidth, setLeftWidth] = useState(240);
-  const [rightWidth, setRightWidth] = useState(300);
   const [isResizingLeft, setIsResizingLeft] = useState(false);
-  const [isResizingRight, setIsResizingRight] = useState(false);
   const [leftOpen, setLeftOpen] = useState(true);
-  const [rightOpen, setRightOpen] = useState(true);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -23,18 +19,13 @@ export default function ShellLayout({ children }: ShellLayoutProps) {
         const newWidth = Math.max(140, Math.min(500, e.clientX));
         setLeftWidth(newWidth);
       }
-      if (isResizingRight) {
-        const newWidth = Math.max(260, Math.min(800, window.innerWidth - e.clientX));
-        setRightWidth(newWidth);
-      }
     };
 
     const handleMouseUp = () => {
       setIsResizingLeft(false);
-      setIsResizingRight(false);
     };
 
-    if (isResizingLeft || isResizingRight) {
+    if (isResizingLeft) {
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
       document.body.style.userSelect = "none";
@@ -50,7 +41,7 @@ export default function ShellLayout({ children }: ShellLayoutProps) {
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
     };
-  }, [isResizingLeft, isResizingRight]);
+  }, [isResizingLeft]);
 
   return (
     <div className="flex min-h-screen bg-slate-50 overflow-hidden" data-shell="admin">
@@ -110,53 +101,6 @@ export default function ShellLayout({ children }: ShellLayoutProps) {
           <div className="mx-auto max-w-full">{children}</div>
         </main>
 
-        {!rightOpen && (
-          <button
-            onClick={() => setRightOpen(true)}
-            className="absolute top-20 right-6 w-10 h-10 bg-white border border-slate-200 rounded-xl shadow-lg flex items-center justify-center text-slate-500 hover:text-sky-500 transition-all z-40"
-            title="Abrir utilidades"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-          </button>
-        )}
-      </div>
-
-      {/* Right Panel with resize handle and toggle */}
-      <div
-        style={{ width: rightOpen ? rightWidth : 0 }}
-        className={`relative flex-shrink-0 transition-all duration-300 ${!rightOpen ? 'invisible overflow-hidden' : 'border-l border-slate-200 bg-white'}`}
-        role="complementary"
-        aria-label="Panel derecho"
-      >
-        {rightOpen && (
-          <>
-            <div
-              onMouseDown={() => setIsResizingRight(true)}
-              className={`absolute -left-0.5 top-0 w-1.5 h-full cursor-col-resize z-30 transition-colors group ${isResizingRight ? 'bg-sky-500' : 'hover:bg-sky-300'}`}
-            >
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="w-1 h-1 bg-sky-500 rounded-full" />
-                <div className="w-1 h-1 bg-sky-500 rounded-full" />
-                <div className="w-1 h-1 bg-sky-500 rounded-full" />
-              </div>
-            </div>
-            <div className="h-full flex flex-col overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Utilidades</span>
-                <button
-                  onClick={() => setRightOpen(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-all"
-                  title="Cerrar utilidades"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <RightPanel />
-              </div>
-            </div>
-          </>
-        )}
       </div>
     </div>
   );
