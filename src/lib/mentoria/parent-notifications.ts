@@ -47,7 +47,7 @@ export async function sendParentSessionNotification(input: {
       studentId: input.studentId,
       parentPhone: input.parentPhone,
       message,
-      actionItems: input.summary.actionItems,
+      actionItems: input.summary.actionItems ?? [],
       sentAt: now,
       success: false,
       error: errorMsg,
@@ -72,7 +72,7 @@ export async function sendParentSessionNotification(input: {
         studentId: input.studentId,
         parentPhone: input.parentPhone,
         message,
-        actionItems: input.summary.actionItems,
+        actionItems: input.summary.actionItems ?? [],
         sentAt: now,
         success: false,
         error: result.error,
@@ -94,7 +94,7 @@ export async function sendParentSessionNotification(input: {
       studentId: input.studentId,
       parentPhone: input.parentPhone,
       message,
-      actionItems: input.summary.actionItems,
+      actionItems: input.summary.actionItems ?? [],
       sentAt: now,
       success: true,
       messageId: result.messageId,
@@ -116,7 +116,7 @@ export async function sendParentSessionNotification(input: {
       studentId: input.studentId,
       parentPhone: input.parentPhone,
       message,
-      actionItems: input.summary.actionItems,
+      actionItems: input.summary.actionItems ?? [],
       sentAt: now,
       success: false,
       error: errorMessage,
@@ -191,12 +191,13 @@ async function logNotificationFailure(input: {
 function buildNotificationMessage(summary: SessionSummary): string {
   const lines: string[] = [];
 
-  lines.push(summary.parentMessage);
+  lines.push(summary.parentMessage ?? "");
   lines.push("");
 
-  if (summary.actionItems.length > 0) {
+  const actionItems = summary.actionItems ?? [];
+  if (actionItems.length > 0) {
     lines.push("Acciones recomendadas:");
-    summary.actionItems.forEach((item) => {
+    actionItems.forEach((item: string) => {
       lines.push(`• ${item}`);
     });
   }

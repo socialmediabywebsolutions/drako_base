@@ -54,6 +54,20 @@ export type SessionSummary = {
 
   /** Si el Cerebro quiere enviar algo adicional al padre */
   parentNote?: string;
+
+  // ── Campos extendidos usados por el orquestador y las notificaciones ──────
+  sessionId?: string;
+  studentName?: string;
+  topic?: string;
+  performanceScore?: number;
+  emotionalState?: string;
+  emotionalSignal?: string;
+  detectedDifficulty?: string;
+  recommendation?: string;
+  /** Mensaje para el padre/tutor — usado en notificaciones WhatsApp */
+  parentMessage?: string;
+  /** Lista de acciones recomendadas para el padre */
+  actionItems?: string[];
 };
 
 // ─── Builder desde SessionOutcomeSignal ──────────────────────────────────────
@@ -227,5 +241,88 @@ export function deserializeSummary(row: SessionSummaryRow): SessionSummary {
     closingTone: row.closing_tone,
     closingMessage: row.closing_message,
     parentNote: row.parent_note ?? undefined,
+  };
+}
+
+// ─── generateSessionSummary — wrapper para uso en service.ts ─────────────────
+// Genera un SessionSummary completo a partir de los datos de sesión disponibles
+// sin necesidad de acceder al historial de chat.
+
+export function generateSessionSummary(params: {
+  sessionId: string;
+  student: { id: string; name?: string; fullName?: string; age?: number };
+  subject: { slug?: string; name: string };
+  topic: string;
+  durationMinutes: number;
+  progress: { masteryScore: number; confidenceScore: number };
+  evolution?: unknown;
+  motivation?: unknown;
+  emotionalState?: string;
+  aiTokensUsed?: number;
+}): SessionSummary {
+  const masteryScore = params.progress?.masteryScore ?? 50;
+  const emotionalState = params.emotionalState ?? "neutral";
+  const studentName = params.student.name ?? params.student.fullName ?? "";
+
+  const closingTone: SessionSummary["closingTone"] =
+    emotionalState === "confident"
+      ? "positive"
+      : emotionalState === "frustrated" || emotionalState === "demotivated"
+        ? "needs_encouragement"
+        : "neutral";
+
+  const closingMessage =
+    closingTone === "needs_encouragement"
+      ? "Ha sido una sesión exigente, pero el esfuerzo siempre cuenta. ¡Sigue adelante! 💪"
+      : masteryScore >= 70
+        ? "¡Buen trabajo hoy! Sigue practicando y lo dominarás cada vez mejor."
+        : "Buen trabajo. La práctica constante marca la diferencia.";
+
+  const parentMessage = `${studentName ? studentName + " trabajó" : "Se trabajaron"} ${params.durationMinutes} minutos en "${params.topic}" (${params.subject.name}). ${
+    masteryScore >= 70
+      ? "¡Buen progreso! 🎉"
+      : "Necesita un poco más de práctica para afianzar los conceptos."
+  }`;
+
+  const actionItems: string[] = [];
+  if (masteryScore < 60) {
+    actionItems.push(`Repasar "${params.topic}" con ejercicios adicionales`);
+  }
+  actionItems.push(`Próxima sesión: continuar con ${params.subject.name}`);
+
+  const points: SessionSummaryPoint[] = [
+    {
+      type: masteryScore >= 70 ? "learned" : "practiced",
+      text: masteryScore >= 70
+        ? `Trabajé "${params.topic}" y lo comprendí bien`
+        : `Practiqué "${params.topic}" — me queda un poco más de práctica`,
+      topicRef: params.topic,
+    },
+    {
+      type: "next_step",
+      text: `Próxima sesión: continuar con "${params.topic}"`,
+      topicRef: params.topic,
+    },
+  ];
+
+  return {
+    id: crypto.randomUUID(),
+    studentId: params.student.id,
+    subjectSlug: params.subject.slug ?? params.subject.name.toLowerCase().replace(/\s+/g, "-"),
+    subjectName: params.subject.name,
+    sessionDate: new Date().toISOString(),
+    durationMinutes: params.durationMinutes,
+    headline: `Sesión de ${params.topic} completada`,
+    points,
+    closingTone,
+    closingMessage,
+    // Campos extendidos
+    sessionId: params.sessionId,
+    studentName,
+    topic: params.topic,
+    performanceScore: masteryScore,
+    emotionalState,
+    parentMessage,
+    actionItems,
   };
 }

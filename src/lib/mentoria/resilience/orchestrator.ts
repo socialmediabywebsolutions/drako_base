@@ -853,11 +853,23 @@ export class MentoriaResilienceOrchestrator {
 
   private buildAutoSilenceSummary(sessionId: string, studentId: string): SessionSummary {
     return {
+      // Required SessionSummary fields
+      id: sessionId,
+      studentId,
+      subjectSlug: "mentoria",
+      subjectName: "Mentoria",
+      sessionDate: new Date().toISOString(),
+      durationMinutes: 0,
+      headline: "Seguimiento de continuidad",
+      points: [
+        { type: "next_step", text: "Retomar actividad guiada y confirmar próximos pasos." },
+      ],
+      closingTone: "needs_encouragement",
+      closingMessage: "¡Te esperamos! Retoma tus sesiones esta semana.",
+      // Extended fields
       sessionId,
       studentName: studentId,
-      subjectName: "Mentoria",
       topic: "Seguimiento de continuidad",
-      durationMinutes: 0,
       performanceScore: 50,
       emotionalState: "unknown",
       emotionalSignal: "silence_detection",
