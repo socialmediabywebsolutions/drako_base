@@ -348,22 +348,6 @@ export default function RightPanel() {
               {isDevArchitectRoute ? `Agente: ${DEV_ARCHITECT_AGENT.name}` : pathname.startsWith("/socialflow") ? "Ayuda operativa para operator, factory y workspace" : `Ruta activa: ${pathname}`}
             </p>
           </div>
-          <button
-            type="button"
-            title="Borrar conversación"
-            className="rounded-full border border-[var(--border)]/60 px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--muted)] hover:text-[var(--foreground)]"
-            onClick={() => {
-              if (typeof window !== "undefined") {
-                window.sessionStorage.removeItem(storageKey);
-              }
-              setThreadId(null);
-              setMessages([]);
-              setError(null);
-              setInput("");
-            }}
-          >
-            <RefreshCcw className="h-3.5 w-3.5" />
-          </button>
         </div>
         {isDevArchitectRoute && <p className="text-xs text-[var(--muted)] line-clamp-1">Ruta activa: {pathname}</p>}
       </header>
