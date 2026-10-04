@@ -23,8 +23,8 @@ const grupos: { titulo: string; items: Item[] }[] = [
     items: [
       {
         href: "/operator",
-        label: "Dashboard",
-        description: "Finanzas · Fiscal · KPIs",
+        label: "Panel de control",
+        description: "Dashboard · Finanzas · Fiscal",
         icon: <LayoutDashboard className="h-4 w-4" />,
       },
       {
@@ -32,6 +32,12 @@ const grupos: { titulo: string; items: Item[] }[] = [
         label: "Clientes",
         description: "Gestión de cuentas",
         icon: <Users2 className="h-4 w-4" />,
+      },
+      {
+        href: "/metrics",
+        label: "Métricas",
+        description: "Costes y ROI",
+        icon: <TrendingUp className="h-4 w-4" />,
       },
     ],
   },
@@ -49,12 +55,6 @@ const grupos: { titulo: string; items: Item[] }[] = [
         label: "Mentoría",
         description: "Alumnos · Sesiones · Planes",
         icon: <GraduationCap className="h-4 w-4" />,
-      },
-      {
-        href: "/metrics",
-        label: "Métricas",
-        description: "Costes y ROI",
-        icon: <TrendingUp className="h-4 w-4" />,
       },
     ],
   },

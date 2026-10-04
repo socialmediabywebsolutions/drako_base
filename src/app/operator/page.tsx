@@ -1113,61 +1113,38 @@ export default function OwnerPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <aside className="w-56 shrink-0 border-r border-gray-200 bg-white">
-        <div className="px-5 py-5 border-b border-gray-100">
-          <p className="text-xs text-gray-400 uppercase tracking-widest">Drako Holding</p>
-          <p className="text-base font-bold text-gray-900 mt-0.5">Panel de control</p>
-        </div>
-        <nav className="py-4 px-3 space-y-1">
+    <div className="min-h-screen bg-gray-50">
+      {/* Tabs horizontales */}
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6">
+        <nav className="flex gap-1 overflow-x-auto scrollbar-hide">
           {MENU.map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => setSection(item.id)}
-              className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors text-left ${
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 section === item.id
-                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  ? "border-sky-500 text-sky-700"
+                  : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
               }`}
             >
-              <span className="text-base">{item.icon}</span>
+              <span>{item.icon}</span>
               {item.label}
               {item.id === "fiscal" && daysLeft <= 20 && daysLeft >= 0 && (
-                <span className="ml-auto text-[10px] font-bold text-amber-600 bg-amber-100 rounded-full px-1.5 py-0.5">{daysLeft}d</span>
+                <span className="text-[10px] font-bold text-amber-600 bg-amber-100 rounded-full px-1.5 py-0.5">{daysLeft}d</span>
               )}
               {item.id === "dashboard" && criticalOpen.length > 0 && (
-                <span className="ml-auto text-[10px] font-bold text-red-600 bg-red-100 rounded-full px-1.5 py-0.5">{criticalOpen.length}</span>
+                <span className="text-[10px] font-bold text-red-600 bg-red-100 rounded-full px-1.5 py-0.5">{criticalOpen.length}</span>
               )}
             </button>
           ))}
         </nav>
+      </div>
 
-        {/* Estado rápido en sidebar */}
-        <div className="px-5 py-4 mt-auto border-t border-gray-100">
-          <p className="text-xs text-gray-400 mb-2">Estado rápido</p>
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">MRR</span>
-              <span className="font-semibold text-gray-800">{accountingLoading ? "…" : fmtEur(accounting?.totalSubscriptionMRR)}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Declaración</span>
-              <span className={`font-semibold ${daysLeft <= 7 ? "text-red-600" : daysLeft <= 20 ? "text-amber-600" : "text-gray-800"}`}>{daysLeft >= 0 ? `${daysLeft}d` : "Vencida"}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Acciones</span>
-              <span className={`font-semibold ${criticalOpen.length > 0 ? "text-red-600" : "text-gray-800"}`}>{actionQueueLoading ? "…" : openActions.length}</span>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Contenido principal */}
-      <main className="flex-1 overflow-y-auto p-6">
+      {/* Contenido */}
+      <div className="p-6">
         {sectionContent[section]}
-      </main>
+      </div>
     </div>
   );
 }
