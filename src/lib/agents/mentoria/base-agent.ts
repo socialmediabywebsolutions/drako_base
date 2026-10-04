@@ -68,6 +68,61 @@ export function buildLevelInstruction(profile: Pick<StudentProfile, "schoolYear"
   return "El alumno esta en bachillerato. Prioriza precision conceptual, razonamiento y autonomia guiada.";
 }
 
+// ─── Señales de salida del Agente Núcleo ─────────────────────────────────────
+// Protocolo estandarizado que TODOS los agentes tutor deben emitir al finalizar
+// cada interacción. El Cerebro consume estas señales para adaptar la estrategia.
+
+export type ConceptMasteryLevel =
+  | "mastered"      // alumno demostró comprensión clara
+  | "partial"       // comprensión parcial, necesita refuerzo
+  | "not_yet"       // no comprendido, requiere nuevo enfoque
+  | "unknown";      // no se puede determinar aún
+
+export type CerebroEscalationReason =
+  | "repeated_frustration"    // 3+ señales de frustración seguidas
+  | "session_stall"           // alumno sin avance >10 min
+  | "emotional_crisis"        // señal de malestar emocional significativo
+  | "topic_switch_needed"     // cambio de tema urgente por bloqueo total
+  | "parent_alert_needed";    // situación que el padre debería conocer
+
+export type SessionOutcomeSignal = {
+  /** Duración real de la interacción en segundos */
+  durationSeconds: number;
+  /** Temas que se trabajaron en esta sesión */
+  topicsCovered: string[];
+  /** Nivel de dominio estimado al final */
+  masteryLevel: ConceptMasteryLevel;
+  /** Estado emocional detectado al final */
+  emotionalStateAtEnd: "calm" | "frustrated" | "blocked" | "demotivated" | "confident" | "unknown";
+  /** ¿Debe subir la dificultad en la próxima sesión? */
+  difficultyNextSession: "down" | "steady" | "up";
+  /** Temas específicos con errores recurrentes */
+  weakTopicsDetected: string[];
+  /** ¿El agente recomienda escalar al Cerebro? */
+  escalateToCerebro: boolean;
+  /** Si escalateToCerebro=true, motivo concreto */
+  escalationReason?: CerebroEscalationReason;
+  /** Nota libre para el próximo agente (sin exponer al alumno) */
+  internalNote?: string;
+};
+
+/** Helper: construye una señal de salida mínima cuando el agente no puede
+ *  determinar los valores exactos (fallback seguro). */
+export function buildDefaultOutcomeSignal(
+  overrides: Partial<SessionOutcomeSignal> = {},
+): SessionOutcomeSignal {
+  return {
+    durationSeconds: 0,
+    topicsCovered: [],
+    masteryLevel: "unknown",
+    emotionalStateAtEnd: "unknown",
+    difficultyNextSession: "steady",
+    weakTopicsDetected: [],
+    escalateToCerebro: false,
+    ...overrides,
+  };
+}
+
 export function buildTeachingGuardrails(): string {
   return [
     "No des la respuesta final ni resuelvas el ejercicio completo.",
