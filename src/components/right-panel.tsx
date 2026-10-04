@@ -350,8 +350,17 @@ export default function RightPanel() {
           </div>
           <button
             type="button"
+            title="Borrar conversación"
             className="rounded-full border border-[var(--border)]/60 px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--muted)] hover:text-[var(--foreground)]"
-            onClick={() => threadId && loadHistory(threadId)}
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.sessionStorage.removeItem(storageKey);
+              }
+              setThreadId(null);
+              setMessages([]);
+              setError(null);
+              setInput("");
+            }}
           >
             <RefreshCcw className="h-3.5 w-3.5" />
           </button>
