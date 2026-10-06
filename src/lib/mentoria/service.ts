@@ -74,7 +74,7 @@ import {
 } from "@/lib/mentoria/profile-engine";
 import { SessionPersistenceManager } from "@/lib/mentoria/session-persistence";
 import type { SessionRecoveryData } from "@/lib/mentoria/session-persistence";
-import { generateSessionSummary } from "@/lib/mentoria/session-summary";
+import { generateSessionSummary, buildParentWhatsAppMessage } from "@/lib/mentoria/session-summary";
 import { generateSessionFeedback, buildSessionCompletionMessage } from "@/lib/mentoria/session-feedback";
 import { buildDynamicStudentProfile, type DynamicStudentProfile } from "@/lib/mentoria/student-profile";
 import { TrialManager } from "@/lib/mentoria/trial-system";
@@ -3013,7 +3013,7 @@ export class MentoriaService {
         tenantId: actor.tenantId,
         studentId: student.id,
         parentPhone: student.parentPhoneNumber,
-        message: `Session completed: ${sessionSummary}`,
+        message: buildParentWhatsAppMessage(sessionSummary),
       });
     }
 

@@ -244,6 +244,70 @@ export function deserializeSummary(row: SessionSummaryRow): SessionSummary {
   };
 }
 
+// ─── buildParentWhatsAppMessage — formatea el resumen para WhatsApp ──────────
+// Convierte un SessionSummary en un mensaje WhatsApp legible para el padre.
+// Usa emojis moderados, párrafos cortos y action items en lista.
+
+export function buildParentWhatsAppMessage(summary: SessionSummary): string {
+  const lines: string[] = [];
+
+  const toneEmoji =
+    summary.closingTone === "positive" ? "🎉" :
+    summary.closingTone === "needs_encouragement" ? "💪" : "📚";
+
+  lines.push(`${toneEmoji} *Mentoría — Resumen de sesión*`);
+  lines.push("");
+
+  // Titular
+  if (summary.headline) {
+    lines.push(`*${summary.headline}*`);
+    lines.push("");
+  }
+
+  // Cuerpo: parentMessage o mensaje de puntos
+  if (summary.parentMessage) {
+    lines.push(summary.parentMessage);
+  } else if (summary.studentName) {
+    const score = summary.performanceScore ?? 50;
+    lines.push(
+      `${summary.studentName} completó ${summary.durationMinutes} min de ${summary.subjectName}. ` +
+      (score >= 70 ? "¡Buen progreso!" : "Sigue practicando para afianzarlo.")
+    );
+  }
+
+  // Puntos clave aprendidos
+  const learnedPoints = (summary.points ?? []).filter((p) => p.type === "learned" || p.type === "practiced");
+  if (learnedPoints.length > 0) {
+    lines.push("");
+    lines.push("*Lo que trabajó hoy:*");
+    for (const point of learnedPoints.slice(0, 3)) {
+      lines.push(`• ${point.text}`);
+    }
+  }
+
+  // Próximo paso
+  const nextStep = (summary.points ?? []).find((p) => p.type === "next_step");
+  if (nextStep) {
+    lines.push("");
+    lines.push(`➡️ ${nextStep.text}`);
+  }
+
+  // Action items del padre
+  const actionItems = summary.actionItems ?? [];
+  if (actionItems.length > 0) {
+    lines.push("");
+    lines.push("*Puedes ayudarle en casa:*");
+    for (const item of actionItems.slice(0, 2)) {
+      lines.push(`• ${item}`);
+    }
+  }
+
+  lines.push("");
+  lines.push("_Mentoría — Educación personalizada_");
+
+  return lines.join("\n");
+}
+
 // ─── generateSessionSummary — wrapper para uso en service.ts ─────────────────
 // Genera un SessionSummary completo a partir de los datos de sesión disponibles
 // sin necesidad de acceder al historial de chat.
