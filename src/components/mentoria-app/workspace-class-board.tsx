@@ -1,6 +1,7 @@
 "use client";
 
-import { PencilLine } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { CheckCircle2, Circle, ChevronRight, PenLine, Lightbulb, AlertCircle, Trophy } from "lucide-react";
 import type { MentoriaBoardUpdate, MentoriaStudentSubject } from "@/lib/mentoria/types";
 
 type WorkspaceClassBoardProps = {
@@ -32,14 +33,6 @@ function hasVisibleBoardContent(boardUpdate: MentoriaBoardUpdate | null) {
   );
 }
 
-function phaseLabel(boardUpdate: MentoriaBoardUpdate | null) {
-  if (!boardUpdate) return "Esperando";
-  if (boardUpdate.classroomPhase === "correct") return "Corrijo";
-  if (boardUpdate.classroomPhase === "evaluate") return "Evaluo";
-  if (boardUpdate.classroomPhase === "ask") return "Pregunto";
-  return "Explico";
-}
-
 function activePrompt(boardUpdate: MentoriaBoardUpdate | null) {
   if (!boardUpdate) return null;
   if (boardUpdate.mode === "exam" || boardUpdate.mode === "task") return boardUpdate.nextAction ?? null;
@@ -54,68 +47,97 @@ function activePrompt(boardUpdate: MentoriaBoardUpdate | null) {
   );
 }
 
-function difficultyLabel(level?: number | null) {
-  if (!level || level <= 1) return "Base";
-  if (level === 2) return "Guiado";
-  if (level === 3) return "Mixto";
-  if (level === 4) return "Reto";
-  return "Autonomo";
+function difficultyDots(level?: number | null) {
+  const max = 5;
+  const filled = Math.min(level ?? 1, max);
+  return Array.from({ length: max }, (_, i) => i < filled);
+}
+
+// ── Animated step reveal ───────────────────────────────────────────────────
+function useRevealSteps(steps: string[], deps: unknown[]) {
+  const [revealed, setRevealed] = useState(0);
+  const prevKey = useRef<string>("");
+  const key = steps.join("|");
+
+  useEffect(() => {
+    if (key !== prevKey.current) {
+      prevKey.current = key;
+      setRevealed(0);
+      if (steps.length === 0) return;
+      let i = 0;
+      const tick = () => {
+        i++;
+        setRevealed(i);
+        if (i < steps.length) setTimeout(tick, 320);
+      };
+      setTimeout(tick, 180);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, ...deps]);
+
+  return revealed;
+}
+
+// ── Board section wrapper ──────────────────────────────────────────────────
+function BoardSection({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-2xl border border-slate-200/70 bg-white px-6 py-5 shadow-sm ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function SectionLabel({ children, color = "slate" }: { children: React.ReactNode; color?: "slate" | "emerald" | "sky" | "amber" | "rose" | "violet" }) {
+  const colors: Record<string, string> = {
+    slate: "text-slate-500",
+    emerald: "text-emerald-700",
+    sky: "text-sky-700",
+    amber: "text-amber-700",
+    rose: "text-rose-600",
+    violet: "text-violet-700",
+  };
+  return (
+    <p className={`mb-3 text-[10px] font-black tracking-[0.2em] uppercase ${colors[color]}`}>{children}</p>
+  );
 }
 
 export function WorkspaceClassBoard({
   studentName = null,
   boardUpdate,
   sessionStatusMessage = null,
-  exerciseAnswer: _exerciseAnswer,
-  onExerciseAnswerChange: _onExerciseAnswerChange,
-  onSubmitBoardResponse: _onSubmitBoardResponse,
+  exerciseAnswer,
+  onExerciseAnswerChange,
+  onSubmitBoardResponse,
   studentSubjects = [],
   onSubjectSelect,
 }: WorkspaceClassBoardProps) {
   const visibleBoard = hasVisibleBoardContent(boardUpdate);
   const currentQuestion = activePrompt(boardUpdate);
-  const learningState = boardUpdate?.learningState ?? null;
   const firstName = studentName?.split(" ")[0] ?? "Alumno";
+  const learningState = boardUpdate?.learningState ?? null;
 
-  return (
-    <div className="flex h-full flex-col bg-[#f8faf7] text-slate-950">
-      <header className="border-b border-slate-200 bg-white px-5 py-4">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-bold uppercase text-emerald-700">{phaseLabel(boardUpdate)}</div>
-            <h1 className="sr-only">{studentName ? `Hola, ${firstName}` : "Hola"}</h1>
-            <h1 className="mt-1 text-2xl font-black text-slate-950">{boardUpdate?.topic ?? "Clase privada"}</h1>
-          </div>
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-            <span>{boardUpdate?.subjectName ?? "Materia"}</span>
-            {learningState ? (
-              <>
-                <span aria-hidden="true">/</span>
-                <span>Paso {learningState.stepIndex + 1}</span>
-                <span aria-hidden="true">/</span>
-                <span>{difficultyLabel(learningState.difficultyLevel)}</span>
-              </>
-            ) : null}
-          </div>
-        </div>
+  const steps = boardUpdate?.steps.length
+    ? boardUpdate.steps
+    : boardUpdate?.explanation ?? [];
+
+  const revealedCount = useRevealSteps(steps, [boardUpdate?.topic]);
+
+  // ── Empty state ────────────────────────────────────────────────────────
+  if (!visibleBoard) {
+    return (
+      <div className="flex h-full flex-col bg-slate-50">
+        {/* Subject pills */}
         {studentSubjects.length > 0 && onSubjectSelect ? (
-          <div className="mx-auto mt-3 flex max-w-6xl gap-2 overflow-x-auto pb-1">
+          <div className="flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-5 py-3">
             {studentSubjects.map((item) => {
               const slug = item.subject?.slug ?? "";
-              const isActive = Boolean(slug) && slug === boardUpdate?.subjectSlug;
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => {
-                    if (slug) onSubjectSelect(slug);
-                  }}
+                  onClick={() => { if (slug) onSubjectSelect(slug); }}
                   disabled={!slug}
-                  className={`shrink-0 border px-3 py-2 text-xs font-bold transition ${
-                    isActive
-                      ? "border-slate-950 bg-slate-950 text-white"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
-                  }`}
+                  className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800"
                 >
                   {item.subject?.name ?? "Materia"}
                 </button>
@@ -123,112 +145,243 @@ export function WorkspaceClassBoard({
             })}
           </div>
         ) : null}
-      </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6">
-        <div className="mx-auto max-w-6xl">
-          <main className="space-y-6">
-            {sessionStatusMessage ? (
-              <div className="border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-950">
-                {sessionStatusMessage}
+        <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100">
+            <PenLine className="h-8 w-8 text-emerald-600" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-950">
+            {firstName}, ¿qué trabajamos hoy?
+          </h2>
+          <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500">
+            Dime qué no entiendes o qué tema quieres repasar — la pizarra se activa en cuanto empieces.
+          </p>
+          {sessionStatusMessage ? (
+            <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-900">
+              {sessionStatusMessage}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Active board ───────────────────────────────────────────────────────
+  return (
+    <div className="flex h-full flex-col bg-slate-50">
+
+      {/* ── Top bar ─────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
+            <PenLine className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-slate-500">{boardUpdate?.subjectName ?? "Clase"}</p>
+            <p className="text-sm font-bold text-slate-900 leading-tight">{boardUpdate?.topic ?? "Tema"}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          {learningState ? (
+            <div className="flex items-center gap-1.5">
+              {difficultyDots(learningState.difficultyLevel).map((filled, i) => (
+                <div
+                  key={i}
+                  className={`h-2 w-2 rounded-full transition-colors ${filled ? "bg-emerald-500" : "bg-slate-200"}`}
+                />
+              ))}
+            </div>
+          ) : null}
+          {studentSubjects.length > 0 && onSubjectSelect ? (
+            <div className="flex gap-1.5 overflow-x-auto">
+              {studentSubjects.map((item) => {
+                const slug = item.subject?.slug ?? "";
+                const isActive = Boolean(slug) && slug === boardUpdate?.subjectSlug;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => { if (slug) onSubjectSelect(slug); }}
+                    disabled={!slug}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition ${
+                      isActive
+                        ? "bg-slate-950 text-white"
+                        : "border border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
+                    }`}
+                  >
+                    {item.subject?.name ?? "Materia"}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* ── Board canvas ─────────────────────────────────────────────── */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        <div className="mx-auto max-w-3xl space-y-4">
+
+          {/* Status alert */}
+          {sessionStatusMessage ? (
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+              {sessionStatusMessage}
+            </div>
+          ) : null}
+
+          {/* ── Concept / Big idea ───────────────────────────────────── */}
+          {boardUpdate?.conceptDefinition ? (
+            <BoardSection>
+              <SectionLabel color="emerald">Idea clave</SectionLabel>
+              <p className="text-xl font-black leading-tight text-slate-950">
+                {boardUpdate.conceptDefinition}
+              </p>
+              {boardUpdate.feedback ? (
+                <div className="mt-4 flex items-start gap-2 rounded-xl bg-emerald-50 px-4 py-3">
+                  <Trophy className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <p className="text-sm font-semibold leading-6 text-emerald-900">{boardUpdate.feedback}</p>
+                </div>
+              ) : null}
+            </BoardSection>
+          ) : boardUpdate?.explanation[0] ? (
+            <BoardSection>
+              <SectionLabel color="emerald">Explicación</SectionLabel>
+              <p className="text-xl font-black leading-tight text-slate-950">
+                {boardUpdate.explanation[0]}
+              </p>
+              {boardUpdate.feedback ? (
+                <div className="mt-4 flex items-start gap-2 rounded-xl bg-emerald-50 px-4 py-3">
+                  <Trophy className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <p className="text-sm font-semibold leading-6 text-emerald-900">{boardUpdate.feedback}</p>
+                </div>
+              ) : null}
+            </BoardSection>
+          ) : null}
+
+          {/* ── Steps — animated reveal ──────────────────────────────── */}
+          {steps.length > 0 ? (
+            <BoardSection>
+              <SectionLabel color="slate">Paso a paso</SectionLabel>
+              <ol className="space-y-3">
+                {steps.map((step, i) => {
+                  const visible = i < revealedCount;
+                  const done = learningState ? i < learningState.stepIndex : false;
+                  const current = learningState ? i === learningState.stepIndex : i === 0;
+                  return (
+                    <li
+                      key={`step-${i}`}
+                      className={`flex items-start gap-3 transition-all duration-300 ${
+                        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"
+                      }`}
+                    >
+                      <span className={`mt-0.5 shrink-0 transition-colors ${
+                        done ? "text-emerald-500" : current ? "text-sky-600" : "text-slate-300"
+                      }`}>
+                        {done ? (
+                          <CheckCircle2 className="h-5 w-5" />
+                        ) : current ? (
+                          <ChevronRight className="h-5 w-5" />
+                        ) : (
+                          <Circle className="h-5 w-5" />
+                        )}
+                      </span>
+                      <p className={`text-base leading-7 font-semibold ${
+                        done ? "text-slate-400 line-through" : current ? "text-slate-950" : "text-slate-600"
+                      }`}>
+                        {step}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ol>
+            </BoardSection>
+          ) : null}
+
+          {/* ── Example ─────────────────────────────────────────────── */}
+          {(boardUpdate?.example || boardUpdate?.formula || boardUpdate?.diagram?.[0]) ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Lightbulb className="h-4 w-4 text-amber-600" />
+                <SectionLabel color="amber">Ejemplo</SectionLabel>
               </div>
-            ) : null}
+              <p className="text-base font-semibold leading-7 text-amber-950">
+                {boardUpdate?.example ?? boardUpdate?.formula ?? boardUpdate?.diagram?.[0]}
+              </p>
+            </div>
+          ) : null}
 
-            {!visibleBoard ? (
-              <section className="min-h-[420px] bg-white px-6 py-8 shadow-sm">
-                <div className="text-sm font-bold uppercase text-slate-500">Profesor</div>
-                <p className="mt-5 max-w-2xl text-3xl font-black leading-tight text-slate-950">
-                  {firstName}, dime que no entiendes y empiezo la clase con un ejemplo.
-                </p>
-                <p className="sr-only">Escribe al tutor qué quieres trabajar.</p>
-              </section>
-            ) : (
-              <>
-                <section className="bg-white px-6 py-7 shadow-sm">
-                  <div className="text-sm font-bold uppercase text-slate-500">Paso actual</div>
-                  <p className="mt-4 text-3xl font-black leading-tight text-slate-950">
-                    {boardUpdate?.conceptDefinition ?? boardUpdate?.explanation[0] ?? "Vamos paso a paso."}
-                  </p>
-                  {boardUpdate?.feedback ? (
-                    <p className="mt-4 border-l-4 border-emerald-500 pl-4 text-base font-semibold leading-7 text-emerald-950">
-                      {boardUpdate.feedback}
-                    </p>
-                  ) : null}
-                </section>
+          {/* ── Correction ──────────────────────────────────────────── */}
+          {boardUpdate?.correction ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-5">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertCircle className="h-4 w-4 text-rose-500" />
+                <SectionLabel color="rose">Ojo aquí</SectionLabel>
+              </div>
+              <p className="text-base font-semibold leading-7 text-rose-950">{boardUpdate.correction}</p>
+            </div>
+          ) : null}
 
-                <section className="space-y-5">
-                  <div className="bg-white px-6 py-6 shadow-sm">
-                    <div className="text-sm font-bold uppercase text-slate-500">Explicacion visual</div>
-                    <div className="mt-5 grid gap-4 md:grid-cols-2">
-                      {(boardUpdate?.exam?.questions.length
-                        ? boardUpdate.exam.questions
-                        : boardUpdate?.steps.length
-                          ? boardUpdate.steps
-                          : boardUpdate?.explanation ?? []
-                      ).slice(0, 4).map((step, index) => (
-                        <div key={`${step}-${index}`} className="grid grid-cols-[36px_minmax(0,1fr)] gap-4">
-                          <div className="flex h-9 w-9 items-center justify-center bg-slate-950 text-sm font-black text-white">
-                            {index + 1}
-                          </div>
-                          <p className="min-w-0 pt-1 text-lg font-semibold leading-7 text-slate-800">{step}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+          {/* ── Task / Exam ──────────────────────────────────────────── */}
+          {boardUpdate?.task ? (
+            <div className="rounded-2xl border border-violet-200 bg-violet-50 px-6 py-5">
+              <SectionLabel color="violet">{boardUpdate.task.title}</SectionLabel>
+              <p className="text-lg font-bold leading-8 text-violet-950">{boardUpdate.task.prompt}</p>
+            </div>
+          ) : null}
 
-                  <div className="bg-[#fff7df] px-5 py-6 shadow-sm">
-                    <div className="text-sm font-bold uppercase text-amber-800">Ejemplo</div>
-                    <p className="mt-4 text-base font-semibold leading-7 text-amber-950">
-                      {boardUpdate?.example ?? boardUpdate?.formula ?? boardUpdate?.diagram?.[0] ?? "Mira el orden: idea, ejemplo, respuesta."}
-                    </p>
-                  </div>
-                </section>
+          {boardUpdate?.exam ? (
+            <div className="rounded-2xl border border-slate-300 bg-slate-100 px-6 py-5">
+              <SectionLabel>{boardUpdate.exam.title}</SectionLabel>
+              <ol className="mt-1 space-y-2">
+                {boardUpdate.exam.questions.map((q, i) => (
+                  <li key={i} className="text-sm font-semibold leading-6 text-slate-800">
+                    {i + 1}. {q}
+                  </li>
+                ))}
+              </ol>
+              {boardUpdate.exam.scoring ? (
+                <p className="mt-3 text-xs font-semibold text-slate-500">{boardUpdate.exam.scoring}</p>
+              ) : null}
+            </div>
+          ) : null}
 
-                {boardUpdate?.exam ? (
-                  <section className="bg-violet-50 px-6 py-6 shadow-sm">
-                    <div className="text-sm font-bold uppercase text-violet-800">{boardUpdate.exam.title}</div>
-                    {boardUpdate.exam.scoring ? (
-                      <p className="mt-3 text-sm font-semibold text-violet-950">{boardUpdate.exam.scoring}</p>
-                    ) : null}
-                  </section>
-                ) : null}
+          {/* ── Active question — the "¿lo sabes?" prompt ───────────── */}
+          {currentQuestion ? (
+            <div className="rounded-2xl border-2 border-sky-300 bg-sky-50 px-6 py-5">
+              <div className="flex items-center gap-2 mb-3">
+                <PenLine className="h-4 w-4 text-sky-600" />
+                <SectionLabel color="sky">Tu turno</SectionLabel>
+              </div>
+              <p className="text-xl font-black leading-tight text-sky-950">{currentQuestion}</p>
+              <div className="mt-4 flex flex-col gap-3">
+                <textarea
+                  value={exerciseAnswer}
+                  onChange={(e) => onExerciseAnswerChange(e.target.value)}
+                  placeholder="Escribe tu respuesta aquí..."
+                  rows={3}
+                  className="w-full resize-none rounded-xl border border-sky-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                />
+                <button
+                  type="button"
+                  onClick={onSubmitBoardResponse}
+                  disabled={!exerciseAnswer.trim()}
+                  className="self-end rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-sky-700 disabled:opacity-40"
+                >
+                  Enviar respuesta
+                </button>
+              </div>
+            </div>
+          ) : null}
 
-                {boardUpdate?.task ? (
-                  <section className="bg-emerald-50 px-6 py-6 shadow-sm">
-                    <div className="text-sm font-bold uppercase text-emerald-800">{boardUpdate.task.title}</div>
-                    <p className="mt-4 text-lg font-semibold leading-8 text-emerald-950">{boardUpdate.task.prompt}</p>
-                  </section>
-                ) : null}
+          {/* ── Next action hint ─────────────────────────────────────── */}
+          {boardUpdate?.nextAction && !currentQuestion ? (
+            <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-5 py-4">
+              <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+              <p className="text-sm font-semibold leading-6 text-slate-700">{boardUpdate.nextAction}</p>
+            </div>
+          ) : null}
 
-                {boardUpdate?.correction ? (
-                  <section className="bg-rose-50 px-6 py-6 shadow-sm">
-                    <div className="text-sm font-bold uppercase text-rose-700">Correccion inmediata</div>
-                    <p className="mt-4 text-lg font-semibold leading-8 text-rose-950">{boardUpdate.correction}</p>
-                  </section>
-                ) : null}
-
-                <section className="bg-sky-50 px-6 py-6 shadow-sm">
-                  <div className="flex items-center gap-2 text-sm font-bold uppercase text-sky-800">
-                    <PencilLine className="h-4 w-4" aria-hidden="true" />
-                    Pregunta activa
-                  </div>
-                  <p className="mt-4 text-2xl font-black leading-tight text-sky-950">
-                    {currentQuestion ?? "Responde al tutor para seguir."}
-                  </p>
-                  <p className="mt-4 text-sm font-semibold leading-6 text-sky-900">
-                    Responde en el chat de clase para que el profesor corrija y actualice esta pizarra.
-                  </p>
-                </section>
-
-                {boardUpdate?.nextAction ? (
-                  <section className="bg-white px-6 py-5 shadow-sm">
-                    <div className="text-sm font-bold uppercase text-slate-500">Siguiente paso</div>
-                    <p className="mt-3 text-lg font-bold leading-7 text-slate-900">{boardUpdate.nextAction}</p>
-                  </section>
-                ) : null}
-              </>
-            )}
-          </main>
         </div>
       </div>
     </div>
