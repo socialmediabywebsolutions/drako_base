@@ -292,6 +292,17 @@ export async function sendSafetyAlertToParent(input: {
       messageId: result.messageId,
       timestamp: now,
     });
+    await logSafetyAlert({
+      tenantId: input.tenantId,
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      parentPhone: input.parentPhone,
+      level: input.level,
+      category: input.category,
+      messageId: result.messageId,
+      sendStatus: "success",
+      timestamp: now,
+    });
     return {
       sessionId: input.sessionId,
       studentId: input.studentId,
@@ -408,6 +419,80 @@ function buildSafetyAlertMessage(
         "",
         "Mentoría — Educación personalizada para tu hijo",
       ].join("\n");
+  }
+}
+
+// ─── Registro en tabla de alertas de seguridad ───────────────────────────────
+
+async function logSafetyAlert(input: {
+  tenantId?: string;
+  sessionId: string;
+  studentId: string;
+  parentPhone: string;
+  level: SafetyAlertLevel;
+  category: SafetyAlertCategory;
+  messageId?: string;
+  sendStatus: "success" | "failed";
+  timestamp: string;
+}): Promise<void> {
+  try {
+    const db = getDb();
+    await db
+      .prepare(
+        `INSERT INTO mentoria_safety_alerts (
+          id, tenant_id, session_id, student_id, parent_phone, level, category, message_id, send_status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        crypto.randomUUID(),
+        input.tenantId ?? null,
+        input.sessionId,
+        input.studentId,
+        input.parentPhone,
+        input.level,
+        input.category,
+        input.messageId ?? null,
+        input.sendStatus,
+        input.timestamp,
+      )
+      .run();
+  } catch (error) {
+    console.error("[SafetyAlertLog] Failed to log safety alert:", error);
+  }
+}
+
+/**
+ * Devuelve true si hay una alerta de seguridad HIGH o MEDIUM registrada
+ * para este alumno en las últimas `windowHours` horas (default: 72h).
+ *
+ * El Cerebro Académico usa este dato para forzar tono empático y check-in
+ * emocional al inicio de la siguiente sesión.
+ */
+export async function hasRecentSafetyAlertForStudent(input: {
+  studentId: string;
+  windowHours?: number;
+}): Promise<boolean> {
+  const windowHours = input.windowHours ?? 72;
+  const cutoff = new Date(Date.now() - windowHours * 60 * 60 * 1000).toISOString();
+
+  try {
+    const db = getDb();
+    const result = await db
+      .prepare(
+        `SELECT id FROM mentoria_safety_alerts
+         WHERE student_id = ?
+           AND created_at >= ?
+           AND send_status = 'success'
+         LIMIT 1`
+      )
+      .bind(input.studentId, cutoff)
+      .first<{ id: string }>();
+
+    return result !== null;
+  } catch (error) {
+    // Si la tabla no existe todavía (post-migración), no bloqueamos
+    console.error("[SafetyAlertLog] Error checking recent safety alert:", error);
+    return false;
   }
 }
 

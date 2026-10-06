@@ -26,6 +26,7 @@ import {
   buildSafetyDirective,
   requiresSessionHalt,
 } from "@/lib/agents/mentoria/cerebro-safety";
+import { hasRecentSafetyAlertForStudent } from "@/lib/mentoria/parent-notifications";
 import { buildInterventionResponse } from "@/lib/mentoria/intervention-engine";
 import { getLearningProfile } from "@/lib/mentoria/learning-profile";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
@@ -159,6 +160,9 @@ export async function runTutorAgent(input: {
       : undefined,
   };
 
+  // Consultar DB para saber si hay alerta de seguridad reciente (72h)
+  const recentSafetyAlert = await hasRecentSafetyAlertForStudent({ studentId: input.profile.id });
+
   const historicalEmotional: StudentEmotionalSnapshot = {
     lastSessionEmotion:
       input.evolution.frustrationLevel >= 0.7 ? "frustrated"
@@ -169,7 +173,7 @@ export async function runTutorAgent(input: {
       : input.learningMemory?.frustrationTrend === "falling" ? "improving"
       : "stable",
     frustrationAccumulated: Math.min(input.evolution.frustrationLevel, 1),
-    hasRecentSafetyAlert: false,
+    hasRecentSafetyAlert: recentSafetyAlert,
   };
 
   // Detecta emoción en el mensaje real del alumno y la mezcla con el historial.
