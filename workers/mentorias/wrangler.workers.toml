@@ -32,6 +32,10 @@ database_id = "67b013a3-dcd8-424b-adf9-558895817841"
 # still live in the repo root until the runtime split lands in a later commit.
 migrations_dir = "../../migrations"
 
+[[r2_buckets]]
+binding = "MENTORIA_BUCKET"
+bucket_name = "saas-mentorias-prod-storage"
+
 [[queues.producers]]
 queue = "drako-billing-queue"
 binding = "BILLING_QUEUE"

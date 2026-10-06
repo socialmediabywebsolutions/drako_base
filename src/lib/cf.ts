@@ -86,6 +86,7 @@ export type DracoEnv = {
   PROVISIONING_QUEUE?: { send: (msg: any) => Promise<void> }; // Cloudflare Queue Producer
   SOCIAL_MEDIA_BUCKET?: R2Bucket;
   SOCIAL_MEDIA_R2_PUBLIC_URL?: string;
+  MENTORIA_BUCKET?: R2Bucket;
   INTERNAL_API_SECRET?: string; // Phase 3.1 Hardening
   PROVISIONING_FAULT_AT?:
     | "STRIPE_AFTER_CREATE"

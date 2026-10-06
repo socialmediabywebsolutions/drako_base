@@ -337,6 +337,22 @@ export function WorkspaceClassBoard({
             </div>
           ) : null}
 
+          {/* ── AI Diagram Image ────────────────────────────────────────── */}
+          {boardUpdate?.diagramUrl ? (
+            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+              <div className="px-6 pt-5 pb-3">
+                <SectionLabel>Diagrama</SectionLabel>
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={boardUpdate.diagramUrl}
+                alt={`Diagrama de ${boardUpdate.topic}`}
+                className="w-full object-contain max-h-80"
+                loading="lazy"
+              />
+            </div>
+          ) : null}
+
           {/* ── Correction ──────────────────────────────────────────── */}
           {boardUpdate?.correction ? (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-5">

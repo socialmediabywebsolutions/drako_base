@@ -123,6 +123,7 @@ export type MentoriaBoardUpdate = {
   example?: string | null;
   formula?: string | null;
   diagram?: string[] | null;
+  diagramUrl?: string | null;
   exercise?: MentoriaBoardExercise | null;
   task?: MentoriaBoardTask | null;
   exam?: MentoriaBoardExam | null;
