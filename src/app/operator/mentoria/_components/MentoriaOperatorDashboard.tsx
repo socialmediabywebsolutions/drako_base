@@ -58,10 +58,13 @@ type SafetyAlertRow = {
   sendStatus: string;
   messageId: string | null;
   createdAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  reviewNotes: string | null;
 };
 
 type SafetyData = {
-  summary: { total: number; high: number; medium: number; sent: number; failed: number };
+  summary: { total: number; high: number; medium: number; sent: number; failed: number; pendingReview: number };
   alerts: SafetyAlertRow[];
 };
 
@@ -462,10 +465,14 @@ function SaludSection({ health, loading }: { health: SystemHealth | null; loadin
   );
 }
 
-function SeguridadSection({ safetyData, loading }: { safetyData: SafetyData | null; loading: boolean }) {
+function SeguridadSection({ safetyData, loading, onReload }: { safetyData: SafetyData | null; loading: boolean; onReload: () => void }) {
+  const [reviewing, setReviewing] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
   if (loading) return <div className="py-12 text-center text-sm text-gray-400">Cargando alertas de seguridad...</div>;
 
-  const summary = safetyData?.summary ?? { total: 0, high: 0, medium: 0, sent: 0, failed: 0 };
+  const summary = safetyData?.summary ?? { total: 0, high: 0, medium: 0, sent: 0, failed: 0, pendingReview: 0 };
   const alerts  = safetyData?.alerts ?? [];
 
   const categoryLabel: Record<string, string> = {
@@ -476,11 +483,34 @@ function SeguridadSection({ safetyData, loading }: { safetyData: SafetyData | nu
     emotional_distress:"Malestar emocional",
   };
 
+  async function markReviewed(alertId: string) {
+    setReviewError(null);
+    try {
+      const res = await fetch("/api/operator/mentoria/safety-alerts/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alertId, notes: reviewNotes || null }),
+      });
+      const body = (await res.json()) as { ok?: boolean; error?: string };
+      if (!body.ok) throw new Error(body.error ?? "REVIEW_FAILED");
+      setReviewing(null);
+      setReviewNotes("");
+      onReload();
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : "Error al marcar como revisada");
+    }
+  }
+
   return (
     <div className="space-y-6">
       {summary.high > 0 && (
         <AlertBanner type="error">
           {summary.high} alerta{summary.high > 1 ? "s" : ""} de nivel ALTO — notificaciones críticas enviadas a padres
+        </AlertBanner>
+      )}
+      {summary.pendingReview > 0 && (
+        <AlertBanner type="warn">
+          {summary.pendingReview} alerta{summary.pendingReview > 1 ? "s" : ""} pendiente{summary.pendingReview > 1 ? "s" : ""} de revisión por operador
         </AlertBanner>
       )}
       {summary.failed > 0 && (
@@ -494,14 +524,17 @@ function SeguridadSection({ safetyData, loading }: { safetyData: SafetyData | nu
 
       <div>
         <SectionLabel>Resumen últimas 100 alertas</SectionLabel>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          <KpiCard label="Total"           value={summary.total}  />
-          <KpiCard label="Nivel ALTO"      value={summary.high}   accent={summary.high > 0 ? "red" : undefined} />
-          <KpiCard label="Nivel MEDIO"     value={summary.medium} accent={summary.medium > 0 ? "amber" : undefined} />
-          <KpiCard label="Enviadas"        value={summary.sent}   accent="green" />
-          <KpiCard label="Fallidas"        value={summary.failed} accent={summary.failed > 0 ? "red" : undefined} />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
+          <KpiCard label="Total"              value={summary.total}              />
+          <KpiCard label="Nivel ALTO"         value={summary.high}          accent={summary.high > 0 ? "red" : undefined} />
+          <KpiCard label="Nivel MEDIO"        value={summary.medium}        accent={summary.medium > 0 ? "amber" : undefined} />
+          <KpiCard label="Enviadas"           value={summary.sent}          accent="green" />
+          <KpiCard label="Fallidas"           value={summary.failed}        accent={summary.failed > 0 ? "red" : undefined} />
+          <KpiCard label="Sin revisar"        value={summary.pendingReview} accent={summary.pendingReview > 0 ? "amber" : undefined} />
         </div>
       </div>
+
+      {reviewError && <AlertBanner type="error">{reviewError}</AlertBanner>}
 
       {alerts.length > 0 && (
         <div>
@@ -515,41 +548,86 @@ function SeguridadSection({ safetyData, loading }: { safetyData: SafetyData | nu
                   <th className="px-4 py-3">Categoría</th>
                   <th className="px-4 py-3">Alumno ID</th>
                   <th className="px-4 py-3">Teléfono</th>
-                  <th className="px-4 py-3">Estado envío</th>
+                  <th className="px-4 py-3">Envío</th>
+                  <th className="px-4 py-3">Revisión</th>
                 </tr>
               </thead>
               <tbody>
                 {alerts.map((a) => (
-                  <tr key={a.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
-                    <td className="px-4 py-3 text-xs text-gray-500">
-                      {new Date(a.createdAt).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                        a.level === "high"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-amber-100 text-amber-700"
-                      }`}>
-                        {a.level === "high" ? "ALTO" : "MEDIO"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-700">
-                      {categoryLabel[a.category] ?? a.category}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-gray-400">
-                      {a.studentId.slice(0, 8)}…
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                      {a.parentPhoneMasked}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`flex items-center gap-1 text-xs font-medium ${
-                        a.sendStatus === "success" ? "text-emerald-600" : "text-red-500"
-                      }`}>
-                        {a.sendStatus === "success" ? "✓ Enviado" : "✗ Fallido"}
-                      </span>
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={a.id} className={`border-b border-gray-50 last:border-0 hover:bg-gray-50/50 ${reviewing === a.id ? "bg-amber-50/40" : ""}`}>
+                      <td className="px-4 py-3 text-xs text-gray-500">
+                        {new Date(a.createdAt).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                          a.level === "high"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}>
+                          {a.level === "high" ? "ALTO" : "MEDIO"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-700">
+                        {categoryLabel[a.category] ?? a.category}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-[11px] text-gray-400">
+                        {a.studentId.slice(0, 8)}…
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-gray-500">
+                        {a.parentPhoneMasked}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`flex items-center gap-1 text-xs font-medium ${
+                          a.sendStatus === "success" ? "text-emerald-600" : "text-red-500"
+                        }`}>
+                          {a.sendStatus === "success" ? "✓ Enviado" : "✗ Fallido"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {a.reviewedAt ? (
+                          <div className="text-[11px] text-emerald-600">
+                            ✓ Revisado
+                            <div className="text-gray-400">{new Date(a.reviewedAt).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setReviewing(a.id); setReviewNotes(""); setReviewError(null); }}
+                            className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-100"
+                          >
+                            Marcar revisada
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    {reviewing === a.id && (
+                      <tr key={`review-${a.id}`} className="bg-amber-50/60">
+                        <td colSpan={7} className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="text"
+                              placeholder="Notas de seguimiento (opcional)…"
+                              value={reviewNotes}
+                              onChange={(e) => setReviewNotes(e.target.value)}
+                              className="flex-1 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs focus:border-amber-400 focus:outline-none"
+                            />
+                            <button
+                              onClick={() => void markReviewed(a.id)}
+                              className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
+                            >
+                              Confirmar revisión
+                            </button>
+                            <button
+                              onClick={() => { setReviewing(null); setReviewNotes(""); }}
+                              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 ))}
               </tbody>
             </table>
@@ -683,7 +761,7 @@ export default function MentoriaOperatorDashboard() {
           <SaludSection health={health} loading={loading} />
         )}
         {tab === "seguridad" && (
-          <SeguridadSection safetyData={safetyData} loading={loading} />
+          <SeguridadSection safetyData={safetyData} loading={loading} onReload={() => void fetchData()} />
         )}
       </div>
     </div>
