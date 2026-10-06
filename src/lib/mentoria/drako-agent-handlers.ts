@@ -5,6 +5,11 @@ import type { EmotionalAdaptation } from "@/lib/agents/mentoria/emotional-orches
 import { analyzeProgress } from "@/lib/agents/mentoria/progress-agent";
 import { runTutorAgent } from "@/lib/agents/mentoria/tutor-agent";
 import { buildInterventionResponse } from "@/lib/mentoria/intervention-engine";
+import {
+  sendSafetyAlertToParent,
+  type SafetyAlertCategory,
+  type SafetyAlertLevel,
+} from "@/lib/mentoria/parent-notifications";
 import { getLearningProfile } from "@/lib/mentoria/learning-profile";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
 import { getMicrocopy } from "@/lib/mentoria/microcopy";
@@ -105,6 +110,27 @@ function parseExercisePayload(value: string): {
 
 async function tutorHandler(task: AgentTask<TutorTaskInput>) {
   const result = await runTutorAgent(task.input);
+
+  // ── Protocolo de seguridad: disparar notificación al padre si procede ────────
+  if (result.safetyNotifyParent && task.input.profile.parentPhoneNumber) {
+    const safetyLevel = (result.safetyLevel ?? "medium") as SafetyAlertLevel;
+    const safetyCategory = (result.safetyCategory ?? "emotional_distress") as SafetyAlertCategory;
+
+    // Lanzar en background — no bloquear la respuesta al alumno
+    void sendSafetyAlertToParent({
+      tenantId: task.context.tenantId,
+      sessionId: task.id,
+      studentId: task.input.profile.id,
+      studentName: task.input.profile.fullName,
+      parentPhone: task.input.profile.parentPhoneNumber,
+      level: safetyLevel,
+      category: safetyCategory,
+    }).catch((err: unknown) => {
+      console.error("[TutorHandler] Safety alert send failed:", err);
+    });
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
   return createAgentResponse({
     task,
     reply: result.reply,

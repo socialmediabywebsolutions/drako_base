@@ -135,6 +135,9 @@ export async function runTutorAgent(input: {
   reinforcementQuestion: string;
   provider: string;
   model?: string;
+  safetyNotifyParent?: boolean;
+  safetyLevel?: string;
+  safetyCategory?: string;
 }> {
   // ── Cerebro Académico: leer al alumno antes de que el tutor hable ────────────
   const academicForCerebro: AcademicProfile = {
@@ -225,6 +228,9 @@ export async function runTutorAgent(input: {
       reinforcementQuestion: "",
       provider: "safety-protocol",
       model: undefined,
+      safetyNotifyParent: safetyAssessment.notifyParent,
+      safetyLevel: safetyAssessment.level,
+      safetyCategory: safetyAssessment.category,
     };
   }
   const safetyDirective = buildSafetyDirective(safetyAssessment);
@@ -344,5 +350,8 @@ export async function runTutorAgent(input: {
     reinforcementQuestion: teaching.reinforcementQuestion,
     provider: teaching.provider,
     model: teaching.model,
+    safetyNotifyParent: safetyAssessment.notifyParent,
+    safetyLevel: safetyAssessment.level,
+    safetyCategory: safetyAssessment.category,
   };
 }

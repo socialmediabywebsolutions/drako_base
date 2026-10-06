@@ -208,6 +208,209 @@ function buildNotificationMessage(summary: SessionSummary): string {
   return lines.join("\n");
 }
 
+// ─── Alerta de seguridad al padre/tutor ──────────────────────────────────────
+
+export type SafetyAlertLevel = "medium" | "high";
+export type SafetyAlertCategory =
+  | "bullying_disclosure"
+  | "emotional_distress"
+  | "self_harm_ideation"
+  | "suicidal_ideation"
+  | "abuse_disclosure";
+
+/**
+ * Envía un mensaje de WhatsApp al padre/tutor cuando el protocolo de seguridad
+ * detecta una señal que requiere atención adulta.
+ *
+ * PRINCIPIO: el mensaje NO revela el contenido exacto del alumno.
+ * Solo señala que puede necesitar apoyo y sugiere hablar con él.
+ */
+export async function sendSafetyAlertToParent(input: {
+  tenantId?: string;
+  sessionId: string;
+  studentId: string;
+  studentName: string;
+  parentPhone: string;
+  level: SafetyAlertLevel;
+  category: SafetyAlertCategory;
+}): Promise<ParentNotification> {
+  const now = new Date().toISOString();
+  const message = buildSafetyAlertMessage(input.studentName, input.level, input.category);
+
+  if (!validatePhoneNumber(input.parentPhone)) {
+    const errorMsg = "INVALID_PHONE_NUMBER";
+    console.error("[SafetyAlert] Invalid phone number:", input.parentPhone);
+    await logNotificationFailure({
+      tenantId: input.tenantId,
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      parentPhone: input.parentPhone,
+      error: errorMsg,
+      timestamp: now,
+    });
+    return {
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      parentPhone: input.parentPhone,
+      message,
+      actionItems: [],
+      sentAt: now,
+      success: false,
+      error: errorMsg,
+    };
+  }
+
+  try {
+    const result = await sendWhatsAppMessage(input.parentPhone, message);
+    if (!result.success) {
+      console.error("[SafetyAlert] WhatsApp send failed:", result.error);
+      await logNotificationFailure({
+        tenantId: input.tenantId,
+        sessionId: input.sessionId,
+        studentId: input.studentId,
+        parentPhone: input.parentPhone,
+        error: result.error || "WhatsApp send failed",
+        timestamp: now,
+      });
+      return {
+        sessionId: input.sessionId,
+        studentId: input.studentId,
+        parentPhone: input.parentPhone,
+        message,
+        actionItems: [],
+        sentAt: now,
+        success: false,
+        error: result.error,
+      };
+    }
+    console.log("[SafetyAlert] Alert sent to parent:", result.messageId, "level:", input.level, "category:", input.category);
+    await logNotificationSuccess({
+      tenantId: input.tenantId,
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      parentPhone: input.parentPhone,
+      messageId: result.messageId,
+      timestamp: now,
+    });
+    return {
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      parentPhone: input.parentPhone,
+      message,
+      actionItems: [],
+      sentAt: now,
+      success: true,
+      messageId: result.messageId,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("[SafetyAlert] Error sending alert:", errorMessage);
+    await logNotificationFailure({
+      tenantId: input.tenantId,
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      parentPhone: input.parentPhone,
+      error: errorMessage,
+      timestamp: now,
+    });
+    return {
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      parentPhone: input.parentPhone,
+      message,
+      actionItems: [],
+      sentAt: now,
+      success: false,
+      error: errorMessage,
+    };
+  }
+}
+
+function buildSafetyAlertMessage(
+  studentName: string,
+  level: SafetyAlertLevel,
+  category: SafetyAlertCategory,
+): string {
+  const name = studentName.split(" ")[0] ?? studentName;
+
+  if (level === "high") {
+    switch (category) {
+      case "suicidal_ideation":
+        return [
+          `🔴 Aviso importante sobre ${name} — Mentoría`,
+          "",
+          `Durante la sesión de hoy, ${name} ha expresado algo que nos preocupa y que merece tu atención lo antes posible.`,
+          "",
+          "Por favor, habla con él/ella hoy. Si crees que puede necesitar apoyo profesional, el Teléfono de la Esperanza (717 003 717) es un recurso confidencial y gratuito.",
+          "",
+          "Hemos pausado la sesión para que puedas estar con él/ella.",
+          "",
+          "Mentoría — Educación personalizada para tu hijo",
+        ].join("\n");
+      case "self_harm_ideation":
+        return [
+          `🔴 Aviso importante sobre ${name} — Mentoría`,
+          "",
+          `${name} ha compartido algo durante su sesión que requiere atención. Te lo comunicamos con discreción y respeto.`,
+          "",
+          "Habla con él/ella hoy con calma, sin presión. Si ves que necesita apoyo adicional, su médico de cabecera o un psicólogo pueden ayudar.",
+          "",
+          "Hemos pausado la sesión.",
+          "",
+          "Mentoría — Educación personalizada para tu hijo",
+        ].join("\n");
+      case "abuse_disclosure":
+        return [
+          `🔴 Aviso urgente sobre ${name} — Mentoría`,
+          "",
+          `Durante la sesión, ${name} ha expresado algo que nos genera preocupación por su bienestar. Es importante que hables con él/ella y, si es necesario, con alguien de confianza fuera del entorno familiar.`,
+          "",
+          "El teléfono 016 es confidencial y gratuito y puede orientarte.",
+          "",
+          "Hemos pausado la sesión.",
+          "",
+          "Mentoría — Educación personalizada para tu hijo",
+        ].join("\n");
+      default:
+        return [
+          `🔴 Aviso importante sobre ${name} — Mentoría`,
+          "",
+          `${name} ha compartido algo durante su sesión que requiere tu atención. Habla con él/ella hoy.`,
+          "",
+          "Hemos pausado la sesión.",
+          "",
+          "Mentoría — Educación personalizada para tu hijo",
+        ].join("\n");
+    }
+  }
+
+  // MEDIUM — bullying o distress
+  switch (category) {
+    case "bullying_disclosure":
+      return [
+        `🟡 Aviso sobre ${name} — Mentoría`,
+        "",
+        `${name} mencionó durante su sesión que puede estar pasándolo mal en el colegio. No hemos entrado en detalles, pero creemos que merece una conversación tranquila contigo.`,
+        "",
+        "A veces hablar con alguien de confianza marca la diferencia. El orientador del colegio también puede ayudar.",
+        "",
+        "La sesión ha continuado con normalidad.",
+        "",
+        "Mentoría — Educación personalizada para tu hijo",
+      ].join("\n");
+    default:
+      return [
+        `🟡 Aviso sobre ${name} — Mentoría`,
+        "",
+        `${name} parece estar pasando por un momento difícil emocionalmente. Durante la sesión de hoy lo hemos notado y queremos que lo sepas.`,
+        "",
+        "Un pequeño momento de atención y escucha puede ayudar mucho.",
+        "",
+        "Mentoría — Educación personalizada para tu hijo",
+      ].join("\n");
+  }
+}
+
 export async function detectAndTriggerAlerts(input: {
   tenantId: string;
   studentId: string;
