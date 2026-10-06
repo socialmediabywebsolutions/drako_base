@@ -140,14 +140,14 @@ export async function runTutorAgent(input: {
 
   const emotionalForCerebro: StudentEmotionalSnapshot = {
     lastSessionEmotion:
-      input.evolution.frustrationLevel === "high" ? "frustrated"
-      : input.evolution.frustrationLevel === "low" ? "confident"
+      input.evolution.frustrationLevel >= 0.7 ? "frustrated"
+      : input.evolution.frustrationLevel <= 0.3 ? "confident"
       : "calm",
     emotionalTrend:
       input.learningMemory?.frustrationTrend === "rising" ? "declining"
       : input.learningMemory?.frustrationTrend === "falling" ? "improving"
       : "stable",
-    frustrationAccumulated: Math.min(input.evolution.frustrationLevel === "high" ? 0.8 : input.evolution.frustrationLevel === "medium" ? 0.5 : 0.2, 1),
+    frustrationAccumulated: Math.min(input.evolution.frustrationLevel, 1),
     hasRecentSafetyAlert: false,
   };
 
@@ -155,7 +155,10 @@ export async function runTutorAgent(input: {
     ? Object.fromEntries(
         input.dynamicProfile.memory.fragileConcepts.map((item) => [
           item.conceptKey,
-          item.masteryLevel === "mastered" ? "mastered" : item.masteryLevel === "partial" ? "partial" : "not_yet",
+          item.masteryLevel === "mastered" ? "mastered" as const
+          : item.masteryLevel === "secure" ? "mastered" as const
+          : item.masteryLevel === "developing" ? "partial" as const
+          : "not_yet" as const,
         ])
       )
     : {};
