@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { CheckCircle2, Circle, ChevronRight, PenLine, Lightbulb, AlertCircle, Trophy } from "lucide-react";
+import { CheckCircle2, Circle, ChevronRight, PenLine, Lightbulb, AlertCircle, Trophy, StickyNote, TrendingUp, Hash } from "lucide-react";
 import type { MentoriaBoardUpdate, MentoriaStudentSubject } from "@/lib/mentoria/types";
 
 type WorkspaceClassBoardProps = {
@@ -87,7 +87,7 @@ function BoardSection({ children, className = "" }: { children: React.ReactNode;
   );
 }
 
-function SectionLabel({ children, color = "slate" }: { children: React.ReactNode; color?: "slate" | "emerald" | "sky" | "amber" | "rose" | "violet" }) {
+function SectionLabel({ children, color = "slate" }: { children: React.ReactNode; color?: "slate" | "emerald" | "sky" | "amber" | "rose" | "violet" | "indigo" }) {
   const colors: Record<string, string> = {
     slate: "text-slate-500",
     emerald: "text-emerald-700",
@@ -95,6 +95,7 @@ function SectionLabel({ children, color = "slate" }: { children: React.ReactNode
     amber: "text-amber-700",
     rose: "text-rose-600",
     violet: "text-violet-700",
+    indigo: "text-indigo-700",
   };
   return (
     <p className={`mb-3 text-[10px] font-black tracking-[0.2em] uppercase ${colors[color]}`}>{children}</p>
@@ -299,15 +300,40 @@ export function WorkspaceClassBoard({
           ) : null}
 
           {/* ── Example ─────────────────────────────────────────────── */}
-          {(boardUpdate?.example || boardUpdate?.formula || boardUpdate?.diagram?.[0]) ? (
+          {boardUpdate?.example ? (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5">
               <div className="flex items-center gap-2 mb-3">
                 <Lightbulb className="h-4 w-4 text-amber-600" />
                 <SectionLabel color="amber">Ejemplo</SectionLabel>
               </div>
-              <p className="text-base font-semibold leading-7 text-amber-950">
-                {boardUpdate?.example ?? boardUpdate?.formula ?? boardUpdate?.diagram?.[0]}
-              </p>
+              <p className="text-base font-semibold leading-7 text-amber-950">{boardUpdate.example}</p>
+            </div>
+          ) : null}
+
+          {/* ── Formula ─────────────────────────────────────────────── */}
+          {boardUpdate?.formula ? (
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-6 py-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Hash className="h-4 w-4 text-indigo-600" />
+                <SectionLabel color="indigo">Fórmula</SectionLabel>
+              </div>
+              <div className="overflow-x-auto rounded-xl bg-white px-5 py-4 border border-indigo-100">
+                <pre className="font-mono text-base font-bold text-indigo-950 whitespace-pre-wrap leading-7">
+                  {boardUpdate.formula}
+                </pre>
+              </div>
+            </div>
+          ) : null}
+
+          {/* ── Diagrams ────────────────────────────────────────────── */}
+          {(boardUpdate?.diagram ?? []).length > 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-6 py-5">
+              <SectionLabel>Esquema</SectionLabel>
+              <div className="space-y-2">
+                {(boardUpdate?.diagram ?? []).map((line, i) => (
+                  <p key={i} className="text-sm font-mono font-semibold leading-6 text-slate-800">{line}</p>
+                ))}
+              </div>
             </div>
           ) : null}
 
@@ -371,6 +397,22 @@ export function WorkspaceClassBoard({
                   Enviar respuesta
                 </button>
               </div>
+            </div>
+          ) : null}
+
+          {/* ── Progress summary ─────────────────────────────────────── */}
+          {boardUpdate?.progressSummary ? (
+            <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-5 py-3">
+              <TrendingUp className="h-4 w-4 shrink-0 text-emerald-600" />
+              <p className="text-sm font-semibold leading-6 text-emerald-900">{boardUpdate.progressSummary}</p>
+            </div>
+          ) : null}
+
+          {/* ── Note ─────────────────────────────────────────────────── */}
+          {boardUpdate?.note ? (
+            <div className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 px-5 py-3">
+              <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+              <p className="text-sm font-medium leading-6 text-slate-600 italic">{boardUpdate.note}</p>
             </div>
           ) : null}
 
