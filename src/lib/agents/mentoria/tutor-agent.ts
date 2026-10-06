@@ -21,6 +21,11 @@ import { philosophyAgent } from "@/lib/agents/mentoria/philosophy-agent";
 import { programmingAgent } from "@/lib/agents/mentoria/programming-agent";
 import type { EmotionalAdaptation } from "@/lib/agents/mentoria/emotional-orchestrator";
 import { buildSubjectBrief } from "@/lib/agents/mentoria/subject-agent";
+import {
+  assessMessageSafety,
+  buildSafetyDirective,
+  requiresSessionHalt,
+} from "@/lib/agents/mentoria/cerebro-safety";
 import { buildInterventionResponse } from "@/lib/mentoria/intervention-engine";
 import { getLearningProfile } from "@/lib/mentoria/learning-profile";
 import type { MotivationState } from "@/lib/mentoria/motivation-engine";
@@ -206,6 +211,28 @@ export async function runTutorAgent(input: {
     .filter((task) => !task.completed && (!task.subjectId || task.subjectId === input.subject.id))
     .map((task) => `${task.type} dificultad ${task.difficulty}`)
     .join(", ");
+  // ── Protocolo de Seguridad — evaluar mensaje ANTES del tutor ────────────────
+  const safetyAssessment = assessMessageSafety(input.studentMessage);
+  if (requiresSessionHalt(safetyAssessment)) {
+    // Crisis detectada: devuelve respuesta de protocolo sin pasar por el agente
+    return {
+      reply: safetyAssessment.crisisResponse ?? "Lo que describes es muy serio. Por favor, habla con un adulto de confianza ahora mismo.",
+      tutorSummary: "Sesión interrumpida por protocolo de seguridad.",
+      recommendedNextStep: "Contactar con un adulto de confianza o un profesional de apoyo.",
+      totalTokens: 0,
+      explanation: safetyAssessment.crisisResponse ?? "",
+      suggestedSteps: [],
+      reinforcementQuestion: "",
+      provider: "safety-protocol",
+      model: undefined,
+    };
+  }
+  const safetyDirective = buildSafetyDirective(safetyAssessment);
+  const effectiveCerebroDirectives = safetyDirective
+    ? `${safetyDirective}\n\n${cerebroDirectives}`
+    : cerebroDirectives;
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const subjectAgent = selectSubjectAgent(input.subject);
   const teaching = await subjectAgent.run(
     {
@@ -213,7 +240,7 @@ export async function runTutorAgent(input: {
       subject: input.subject,
       topic: input.topic,
       studentMessage: [
-        cerebroDirectives,
+        effectiveCerebroDirectives,
         `Mensaje del alumno: ${input.studentMessage}`,
         `Intencion de aula detectada: ${input.intent ?? "question"}.`,
         brief.systemPrompt,
