@@ -6,6 +6,7 @@ import {
 import {
   buildCerebroAcademicoDecision,
   injectCerebroDirectives,
+  parseAccessibilityFromSupportNotes,
   type AcademicProfile,
   type StudentEmotionalSnapshot,
   type TopicMasteryMap,
@@ -136,6 +137,9 @@ export async function runTutorAgent(input: {
       : "unknown",
     optimalSessionLength: input.learningMemory?.bestSessionLength ?? 30,
     bestTimeWindow: (input.learningMemory?.bestSessionTimeWindow as AcademicProfile["bestTimeWindow"]) ?? "unknown",
+    accessibility: input.profile.supportNotes
+      ? parseAccessibilityFromSupportNotes(input.profile.supportNotes)
+      : undefined,
   };
 
   const emotionalForCerebro: StudentEmotionalSnapshot = {

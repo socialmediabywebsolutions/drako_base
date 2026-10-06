@@ -16,6 +16,41 @@
  * 5. Adapta la dificultad antes de que el alumno se frustre, no después.
  */
 
+// ─── Perfil de necesidades de accesibilidad ───────────────────────────────────
+
+export type AccessibilityProfile = {
+  /** Dificultades de atención / rasgos TDAH detectados */
+  hasAttentionDifficulty: boolean;
+  /** Ansiedad ante exámenes o evaluación */
+  hasExamAnxiety: boolean;
+  /** Dificultades de organización o planificación */
+  hasOrganizationIssues: boolean;
+  /** Ritmo de procesamiento lento (necesita más tiempo por paso) */
+  isSlowProcessor: boolean;
+  /** Brecha de base importante (necesita refuerzo de conceptos previos) */
+  hasBaseGap: boolean;
+  /** Estilo de apoyo preferido del onboarding */
+  preferredSupportStyle: "step_by_step" | "visual_steps" | "concrete_example" | "guided_practice" | "quick_checks" | "unknown";
+};
+
+/** Parsea el campo supportNotes del alumno para detectar señales de accesibilidad. */
+export function parseAccessibilityFromSupportNotes(notes: string): AccessibilityProfile {
+  const text = notes.toLowerCase();
+  return {
+    hasAttentionDifficulty: text.includes("atencion") || text.includes("tdah") || text.includes("attention"),
+    hasExamAnxiety: text.includes("ansiedad") || text.includes("exam_anxiety"),
+    hasOrganizationIssues: text.includes("organizacion") || text.includes("organization"),
+    isSlowProcessor: text.includes("ritmo lento") || text.includes("slow_processor") || text.includes("necesita mas tiempo"),
+    hasBaseGap: text.includes("falta de base") || text.includes("base_gap"),
+    preferredSupportStyle: text.includes("paso a paso") ? "step_by_step"
+      : text.includes("visual y por bloques") ? "visual_steps"
+      : text.includes("con ejemplos concretos") ? "concrete_example"
+      : text.includes("practica guiada") ? "guided_practice"
+      : text.includes("comprobaciones cortas") ? "quick_checks"
+      : "unknown",
+  };
+}
+
 // ─── Perfil académico enriquecido ─────────────────────────────────────────────
 
 export type AcademicProfile = {
@@ -37,6 +72,8 @@ export type AcademicProfile = {
   optimalSessionLength: number;
   /** Mejor franja horaria detectada */
   bestTimeWindow: "morning" | "afternoon" | "evening" | "unknown";
+  /** Perfil de necesidades de accesibilidad (opcional, si hay datos) */
+  accessibility?: AccessibilityProfile;
 };
 
 // ─── Señal de estado emocional ────────────────────────────────────────────────
@@ -92,6 +129,7 @@ export function buildCerebroAcademicoDecision(input: {
   currentTopic: string;
 }): CerebroAcademicoDecision {
   const { academic, emotional, masteryMap, currentSubjectSlug, currentTopic } = input;
+  const accessibility = academic.accessibility;
 
   // ── Determinar tono base ──────────────────────────────────────────────────
   let tutorTone: CerebroAcademicoDecision["tutorTone"] = "direct";
@@ -109,7 +147,12 @@ export function buildCerebroAcademicoDecision(input: {
   // ── Determinar ritmo ──────────────────────────────────────────────────────
   let sessionPace: CerebroAcademicoDecision["sessionPace"] = "steady";
 
-  if (emotional.frustrationAccumulated >= 0.6 || emotional.lastSessionEmotion === "blocked") {
+  if (
+    emotional.frustrationAccumulated >= 0.6
+    || emotional.lastSessionEmotion === "blocked"
+    || accessibility?.hasAttentionDifficulty
+    || accessibility?.isSlowProcessor
+  ) {
     sessionPace = "slow";
   } else if (emotional.emotionalTrend === "improving" && emotional.lastSessionEmotion === "confident") {
     sessionPace = "fast";
@@ -160,6 +203,57 @@ export function buildCerebroAcademicoDecision(input: {
     directives.push("Alta frustración acumulada. Si aparece cualquier señal de bloqueo, simplifica inmediatamente sin esperar a que el alumno lo pida.");
   }
 
+  // ── Directivas de accesibilidad ───────────────────────────────────────────
+  if (accessibility?.hasAttentionDifficulty) {
+    directives.push(
+      "Este alumno tiene dificultades de atención. " +
+      "Divide CADA explicación en pasos de máximo 2-3 líneas. " +
+      "Haz una pausa y comprueba comprensión después de cada paso. " +
+      "Usa frases cortas, activas y concretas. Evita párrafos largos.",
+    );
+  }
+
+  if (accessibility?.hasExamAnxiety) {
+    directives.push(
+      "Este alumno tiene ansiedad ante evaluaciones. " +
+      "NUNCA uses lenguaje de examen ('vas a ser evaluado', 'esto entra en el examen'). " +
+      "Enmarca los ejercicios como práctica y exploración, no como prueba. " +
+      "Si se equivoca, celebra el intento antes de corregir.",
+    );
+  }
+
+  if (accessibility?.hasOrganizationIssues) {
+    directives.push(
+      "Este alumno tiene dificultades de organización. " +
+      "Al inicio de cada explicación, anuncia el plan: '1. Vamos a ver X, 2. luego practicamos Y'. " +
+      "Usa listas numeradas siempre. Resume al final de cada bloque.",
+    );
+  }
+
+  if (accessibility?.isSlowProcessor) {
+    directives.push(
+      "Este alumno procesa la información más lento que la media. " +
+      "Espera respuesta antes de continuar. No acumules preguntas — haz UNA a la vez. " +
+      "Si no responde rápido, no es bloqueo — dale tiempo.",
+    );
+  }
+
+  if (accessibility?.hasBaseGap) {
+    directives.push(
+      "Este alumno tiene lagunas de base importantes. " +
+      "Antes de cada concepto nuevo, verifica que los conceptos previos están claros con una pregunta simple. " +
+      "Si falla el concepto previo, trabaja ese primero sin avanzar.",
+    );
+  }
+
+  if (accessibility?.preferredSupportStyle === "visual_steps") {
+    directives.push("Usa siempre listas numeradas para los pasos. Nunca expliques en texto corrido sin estructura visual.");
+  } else if (accessibility?.preferredSupportStyle === "concrete_example") {
+    directives.push("Empieza SIEMPRE con un ejemplo real antes de la teoría. La teoría viene después del ejemplo, nunca antes.");
+  } else if (accessibility?.preferredSupportStyle === "quick_checks") {
+    directives.push("Haz comprobaciones cortas cada 2-3 intercambios. Una pregunta directa: '¿lo tienes claro hasta aquí?'");
+  }
+
   // ── Temas frágiles ────────────────────────────────────────────────────────
   const fragilTopics = Object.entries(masteryMap)
     .filter(([, level]) => level === "partial" || level === "not_yet")
@@ -179,12 +273,23 @@ export function buildCerebroAcademicoDecision(input: {
   }
 
   // ── Briefing de sesión ────────────────────────────────────────────────────
+  const accessibilityFlags = accessibility
+    ? [
+        accessibility.hasAttentionDifficulty ? "atención" : null,
+        accessibility.hasExamAnxiety ? "ansiedad exámenes" : null,
+        accessibility.hasOrganizationIssues ? "organización" : null,
+        accessibility.isSlowProcessor ? "ritmo lento" : null,
+        accessibility.hasBaseGap ? "brecha base" : null,
+      ].filter(Boolean)
+    : [];
+
   const sessionBriefing = [
     `Alumno: curso ${academic.schoolYear}, ${academic.age} años.`,
     academic.hasRepeatedCourse ? `Ha repetido ${academic.repeatCount} vez/veces.` : null,
     `Estado emocional previo: ${emotional.lastSessionEmotion} | Tendencia: ${emotional.emotionalTrend}.`,
     `Dominio del tema actual ('${currentTopic}'): ${topicMastery}.`,
     `Materia débil: ${subjectIsWeak ? "sí" : "no"}.`,
+    accessibilityFlags.length > 0 ? `Necesidades: ${accessibilityFlags.join(", ")}.` : null,
     `Tono decidido: ${tutorTone} | Ritmo: ${sessionPace} | Dificultad inicio: ${startingDifficulty}.`,
   ].filter(Boolean).join(" ");
 
