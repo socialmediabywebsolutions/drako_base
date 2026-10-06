@@ -98,11 +98,12 @@ type AcquisitionData = {
 // ─── Nav ─────────────────────────────────────────────────────────────────────
 
 const NAV = [
-  { id: "resumen"   as const, icon: "🏠", label: "Resumen",   desc: "Health + KPIs" },
-  { id: "familias"  as const, icon: "👨‍👩‍👧", label: "Familias",  desc: "Clientes activos" },
-  { id: "sesiones"  as const, icon: "📚", label: "Sesiones",  desc: "Actividad de hoy" },
-  { id: "salud"     as const, icon: "🩺", label: "Salud",     desc: "Alertas del sistema" },
-  { id: "seguridad"    as const, icon: "🔴", label: "Seguridad",    desc: "Protocolo de seguridad" },
+  { id: "resumen"    as const, icon: "🏠", label: "Resumen",    desc: "Health + KPIs" },
+  { id: "familias"   as const, icon: "👨‍👩‍👧", label: "Familias",   desc: "Clientes activos" },
+  { id: "alumnos"    as const, icon: "🎓", label: "Alumnos",    desc: "Detalle por alumno" },
+  { id: "sesiones"   as const, icon: "📚", label: "Sesiones",   desc: "Actividad de hoy" },
+  { id: "salud"      as const, icon: "🩺", label: "Salud",      desc: "Alertas del sistema" },
+  { id: "seguridad"  as const, icon: "🔴", label: "Seguridad",  desc: "Protocolo de seguridad" },
   { id: "adquisicion" as const, icon: "📣", label: "Adquisición", desc: "Posts y conversiones" },
 ] as const;
 type NavId = (typeof NAV)[number]["id"];
@@ -332,6 +333,133 @@ function FamiliasSection({ families, loading }: { families: FamilyRow[]; loading
                     <td className="py-3 text-xs text-gray-400">
                       {new Date(f.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "2-digit" })}
                     </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AlumnosSection({ students, loading }: { students: StudentRow[]; loading: boolean }) {
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<StudentRow["status"] | "all">("all");
+
+  const filtered = students.filter((s) => {
+    const matchSearch =
+      s.name.toLowerCase().includes(search.toLowerCase()) ||
+      s.studentId.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filterStatus === "all" || s.status === filterStatus;
+    return matchSearch && matchStatus;
+  });
+
+  const counts = {
+    all:      students.length,
+    active:   students.filter((s) => s.status === "active").length,
+    trial:    students.filter((s) => s.status === "trial").length,
+    expired:  students.filter((s) => s.status === "expired").length,
+    inactive: students.filter((s) => s.status === "inactive").length,
+  };
+
+  if (loading) return <div className="py-12 text-center text-sm text-gray-400">Cargando alumnos...</div>;
+
+  return (
+    <div className="space-y-4">
+      {/* Resumen rápido */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <KpiCard label="Total alumnos"  value={counts.all}      accent="blue" />
+        <KpiCard label="Activos"        value={counts.active}   accent="green" />
+        <KpiCard label="En trial"       value={counts.trial}    accent="amber" />
+        <KpiCard label="Expirados"      value={counts.expired}  accent={counts.expired > 0 ? "red" : undefined} />
+      </div>
+
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          placeholder="Buscar por nombre o ID…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 min-w-48 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+        />
+        {(["all", "active", "trial", "expired", "inactive"] as const).map((st) => (
+          <button
+            key={st}
+            onClick={() => setFilterStatus(st)}
+            className={[
+              "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+              filterStatus === st
+                ? "bg-blue-500 text-white"
+                : "border border-gray-200 bg-white text-gray-500 hover:bg-gray-50",
+            ].join(" ")}
+          >
+            {st === "all" ? `Todos (${counts.all})` : `${st} (${counts[st]})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Tabla */}
+      {filtered.length === 0 ? (
+        <div className="py-8 text-center text-sm text-gray-400">
+          {students.length === 0 ? "Sin alumnos registrados aún" : "Sin resultados para esa búsqueda"}
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3">Alumno</th>
+                <th className="px-4 py-3">Curso</th>
+                <th className="px-4 py-3">Plan</th>
+                <th className="px-4 py-3">Trial hasta</th>
+                <th className="px-4 py-3">Sesiones hoy</th>
+                <th className="px-4 py-3">Última sesión</th>
+                <th className="px-4 py-3">Tenant</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((s) => {
+                const trialDate = s.trialEndsAt ? new Date(s.trialEndsAt) : null;
+                const trialActive = trialDate && trialDate > new Date();
+                const daysLeft = trialDate ? Math.ceil((trialDate.getTime() - Date.now()) / 86400000) : null;
+                return (
+                  <tr key={s.studentId} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <StatusDot status={s.status} />
+                        <span className="text-[11px] capitalize text-gray-500">{s.status}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{s.name}</div>
+                      <div className="font-mono text-[10px] text-gray-300">{s.studentId.slice(0, 10)}…</div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">{s.schoolYear ?? "—"}</td>
+                    <td className="px-4 py-3"><PlanBadge plan={s.plan} /></td>
+                    <td className="px-4 py-3">
+                      {trialDate ? (
+                        <span className={`text-xs font-medium ${
+                          trialActive
+                            ? daysLeft! <= 3 ? "text-amber-600" : "text-blue-600"
+                            : "text-red-500"
+                        }`}>
+                          {trialActive ? `${daysLeft}d restantes` : "Expirado"}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-gray-600">{s.sessionsToday}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400">
+                      {s.lastSessionAt
+                        ? new Date(s.lastSessionAt).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+                        : "—"}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-[10px] text-gray-300">{s.tenantId.slice(0, 8)}…</td>
                   </tr>
                 );
               })}
@@ -935,6 +1063,9 @@ export default function MentoriaOperatorDashboard() {
         )}
         {tab === "familias" && (
           <FamiliasSection families={families} loading={loading} />
+        )}
+        {tab === "alumnos" && (
+          <AlumnosSection students={students} loading={loading} />
         )}
         {tab === "sesiones" && (
           <SesionesSection students={students} loading={loading} />
