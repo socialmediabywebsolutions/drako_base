@@ -3,6 +3,13 @@ import {
   type MentoriaAgentHistoryTurn,
   type MentoriaTeachingResponse,
 } from "@/lib/agents/mentoria/base-agent";
+import {
+  buildCerebroAcademicoDecision,
+  injectCerebroDirectives,
+  type AcademicProfile,
+  type StudentEmotionalSnapshot,
+  type TopicMasteryMap,
+} from "@/lib/agents/mentoria/cerebro-academico";
 import { languageAgent } from "@/lib/agents/mentoria/language-agent";
 import { mathAgent } from "@/lib/agents/mentoria/math-agent";
 import { scienceAgent } from "@/lib/agents/mentoria/science-agent";
@@ -114,6 +121,55 @@ export async function runTutorAgent(input: {
   provider: string;
   model?: string;
 }> {
+  // ── Cerebro Académico: leer al alumno antes de que el tutor hable ────────────
+  const academicForCerebro: AcademicProfile = {
+    schoolYear: input.profile.schoolYear,
+    age: input.profile.age,
+    hasRepeatedCourse: input.dynamicProfile?.academic?.hasRepeatedCourse ?? false,
+    repeatCount: input.dynamicProfile?.academic?.hasRepeatedCourse ? 1 : 0,
+    weakSubjects: input.learningMemory?.weakestSubjects ?? input.evolution.weaknesses ?? [],
+    strongSubjects: input.learningMemory?.strongestSubjects ?? input.evolution.strengths ?? [],
+    learningStyle:
+      input.learningMemory?.preferredExplanationStyle === "visual_step_by_step" ? "step_by_step"
+      : input.learningMemory?.preferredExplanationStyle === "concrete_examples" ? "examples_first"
+      : input.learningMemory?.preferredExplanationStyle === "challenge_first" ? "challenge_first"
+      : "unknown",
+    optimalSessionLength: input.learningMemory?.bestSessionLength ?? 30,
+    bestTimeWindow: (input.learningMemory?.bestSessionTimeWindow as AcademicProfile["bestTimeWindow"]) ?? "unknown",
+  };
+
+  const emotionalForCerebro: StudentEmotionalSnapshot = {
+    lastSessionEmotion:
+      input.evolution.frustrationLevel === "high" ? "frustrated"
+      : input.evolution.frustrationLevel === "low" ? "confident"
+      : "calm",
+    emotionalTrend:
+      input.learningMemory?.frustrationTrend === "rising" ? "declining"
+      : input.learningMemory?.frustrationTrend === "falling" ? "improving"
+      : "stable",
+    frustrationAccumulated: Math.min(input.evolution.frustrationLevel === "high" ? 0.8 : input.evolution.frustrationLevel === "medium" ? 0.5 : 0.2, 1),
+    hasRecentSafetyAlert: false,
+  };
+
+  const masteryMapForCerebro: TopicMasteryMap = input.dynamicProfile?.memory?.fragileConcepts
+    ? Object.fromEntries(
+        input.dynamicProfile.memory.fragileConcepts.map((item) => [
+          item.conceptKey,
+          item.masteryLevel === "mastered" ? "mastered" : item.masteryLevel === "partial" ? "partial" : "not_yet",
+        ])
+      )
+    : {};
+
+  const cerebroDecision = buildCerebroAcademicoDecision({
+    academic: academicForCerebro,
+    emotional: emotionalForCerebro,
+    masteryMap: masteryMapForCerebro,
+    currentSubjectSlug: input.subject.slug,
+    currentTopic: input.topic,
+  });
+  const cerebroDirectives = injectCerebroDirectives(cerebroDecision);
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const brief = buildSubjectBrief({
     subject: input.subject,
     profile: input.profile,
@@ -136,6 +192,7 @@ export async function runTutorAgent(input: {
       subject: input.subject,
       topic: input.topic,
       studentMessage: [
+        cerebroDirectives,
         `Mensaje del alumno: ${input.studentMessage}`,
         `Intencion de aula detectada: ${input.intent ?? "question"}.`,
         brief.systemPrompt,

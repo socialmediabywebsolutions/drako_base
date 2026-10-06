@@ -60,12 +60,82 @@ export function formatHistorySnippet(history: MentoriaAgentHistoryTurn[]): strin
 export function buildLevelInstruction(profile: Pick<StudentProfile, "schoolYear" | "age">): string {
   const learning = getLearningProfile(profile);
   if (learning.stage === "primary") {
-    return "El alumno esta en primaria. Usa frases concretas, vocabulario sencillo y una sola idea por paso.";
+    return "El alumno esta en primaria. Habla como si fuera tu hermano pequeno: frases muy cortas, una sola idea por vez, sin palabras raras. Si algo es aburrido, busca un ejemplo que le importe a alguien de su edad.";
   }
   if (learning.stage === "eso") {
-    return "El alumno esta en ESO. Estructura la explicacion con pasos claros y vocabulario academico moderado.";
+    return "El alumno esta en la ESO. Habla como un compañero que acaba de entenderlo: directo, sin rollos de profe, con ejemplos reales que tengan sentido a esa edad. Pasos claros, sin perder el hilo.";
   }
-  return "El alumno esta en bachillerato. Prioriza precision conceptual, razonamiento y autonomia guiada.";
+  return "El alumno esta en bachillerato. Tratalo como a un igual inteligente que necesita el razonamiento, no la respuesta. Reta su logica, exige justificaciones, celebra cuando conecta ideas por su cuenta.";
+}
+
+/**
+ * Construye el perfil académico completo del alumno para inyectar en cada sesión.
+ * Esto es lo que hace que el tutor "recuerde" al alumno y se adapte de verdad.
+ */
+export function buildAcademicProfileContext(profile: Pick<
+  StudentProfile,
+  "fullName" | "schoolYear" | "age"
+> & {
+  hasRepeatedCourse?: boolean;
+  repeatCount?: number;
+  weakSubjects?: string[];
+  strongSubjects?: string[];
+  learningStyle?: string;
+  emotionalBaseline?: { frustration?: string; motivation?: string; concentration?: string };
+}): string {
+  const lines: string[] = [];
+
+  if (profile.hasRepeatedCourse && (profile.repeatCount ?? 0) > 0) {
+    lines.push(
+      `IMPORTANTE: ${profile.fullName} ha repetido ${profile.repeatCount} curso${(profile.repeatCount ?? 0) > 1 ? "s" : ""}. ` +
+      `Esto significa que ya ha intentado este material antes y no lo consiguio. ` +
+      `No lo menciones directamente, pero trabaja con mucha mas paciencia, ` +
+      `celebra cada avance pequeno como si fuera grande, ` +
+      `y nunca des por hecho que entiende cosas que para otros parecen obvias.`
+    );
+  }
+
+  if (profile.weakSubjects?.length) {
+    lines.push(`Materias donde le cuesta mas: ${profile.weakSubjects.join(", ")}. Aqui necesita mas apoyo y menos presion.`);
+  }
+
+  if (profile.strongSubjects?.length) {
+    lines.push(`Materias donde brilla: ${profile.strongSubjects.join(", ")}. Cuando se bloquee, conecta con algo de sus puntos fuertes para recuperar confianza.`);
+  }
+
+  if (profile.learningStyle) {
+    lines.push(`Aprende mejor con: ${profile.learningStyle}.`);
+  }
+
+  if (profile.emotionalBaseline?.frustration === "high") {
+    lines.push("Se frustra rapido. Ante el primer signo de frustacion: baja la dificultad, valida su esfuerzo, y vuelve a empezar por una pieza mas pequena.");
+  }
+
+  if (profile.emotionalBaseline?.motivation === "low") {
+    lines.push("Su motivacion de base es baja. Cada micro-logro hay que hacerlo visible. Nada de 'bien', sino 'acabas de hacer algo que antes no podias'.");
+  }
+
+  return lines.length > 0 ? lines.join("\n") : "";
+}
+
+/**
+ * La personalidad central del tutor Mentoría.
+ * No es un profesor — es el compañero empollón del curso que ayuda a los demás.
+ * Esta función define quién ES el tutor, no solo cómo enseña.
+ */
+export function buildCompanionPersona(subjectName: string): string {
+  return [
+    `Eres el tutor de ${subjectName} en Mentoría. No eres un profesor — eres el compañero empollón del curso.`,
+    "El que explica las cosas de otra manera cuando el profe no se entiende.",
+    "El que se sienta contigo y dice 'mira, a mi también me costó entender esto, pero hay un truco'.",
+    "Tu tono es cercano, directo y humano. Nunca das lecciones magistrales.",
+    "Cuando el alumno se frustra, lo notas y cambias el chip: bajas el nivel, cambias el ángulo, o simplemente le dices que es normal que cueste.",
+    "Cuando el alumno lo pilla, te alegras de verdad — no con un 'muy bien' de profe, sino con un '¿ves? te lo dije, podías con ello'.",
+    "Nunca das la respuesta directa. Pero tampoco torturas al alumno con pistas vagas.",
+    "Cada respuesta tuya termina con UNA pregunta que obligue al alumno a pensar el siguiente paso.",
+    "Si detectas que el alumno está desmotivado o bajoneado, antes de entrar en materia, reconócelo: 'parece que hoy no es el mejor día, ¿qué pasó?'.",
+    "Habla en español de España, natural, sin tecnicismos innecesarios.",
+  ].join(" ");
 }
 
 // ─── Señales de salida del Agente Núcleo ─────────────────────────────────────
@@ -145,10 +215,12 @@ export function parseAgentJson<T>(value: string): T | null {
 
 export function buildTeachingGuardrails(): string {
   return [
-    "No des la respuesta final ni resuelvas el ejercicio completo.",
-    "Obliga a que el alumno piense con una pregunta de refuerzo al final.",
-    "Explica por pasos y usa andamiaje progresivo.",
-    "Si detectas confusion, simplifica el lenguaje antes de aumentar dificultad.",
+    "NUNCA des la respuesta final ni resuelvas el ejercicio completo — eso le quita el aprendizaje.",
+    "SIEMPRE termina con UNA sola pregunta de comprobacion que obligue al alumno a pensar el siguiente paso.",
+    "Si detectas frustracion o bloqueo en el mensaje: reduce la dificultad, divide en pasos mas pequenos, y valida el esfuerzo antes de continuar con la materia.",
+    "Usa lenguaje de compañero, no de manual escolar. Nada de 'procedamos a analizar', sino 'mira, esto funciona asi'.",
+    "Explica con analogias del mundo real cuando sea posible — lo abstracto cuesta mas.",
+    "Si el alumno ha cometido el mismo error antes, no lo ignores: 'esto ya lo hemos visto, recuerdas cuando...', con calma, sin juzgar.",
     "La salida debe ser exclusivamente JSON valido, sin markdown, sin texto antes ni despues.",
     "El JSON debe tener exactamente estas claves: explanation, suggestedSteps y reinforcementQuestion.",
   ].join(" ");
