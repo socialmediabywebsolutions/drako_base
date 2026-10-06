@@ -68,6 +68,33 @@ type SafetyData = {
   alerts: SafetyAlertRow[];
 };
 
+type AcquisitionPost = {
+  id: string;
+  tenantId: string;
+  channel: string;
+  content: string;
+  publishedAt: string;
+  externalId: string | null;
+  clicks: number;
+  signups: number;
+  trialStarts: number;
+};
+
+type ScheduledPost = {
+  id: string;
+  channel: string;
+  content: string;
+  scheduledFor: string;
+  status: string;
+};
+
+type AcquisitionData = {
+  metrics: { totalPosts: number; totalClicks: number; totalSignups: number; totalTrialStarts: number; conversionRate: string };
+  byChannel: Record<string, { posts: number; clicks: number; signups: number }>;
+  recentPosts: AcquisitionPost[];
+  scheduledPosts: ScheduledPost[];
+};
+
 // ─── Nav ─────────────────────────────────────────────────────────────────────
 
 const NAV = [
@@ -75,7 +102,8 @@ const NAV = [
   { id: "familias"  as const, icon: "👨‍👩‍👧", label: "Familias",  desc: "Clientes activos" },
   { id: "sesiones"  as const, icon: "📚", label: "Sesiones",  desc: "Actividad de hoy" },
   { id: "salud"     as const, icon: "🩺", label: "Salud",     desc: "Alertas del sistema" },
-  { id: "seguridad" as const, icon: "🔴", label: "Seguridad", desc: "Protocolo de seguridad" },
+  { id: "seguridad"    as const, icon: "🔴", label: "Seguridad",    desc: "Protocolo de seguridad" },
+  { id: "adquisicion" as const, icon: "📣", label: "Adquisición", desc: "Posts y conversiones" },
 ] as const;
 type NavId = (typeof NAV)[number]["id"];
 
@@ -638,6 +666,155 @@ function SeguridadSection({ safetyData, loading, onReload }: { safetyData: Safet
   );
 }
 
+// ─── Adquisición Section ─────────────────────────────────────────────────────
+
+const CHANNEL_LABELS: Record<string, string> = {
+  linkedin:  "LinkedIn",
+  instagram: "Instagram",
+  tiktok:    "TikTok",
+};
+
+function ChannelBadge({ channel }: { channel: string }) {
+  const colors: Record<string, string> = {
+    linkedin:  "bg-blue-100 text-blue-700",
+    instagram: "bg-pink-100 text-pink-700",
+    tiktok:    "bg-slate-100 text-slate-700",
+  };
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${colors[channel] ?? "bg-gray-100 text-gray-600"}`}>
+      {CHANNEL_LABELS[channel] ?? channel}
+    </span>
+  );
+}
+
+function AdquisicionSection({
+  acquisitionData,
+  loading,
+}: {
+  acquisitionData: AcquisitionData | null;
+  loading: boolean;
+}) {
+  if (loading) return <div className="py-12 text-center text-sm text-gray-400">Cargando...</div>;
+  if (!acquisitionData) {
+    return (
+      <div className="py-12 text-center text-sm text-gray-400">
+        Sin datos de adquisición todavía — publica tu primer post para ver métricas aquí.
+      </div>
+    );
+  }
+
+  const { metrics, byChannel, recentPosts, scheduledPosts } = acquisitionData;
+
+  return (
+    <div className="space-y-6">
+      {/* KPIs */}
+      <div>
+        <SectionLabel>Métricas globales</SectionLabel>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <KpiCard label="Posts publicados" value={metrics.totalPosts} accent="blue" />
+          <KpiCard label="Clics totales"    value={metrics.totalClicks} />
+          <KpiCard label="Signups"          value={metrics.totalSignups} accent="green" />
+          <KpiCard label="Trials iniciados" value={metrics.totalTrialStarts} accent="amber" />
+          <KpiCard label="Conversión"       value={`${metrics.conversionRate}%`} accent={Number(metrics.conversionRate) > 2 ? "green" : "red"} sub="clics → signup" />
+        </div>
+      </div>
+
+      {/* Channel breakdown */}
+      {Object.keys(byChannel).length > 0 && (
+        <div>
+          <SectionLabel>Por canal</SectionLabel>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {Object.entries(byChannel).map(([ch, stats]) => (
+              <div key={ch} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <ChannelBadge channel={ch} />
+                  <span className="text-[11px] text-gray-400">{stats.posts} posts</span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-[10px] text-gray-400">Clics</div>
+                    <div className="text-lg font-black tabular-nums text-gray-800">{stats.clicks}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-gray-400">Signups</div>
+                    <div className="text-lg font-black tabular-nums text-emerald-600">{stats.signups}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Programados */}
+      {scheduledPosts.length > 0 && (
+        <div>
+          <SectionLabel>Próximos posts programados ({scheduledPosts.length})</SectionLabel>
+          <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-[11px] uppercase tracking-wide text-gray-400">
+                  <th className="px-4 py-3">Canal</th>
+                  <th className="px-4 py-3">Fecha programada</th>
+                  <th className="px-4 py-3">Contenido</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scheduledPosts.map((p) => (
+                  <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                    <td className="px-4 py-3"><ChannelBadge channel={p.channel} /></td>
+                    <td className="whitespace-nowrap px-4 py-3 text-gray-600">{new Date(p.scheduledFor).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })}</td>
+                    <td className="max-w-xs truncate px-4 py-3 text-gray-700">{p.content}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Posts recientes */}
+      {recentPosts.length > 0 && (
+        <div>
+          <SectionLabel>Posts recientes ({recentPosts.length})</SectionLabel>
+          <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-[11px] uppercase tracking-wide text-gray-400">
+                  <th className="px-4 py-3">Canal</th>
+                  <th className="px-4 py-3">Publicado</th>
+                  <th className="px-4 py-3">Clics</th>
+                  <th className="px-4 py-3">Signups</th>
+                  <th className="px-4 py-3">Trials</th>
+                  <th className="px-4 py-3">Contenido</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentPosts.map((p) => (
+                  <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                    <td className="px-4 py-3"><ChannelBadge channel={p.channel} /></td>
+                    <td className="whitespace-nowrap px-4 py-3 text-gray-500">{new Date(p.publishedAt).toLocaleDateString("es-ES")}</td>
+                    <td className="px-4 py-3 tabular-nums font-medium text-gray-700">{p.clicks}</td>
+                    <td className="px-4 py-3 tabular-nums font-semibold text-emerald-600">{p.signups}</td>
+                    <td className="px-4 py-3 tabular-nums text-amber-600">{p.trialStarts}</td>
+                    <td className="max-w-xs truncate px-4 py-3 text-gray-600 text-xs">{p.content}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {recentPosts.length === 0 && scheduledPosts.length === 0 && (
+        <div className="rounded-xl border border-dashed border-gray-200 py-10 text-center text-sm text-gray-400">
+          Todavía no hay posts publicados ni programados.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function MentoriaOperatorDashboard() {
@@ -646,7 +823,8 @@ export default function MentoriaOperatorDashboard() {
   const [families, setFamilies]   = useState<FamilyRow[]>([]);
   const [students, setStudents]   = useState<StudentRow[]>([]);
   const [sessions, setSessions]   = useState<SessionMetrics | null>(null);
-  const [safetyData, setSafetyData] = useState<SafetyData | null>(null);
+  const [safetyData, setSafetyData]         = useState<SafetyData | null>(null);
+  const [acquisitionData, setAcquisitionData] = useState<AcquisitionData | null>(null);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
@@ -655,12 +833,13 @@ export default function MentoriaOperatorDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [healthRes, familiesRes, studentsRes, sessionsRes, safetyRes] = await Promise.allSettled([
+      const [healthRes, familiesRes, studentsRes, sessionsRes, safetyRes, acquisitionRes] = await Promise.allSettled([
         fetch("/api/operator/mentoria/health/system").then((r) => r.json() as Promise<Record<string, unknown>>),
         fetch("/api/operator/mentoria/families").then((r) => r.json() as Promise<Record<string, unknown>>),
         fetch("/api/operator/mentoria/students").then((r) => r.json() as Promise<Record<string, unknown>>),
         fetch("/api/operator/mentoria/sessions/metrics").then((r) => r.json() as Promise<Record<string, unknown>>),
         fetch("/api/operator/mentoria/safety-alerts?limit=100").then((r) => r.json() as Promise<Record<string, unknown>>),
+        fetch("/api/operator/mentoria/acquisition").then((r) => r.json() as Promise<Record<string, unknown>>),
       ]);
 
       if (healthRes.status === "fulfilled" && healthRes.value?.ok) {
@@ -680,6 +859,9 @@ export default function MentoriaOperatorDashboard() {
           summary: safetyRes.value.summary as SafetyData["summary"],
           alerts: (safetyRes.value.alerts as SafetyAlertRow[]) ?? [],
         });
+      }
+      if (acquisitionRes.status === "fulfilled" && acquisitionRes.value?.ok) {
+        setAcquisitionData(acquisitionRes.value as unknown as AcquisitionData);
       }
       setLastRefresh(new Date());
     } catch (err) {
@@ -762,6 +944,9 @@ export default function MentoriaOperatorDashboard() {
         )}
         {tab === "seguridad" && (
           <SeguridadSection safetyData={safetyData} loading={loading} onReload={() => void fetchData()} />
+        )}
+        {tab === "adquisicion" && (
+          <AdquisicionSection acquisitionData={acquisitionData} loading={loading} />
         )}
       </div>
     </div>
