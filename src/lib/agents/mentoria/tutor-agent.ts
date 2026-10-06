@@ -16,6 +16,9 @@ import {
 import { languageAgent } from "@/lib/agents/mentoria/language-agent";
 import { mathAgent } from "@/lib/agents/mentoria/math-agent";
 import { scienceAgent } from "@/lib/agents/mentoria/science-agent";
+import { historyAgent } from "@/lib/agents/mentoria/history-agent";
+import { philosophyAgent } from "@/lib/agents/mentoria/philosophy-agent";
+import { programmingAgent } from "@/lib/agents/mentoria/programming-agent";
 import type { EmotionalAdaptation } from "@/lib/agents/mentoria/emotional-orchestrator";
 import { buildSubjectBrief } from "@/lib/agents/mentoria/subject-agent";
 import { buildInterventionResponse } from "@/lib/mentoria/intervention-engine";
@@ -32,8 +35,12 @@ import type { DailyPlan, MentoriaBillingSummary, MentoriaClassroomIntent, Mentor
 function selectSubjectAgent(subject: MentoriaSubject) {
   const slug = subject.slug.toLowerCase();
   if (slug.includes("matematic")) return mathAgent;
-  if (slug.includes("lengua") || slug.includes("language") || slug.includes("ingles")) return languageAgent;
-  if (slug.includes("ciencias") || slug.includes("science")) return scienceAgent;
+  if (slug.includes("lengua") || slug.includes("language") || slug.includes("ingles") || slug.includes("frances") || slug.includes("aleman")) return languageAgent;
+  if (slug.includes("ciencias") || slug.includes("science") || slug.includes("biologia") || slug.includes("fisica") || slug.includes("quimica")) return scienceAgent;
+  if (slug.includes("historia") || slug.includes("geografia") || slug.includes("history")) return historyAgent;
+  if (slug.includes("filosofia") || slug.includes("philosophy") || slug.includes("etica")) return philosophyAgent;
+  if (slug.includes("programacion") || slug.includes("informatica") || slug.includes("tecnologia") || slug.includes("coding")) return programmingAgent;
+  // Arte, Educación Física, Música — usar science como base genérica con buen tono
   return scienceAgent;
 }
 
