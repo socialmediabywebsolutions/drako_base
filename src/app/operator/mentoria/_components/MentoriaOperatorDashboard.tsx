@@ -47,6 +47,24 @@ type SessionMetrics = {
   completionRate: number;
 };
 
+type SafetyAlertRow = {
+  id: string;
+  tenantId: string | null;
+  sessionId: string;
+  studentId: string;
+  parentPhoneMasked: string;
+  level: string;
+  category: string;
+  sendStatus: string;
+  messageId: string | null;
+  createdAt: string;
+};
+
+type SafetyData = {
+  summary: { total: number; high: number; medium: number; sent: number; failed: number };
+  alerts: SafetyAlertRow[];
+};
+
 // ─── Nav ─────────────────────────────────────────────────────────────────────
 
 const NAV = [
@@ -54,6 +72,7 @@ const NAV = [
   { id: "familias"  as const, icon: "👨‍👩‍👧", label: "Familias",  desc: "Clientes activos" },
   { id: "sesiones"  as const, icon: "📚", label: "Sesiones",  desc: "Actividad de hoy" },
   { id: "salud"     as const, icon: "🩺", label: "Salud",     desc: "Alertas del sistema" },
+  { id: "seguridad" as const, icon: "🔴", label: "Seguridad", desc: "Protocolo de seguridad" },
 ] as const;
 type NavId = (typeof NAV)[number]["id"];
 
@@ -443,27 +462,127 @@ function SaludSection({ health, loading }: { health: SystemHealth | null; loadin
   );
 }
 
+function SeguridadSection({ safetyData, loading }: { safetyData: SafetyData | null; loading: boolean }) {
+  if (loading) return <div className="py-12 text-center text-sm text-gray-400">Cargando alertas de seguridad...</div>;
+
+  const summary = safetyData?.summary ?? { total: 0, high: 0, medium: 0, sent: 0, failed: 0 };
+  const alerts  = safetyData?.alerts ?? [];
+
+  const categoryLabel: Record<string, string> = {
+    suicidal:          "Ideación suicida",
+    self_harm:         "Autolesión",
+    abuse:             "Abuso / maltrato",
+    bullying:          "Acoso escolar",
+    emotional_distress:"Malestar emocional",
+  };
+
+  return (
+    <div className="space-y-6">
+      {summary.high > 0 && (
+        <AlertBanner type="error">
+          {summary.high} alerta{summary.high > 1 ? "s" : ""} de nivel ALTO — notificaciones críticas enviadas a padres
+        </AlertBanner>
+      )}
+      {summary.failed > 0 && (
+        <AlertBanner type="warn">
+          {summary.failed} notificación{summary.failed > 1 ? "es" : ""} de seguridad fallida{summary.failed > 1 ? "s" : ""} — padres no contactados
+        </AlertBanner>
+      )}
+      {summary.total === 0 && (
+        <AlertBanner type="ok">Sin alertas de seguridad registradas</AlertBanner>
+      )}
+
+      <div>
+        <SectionLabel>Resumen últimas 100 alertas</SectionLabel>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <KpiCard label="Total"           value={summary.total}  />
+          <KpiCard label="Nivel ALTO"      value={summary.high}   accent={summary.high > 0 ? "red" : undefined} />
+          <KpiCard label="Nivel MEDIO"     value={summary.medium} accent={summary.medium > 0 ? "amber" : undefined} />
+          <KpiCard label="Enviadas"        value={summary.sent}   accent="green" />
+          <KpiCard label="Fallidas"        value={summary.failed} accent={summary.failed > 0 ? "red" : undefined} />
+        </div>
+      </div>
+
+      {alerts.length > 0 && (
+        <div>
+          <SectionLabel>Historial de alertas</SectionLabel>
+          <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  <th className="px-4 py-3">Fecha</th>
+                  <th className="px-4 py-3">Nivel</th>
+                  <th className="px-4 py-3">Categoría</th>
+                  <th className="px-4 py-3">Alumno ID</th>
+                  <th className="px-4 py-3">Teléfono</th>
+                  <th className="px-4 py-3">Estado envío</th>
+                </tr>
+              </thead>
+              <tbody>
+                {alerts.map((a) => (
+                  <tr key={a.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {new Date(a.createdAt).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                        a.level === "high"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-amber-100 text-amber-700"
+                      }`}>
+                        {a.level === "high" ? "ALTO" : "MEDIO"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-700">
+                      {categoryLabel[a.category] ?? a.category}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-[11px] text-gray-400">
+                      {a.studentId.slice(0, 8)}…
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">
+                      {a.parentPhoneMasked}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`flex items-center gap-1 text-xs font-medium ${
+                        a.sendStatus === "success" ? "text-emerald-600" : "text-red-500"
+                      }`}>
+                        {a.sendStatus === "success" ? "✓ Enviado" : "✗ Fallido"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function MentoriaOperatorDashboard() {
-  const [tab, setTab]           = useState<NavId>("resumen");
-  const [health, setHealth]     = useState<SystemHealth | null>(null);
-  const [families, setFamilies] = useState<FamilyRow[]>([]);
-  const [students, setStudents] = useState<StudentRow[]>([]);
-  const [sessions, setSessions] = useState<SessionMetrics | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
+  const [tab, setTab]             = useState<NavId>("resumen");
+  const [health, setHealth]       = useState<SystemHealth | null>(null);
+  const [families, setFamilies]   = useState<FamilyRow[]>([]);
+  const [students, setStudents]   = useState<StudentRow[]>([]);
+  const [sessions, setSessions]   = useState<SessionMetrics | null>(null);
+  const [safetyData, setSafetyData] = useState<SafetyData | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [healthRes, familiesRes, studentsRes, sessionsRes] = await Promise.allSettled([
+      const [healthRes, familiesRes, studentsRes, sessionsRes, safetyRes] = await Promise.allSettled([
         fetch("/api/operator/mentoria/health/system").then((r) => r.json() as Promise<Record<string, unknown>>),
         fetch("/api/operator/mentoria/families").then((r) => r.json() as Promise<Record<string, unknown>>),
         fetch("/api/operator/mentoria/students").then((r) => r.json() as Promise<Record<string, unknown>>),
         fetch("/api/operator/mentoria/sessions/metrics").then((r) => r.json() as Promise<Record<string, unknown>>),
+        fetch("/api/operator/mentoria/safety-alerts?limit=100").then((r) => r.json() as Promise<Record<string, unknown>>),
       ]);
 
       if (healthRes.status === "fulfilled" && healthRes.value?.ok) {
@@ -477,6 +596,12 @@ export default function MentoriaOperatorDashboard() {
       }
       if (sessionsRes.status === "fulfilled" && sessionsRes.value?.ok) {
         setSessions(sessionsRes.value.metrics as SessionMetrics);
+      }
+      if (safetyRes.status === "fulfilled" && safetyRes.value?.ok) {
+        setSafetyData({
+          summary: safetyRes.value.summary as SafetyData["summary"],
+          alerts: (safetyRes.value.alerts as SafetyAlertRow[]) ?? [],
+        });
       }
       setLastRefresh(new Date());
     } catch (err) {
@@ -556,6 +681,9 @@ export default function MentoriaOperatorDashboard() {
         )}
         {tab === "salud" && (
           <SaludSection health={health} loading={loading} />
+        )}
+        {tab === "seguridad" && (
+          <SeguridadSection safetyData={safetyData} loading={loading} />
         )}
       </div>
     </div>
