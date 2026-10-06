@@ -24,11 +24,11 @@ export async function GET(request: Request) {
            sub.status      AS sub_status,
            sub.current_period_end AS trial_ends_at,
            (SELECT COUNT(*) FROM mentoria_sessions ms
-            WHERE ms.student_id = s.id
+            WHERE (ms.student_id = s.id OR ms.student_profile_id = s.id)
               AND ms.tenant_id  = s.tenant_id
-              AND date(ms.started_at) = ?)  AS sessions_today,
-           (SELECT MAX(started_at) FROM mentoria_sessions ms2
-            WHERE ms2.student_id = s.id
+              AND date(COALESCE(ms.started_at, ms.created_at)) = ?)  AS sessions_today,
+           (SELECT MAX(COALESCE(ms2.started_at, ms2.created_at)) FROM mentoria_sessions ms2
+            WHERE (ms2.student_id = s.id OR ms2.student_profile_id = s.id)
               AND ms2.tenant_id  = s.tenant_id) AS last_session_at
          FROM mentoria_students s
          LEFT JOIN saas_subscriptions sub

@@ -44,15 +44,15 @@ export async function GET(
       .prepare(
         `SELECT
            COUNT(*)                                              AS total,
-           SUM(CASE WHEN date(started_at) = ? THEN 1 ELSE 0 END) AS today,
-           SUM(CASE WHEN started_at >= date('now','-7 days')   THEN 1 ELSE 0 END) AS this_week,
-           MAX(started_at)                                       AS last_at,
+           SUM(CASE WHEN date(COALESCE(started_at,created_at)) = ? THEN 1 ELSE 0 END) AS today,
+           SUM(CASE WHEN COALESCE(started_at,created_at) >= date('now','-7 days') THEN 1 ELSE 0 END) AS this_week,
+           MAX(COALESCE(started_at,created_at))                  AS last_at,
            AVG(CASE WHEN duration_seconds IS NOT NULL
                THEN duration_seconds ELSE NULL END)              AS avg_duration_s
          FROM mentoria_sessions
-         WHERE student_id = ? AND tenant_id = ?`,
+         WHERE (student_id = ? OR student_profile_id = ?) AND tenant_id = ?`,
       )
-      .bind(today, studentId, profile.tenant_id)
+      .bind(today, studentId, studentId, profile.tenant_id)
       .first<{
         total: number; today: number; this_week: number;
         last_at: string | null; avg_duration_s: number | null;
@@ -75,17 +75,22 @@ export async function GET(
     // ── Recent sessions (last 10) ─────────────────────────────────────────────
     const recentSessions = await db
       .prepare(
-        `SELECT id, subject_slug, started_at, ended_at, duration_seconds,
-                status, xp_earned
+        `SELECT id,
+                COALESCE(subject_slug, subject_id)  AS subject_slug,
+                COALESCE(started_at, created_at)    AS started_at,
+                ended_at,
+                duration_seconds,
+                status,
+                COALESCE(xp_earned, 0)              AS xp_earned
          FROM mentoria_sessions
-         WHERE student_id = ? AND tenant_id = ?
-         ORDER BY started_at DESC LIMIT 10`,
+         WHERE (student_id = ? OR student_profile_id = ?) AND tenant_id = ?
+         ORDER BY COALESCE(started_at, created_at) DESC LIMIT 10`,
       )
-      .bind(studentId, profile.tenant_id)
+      .bind(studentId, studentId, profile.tenant_id)
       .all<{
         id: string; subject_slug: string | null;
         started_at: string; ended_at: string | null;
-        duration_seconds: number | null; status: string; xp_earned: number | null;
+        duration_seconds: number | null; status: string; xp_earned: number;
       }>();
 
     // ── Declared exams (active) ───────────────────────────────────────────────
