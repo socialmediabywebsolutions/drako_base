@@ -4,8 +4,10 @@ import {
   type MentoriaTeachingResponse,
 } from "@/lib/agents/mentoria/base-agent";
 import {
+  analyzeStudentMessageEmotion,
   buildCerebroAcademicoDecision,
   injectCerebroDirectives,
+  mergeEmotionalSnapshot,
   parseAccessibilityFromSupportNotes,
   type AcademicProfile,
   type StudentEmotionalSnapshot,
@@ -142,7 +144,7 @@ export async function runTutorAgent(input: {
       : undefined,
   };
 
-  const emotionalForCerebro: StudentEmotionalSnapshot = {
+  const historicalEmotional: StudentEmotionalSnapshot = {
     lastSessionEmotion:
       input.evolution.frustrationLevel >= 0.7 ? "frustrated"
       : input.evolution.frustrationLevel <= 0.3 ? "confident"
@@ -154,6 +156,11 @@ export async function runTutorAgent(input: {
     frustrationAccumulated: Math.min(input.evolution.frustrationLevel, 1),
     hasRecentSafetyAlert: false,
   };
+
+  // Detecta emoción en el mensaje real del alumno y la mezcla con el historial.
+  // La señal en vivo tiene más peso que el historial si es suficientemente fuerte.
+  const realtimeEmotion = analyzeStudentMessageEmotion(input.studentMessage);
+  const emotionalForCerebro = mergeEmotionalSnapshot(historicalEmotional, realtimeEmotion);
 
   const masteryMapForCerebro: TopicMasteryMap = input.dynamicProfile?.memory?.fragileConcepts
     ? Object.fromEntries(

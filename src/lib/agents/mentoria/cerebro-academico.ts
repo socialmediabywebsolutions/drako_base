@@ -119,6 +119,111 @@ export type CerebroAcademicoDecision = {
   sessionBriefing: string;
 };
 
+// ─── Detección de emoción en tiempo real ──────────────────────────────────────
+
+export type RealtimeEmotionSignal = {
+  /** Señal de frustración detectada en el texto (0 = nada, 1 = muy alta) */
+  frustrationSignal: number;
+  /** Señal de bloqueo / no comprensión */
+  blockSignal: number;
+  /** Señal de confianza / seguridad */
+  confidenceSignal: number;
+  /** Señal de desmotivación o abandono */
+  demotivationSignal: number;
+  /** Emoción dominante detectada */
+  dominantEmotion: StudentEmotionalSnapshot["lastSessionEmotion"];
+};
+
+const FRUSTRATION_PATTERNS = [
+  "no entiendo", "no entiendo nada", "no lo pillo", "no me entera",
+  "esto es imposible", "odio esto", "lo odio", "qué asco", "qué rollo",
+  "me rindo", "paso de esto", "ya no puedo más", "nunca lo voy a entender",
+  "es muy difícil", "demasiado difícil", "no puedo", "no sé cómo",
+  "estoy perdido", "estoy perdida", "no sé nada", "fatal",
+];
+
+const BLOCK_PATTERNS = [
+  "no sé", "no sé qué", "no sé cómo", "no entiendo el paso",
+  "no me sale", "me he quedado atascado", "me he bloqueado",
+  "no veo por qué", "qué significa", "qué es", "no comprendo",
+  "me confundo", "me confunde", "estoy confundido", "estoy confundida",
+  "puedes explicar", "explícame", "no me queda claro",
+];
+
+const CONFIDENCE_PATTERNS = [
+  "lo entiendo", "ya lo tengo", "creo que sí", "lo he pillado",
+  "ahora sí", "tiene sentido", "lo veo claro", "perfecto",
+  "genial", "gracias", "fácil", "ya sé", "lo sé",
+  "correcto", "exacto", "bien",
+];
+
+const DEMOTIVATION_PATTERNS = [
+  "para qué", "para qué sirve esto", "esto no sirve para nada",
+  "no me interesa", "me da igual", "me aburre", "aburrido",
+  "no quiero", "no tengo ganas", "estoy cansado", "estoy cansada",
+  "otro día", "mañana", "dejémoslo",
+];
+
+function countMatches(text: string, patterns: string[]): number {
+  const lower = text.toLowerCase();
+  return patterns.filter((pattern) => lower.includes(pattern)).length;
+}
+
+/**
+ * Analiza el mensaje del alumno y detecta señales emocionales en tiempo real.
+ * Se llama ANTES de pasar el mensaje al tutor para ajustar el contexto.
+ */
+export function analyzeStudentMessageEmotion(studentMessage: string): RealtimeEmotionSignal {
+  const frustrationCount = countMatches(studentMessage, FRUSTRATION_PATTERNS);
+  const blockCount = countMatches(studentMessage, BLOCK_PATTERNS);
+  const confidenceCount = countMatches(studentMessage, CONFIDENCE_PATTERNS);
+  const demotivationCount = countMatches(studentMessage, DEMOTIVATION_PATTERNS);
+  const total = Math.max(frustrationCount + blockCount + confidenceCount + demotivationCount, 1);
+
+  const frustrationSignal = Math.min(frustrationCount / 2, 1);
+  const blockSignal = Math.min(blockCount / 3, 1);
+  const confidenceSignal = Math.min(confidenceCount / 2, 1);
+  const demotivationSignal = Math.min(demotivationCount / 2, 1);
+
+  let dominantEmotion: RealtimeEmotionSignal["dominantEmotion"] = "unknown";
+  if (frustrationSignal >= 0.4) {
+    dominantEmotion = "frustrated";
+  } else if (demotivationSignal >= 0.4) {
+    dominantEmotion = "demotivated";
+  } else if (blockSignal >= 0.3) {
+    dominantEmotion = "blocked";
+  } else if (confidenceSignal >= 0.4) {
+    dominantEmotion = "confident";
+  } else if (total >= 1) {
+    dominantEmotion = "calm";
+  }
+
+  return { frustrationSignal, blockSignal, confidenceSignal, demotivationSignal, dominantEmotion };
+}
+
+/**
+ * Combina la señal emocional en tiempo real con el snapshot histórico.
+ * La señal en vivo tiene más peso que el historial si es fuerte.
+ */
+export function mergeEmotionalSnapshot(
+  historical: StudentEmotionalSnapshot,
+  realtime: RealtimeEmotionSignal,
+): StudentEmotionalSnapshot {
+  if (realtime.dominantEmotion === "unknown") return historical;
+
+  // Si hay señal fuerte en vivo, sobreescribe la emoción de la última sesión
+  const frustrationAccumulated = Math.min(
+    historical.frustrationAccumulated * 0.7 + realtime.frustrationSignal * 0.3,
+    1,
+  );
+
+  return {
+    ...historical,
+    lastSessionEmotion: realtime.dominantEmotion,
+    frustrationAccumulated,
+  };
+}
+
 // ─── Motor de decisión ────────────────────────────────────────────────────────
 
 export function buildCerebroAcademicoDecision(input: {
