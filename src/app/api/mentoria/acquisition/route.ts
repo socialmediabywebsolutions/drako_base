@@ -14,16 +14,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 403 });
     }
 
-    // FEATURE FLAG: Acquisition not yet deployed (fail-closed)
-    const ACQUISITION_ENABLED = process.env.ACQUISITION_ENABLED === "true";
-    if (!ACQUISITION_ENABLED) {
-      return NextResponse.json({
-        ok: false,
-        error: "FEATURE_NOT_AVAILABLE",
-        message: "Acquisition tracking feature is not yet deployed. Migration 0186 required."
-      }, { status: 501 });
-    }
-
     const publisher = new AcquisitionPublisher();
     const scheduler = new AcquisitionScheduler({ tenantId: actor.tenantId });
 
@@ -52,15 +42,6 @@ export async function POST(request: Request) {
     }
 
     // FEATURE FLAG: Acquisition not yet deployed (fail-closed)
-    const ACQUISITION_ENABLED = process.env.ACQUISITION_ENABLED === "true";
-    if (!ACQUISITION_ENABLED) {
-      return NextResponse.json({
-        ok: false,
-        error: "FEATURE_NOT_AVAILABLE",
-        message: "Acquisition tracking feature is not yet deployed. Migration 0186 required."
-      }, { status: 501 });
-    }
-
     const body = (await request.json()) as {
       action: "generate_daily" | "publish_pending" | "track_click" | "track_signup" | "track_trial";
       postId?: string;
