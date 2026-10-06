@@ -200,9 +200,12 @@ CREATE TABLE IF NOT EXISTS mentoria_attendance_records (
   notes                 TEXT,
   created_by_actor_type TEXT NOT NULL,
   created_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  UNIQUE(tenant_id, student_profile_id, record_date, COALESCE(subject_slug, ''))
+  updated_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
+
+-- Expression-based unique index to handle nullable subject_slug (COALESCE replaces NULL with '')
+CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_unique_day
+  ON mentoria_attendance_records(tenant_id, student_profile_id, record_date, COALESCE(subject_slug, ''));
 
 CREATE INDEX IF NOT EXISTS idx_attendance_records_student
   ON mentoria_attendance_records(tenant_id, student_profile_id, record_date DESC);
