@@ -116,6 +116,8 @@ export function MentorPanel() {
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState<MentorStudentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "active" | "inactive">("all");
 
   useEffect(() => {
     void (async () => {
@@ -134,6 +136,16 @@ export function MentorPanel() {
   const inactive7d = students.filter(
     (s) => !s.lastSessionAt || (Date.now() - new Date(s.lastSessionAt).getTime()) > 7 * 24 * 60 * 60 * 1000,
   ).length;
+
+  const filteredStudents = students.filter((s) => {
+    const matchesSearch = !search.trim() || s.fullName.toLowerCase().includes(search.trim().toLowerCase());
+    const isInactive = !s.lastSessionAt || (Date.now() - new Date(s.lastSessionAt).getTime()) > 7 * 24 * 60 * 60 * 1000;
+    const matchesFilter =
+      filter === "all" ? true :
+      filter === "active" ? !isInactive :
+      isInactive;
+    return matchesSearch && matchesFilter;
+  });
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6 lg:px-8">
@@ -221,11 +233,53 @@ export function MentorPanel() {
               </div>
             </div>
 
+            {/* Búsqueda y filtros */}
+            <div className="rounded-[28px] bg-white p-4 shadow-sm space-y-3">
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nombre…"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+              />
+              <div className="flex gap-2">
+                {(["all", "active", "inactive"] as const).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setFilter(f)}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                      filter === f
+                        ? "bg-slate-900 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {f === "all" ? "Todos" : f === "active" ? "Activos" : "Inactivos +7d"}
+                  </button>
+                ))}
+                {(search || filter !== "all") && (
+                  <button
+                    type="button"
+                    onClick={() => { setSearch(""); setFilter("all"); }}
+                    className="ml-auto rounded-full px-3 py-1 text-xs font-medium text-slate-400 hover:text-slate-600 transition"
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Lista alumnos */}
             <div className="space-y-3">
-              {students.map((s) => (
-                <StudentRow key={s.studentId} student={s} />
-              ))}
+              {filteredStudents.length === 0 ? (
+                <div className="rounded-[28px] bg-white p-6 shadow-sm text-center text-sm text-slate-400">
+                  {search ? `Sin resultados para "${search}"` : "Sin alumnos en esta categoría."}
+                </div>
+              ) : (
+                filteredStudents.map((s) => (
+                  <StudentRow key={s.studentId} student={s} />
+                ))
+              )}
             </div>
           </>
         )}
