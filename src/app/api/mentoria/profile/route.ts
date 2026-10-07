@@ -1,140 +1,107 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireCurrentMentoriaSession } from "@/lib/mentoria/auth/request";
-import { MentoriaService } from "@/lib/mentoria/service";
-import type { MentoriaGuardian, MentoriaGuardianStudentAccess } from "@/lib/mentoria/types";
+import type { NextRequest } from "next/server";
+import { getMentoriaActor } from "@/lib/mentoria/auth/request";
+import { getMentoriaDb } from "@/lib/mentoria/get-mentoria-db";
 
-type LegacyParentsPayload = {
-  parents?: Array<{
-    slot: "Parent A" | "Parent B";
-    fullName: string;
-    email: string;
-    dailyStudyMinutes: number;
-    supervisionLevel: "light" | "balanced" | "close";
-    canViewFullProgress: boolean;
-    canManageSchedule: boolean;
-  }>;
-};
+// GET  /api/mentoria/profile  — perfil del alumno actual
+// PATCH /api/mentoria/profile — actualizar campos editables
 
-type CanonicalGuardianPayload = {
-  id?: string | null;
+export type StudentProfilePublic = {
+  id: string;
   fullName: string;
-  email: string;
-  familyRelation?: MentoriaGuardian["familyRelation"];
-  systemRole: MentoriaGuardian["systemRole"];
-  access: {
-    dailyStudyMinutes: number;
-    supervisionLevel: MentoriaGuardianStudentAccess["supervisionLevel"];
-    canViewFullProgress: boolean;
-    canManageSchedule: boolean;
-    notificationPreferences?: string[];
-    isPrimaryContact?: boolean;
-  };
+  schoolYear: string;
+  preferredStudyMinutes: number;
+  learningPreference: string | null;
+  supportNotes: string | null;
+  createdAt: string;
 };
 
-type CanonicalFamilyProfilePayload = {
-  family?: { id?: string | null } | null;
-  primaryGuardian?: CanonicalGuardianPayload | null;
-  secondaryGuardians?: CanonicalGuardianPayload[];
-  guardianStudentAccess?: MentoriaGuardianStudentAccess[];
+type ProfileRow = {
+  id: string;
+  full_name: string;
+  school_year: string;
+  preferred_study_minutes: number;
+  learning_preference: string | null;
+  support_notes: string | null;
+  created_at: string;
 };
 
-function normalizeProfilePayload(body: CanonicalFamilyProfilePayload & LegacyParentsPayload) {
-  if (body.primaryGuardian || body.secondaryGuardians) {
-    return {
-      primaryGuardian: body.primaryGuardian ?? null,
-      secondaryGuardians: body.secondaryGuardians ?? [],
-    };
-  }
+export async function GET(req: NextRequest) {
+  const actor = await getMentoriaActor(req);
+  if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const parents = body.parents ?? [];
-  const primaryParent = parents.find((parent) => parent.slot === "Parent A") ?? null;
-  const secondaryParents = parents.filter((parent) => parent.slot !== "Parent A");
+  const db = getMentoriaDb();
+  if (!db) return NextResponse.json({ error: "db_unavailable" }, { status: 503 });
 
-  return {
-    primaryGuardian: primaryParent
-      ? {
-          fullName: primaryParent.fullName,
-          email: primaryParent.email,
-          systemRole: "primary_guardian" as const,
-          access: {
-            dailyStudyMinutes: primaryParent.dailyStudyMinutes,
-            supervisionLevel: primaryParent.supervisionLevel,
-            canViewFullProgress: primaryParent.canViewFullProgress,
-            canManageSchedule: primaryParent.canManageSchedule,
-            notificationPreferences: ["progress", "planner"],
-            isPrimaryContact: true,
-          },
-        }
-      : null,
-    secondaryGuardians: secondaryParents.map((parent) => ({
-      fullName: parent.fullName,
-      email: parent.email,
-      systemRole: "secondary_guardian" as const,
-      access: {
-        dailyStudyMinutes: parent.dailyStudyMinutes,
-        supervisionLevel: parent.supervisionLevel,
-        canViewFullProgress: parent.canViewFullProgress,
-        canManageSchedule: parent.canManageSchedule,
-        notificationPreferences: ["progress", "planner"],
-        isPrimaryContact: false,
-      },
-    })),
+  const result = await db
+    .prepare(
+      `SELECT id, full_name, school_year, preferred_study_minutes, learning_preference, support_notes, created_at
+       FROM mentoria_student_profiles
+       WHERE id = ? AND tenant_id = ?
+       LIMIT 1`,
+    )
+    .bind(actor.studentId, actor.tenantId)
+    .all();
+
+  const row = (result.results?.[0] ?? null) as ProfileRow | null;
+  if (!row) return NextResponse.json({ error: "profile_not_found" }, { status: 404 });
+
+  const profile: StudentProfilePublic = {
+    id: row.id,
+    fullName: row.full_name,
+    schoolYear: row.school_year,
+    preferredStudyMinutes: row.preferred_study_minutes,
+    learningPreference: row.learning_preference,
+    supportNotes: row.support_notes,
+    createdAt: row.created_at,
   };
+
+  return NextResponse.json({ profile });
 }
 
-export async function GET(request: Request) {
-  try {
-    const actor = await requireCurrentMentoriaSession(request);
-    const service = new MentoriaService();
-    const studentId = new URL(request.url).searchParams.get("studentId")?.trim() || undefined;
-    const dashboard = await service.getDashboard(actor, studentId);
-    const familyBundle = await service.getOnboardingState(actor);
-    return NextResponse.json({
-      ok: true,
-      student: dashboard.student,
-      family: dashboard.family,
-      primaryGuardian: dashboard.primaryGuardian,
-      secondaryGuardians: dashboard.secondaryGuardians,
-      guardianStudentAccess: dashboard.guardianStudentAccess,
-      sessionContext: dashboard.sessionContext,
-      studentSubjects: dashboard.studentSubjects,
-      evolution: dashboard.evolution,
-      interventions: dashboard.interventions,
-      motivation: dashboard.motivation,
-      dailyPlan: dashboard.dailyPlan,
-      billing: dashboard.billing,
-      growth: dashboard.growth,
-      insights: dashboard.insights,
-      familyStudents: familyBundle.familyStudents,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "PROFILE_LOAD_FAILED";
-    const status = message === "SESSION_REQUIRED" ? 401 : message === "ONBOARDING_REQUIRED" ? 409 : message === "STUDENT_ACCESS_DENIED" ? 403 : 500;
-    return NextResponse.json({ ok: false, error: message }, { status });
-  }
-}
+export async function PATCH(req: NextRequest) {
+  const actor = await getMentoriaActor(req);
+  if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-export async function POST(request: Request) {
-  try {
-    const actor = await requireCurrentMentoriaSession(request);
-    const service = new MentoriaService();
-    const body = (await request.json()) as CanonicalFamilyProfilePayload & LegacyParentsPayload;
-    const studentId = new URL(request.url).searchParams.get("studentId")?.trim() || undefined;
-    await service.saveFamilyGuardiansProfile(actor, normalizeProfilePayload(body), studentId);
-    const dashboard = await service.getDashboard(actor, studentId);
-    return NextResponse.json({
-      ok: true,
-      family: dashboard.family,
-      primaryGuardian: dashboard.primaryGuardian,
-      secondaryGuardians: dashboard.secondaryGuardians,
-      guardianStudentAccess: dashboard.guardianStudentAccess,
-      sessionContext: dashboard.sessionContext,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "PROFILE_SAVE_FAILED";
-    const status = message === "SESSION_REQUIRED" ? 401 : message === "ONBOARDING_REQUIRED" ? 409 : message === "STUDENT_ACCESS_DENIED" ? 403 : 500;
-    return NextResponse.json({ ok: false, error: message }, { status });
+  const db = getMentoriaDb();
+  if (!db) return NextResponse.json({ error: "db_unavailable" }, { status: 503 });
+
+  type Body = {
+    preferredStudyMinutes?: number;
+    learningPreference?: string;
+    supportNotes?: string;
+  };
+
+  const payload = await req.json().catch(() => null) as Body | null;
+  if (!payload) return NextResponse.json({ error: "invalid_body" }, { status: 400 });
+
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+
+  if (typeof payload.preferredStudyMinutes === "number" && payload.preferredStudyMinutes > 0) {
+    sets.push("preferred_study_minutes = ?");
+    vals.push(Math.min(120, Math.max(10, payload.preferredStudyMinutes)));
   }
+  if (typeof payload.learningPreference === "string") {
+    sets.push("learning_preference = ?");
+    vals.push(payload.learningPreference.trim() || null);
+  }
+  if (typeof payload.supportNotes === "string") {
+    sets.push("support_notes = ?");
+    vals.push(payload.supportNotes.trim() || null);
+  }
+
+  if (sets.length === 0) return NextResponse.json({ ok: true, changed: false });
+
+  sets.push("updated_at = datetime('now')");
+  vals.push(actor.studentId, actor.tenantId);
+
+  await db
+    .prepare(`UPDATE mentoria_student_profiles SET ${sets.join(", ")} WHERE id = ? AND tenant_id = ?`)
+    .bind(...vals)
+    .run();
+
+  return NextResponse.json({ ok: true, changed: true });
 }
