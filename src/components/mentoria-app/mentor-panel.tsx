@@ -136,12 +136,22 @@ export function MentorPanel() {
 
         {/* Header */}
         <div className="rounded-[28px] bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-semibold text-slate-950">Panel del mentor</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {students.length > 0
-              ? `${students.length} alumnos · ${inactive7d} inactivos +7d`
-              : "Visión general de todos los alumnos."}
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-950">Panel del mentor</h1>
+              <p className="mt-1 text-sm text-slate-500">
+                {students.length > 0
+                  ? `${students.length} alumnos · ${inactive7d} inactivos +7d`
+                  : "Visión general de todos los alumnos."}
+              </p>
+            </div>
+            <Link
+              href="/mentoria/panel/stats"
+              className="shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+            >
+              📊 Estadísticas
+            </Link>
+          </div>
         </div>
 
         {loading && (
