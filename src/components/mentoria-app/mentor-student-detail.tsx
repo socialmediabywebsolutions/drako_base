@@ -237,6 +237,12 @@ export function MentorStudentDetailPanel() {
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   <Link
+                    href={`/mentoria/panel/alumno/editar?studentId=${encodeURIComponent(studentId)}`}
+                    className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
+                  >
+                    ✏️ Editar
+                  </Link>
+                  <Link
                     href={`/mentoria/panel/notas?studentId=${encodeURIComponent(studentId)}`}
                     className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 transition"
                   >
