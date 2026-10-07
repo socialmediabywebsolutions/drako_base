@@ -158,6 +158,12 @@ export function MentorPanel() {
                 📊 Estadísticas
               </Link>
               <Link
+                href="/mentoria/panel/plan"
+                className="shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+              >
+                💳 Plan
+              </Link>
+              <Link
                 href="/mentoria/panel/config"
                 className="shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
               >
