@@ -10,10 +10,28 @@ import type {
   SubjectEntry,
   MoodEntry,
 } from "@/app/api/mentoria/mentor-student/route";
+import type { AttendanceRecord } from "@/app/api/mentoria/attendance/route";
+import type { BehaviorRecord } from "@/app/api/mentoria/behavior/route";
 
 const MOOD_EMOJI: Record<string, string> = {
   animado: "😊", neutro: "😐", desanimado: "😔", bloqueado: "😤",
   happy: "😊", neutral: "😐", sad: "😔", frustrated: "😤",
+};
+
+const ATTENDANCE_LABELS: Record<string, { label: string; color: string; emoji: string }> = {
+  present:           { label: "Asistió",             color: "bg-emerald-100 text-emerald-700", emoji: "✅" },
+  absent_justified:  { label: "Falta justificada",   color: "bg-amber-100 text-amber-700",    emoji: "📋" },
+  absent:            { label: "Falta",                color: "bg-rose-100 text-rose-700",      emoji: "❌" },
+  late:              { label: "Tarde",                color: "bg-orange-100 text-orange-700",  emoji: "⏰" },
+  left_early:        { label: "Salió antes",          color: "bg-orange-100 text-orange-700",  emoji: "🚪" },
+};
+
+const BEHAVIOR_LABELS: Record<string, { label: string; color: string; emoji: string }> = {
+  positive:   { label: "Positivo",           color: "bg-emerald-100 text-emerald-700", emoji: "⭐" },
+  neutral:    { label: "Normal",             color: "bg-slate-100 text-slate-600",     emoji: "😐" },
+  attention:  { label: "Necesita atención",  color: "bg-amber-100 text-amber-700",     emoji: "⚠️" },
+  disruptive: { label: "Conducta difícil",   color: "bg-rose-100 text-rose-700",       emoji: "🔴" },
+  disengaged: { label: "Desconectado",        color: "bg-slate-100 text-slate-600",     emoji: "💭" },
 };
 
 function formatDate(iso: string): string {
@@ -155,18 +173,28 @@ export function MentorStudentDetailPanel() {
   const [detail, setDetail] = useState<MentorStudentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [behavior, setBehavior] = useState<BehaviorRecord[]>([]);
 
   useEffect(() => {
     if (!studentId) { setError("Falta el ID del alumno."); setLoading(false); return; }
     void (async () => {
       setLoading(true);
-      const res = await fetch(`/api/mentoria/mentor-student?studentId=${encodeURIComponent(studentId)}`, { cache: "no-store" });
+      const [res, attRes, behRes] = await Promise.all([
+        fetch(`/api/mentoria/mentor-student?studentId=${encodeURIComponent(studentId)}`, { cache: "no-store" }),
+        fetch(`/api/mentoria/attendance?studentId=${encodeURIComponent(studentId)}`, { cache: "no-store" }),
+        fetch(`/api/mentoria/behavior?studentId=${encodeURIComponent(studentId)}`, { cache: "no-store" }),
+      ]);
       if (res.status === 401) { window.location.href = `/mentorias/auths/logins?callbackUrl=/mentoria/panel/alumno?studentId=${encodeURIComponent(studentId)}`; return; }
       if (res.status === 403) { setError("Acceso restringido."); setLoading(false); return; }
       if (res.status === 404) { setError("Alumno no encontrado."); setLoading(false); return; }
       const body = await res.json().catch(() => null) as { detail?: MentorStudentDetail } | null;
       if (!body?.detail) { setError("Error al cargar los datos del alumno."); setLoading(false); return; }
       setDetail(body.detail);
+      const attBody = await attRes.json().catch(() => null) as { records?: AttendanceRecord[] } | null;
+      if (attBody?.records) setAttendance(attBody.records);
+      const behBody = await behRes.json().catch(() => null) as { records?: BehaviorRecord[] } | null;
+      if (behBody?.records) setBehavior(behBody.records);
       setLoading(false);
     })();
   }, [studentId]);
@@ -311,6 +339,68 @@ export function MentorStudentDetailPanel() {
                 <MoodBar entries={detail.moodBreakdown} />
               </div>
             )}
+
+            {/* Asistencia escolar */}
+            <div className="rounded-[28px] bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold text-slate-950 text-sm">Asistencia escolar</h2>
+                {attendance.length > 0 && (
+                  <span className="text-xs text-slate-400">{attendance.length} registros</span>
+                )}
+              </div>
+              {attendance.length === 0 ? (
+                <p className="text-xs text-slate-400">Sin registros de asistencia.</p>
+              ) : (
+                <div className="space-y-2">
+                  {attendance.slice(0, 10).map((r) => {
+                    const meta = ATTENDANCE_LABELS[r.status] ?? { label: r.status, color: "bg-slate-100 text-slate-600", emoji: "•" };
+                    return (
+                      <div key={r.id} className="flex items-start gap-3">
+                        <span className={`shrink-0 mt-0.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${meta.color}`}>
+                          {meta.emoji} {meta.label}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs text-slate-500">{new Date(r.recordDate).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })}</span>
+                          {r.subjectSlug && <span className="ml-1.5 text-xs text-slate-400">{r.subjectSlug}</span>}
+                          {r.notes && <p className="text-xs text-slate-500 mt-0.5 truncate">{r.notes}</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Comportamiento */}
+            <div className="rounded-[28px] bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold text-slate-950 text-sm">Comportamiento en clase</h2>
+                {behavior.length > 0 && (
+                  <span className="text-xs text-slate-400">{behavior.length} registros</span>
+                )}
+              </div>
+              {behavior.length === 0 ? (
+                <p className="text-xs text-slate-400">Sin registros de comportamiento.</p>
+              ) : (
+                <div className="space-y-2">
+                  {behavior.slice(0, 10).map((r) => {
+                    const meta = BEHAVIOR_LABELS[r.behaviorType] ?? { label: r.behaviorType, color: "bg-slate-100 text-slate-600", emoji: "•" };
+                    return (
+                      <div key={r.id} className="flex items-start gap-3">
+                        <span className={`shrink-0 mt-0.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${meta.color}`}>
+                          {meta.emoji} {meta.label}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs text-slate-500">{new Date(r.recordDate).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })}</span>
+                          {r.intensity > 1 && <span className="ml-1.5 text-xs text-slate-400">Intensidad {r.intensity}/5</span>}
+                          {r.note && <p className="text-xs text-slate-500 mt-0.5 truncate">{r.note}</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
