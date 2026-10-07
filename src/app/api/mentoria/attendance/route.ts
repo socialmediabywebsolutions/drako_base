@@ -8,6 +8,62 @@ import { env } from "@/lib/cf";
 const VALID_STATUSES = ["present", "absent_justified", "absent", "late", "left_early"] as const;
 type AttendanceStatus = typeof VALID_STATUSES[number];
 
+export type AttendanceRecord = {
+  id: string;
+  recordDate: string;
+  subjectSlug: string | null;
+  status: AttendanceStatus;
+  notes: string | null;
+  createdAt: string;
+};
+
+type AttendanceRow = {
+  id: string;
+  record_date: string;
+  subject_slug: string | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+};
+
+export async function GET(request: Request) {
+  try {
+    const actor = await requireCurrentMentoriaSession(request);
+    const { searchParams } = new URL(request.url);
+    const studentId = searchParams.get("studentId")?.trim() ?? actor.studentProfileId;
+    if (!studentId) return NextResponse.json({ ok: false, error: "INVALID_INPUT" }, { status: 400 });
+
+    const bindings = env?.();
+    if (!bindings?.MENTORIA_DB) return NextResponse.json({ ok: false, error: "DB_UNAVAILABLE" }, { status: 503 });
+    const db = getMentoriaDb(bindings);
+
+    const result = await db
+      .prepare(
+        `SELECT id, record_date, subject_slug, status, notes, created_at
+         FROM mentoria_attendance_records
+         WHERE tenant_id = ? AND student_profile_id = ?
+         ORDER BY record_date DESC, created_at DESC
+         LIMIT 60`,
+      )
+      .bind(actor.tenantId, studentId)
+      .all();
+
+    const records: AttendanceRecord[] = ((result.results ?? []) as AttendanceRow[]).map((r) => ({
+      id: r.id,
+      recordDate: r.record_date,
+      subjectSlug: r.subject_slug,
+      status: r.status as AttendanceStatus,
+      notes: r.notes,
+      createdAt: r.created_at,
+    }));
+
+    return NextResponse.json({ ok: true, records });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "ATTENDANCE_LOAD_FAILED";
+    return NextResponse.json({ ok: false, error: message }, { status: resolveStatus(message) });
+  }
+}
+
 function resolveStatus(message: string): number {
   if (message === "SESSION_REQUIRED") return 401;
   if (message === "ONBOARDING_REQUIRED") return 409;
