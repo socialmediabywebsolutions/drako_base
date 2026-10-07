@@ -361,6 +361,12 @@ export function MentorStudentDetailPanel() {
                     🕐 Sesiones
                   </Link>
                   <Link
+                    href={`/mentoria/panel/alumno/materias?studentId=${encodeURIComponent(studentId)}`}
+                    className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
+                  >
+                    📚 Materias
+                  </Link>
+                  <Link
                     href={`/mentoria/app/progress?studentId=${encodeURIComponent(studentId)}`}
                     className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
                   >
