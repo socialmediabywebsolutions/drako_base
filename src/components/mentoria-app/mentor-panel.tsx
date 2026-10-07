@@ -145,12 +145,20 @@ export function MentorPanel() {
                   : "Visión general de todos los alumnos."}
               </p>
             </div>
-            <Link
-              href="/mentoria/panel/stats"
-              className="shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
-            >
-              📊 Estadísticas
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                href="/mentoria/panel/stats"
+                className="shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+              >
+                📊 Estadísticas
+              </Link>
+              <Link
+                href="/mentoria/panel/config"
+                className="shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+              >
+                ⚙️ Config
+              </Link>
+            </div>
           </div>
         </div>
 
