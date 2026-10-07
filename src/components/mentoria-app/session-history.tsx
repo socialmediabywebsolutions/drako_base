@@ -132,7 +132,7 @@ export function MentoriaSessionHistory() {
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-2xl">
-        <MentoriaAppSectionNav active="progress" />
+        <MentoriaAppSectionNav active="historial" />
         <div className="space-y-4">
 
           <div className="rounded-[28px] bg-white p-6 shadow-sm">
