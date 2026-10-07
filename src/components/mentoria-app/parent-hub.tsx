@@ -465,9 +465,14 @@ export function MentoriaParentHub() {
                     <h3 className="mt-2 text-xl font-bold text-slate-900">{student.fullName}</h3>
                     <p className="mt-1 text-sm text-slate-600">{student.schoolYear}</p>
                   </div>
-                  <Link href={`/mentoria/app?studentId=${student.id}&viewer=guardian`} className="inline-flex rounded-lg bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-black">
-                    Abrir su pizarra
-                  </Link>
+                  <div className="flex flex-wrap gap-2">
+                    <Link href={`/mentoria/app?studentId=${student.id}&viewer=guardian`} className="inline-flex rounded-lg bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-black">
+                      Abrir su pizarra
+                    </Link>
+                    <Link href={`/mentoria/app/diario?studentId=${student.id}`} className="inline-flex rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                      📓 Diario escolar
+                    </Link>
+                  </div>
                 </div>
                 {familyStudents.length > 1 ? (
                   <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">

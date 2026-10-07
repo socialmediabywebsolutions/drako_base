@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { MentoriaAppSectionNav } from "@/components/mentoria-app/app-section-nav";
 import type { AttendanceRecord } from "@/app/api/mentoria/attendance/route";
 import type { BehaviorRecord } from "@/app/api/mentoria/behavior/route";
 
@@ -410,6 +411,7 @@ export function MentoriaSchoolDiary() {
     return (
       <div className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl">
+          <MentoriaAppSectionNav active="diario" />
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             Falta el ID del alumno en la URL.
           </div>
@@ -421,6 +423,7 @@ export function MentoriaSchoolDiary() {
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-2xl space-y-5">
+      <MentoriaAppSectionNav active="diario" />
 
         {/* Header */}
         <div className="rounded-[28px] bg-white p-6 shadow-sm">
