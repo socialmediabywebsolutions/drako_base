@@ -176,6 +176,15 @@ export function MentorStudentDetailPanel() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [behavior, setBehavior] = useState<BehaviorRecord[]>([]);
 
+  // Quick attendance form
+  const [attFormOpen, setAttFormOpen] = useState(false);
+  const [attDate, setAttDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [attStatus, setAttStatus] = useState("present");
+  const [attSubject, setAttSubject] = useState("");
+  const [attNotes, setAttNotes] = useState("");
+  const [attSaving, setAttSaving] = useState(false);
+  const [attError, setAttError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!studentId) { setError("Falta el ID del alumno."); setLoading(false); return; }
     void (async () => {
@@ -198,6 +207,46 @@ export function MentorStudentDetailPanel() {
       setLoading(false);
     })();
   }, [studentId]);
+
+  async function handleSaveAttendance() {
+    if (!attDate || !attStatus) return;
+    setAttSaving(true);
+    setAttError(null);
+    const res = await fetch("/api/mentoria/attendance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        studentId,
+        recordDate: attDate,
+        status: attStatus,
+        subjectSlug: attSubject.trim() || null,
+        notes: attNotes.trim() || null,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      setAttError(body?.error ?? "Error al guardar.");
+      setAttSaving(false);
+      return;
+    }
+    // Add optimistically to local state
+    const body = await res.json().catch(() => ({})) as { id?: string };
+    const newRecord: AttendanceRecord = {
+      id: body.id ?? crypto.randomUUID(),
+      recordDate: attDate,
+      subjectSlug: attSubject.trim() || null,
+      status: attStatus as AttendanceRecord["status"],
+      notes: attNotes.trim() || null,
+      createdAt: new Date().toISOString(),
+    };
+    setAttendance((prev) => [newRecord, ...prev]);
+    setAttFormOpen(false);
+    setAttDate(new Date().toISOString().slice(0, 10));
+    setAttStatus("present");
+    setAttSubject("");
+    setAttNotes("");
+    setAttSaving(false);
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6 lg:px-8">
@@ -346,17 +395,85 @@ export function MentorStudentDetailPanel() {
               </div>
             )}
 
-            {/* Asistencia escolar */}
+            {/* Registro rápido de asistencia */}
             <div className="rounded-[28px] bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-slate-950 text-sm">Asistencia escolar</h2>
-                {attendance.length > 0 && (
-                  <span className="text-xs text-slate-400">{attendance.length} registros</span>
-                )}
+                <h2 className="font-semibold text-slate-950 text-sm">Asistencia</h2>
+                <button
+                  type="button"
+                  onClick={() => { setAttFormOpen((v) => !v); setAttError(null); }}
+                  className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
+                >
+                  {attFormOpen ? "Cancelar" : "➕ Registrar"}
+                </button>
               </div>
-              {attendance.length === 0 ? (
+
+              {attFormOpen && (
+                <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Fecha</label>
+                      <input
+                        type="date"
+                        value={attDate}
+                        onChange={(e) => setAttDate(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-emerald-400 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">Estado</label>
+                      <select
+                        value={attStatus}
+                        onChange={(e) => setAttStatus(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-emerald-400 focus:outline-none"
+                      >
+                        <option value="present">✅ Asistió</option>
+                        <option value="absent_justified">📋 Falta justificada</option>
+                        <option value="absent">❌ Falta</option>
+                        <option value="late">⏰ Tarde</option>
+                        <option value="left_early">🚪 Salió antes</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Asignatura (opcional)</label>
+                    <input
+                      type="text"
+                      value={attSubject}
+                      onChange={(e) => setAttSubject(e.target.value)}
+                      placeholder="Matemáticas, Inglés…"
+                      maxLength={60}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Notas (opcional)</label>
+                    <input
+                      type="text"
+                      value={attNotes}
+                      onChange={(e) => setAttNotes(e.target.value)}
+                      placeholder="Observación breve…"
+                      maxLength={200}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none"
+                    />
+                  </div>
+                  {attError && (
+                    <p className="text-xs text-rose-600">{attError}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveAttendance()}
+                    disabled={attSaving}
+                    className="w-full rounded-lg bg-emerald-500 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 transition"
+                  >
+                    {attSaving ? "Guardando…" : "Guardar asistencia"}
+                  </button>
+                </div>
+              )}
+
+              {attendance.length === 0 && !attFormOpen ? (
                 <p className="text-xs text-slate-400">Sin registros de asistencia.</p>
-              ) : (
+              ) : attendance.length > 0 ? (
                 <div className="space-y-2">
                   {attendance.slice(0, 10).map((r) => {
                     const meta = ATTENDANCE_LABELS[r.status] ?? { label: r.status, color: "bg-slate-100 text-slate-600", emoji: "•" };
@@ -374,7 +491,7 @@ export function MentorStudentDetailPanel() {
                     );
                   })}
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Comportamiento */}
