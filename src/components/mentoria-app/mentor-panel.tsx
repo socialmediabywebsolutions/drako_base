@@ -46,7 +46,12 @@ function StudentRow({ student }: { student: MentorStudentRow }) {
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-xl">{emoji}</span>
           <div className="min-w-0">
-            <div className="font-semibold text-slate-950 truncate">{student.fullName}</div>
+            <Link
+              href={`/mentoria/panel/alumno?studentId=${encodeURIComponent(student.studentId)}`}
+              className="font-semibold text-slate-950 hover:text-emerald-700 truncate block transition"
+            >
+              {student.fullName}
+            </Link>
             {student.guardianEmail && (
               <div className="text-xs text-slate-400 truncate">{student.guardianEmail}</div>
             )}
