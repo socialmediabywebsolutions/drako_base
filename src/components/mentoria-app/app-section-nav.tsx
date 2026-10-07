@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 type MentoriaAppSectionNavProps = {
-  active: "workspace" | "academic" | "progress" | "parents" | "logros" | "examenes";
+  active: "workspace" | "academic" | "progress" | "parents" | "logros" | "examenes" | "simulacro";
 };
 
 export function MentoriaAppSectionNav({ active }: MentoriaAppSectionNavProps) {
@@ -25,6 +25,7 @@ export function MentoriaAppSectionNav({ active }: MentoriaAppSectionNavProps) {
     { id: "parents", label: "Familia", href: "/mentoria/app/parents" },
     { id: "logros", label: "🏆 Logros", href: "/mentoria/app/logros" },
     { id: "examenes", label: "📅 Exámenes", href: "/mentoria/app/examenes" },
+    { id: "simulacro", label: "🧪 Simulacro", href: "/mentoria/app/simulacro" },
   ] as const;
 
   return (
