@@ -152,6 +152,12 @@ export function MentorPanel() {
             </div>
             <div className="flex gap-2">
               <Link
+                href="/mentoria/panel/nuevo-alumno"
+                className="shrink-0 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600 transition"
+              >
+                ➕ Nuevo alumno
+              </Link>
+              <Link
                 href="/mentoria/panel/stats"
                 className="shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
               >
