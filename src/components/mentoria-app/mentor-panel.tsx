@@ -176,6 +176,12 @@ export function MentorPanel() {
                 🔔 Alertas
               </Link>
               <Link
+                href="/mentoria/panel/examenes"
+                className="shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 transition"
+              >
+                📅 Exámenes
+              </Link>
+              <Link
                 href="/mentoria/panel/stats"
                 className="shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
               >
