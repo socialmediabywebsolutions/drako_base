@@ -4,8 +4,7 @@
 // as pdf-extract.ts / scraper.ts in this same module). Only the first sheet
 // is processed — product catalogs are expected to be single-sheet.
 
-// jszip is loaded dynamically to keep it out of the CF Worker server bundle.
-// Listed in next.config.ts serverExternalPackages for the same reason.
+import JSZip from "jszip";
 import { rowsToKnowledgeText } from "./catalog-format";
 
 function decodeXmlEntities(value: string): string {
@@ -73,7 +72,6 @@ function parseSheetRows(xml: string, sharedStrings: string[]): string[][] {
 }
 
 export async function extractTextFromXlsx(bytes: ArrayBuffer): Promise<string> {
-  const { default: JSZip } = await import("jszip");
   const zip = await JSZip.loadAsync(bytes);
 
   const sharedStringsFile = zip.file("xl/sharedStrings.xml");

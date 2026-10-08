@@ -44,7 +44,7 @@ const nextConfig: NextConfig = {
   // Packages that use Node.js APIs incompatible with Cloudflare Workers edge runtime.
   // Marking them as external prevents them from being bundled into handler.mjs,
   // keeping the worker under the 64 MiB uncompressed size limit.
-  serverExternalPackages: ["@react-pdf/renderer", "@cf-wasm/photon", "jszip", "exifr"],
+  serverExternalPackages: ["@react-pdf/renderer", "@cf-wasm/photon"],
 
   experimental: {
     // runtime: 'edge',
