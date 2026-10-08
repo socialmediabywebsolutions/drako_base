@@ -24,27 +24,49 @@ function daysUntil(dateStr: string): number {
   return Math.round((exam.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function ExamCard({ exam }: { exam: MentorExamRow }) {
+function ExamCard({
+  exam,
+  onCompleted,
+}: {
+  exam: MentorExamRow;
+  onCompleted: (id: string, score: number | null) => void;
+}) {
   const days = daysUntil(exam.examDate);
   const diffColor = DIFFICULTY_COLOR[exam.difficulty] ?? "bg-slate-100 text-slate-600";
+  const [completing, setCompleting] = useState(false);
+  const [scoreInput, setScoreInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   let urgencyClass = "bg-slate-50 border-slate-200";
   let daysLabel = "";
-  if (days < 0) {
-    urgencyClass = "bg-slate-50 border-slate-200";
-    daysLabel = "Pasado";
-  } else if (days === 0) {
-    urgencyClass = "bg-rose-50 border-rose-200";
-    daysLabel = "¡Hoy!";
-  } else if (days <= 3) {
-    urgencyClass = "bg-rose-50 border-rose-200";
-    daysLabel = `${days}d`;
-  } else if (days <= 7) {
-    urgencyClass = "bg-amber-50 border-amber-200";
-    daysLabel = `${days}d`;
-  } else {
-    urgencyClass = "bg-white border-slate-200";
-    daysLabel = `${days}d`;
+  if (days < 0) { urgencyClass = "bg-slate-50 border-slate-200"; daysLabel = "Pasado"; }
+  else if (days === 0) { urgencyClass = "bg-rose-50 border-rose-200"; daysLabel = "¡Hoy!"; }
+  else if (days <= 3) { urgencyClass = "bg-rose-50 border-rose-200"; daysLabel = `${days}d`; }
+  else if (days <= 7) { urgencyClass = "bg-amber-50 border-amber-200"; daysLabel = `${days}d`; }
+  else { urgencyClass = "bg-white border-slate-200"; daysLabel = `${days}d`; }
+
+  async function handleComplete() {
+    setSaving(true);
+    setErr(null);
+    const scoreVal = scoreInput.trim() !== "" ? parseFloat(scoreInput.replace(",", ".")) : null;
+    const validScore = scoreVal !== null && !isNaN(scoreVal) && scoreVal >= 0 && scoreVal <= 10 ? scoreVal : null;
+
+    const res = await fetch(`/api/mentoria/mentor-exams/${encodeURIComponent(exam.id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "completed", scoreAfter: validScore }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      setErr(body?.error ?? "Error al actualizar.");
+      setSaving(false);
+      return;
+    }
+    onCompleted(exam.id, validScore);
+    setSaving(false);
+    setCompleting(false);
   }
 
   return (
@@ -57,9 +79,7 @@ function ExamCard({ exam }: { exam: MentorExamRow }) {
           )}
           <div className="mt-1 text-xs text-slate-500">
             {new Date(exam.examDate + "T00:00:00").toLocaleDateString("es-ES", {
-              weekday: "short",
-              day: "numeric",
-              month: "short",
+              weekday: "short", day: "numeric", month: "short",
             })}
           </div>
         </div>
@@ -72,6 +92,7 @@ function ExamCard({ exam }: { exam: MentorExamRow }) {
           )}
         </div>
       </div>
+
       {exam.sessionsPlanned > 0 && (
         <div className="mt-2 text-xs text-slate-500">
           Sesiones:{" "}
@@ -79,6 +100,50 @@ function ExamCard({ exam }: { exam: MentorExamRow }) {
             {exam.sessionsDone}/{exam.sessionsPlanned}
           </span>{" "}
           planificadas
+        </div>
+      )}
+
+      {exam.scoreAfter !== null && (
+        <div className="mt-2 text-xs text-slate-500">
+          Nota: <span className="font-semibold text-emerald-700">{exam.scoreAfter}/10</span>
+        </div>
+      )}
+
+      {exam.status === "active" && !completing && (
+        <button
+          type="button"
+          onClick={() => setCompleting(true)}
+          className="mt-3 rounded-xl bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 transition"
+        >
+          ✓ Marcar completado
+        </button>
+      )}
+
+      {completing && (
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
+          <input
+            type="text"
+            value={scoreInput}
+            onChange={(e) => setScoreInput(e.target.value)}
+            placeholder="Nota (0–10, opcional)"
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-900 w-36 focus:border-emerald-400 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => void handleComplete()}
+            disabled={saving}
+            className="rounded-xl bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50 transition"
+          >
+            {saving ? "…" : "Confirmar"}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setCompleting(false); setScoreInput(""); setErr(null); }}
+            className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition"
+          >
+            Cancelar
+          </button>
+          {err && <span className="text-xs text-rose-600">{err}</span>}
         </div>
       )}
     </div>
@@ -375,7 +440,11 @@ export function MentorStudentExams() {
               {exams.length} examen{exams.length !== 1 ? "es" : ""} activo{exams.length !== 1 ? "s" : ""}
             </div>
             {exams.map((exam) => (
-              <ExamCard key={exam.id} exam={exam} />
+              <ExamCard
+                key={exam.id}
+                exam={exam}
+                onCompleted={(id) => setExams((prev) => prev.filter((e) => e.id !== id))}
+              />
             ))}
           </div>
         )}
