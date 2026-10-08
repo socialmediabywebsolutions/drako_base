@@ -58,8 +58,8 @@ export async function startThreadsOAuth(
   request: NextRequest,
   { tenantId, saasId }: { tenantId: string; saasId: string },
 ): Promise<{ authorizationUrl: string }> {
-  const { createOAuthState } = await import("@/lib/socialflow/oauth/state");
-  const state = await createOAuthState({ tenantId, saasId });
+  const { signOAuthState } = await import("@/lib/socialflow/oauth/state");
+  const state = await signOAuthState({ provider: "meta", tenantId, saasId });
 
   const appId = getThreadsAppId();
   const origin = new URL(request.url).origin;
@@ -122,7 +122,9 @@ export async function handleThreadsCallback(
   // Verificar y consumir el state nonce
   let oauthContext: { tenantId: string; saasId: string };
   try {
-    oauthContext = await verifyAndConsumeOAuthState(state);
+    const verification = await verifyAndConsumeOAuthState(state, { provider: "meta" });
+    if (!verification.ok) throw new Error("invalid_state");
+    oauthContext = { tenantId: verification.tenantId, saasId: verification.saasId };
   } catch {
     return {
       ok: false,

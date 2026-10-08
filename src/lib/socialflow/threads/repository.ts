@@ -72,10 +72,7 @@ export async function persistSocialFlowThreadsConnection(
 
   if (isFirstAccount) {
     try {
-      await triggerNicheInitializationOnFirstAccount({
-        tenantId: input.tenantId,
-        saasId: input.saasId,
-      });
+      await triggerNicheInitializationOnFirstAccount(input.tenantId, input.saasId);
     } catch (err) {
       console.warn("THREADS_NICHE_INIT_FAILED", err instanceof Error ? err.message : err);
     }

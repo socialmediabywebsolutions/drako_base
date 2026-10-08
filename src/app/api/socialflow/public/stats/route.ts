@@ -1,11 +1,12 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getCloudflareEnv } from "@/lib/cloudflare/context";
+import { getCloudflareContextSafeSync } from "@/lib/cloudflare/runtime";
 
 export async function GET() {
   try {
-    const { SOCIAL_DB: DB } = getCloudflareEnv();
+    const rawEnv = (getCloudflareContextSafeSync() as { env?: Record<string, unknown> } | null)?.env ?? null;
+    const DB = (rawEnv?.SOCIAL_DB ?? null) as D1Database | null;
     if (!DB) {
       return NextResponse.json({ active_clients: 0, published_posts: 0, scheduled_posts: 0 });
     }
