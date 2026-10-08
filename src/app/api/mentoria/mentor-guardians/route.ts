@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+// Mentor guardian management: list, invite, remove guardians for a student
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
