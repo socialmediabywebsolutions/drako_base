@@ -36,6 +36,9 @@ CREATE TABLE IF NOT EXISTS guardians (
 
 CREATE INDEX IF NOT EXISTS idx_guardians_family_id ON guardians(family_id);
 CREATE INDEX IF NOT EXISTS idx_guardians_email ON guardians(email);
+
+-- La tabla guardians puede existir en producción sin tenant_id (columna añadida después)
+ALTER TABLE guardians ADD COLUMN IF NOT EXISTS tenant_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_guardians_tenant_id ON guardians(tenant_id);
 
 -- Students (alumnos en el contexto de familia)
