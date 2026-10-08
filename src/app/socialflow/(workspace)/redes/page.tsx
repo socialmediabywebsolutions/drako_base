@@ -42,6 +42,13 @@ export default async function SocialFlowRedesPage() {
           description: "Conecta una cuenta de Instagram Business para publicar contenido y ver métricas de engagement.",
         },
         {
+          key: "THREADS",
+          connectPath: "/api/socialflow/threads/connect",
+          comingSoon: false,
+          entitlement: entitlements.included.has("THREADS") ? "included" : "extra",
+          description: "Conecta tu cuenta de Threads para publicar texto e imágenes directamente desde Socialcors.",
+        },
+        {
           key: "FACEBOOK_PAGE",
           connectPath: "/api/socialflow/meta/connect",
           comingSoon: false,
@@ -69,6 +76,13 @@ export default async function SocialFlowRedesPage() {
           entitlement: "extra",
           description: "Publica Shorts y vídeos directamente en tu canal de YouTube.",
         },
+        {
+          key: "PINTEREST",
+          connectPath: null,
+          comingSoon: true,
+          entitlement: "extra",
+          description: "Publica pines e ideas directamente en tu perfil de Pinterest.",
+        },
       ]
     : [
         {
@@ -77,6 +91,20 @@ export default async function SocialFlowRedesPage() {
           comingSoon: false,
           entitlement: entitlements.included.has("INSTAGRAM") ? "included" : "extra",
           description: "Conecta una cuenta de Instagram Business para publicar contenido y ver métricas de engagement.",
+        },
+        {
+          key: "THREADS",
+          connectPath: "/api/socialflow/threads/connect",
+          comingSoon: false,
+          entitlement: entitlements.included.has("THREADS") ? "included" : "extra",
+          description: "Conecta tu cuenta de Threads para publicar texto e imágenes directamente desde Socialcors.",
+        },
+        {
+          key: "LINKEDIN",
+          connectPath: linkedInAvailable ? "/api/socialflow/linkedin/connect" : null,
+          comingSoon: !linkedInAvailable,
+          entitlement: entitlements.included.has("LINKEDIN") ? "included" : "extra",
+          description: "Conecta tu perfil personal de LinkedIn para publicar contenido y hacer crecer tu marca personal.",
         },
         {
           key: "TIKTOK",
@@ -93,18 +121,18 @@ export default async function SocialFlowRedesPage() {
           description: "Conecta una Página de Facebook para obtener seguidores, engagement y publicaciones recientes.",
         },
         {
-          key: "LINKEDIN",
-          connectPath: linkedInAvailable ? "/api/socialflow/linkedin/connect" : null,
-          comingSoon: !linkedInAvailable,
-          entitlement: entitlements.included.has("LINKEDIN") ? "included" : "extra",
-          description: "Conecta tu perfil personal de LinkedIn para publicar contenido y hacer crecer tu marca personal.",
-        },
-        {
           key: "YOUTUBE",
           connectPath: null,
           comingSoon: true,
           entitlement: "extra",
           description: "Publica Shorts y vídeos directamente en tu canal de YouTube.",
+        },
+        {
+          key: "PINTEREST",
+          connectPath: null,
+          comingSoon: true,
+          entitlement: "extra",
+          description: "Publica pines e ideas directamente en tu perfil de Pinterest.",
         },
       ];
 
