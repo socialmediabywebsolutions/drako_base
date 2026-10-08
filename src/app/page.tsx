@@ -1,14 +1,18 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import { HostMode, resolveHostMode } from "@/lib/hosts";
 import { resolveMarketingLocale, defaultMarketingLocale } from "@/lib/i18n/marketing";
 import { StatCounter } from "@/components/marketing/home/StatCounter";
 import { NavLeadButton, HeroLeadButton, CtaLeadButton } from "@/components/marketing/home/DrakoLeadButtons";
 
-const sg = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+const sg = localFont({
+  src: [
+    { path: "../../public/fonts/SpaceGrotesk-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../../public/fonts/SpaceGrotesk-Medium.woff2", weight: "500", style: "normal" },
+    { path: "../../public/fonts/SpaceGrotesk-SemiBold.woff2", weight: "600", style: "normal" },
+    { path: "../../public/fonts/SpaceGrotesk-Bold.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--sg",
   display: "swap",
 });
