@@ -592,12 +592,24 @@ jobs:
       - name: Apply Mentoria migrations (0219 family auth tables)
         run: |
           set -euo pipefail
+          # D1 no soporta ADD COLUMN IF NOT EXISTS — pre-añadir columnas con || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE guardians ADD COLUMN tenant_id TEXT;" || true
           echo "==> 0219_mentoria_family_auth_tables.sql"
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0219_mentoria_family_auth_tables.sql
 
       - name: Apply Mentoria migrations (0217 guardian student links)
         run: |
           set -euo pipefail
+          # D1 no soporta ADD COLUMN IF NOT EXISTS — pre-añadir columnas con || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN tenant_id TEXT NOT NULL DEFAULT '';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN student_profile_id TEXT NOT NULL DEFAULT '';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN guardian_user_id TEXT;" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN guardian_email TEXT NOT NULL DEFAULT '';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN role TEXT NOT NULL DEFAULT 'tutor';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN system_role TEXT NOT NULL DEFAULT 'secondary_guardian';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN status TEXT NOT NULL DEFAULT 'pending';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN created_at TEXT NOT NULL DEFAULT '';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN updated_at TEXT NOT NULL DEFAULT '';" || true
           echo "==> 0217_mentoria_guardian_student_links.sql"
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0217_mentoria_guardian_student_links.sql
 

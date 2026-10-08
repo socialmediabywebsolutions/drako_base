@@ -1,6 +1,8 @@
 -- 0219_mentoria_family_auth_tables.sql
 -- Tablas necesarias para el registro y autenticación de familias en MENTORIA_DB
 -- Estas tablas son usadas por MentoriaFamilyRepository
+-- NOTA: D1 no soporta ALTER TABLE ADD COLUMN IF NOT EXISTS.
+-- Las columnas se añaden previamente en el workflow con || true antes de ejecutar este archivo.
 
 -- Tenants (familias como tenants)
 CREATE TABLE IF NOT EXISTS tenants (
@@ -36,9 +38,6 @@ CREATE TABLE IF NOT EXISTS guardians (
 
 CREATE INDEX IF NOT EXISTS idx_guardians_family_id ON guardians(family_id);
 CREATE INDEX IF NOT EXISTS idx_guardians_email ON guardians(email);
-
--- La tabla guardians puede existir en producción sin tenant_id (columna añadida después)
-ALTER TABLE guardians ADD COLUMN IF NOT EXISTS tenant_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_guardians_tenant_id ON guardians(tenant_id);
 
 -- Students (alumnos en el contexto de familia)
