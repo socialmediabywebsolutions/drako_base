@@ -583,12 +583,28 @@ jobs:
             exit 1
           }
 
-      - name: Apply Mentoria product session persistence schema on dedicated product D1
+      - name: Apply Mentoria migrations (0160 session persistence)
         run: |
           set -euo pipefail
+          echo "==> 0160_mentoria_session_persistence.sql"
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql
+
+      - name: Apply Mentoria migrations (0219 family auth tables)
+        run: |
+          set -euo pipefail
+          echo "==> 0219_mentoria_family_auth_tables.sql"
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0219_mentoria_family_auth_tables.sql
+
+      - name: Apply Mentoria migrations (0217 guardian student links)
+        run: |
+          set -euo pipefail
+          echo "==> 0217_mentoria_guardian_student_links.sql"
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0217_mentoria_guardian_student_links.sql
+
+      - name: Apply Mentoria migrations (0218 family messages)
+        run: |
+          set -euo pipefail
+          echo "==> 0218_mentoria_family_messages.sql"
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0218_mentoria_family_messages.sql
 
       - name: Verify mentoria_session_state exists in dedicated product D1
