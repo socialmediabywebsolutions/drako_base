@@ -438,6 +438,12 @@ export function MentorStudentDetailPanel() {
                   >
                     👨‍👩‍👧 Familia
                   </Link>
+                  <Link
+                    href={`/mentoria/panel/alumno/mensajes?studentId=${encodeURIComponent(studentId)}`}
+                    className="rounded-xl bg-violet-50 px-3 py-2 text-xs font-medium text-violet-700 hover:bg-violet-100 transition"
+                  >
+                    ✉️ Mensajes
+                  </Link>
                 </div>
               </div>
             </div>

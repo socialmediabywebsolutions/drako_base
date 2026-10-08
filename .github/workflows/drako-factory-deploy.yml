@@ -587,6 +587,9 @@ jobs:
         run: |
           set -euo pipefail
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0219_mentoria_family_auth_tables.sql
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0217_mentoria_guardian_student_links.sql
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0218_mentoria_family_messages.sql
 
       - name: Verify mentoria_session_state exists in dedicated product D1
         run: |
