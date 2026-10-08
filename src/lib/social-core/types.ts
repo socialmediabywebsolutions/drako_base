@@ -5,7 +5,10 @@ export type SaasSocialProvider =
   | "WHATSAPP"
   | "TWITTER_X"
   | "OTHER"
-  | "LINKEDIN";
+  | "LINKEDIN"
+  | "THREADS"
+  | "YOUTUBE"
+  | "PINTEREST";
 
 export type SaasSocialAccountStatus =
   | "DISCONNECTED"

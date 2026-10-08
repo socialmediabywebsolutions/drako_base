@@ -8,10 +8,10 @@ import { resolveSocialFlowPlanCode, type SocialFlowPlanCode } from "./plans";
 // redes anunciadas, nada más. TikTok y YouTube no tienen OAuth implementado todavía,
 // así que no aparecen en ningún plan (se muestran como "Próximamente" en la UI).
 const INFLUENCER_INCLUDED: Record<"free" | "influencer_starter" | "influencer_basico" | "influencer_pro", SaasSocialProvider[]> = {
-  free: ["INSTAGRAM", "LINKEDIN"],
-  influencer_starter: ["INSTAGRAM", "LINKEDIN"],
-  influencer_basico: ["INSTAGRAM", "FACEBOOK_PAGE", "LINKEDIN"],
-  influencer_pro: ["INSTAGRAM", "FACEBOOK_PAGE", "LINKEDIN"],
+  free: ["INSTAGRAM", "LINKEDIN", "THREADS"],
+  influencer_starter: ["INSTAGRAM", "LINKEDIN", "THREADS"],
+  influencer_basico: ["INSTAGRAM", "FACEBOOK_PAGE", "LINKEDIN", "THREADS"],
+  influencer_pro: ["INSTAGRAM", "FACEBOOK_PAGE", "LINKEDIN", "THREADS"],
 };
 
 // Empresa Básico (y free con accountType empresa) permiten elegir UNA red principal entre
@@ -51,7 +51,7 @@ export async function resolveNetworkEntitlements(input: {
   let included: Set<SaasSocialProvider>;
   if (accountType === "empresa") {
     if (planCode === "empresa_pro") {
-      included = new Set<SaasSocialProvider>(["INSTAGRAM", "LINKEDIN"]);
+      included = new Set<SaasSocialProvider>(["INSTAGRAM", "LINKEDIN", "THREADS"]);
     } else {
       const alreadyPicked = EMPRESA_PICK_ONE.find((provider) => connected.has(provider));
       included = alreadyPicked ? new Set([alreadyPicked]) : new Set(EMPRESA_PICK_ONE);

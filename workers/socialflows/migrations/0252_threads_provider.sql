@@ -1,0 +1,34 @@
+-- Migration 0252: Threads provider documentation
+--
+-- No schema changes needed: Threads uses the existing saas_social_accounts table with
+-- provider = 'THREADS'. The SaasSocialProvider enum is enforced at the TypeScript level
+-- (src/lib/social-core/types.ts), not at the DB level (D1 stores TEXT).
+--
+-- Auth meta stored in auth_meta (JSON, encrypted):
+--   {
+--     "accessToken": "encrypted:v1:aes-gcm:...",   -- long-lived token (60 days)
+--     "userId": "string",                           -- Threads user ID
+--     "username": "string",                         -- @handle
+--     "scope": "string",                            -- granted scopes
+--     "expiresAt": "ISO8601"                        -- token expiry
+--   }
+--
+-- Required wrangler secret (production worker saas-socialflows-prod):
+--   THREADS_APP_SECRET  -- Meta App Secret for Threads OAuth token exchange
+--   (falls back to INSTAGRAM_APP_SECRET if THREADS_APP_SECRET is not set,
+--    since both use the same Meta App)
+--
+-- OAuth endpoints:
+--   Authorization:  https://threads.net/oauth/authorize
+--   Token:         https://graph.threads.net/oauth/access_token
+--   Long-lived:    https://graph.threads.net/access_token (grant_type=th_exchange_token)
+--   Callback:      /api/socialflow/threads/callback
+--
+-- Publish flow:
+--   1. POST /{userId}/threads          -> create container (text or image)
+--   2. [5s delay for IMAGE type]
+--   3. POST /{userId}/threads_publish  -> publish container
+--
+-- References: src/lib/socialflow/threads/
+
+SELECT 1; -- D1 requires at least one statement

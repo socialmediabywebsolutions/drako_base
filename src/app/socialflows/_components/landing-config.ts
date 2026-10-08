@@ -28,18 +28,14 @@ export const SUBHEADLINE =
 
 // Redes que SocialCors muestra como disponibles en el Home.
 // - Instagram: OAuth Meta + publicación (posts, reels, historias).
-// - LinkedIn: SOLO perfil personal (scope w_member_social, imagen principal). Sin Company Page:
-//   `w_organization_social` sigue apagado (SOCIALFLOW_LINKEDIN_ORGANIZATION_SCOPE_ENABLED) y
-//   `linkedin_cm_enabled` es false en todas las cuentas — NO mencionar Company Page en el Home.
-//   NOTA INTERNA: no está confirmado desde el repo que LINKEDIN_CLIENT_ID/SECRET estén puestos
-//   en el Worker de producción (los lista apps/socialflow-runtime/runtime-deploy-contract.json
-//   como secretos requeridos, pero el workflow de deploy no los inyecta). Se muestra igual por
-//   decisión del owner: el flujo existe y la app "Share on LinkedIn" está aprobada.
-// - TikTok/YouTube están `comingSoon` en /socialflow/redes; Facebook Page tiene publicación en
-//   código (live-publishing.ts) pero no se lista hasta confirmarla en producción.
+// - LinkedIn: SOLO perfil personal (scope w_member_social, imagen principal). Sin Company Page.
+// - Threads: OAuth Meta (misma Meta App) + publicación texto + imagen. Activa oct-2026.
+// - YouTube/Pinterest: en roadmap — sin OAuth ni publicación implementados aún.
+// - Facebook Page: publicación en código pero sin validación real en prod, no se lista.
 export const AVAILABLE_NETWORKS = [
   { key: "instagram", name: "Instagram", detail: "Posts, reels e historias" },
   { key: "linkedin", name: "LinkedIn", detail: "Publicaciones con imagen" },
+  { key: "threads", name: "Threads", detail: "Texto e imagen" },
 ] as const;
 
 // ── Redes VERIFICADAS como activas en producción (las usa el motor de SocialCors) ─────────────
@@ -63,8 +59,7 @@ export const VERIFIED_ACTIVE_NETWORKS = [
 // tiene acceso a BD, y las métricas de los clientes son privadas: solo se rellena con datos REALES
 // y autorizados (p. ej. la cuenta propia @socialcors), siempre con `source` y `asOf`. Nunca
 // inventar valores. Los campos son opcionales: solo se pintan los que existan.
-// NOTA: /api/socialflow/public/stats existe pero hoy devuelve 0/0/0 en producción (lee el binding
-// `DB` en vez de `SOCIAL_DB`) y mezcla todos los proveedores; no usarlo como fuente.
+// NOTA: /api/socialflow/public/stats devuelve los totales reales desde SOCIAL_DB (corregido oct-2026).
 export type NetworkStats = {
   followers?: number;
   posts?: number;
@@ -87,12 +82,12 @@ export const METRICS_SOON_MESSAGE = "Las métricas reales de nuestras cuentas es
 export const EXAMPLE_PANELS = {
   instagram: { handle: "@negocioejemplo" },
   linkedin: { handle: "Tu negocio" },
+  threads: { handle: "@negocioejemplo" },
 } as const;
 
-// Redes que se muestran como "Próximamente" (conectables o en código, pero SIN publicaciones reales
-// confirmadas en producción). LinkedIn: 0 publicaciones completadas a 2026-09-20. Para sacarla de
-// aquí hace falta confirmar publicaciones reales (ver VERIFIED_ACTIVE_NETWORKS).
-export const SOON_NETWORKS: readonly string[] = ["linkedin"];
+// Redes que se muestran como "Próximamente" (sin publicaciones reales confirmadas en producción
+// o sin OAuth/publicación implementada). YouTube y Pinterest: sin código de integración.
+export const SOON_NETWORKS: readonly string[] = ["youtube", "pinterest"];
 
 export const FAQ: { q: string; a: string }[] = [
   {
@@ -113,7 +108,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "¿Qué redes sociales puedo conectar?",
-    a: "Hoy SocialCors publica en Instagram, que puedes conectar desde el propio panel. LinkedIn llegará próximamente.",
+    a: "Hoy SocialCors publica en Instagram, LinkedIn y Threads. Puedes conectarlas directamente desde el panel. YouTube y Pinterest están en el roadmap.",
   },
   {
     q: "¿Puedo revisar el contenido antes de publicarlo?",

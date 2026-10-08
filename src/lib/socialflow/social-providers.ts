@@ -1,6 +1,6 @@
 import type { SaasSocialProvider } from "@/lib/social-core/types";
 
-export type SocialFlowNetworkKey = SaasSocialProvider | "YOUTUBE";
+export type SocialFlowNetworkKey = SaasSocialProvider;
 
 export const SOCIAL_PROVIDER_LABEL: Record<SocialFlowNetworkKey, string> = {
   INSTAGRAM: "Instagram",
@@ -8,6 +8,8 @@ export const SOCIAL_PROVIDER_LABEL: Record<SocialFlowNetworkKey, string> = {
   LINKEDIN: "LinkedIn",
   TIKTOK: "TikTok",
   YOUTUBE: "YouTube",
+  THREADS: "Threads",
+  PINTEREST: "Pinterest",
   WHATSAPP: "WhatsApp",
   TWITTER_X: "X / Twitter",
   OTHER: "Otra red",
@@ -19,6 +21,8 @@ export const SOCIAL_PROVIDER_ABBR: Record<SocialFlowNetworkKey, string> = {
   LINKEDIN: "LI",
   TIKTOK: "TT",
   YOUTUBE: "YT",
+  THREADS: "TH",
+  PINTEREST: "PI",
   WHATSAPP: "WA",
   TWITTER_X: "X",
   OTHER: "?",
@@ -31,6 +35,8 @@ export const SOCIAL_PROVIDER_COLOR: Record<SocialFlowNetworkKey, string> = {
   LINKEDIN: "bg-sky-600 text-white",
   TIKTOK: "bg-white/10 text-white",
   YOUTUBE: "bg-red-600 text-white",
+  THREADS: "bg-neutral-900 text-white",
+  PINTEREST: "bg-red-500 text-white",
   WHATSAPP: "bg-emerald-600 text-white",
   TWITTER_X: "bg-white/15 text-white",
   OTHER: "bg-white/10 text-white",

@@ -5,7 +5,7 @@ import { getCloudflareEnv } from "@/lib/cloudflare/context";
 
 export async function GET() {
   try {
-    const { DB } = getCloudflareEnv();
+    const { SOCIAL_DB: DB } = getCloudflareEnv();
     if (!DB) {
       return NextResponse.json({ active_clients: 0, published_posts: 0, scheduled_posts: 0 });
     }

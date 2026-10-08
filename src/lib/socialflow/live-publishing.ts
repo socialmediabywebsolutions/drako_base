@@ -11,6 +11,9 @@ import {
   requireInstagramCredentials,
   type InstagramPostContentType,
 } from "@/lib/socialflow/meta/publishing";
+import { ThreadsIntegrationError } from "@/lib/socialflow/threads/types";
+import { publishToThreads } from "@/lib/socialflow/threads/publishing";
+import { requireThreadsCredentials } from "@/lib/socialflow/threads/repository";
 import { claimScheduledPostForPublishing, getSaasSocialPostById, listSaasSocialAccounts, markAsPosted, updateSaasSocialPostStatus, upsertSaasSocialPost } from "@/lib/socialflow/repository";
 import type { SocialContext } from "@/lib/socialflow/repository";
 import type { SaasSocialAccount, SaasSocialContentType, SaasSocialPost, SaasSocialProvider } from "@/lib/social-core/types";
@@ -21,7 +24,7 @@ const LIVE_PUBLISH_MAX_ATTEMPTS = 3;
 const LIVE_PUBLISH_BASE_DELAY_MS = 1000;
 const LIVE_PUBLISH_MAX_DELAY_MS = 5000;
 
-const SUPPORTED_PROVIDERS = new Set<SaasSocialProvider>(["LINKEDIN", "INSTAGRAM", "FACEBOOK_PAGE"]);
+const SUPPORTED_PROVIDERS = new Set<SaasSocialProvider>(["LINKEDIN", "INSTAGRAM", "FACEBOOK_PAGE", "THREADS"]);
 
 // Build the full caption/text for a post, appending any hashtags stored in
 // metadata.hashtags that the AI page saves separately from the body text.
@@ -37,6 +40,26 @@ function buildPostCaption(post: SaasSocialPost): string {
 async function findPrimaryLinkedInAccount(ctx: SocialContext) {
   const accounts = await listSaasSocialAccounts(ctx);
   return accounts.find((account) => account.provider === "LINKEDIN" && account.isPrimary) ?? null;
+}
+
+async function findPrimaryThreadsAccount(ctx: SocialContext) {
+  const accounts = await listSaasSocialAccounts(ctx);
+  return (
+    accounts.find((a) => a.provider === "THREADS" && a.isPrimary && a.status === "CONNECTED_REAL") ??
+    accounts.find((a) => a.provider === "THREADS" && a.status === "CONNECTED_REAL") ??
+    null
+  );
+}
+
+async function publishToThreadsPost(input: {
+  account: SaasSocialAccount;
+  post: SaasSocialPost;
+}): Promise<{ externalPostId?: string | null }> {
+  const caption = buildPostCaption(input.post);
+  const rawMediaUrl = input.post.imageHint?.trim() ?? "";
+  const mediaUrl = rawMediaUrl.startsWith("http") ? await uploadMediaToR2(rawMediaUrl, input.post.id) : null;
+  const result = await publishToThreads(input.account, caption, mediaUrl);
+  return { externalPostId: result.externalPostId };
 }
 
 async function findPrimaryInstagramAccount(ctx: SocialContext) {
@@ -305,6 +328,7 @@ function getProviderErrorCode(error: unknown): string {
   if (error instanceof LinkedInIntegrationError) return error.code;
   if (error instanceof InstagramPublishingError) return error.code;
   if (error instanceof FacebookPublishingError) return error.code;
+  if (error instanceof ThreadsIntegrationError) return error.code;
   return "PUBLISH_FAILED";
 }
 
@@ -327,6 +351,14 @@ function isRetryablePublishError(error: unknown): boolean {
     const status = typeof error.details?.status === "number" ? error.details.status : null;
     return error.code === "FACEBOOK_PUBLISH_RATE_LIMITED"
       || error.code === "FACEBOOK_PUBLISH_FAILED"
+      || status === 429
+      || (status !== null && status >= 500);
+  }
+  if (error instanceof ThreadsIntegrationError) {
+    const status = typeof error.details?.status === "number" ? error.details.status : null;
+    return error.code === "THREADS_PUBLISH_RATE_LIMITED"
+      || error.code === "THREADS_PUBLISH_FAILED"
+      || error.code === "THREADS_CONTAINER_FAILED"
       || status === 429
       || (status !== null && status >= 500);
   }
@@ -417,17 +449,23 @@ export async function publishSocialPostLive(
       ? await findPrimaryInstagramAccount(ctx)
       : post.provider === "FACEBOOK_PAGE"
       ? await findPrimaryFacebookAccount(ctx)
+      : post.provider === "THREADS"
+      ? await findPrimaryThreadsAccount(ctx)
       : await findPrimaryLinkedInAccount(ctx);
 
     const accountMissingCode = post.provider === "INSTAGRAM"
       ? "INSTAGRAM_ACCOUNT_MISSING"
       : post.provider === "FACEBOOK_PAGE"
       ? "FACEBOOK_ACCOUNT_MISSING"
+      : post.provider === "THREADS"
+      ? "THREADS_ACCOUNT_MISSING"
       : "LINKEDIN_ACCOUNT_MISSING";
     const accountMissingMessage = post.provider === "INSTAGRAM"
       ? "No connected Instagram account found for this workspace."
       : post.provider === "FACEBOOK_PAGE"
       ? "No connected Facebook Page account found for this workspace."
+      : post.provider === "THREADS"
+      ? "No connected Threads account found for this workspace."
       : "No primary LinkedIn account configured for this workspace.";
 
     if (!account) {
@@ -473,6 +511,8 @@ export async function publishSocialPostLive(
           ? await publishToInstagram({ account, post })
           : post.provider === "FACEBOOK_PAGE"
           ? await publishToFacebookPage({ account, post })
+          : post.provider === "THREADS"
+          ? await publishToThreadsPost({ account, post })
           : await publishToLinkedIn({ account, post });
         externalPostId = result.externalPostId ?? null;
         post = (await persistPublicationState(ctx, post, {
