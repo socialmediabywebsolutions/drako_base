@@ -1102,14 +1102,16 @@ export default function OwnerPage() {
 
   // ─── Render principal ─────────────────────────────────────────────────────
 
+  // Llamadas como funciones (no como componentes JSX) para evitar que React las
+  // desmonte en cada re-render, lo que causaba pérdida de foco en los inputs.
   const sectionContent: Record<Section, React.ReactNode> = {
-    dashboard:       <DashboardSection />,
-    finanzas:        <FinanzasSection />,
-    fiscal:          <FiscalSection />,
-    socialcors:      <SocialcorsSection />,
-    mentoria:        <MentoriaSection />,
-    infraestructura: <InfraSection />,
-    configuracion:   <ConfiguracionSection />,
+    dashboard:       DashboardSection(),
+    finanzas:        FinanzasSection(),
+    fiscal:          FiscalSection(),
+    socialcors:      SocialcorsSection(),
+    mentoria:        MentoriaSection(),
+    infraestructura: InfraSection(),
+    configuracion:   ConfiguracionSection(),
   };
 
   return (
