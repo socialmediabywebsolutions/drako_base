@@ -88,6 +88,58 @@ type OperatorEventRollup = {
   count: number;
 };
 
+type TaxPortfolioSummary = {
+  totalVatDueAllSaas: number;
+  saasWithHighVat: number;
+  saasWithNegativeMargin: number;
+  items: Array<{
+    saasId: string;
+    vatDue: number;
+    status: "OK" | "TIGHT" | "RISK";
+    marginPercent?: number | null;
+    periodKey: string;
+  }>;
+};
+
+type RevenueBreakdown = {
+  dashboard: {
+    total_mrr_cents: number;
+    active_tenants: number;
+    past_due_count: number;
+    breakdown: Array<{
+      saas_slug: string;
+      mrr_cents: number;
+      active_tenants: number;
+      past_due_count: number;
+      churn_rate: number;
+    }>;
+  };
+};
+
+type GrantStatus = "IDENTIFIED" | "EVALUATING" | "APPLYING" | "SUBMITTED" | "APPROVED" | "DENIED" | "WITHDRAWN";
+
+type OperatorGrant = {
+  id: string;
+  name: string;
+  entity: string;
+  description: string | null;
+  program: string | null;
+  url: string | null;
+  max_amount: number | null;
+  grant_type: "GRANT" | "LOAN" | "SUBSIDY" | "ADVANCE";
+  deadline: string | null;
+  applied_at: string | null;
+  outcome_at: string | null;
+  status: GrantStatus;
+  requirements: string | null;
+  documents_generated: string | null;
+  notes: string | null;
+  ai_summary: string | null;
+  ai_fit_score: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type MentoriaSystemHealth = {
   notifications: { pending: number; failed: number; abandoned: number; total: number };
   feedback: { pending: number; failed: number; total: number };
@@ -127,12 +179,13 @@ type FactoryItem = {
 
 // ─── Sección activa ───────────────────────────────────────────────────────────
 
-type Section = "dashboard" | "finanzas" | "fiscal" | "socialcors" | "mentoria" | "infraestructura" | "configuracion";
+type Section = "dashboard" | "finanzas" | "fiscal" | "ayudas" | "socialcors" | "mentoria" | "infraestructura" | "configuracion";
 
 const MENU: { id: Section; icon: string; label: string }[] = [
   { id: "dashboard",       icon: "🏠", label: "Dashboard" },
   { id: "finanzas",        icon: "💰", label: "Finanzas" },
   { id: "fiscal",          icon: "📊", label: "Fiscal & IVA" },
+  { id: "ayudas",          icon: "🎯", label: "Ayudas & Subvenciones" },
   { id: "socialcors",      icon: "📱", label: "Socialcors" },
   { id: "mentoria",        icon: "🎓", label: "Mentoría" },
   { id: "infraestructura", icon: "🌐", label: "Infraestructura" },
@@ -239,6 +292,23 @@ export default function OwnerPage() {
 
   const [mentoriaHealth, setMentoriaHealth] = useState<MentoriaSystemHealth | null>(null);
   const [mentoriaLoading, setMentoriaLoading] = useState(true);
+
+  // tax portfolio real
+  const [taxPortfolio, setTaxPortfolio] = useState<TaxPortfolioSummary | null>(null);
+  const [taxPortfolioLoading, setTaxPortfolioLoading] = useState(true);
+
+  // revenue Stripe real
+  const [revenue, setRevenue] = useState<RevenueBreakdown | null>(null);
+  const [revenueLoading, setRevenueLoading] = useState(true);
+
+  // ayudas y subvenciones
+  const [grants, setGrants] = useState<OperatorGrant[]>([]);
+  const [grantsLoading, setGrantsLoading] = useState(true);
+  const [grantsSearching, setGrantsSearching] = useState(false);
+  const [grantsMsg, setGrantsMsg] = useState<string | null>(null);
+  const [selectedGrant, setSelectedGrant] = useState<OperatorGrant | null>(null);
+  const [grantDoc, setGrantDoc] = useState<string | null>(null);
+  const [grantDocLoading, setGrantDocLoading] = useState(false);
 
   // form configuracion
   const [name, setName] = useState("");
@@ -372,6 +442,75 @@ export default function OwnerPage() {
     } catch { /* noop */ } finally { setMentoriaLoading(false); }
   }, []);
 
+  const loadTaxPortfolio = useCallback(async () => {
+    setTaxPortfolioLoading(true);
+    try {
+      const res = await fetch("/api/operator/tax/summary", { cache: "no-store" });
+      const data = await res.json() as { summary?: TaxPortfolioSummary };
+      setTaxPortfolio(data?.summary ?? null);
+    } catch { /* noop */ } finally { setTaxPortfolioLoading(false); }
+  }, []);
+
+  const loadRevenue = useCallback(async () => {
+    setRevenueLoading(true);
+    try {
+      const res = await fetch("/api/operator/revenue", { cache: "no-store" });
+      const data = await res.json() as RevenueBreakdown;
+      setRevenue(data?.dashboard ? data : null);
+    } catch { /* noop */ } finally { setRevenueLoading(false); }
+  }, []);
+
+  const loadGrants = useCallback(async () => {
+    setGrantsLoading(true);
+    try {
+      const res = await fetch("/api/operator/grants", { cache: "no-store" });
+      const data = await res.json() as { ok?: boolean; items?: OperatorGrant[] };
+      setGrants(data?.items ?? []);
+    } catch { /* noop */ } finally { setGrantsLoading(false); }
+  }, []);
+
+  const searchGrants = useCallback(async () => {
+    setGrantsSearching(true);
+    setGrantsMsg(null);
+    try {
+      const res = await fetch("/api/operator/grants/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const data = await res.json() as { ok?: boolean; created?: number; error?: string };
+      if (!data.ok) throw new Error(data.error ?? "Error en búsqueda");
+      setGrantsMsg(`✅ ${data.created ?? 0} ayuda(s) nueva(s) identificadas por la IA`);
+      await loadGrants();
+    } catch (e) {
+      setGrantsMsg(`❌ ${e instanceof Error ? e.message : "Error en búsqueda IA"}`);
+    } finally { setGrantsSearching(false); }
+  }, [loadGrants]);
+
+  const generateGrantDoc = useCallback(async (grantId: string, docType: string) => {
+    setGrantDocLoading(true);
+    setGrantDoc(null);
+    try {
+      const res = await fetch("/api/operator/grants/generate-doc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ grantId, docType }),
+      });
+      const data = await res.json() as { ok?: boolean; document?: string; error?: string };
+      if (!data.ok) throw new Error(data.error ?? "Error generando documento");
+      setGrantDoc(data.document ?? null);
+    } catch (e) {
+      setGrantDoc(`Error: ${e instanceof Error ? e.message : "Error desconocido"}`);
+    } finally { setGrantDocLoading(false); }
+  }, []);
+
+  const updateGrantStatus = useCallback(async (id: string, status: GrantStatus) => {
+    try {
+      await fetch("/api/operator/grants", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      await loadGrants();
+    } catch { /* noop */ }
+  }, [loadGrants]);
+
   const updateAction = useCallback(async (id: string, action: "EXECUTE" | "DISMISS" | "SNOOZE") => {
     setActionUpdatingId(id);
     try {
@@ -411,7 +550,10 @@ export default function OwnerPage() {
     void loadDomains();
     void loadFactory();
     void loadMentoria();
-  }, [loadOwner, loadAccounting, loadTreasury, loadPortfolio, loadGrowth, loadActionQueue, loadEvents, loadDbHealth, loadDomains, loadFactory, loadMentoria]);
+    void loadTaxPortfolio();
+    void loadRevenue();
+    void loadGrants();
+  }, [loadOwner, loadAccounting, loadTreasury, loadPortfolio, loadGrowth, loadActionQueue, loadEvents, loadDbHealth, loadDomains, loadFactory, loadMentoria, loadTaxPortfolio, loadRevenue, loadGrants]);
 
   // ─── derived ───────────────────────────────────────────────────────────────
   const fq = fiscalQuarter();
@@ -676,6 +818,14 @@ export default function OwnerPage() {
   }
 
   function FiscalSection() {
+    // Usar datos reales del tax portfolio si están disponibles, si no fallback a estimación MRR
+    const realVatDue = taxPortfolio?.totalVatDueAllSaas ?? null;
+    const useRealData = !taxPortfolioLoading && taxPortfolio != null;
+
+    // Valores a mostrar (reales o estimados)
+    const displayIvaLiquidar = useRealData ? (realVatDue ?? ivaLiquidar) : ivaLiquidar;
+    const displayIrpf = irpfEst; // IRPF siempre estimado (requiere datos del ejercicio completo)
+
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-gray-900">Fiscal & IVA — España</h2>
@@ -695,36 +845,60 @@ export default function OwnerPage() {
           </div>
         </div>
 
-        {/* IVA estimado trimestre */}
-        <Card tone="glass" title="IVA Modelo 303 — estimación trimestral" subtitle="Basado en MRR actual × 3 meses">
-          {accountingLoading ? (
-            <p className="text-sm text-gray-500">Cargando...</p>
+        {/* IVA Modelo 303 — datos reales del motor fiscal */}
+        <Card tone="glass" title="IVA Modelo 303 — trimestre actual" subtitle={useRealData ? "Datos calculados por el motor fiscal por SaaS" : "Estimación basada en MRR"}>
+          {taxPortfolioLoading ? (
+            <p className="text-sm text-gray-500">Calculando IVA real...</p>
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <K label="Ingresos trimestre" value={fmtEur(qRevenue)} />
-                <K label="IVA recaudado (21%)" value={fmtEur(ivaRecaudado)} />
-                <K label="IVA soportado (gastos)" value={fmtEur(ivaSoportado)} />
-                <K label="IVA a liquidar" value={fmtEur(ivaLiquidar)} accent />
+                {useRealData ? (
+                  <>
+                    <K label="IVA total a liquidar" value={fmtEur(taxPortfolio!.totalVatDueAllSaas)} accent />
+                    <K label="SaaS con IVA alto" value={String(taxPortfolio!.saasWithHighVat)} />
+                    <K label="SaaS en pérdidas" value={String(taxPortfolio!.saasWithNegativeMargin)} />
+                    <K label="SaaS calculados" value={String(taxPortfolio!.items.length)} />
+                  </>
+                ) : (
+                  <>
+                    <K label="Ingresos trimestre (est.)" value={fmtEur(qRevenue)} />
+                    <K label="IVA recaudado (21%)" value={fmtEur(ivaRecaudado)} />
+                    <K label="IVA soportado (gastos)" value={fmtEur(ivaSoportado)} />
+                    <K label="IVA a liquidar (est.)" value={fmtEur(ivaLiquidar)} accent />
+                  </>
+                )}
               </div>
-              <p className="text-xs text-gray-500">
-                * Estimación basada en MRR ({fmtEur(accounting?.totalSubscriptionMRR)} × 3) y gastos fijos ({fmtEur(accounting?.vendorFixedMonthly)} × 3). Solo orientativo — verifica con tu gestor.
-              </p>
-              {accounting?.taxSummary && (
-                <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-200">
-                  <div>
-                    <p className="text-xs text-gray-500">IVA estimado (todos los SaaS)</p>
-                    <p className="text-xl font-bold text-gray-800">{accounting.taxSummary.totalVatDueAllSaas > 0 ? fmtEur(accounting.taxSummary.totalVatDueAllSaas) : "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">SaaS en riesgo fiscal</p>
-                    <p className="text-xl font-bold text-amber-600">{accounting.taxSummary.saasWithHighVat}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Con margen negativo</p>
-                    <p className="text-xl font-bold text-red-600">{accounting.taxSummary.saasWithNegativeMargin}</p>
-                  </div>
+
+              {/* Desglose por SaaS */}
+              {useRealData && taxPortfolio!.items.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="modern text-sm w-full" aria-label="IVA por SaaS">
+                    <thead>
+                      <tr><th>SaaS</th><th>Período</th><th>IVA a liquidar</th><th>Margen</th><th>Estado</th></tr>
+                    </thead>
+                    <tbody>
+                      {taxPortfolio!.items.map((item) => (
+                        <tr key={item.saasId}>
+                          <td className="font-medium">{item.saasId}</td>
+                          <td className="text-xs text-gray-400">{item.periodKey}</td>
+                          <td className="font-semibold">{fmtEur(item.vatDue)}</td>
+                          <td>{item.marginPercent != null ? `${item.marginPercent.toFixed(0)}%` : "—"}</td>
+                          <td>
+                            <Badge variant={item.status === "OK" ? "ok" : item.status === "TIGHT" ? "warn" : "err"}>
+                              {item.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
+              )}
+
+              {!useRealData && (
+                <p className="text-xs text-gray-500">
+                  * Estimación: MRR ({fmtEur(accounting?.totalSubscriptionMRR)} × 3) y gastos fijos ({fmtEur(accounting?.vendorFixedMonthly)} × 3). Solo orientativo.
+                </p>
               )}
             </div>
           )}
@@ -749,26 +923,244 @@ export default function OwnerPage() {
         </Card>
 
         {/* Resumen total a pagar este trimestre */}
-        {!accountingLoading && (
-          <div className="rounded-2xl border-2 border-blue-300 bg-blue-50 p-5">
-            <p className="font-bold text-blue-900 text-lg mb-3">💡 Total a pagar este trimestre ({fq.label})</p>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-              <div>
-                <p className="text-xs text-blue-600">Modelo 303 (IVA neto)</p>
-                <p className="text-2xl font-bold text-blue-800">{fmtEur(ivaLiquidar)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-blue-600">Modelo 130 (IRPF fraccionado)</p>
-                <p className="text-2xl font-bold text-blue-800">{fmtEur(irpfEst)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-blue-600">Total estimado</p>
-                <p className="text-2xl font-bold text-blue-900">{fmtEur(ivaLiquidar + irpfEst)}</p>
-              </div>
+        <div className="rounded-2xl border-2 border-blue-300 bg-blue-50 p-5">
+          <p className="font-bold text-blue-900 text-lg mb-3">💡 Total a pagar este trimestre ({fq.label})</p>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            <div>
+              <p className="text-xs text-blue-600">Modelo 303 (IVA neto){useRealData ? " · Motor real" : " · Estimado"}</p>
+              <p className="text-2xl font-bold text-blue-800">{taxPortfolioLoading ? "…" : fmtEur(displayIvaLiquidar)}</p>
             </div>
-            <p className="text-xs text-blue-600 mt-3">⚠️ Estimación orientativa. Confirma los importes exactos con tu gestoría antes de presentar.</p>
+            <div>
+              <p className="text-xs text-blue-600">Modelo 130 (IRPF fraccionado)</p>
+              <p className="text-2xl font-bold text-blue-800">{accountingLoading ? "…" : fmtEur(displayIrpf)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-blue-600">Total estimado</p>
+              <p className="text-2xl font-bold text-blue-900">{(taxPortfolioLoading || accountingLoading) ? "…" : fmtEur(displayIvaLiquidar + displayIrpf)}</p>
+            </div>
+          </div>
+          <p className="text-xs text-blue-600 mt-3">⚠️ Estimación orientativa. Confirma los importes exactos con tu gestoría antes de presentar.</p>
+        </div>
+      </div>
+    );
+  }
+
+  function AyudasSection() {
+    const GRANT_STATUS_LABELS: Record<GrantStatus, string> = {
+      IDENTIFIED: "Identificada",
+      EVALUATING: "Evaluando",
+      APPLYING: "Postulando",
+      SUBMITTED: "Presentada",
+      APPROVED: "✅ Concedida",
+      DENIED: "❌ Denegada",
+      WITHDRAWN: "Retirada",
+    };
+
+    const GRANT_TYPE_LABELS: Record<string, string> = {
+      GRANT: "Subvención",
+      LOAN: "Préstamo",
+      SUBSIDY: "Ayuda",
+      ADVANCE: "Anticipo",
+    };
+
+    const activeGrants = grants.filter((g) => !["DENIED", "WITHDRAWN"].includes(g.status));
+    const closedGrants = grants.filter((g) => ["APPROVED", "DENIED", "WITHDRAWN"].includes(g.status));
+    const statusOrder: GrantStatus[] = ["APPLYING", "SUBMITTED", "EVALUATING", "IDENTIFIED", "APPROVED", "DENIED", "WITHDRAWN"];
+    const sortedActive = [...activeGrants].sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status));
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Ayudas & Subvenciones</h2>
+            <p className="text-sm text-gray-500 mt-1">El agente IA busca convocatorias y genera los documentos de solicitud</p>
+          </div>
+          <Button
+            variant="outline"
+            disabled={grantsSearching}
+            onClick={() => void searchGrants()}
+          >
+            {grantsSearching ? "🔍 Buscando ayudas..." : "🤖 Buscar ayudas con IA"}
+          </Button>
+        </div>
+
+        {grantsMsg && (
+          <div className={`rounded-2xl border px-5 py-3 text-sm ${grantsMsg.startsWith("✅") ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-800"}`}>
+            {grantsMsg}
           </div>
         )}
+
+        {/* KPIs de ayudas */}
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <K label="Total identificadas" value={String(grants.length)} />
+          <K label="En proceso" value={String(grants.filter((g) => ["EVALUATING", "APPLYING", "SUBMITTED"].includes(g.status)).length)} accent />
+          <K label="Concedidas" value={String(grants.filter((g) => g.status === "APPROVED").length)} />
+          <K label="Importe potencial" value={fmtEur(activeGrants.reduce((sum, g) => sum + (g.max_amount ?? 0), 0) / 100)} />
+        </div>
+
+        {/* Ayudas activas */}
+        {grantsLoading ? (
+          <p className="text-sm text-gray-500">Cargando ayudas...</p>
+        ) : sortedActive.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 p-8 text-center">
+            <p className="text-gray-500 text-lg">No hay ayudas activas.</p>
+            <p className="text-sm text-gray-400 mt-2">Pulsa "Buscar ayudas con IA" y el agente identificará convocatorias para las que puedes presentarte.</p>
+          </div>
+        ) : (
+          <Card tone="glass" title="Ayudas en seguimiento" subtitle="Convocatorias activas ordenadas por estado">
+            <div className="space-y-3">
+              {sortedActive.map((grant) => (
+                <div
+                  key={grant.id}
+                  className={`rounded-xl border p-4 cursor-pointer transition-colors ${selectedGrant?.id === grant.id ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:border-gray-300"}`}
+                  onClick={() => { setSelectedGrant(selectedGrant?.id === grant.id ? null : grant); setGrantDoc(null); }}
+                >
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant={grant.status === "APPROVED" ? "ok" : grant.status === "APPLYING" || grant.status === "SUBMITTED" ? "warn" : "neutral"}>
+                          {GRANT_STATUS_LABELS[grant.status]}
+                        </Badge>
+                        <Badge variant="neutral">{GRANT_TYPE_LABELS[grant.grant_type] ?? grant.grant_type}</Badge>
+                        {grant.ai_fit_score != null && (
+                          <span className="text-xs text-gray-500">Encaje: <strong className={grant.ai_fit_score >= 70 ? "text-green-600" : "text-amber-600"}>{grant.ai_fit_score}%</strong></span>
+                        )}
+                      </div>
+                      <p className="font-semibold text-gray-900 mt-1">{grant.name}</p>
+                      <p className="text-xs text-gray-500">{grant.entity}{grant.program ? ` · ${grant.program}` : ""}</p>
+                      {grant.description && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{grant.description}</p>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      {grant.max_amount && <p className="font-bold text-gray-800">hasta {fmtEur(grant.max_amount / 100)}</p>}
+                      {grant.deadline && (
+                        <p className="text-xs text-gray-500">
+                          Cierre: {new Date(grant.deadline).toLocaleDateString("es-ES")}
+                          {" "}({daysUntil(grant.deadline) > 0 ? `${daysUntil(grant.deadline)} días` : "Vencida"})
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Panel expandido */}
+                  {selectedGrant?.id === grant.id && (
+                    <div className="mt-4 pt-4 border-t border-blue-200 space-y-3">
+                      {grant.ai_summary && (
+                        <div>
+                          <p className="text-xs text-blue-700 font-semibold mb-1">🤖 Análisis IA</p>
+                          <p className="text-sm text-gray-700">{grant.ai_summary}</p>
+                        </div>
+                      )}
+                      {grant.requirements && (
+                        <div>
+                          <p className="text-xs text-gray-500 font-semibold mb-1">Requisitos principales</p>
+                          <p className="text-sm text-gray-600">{grant.requirements}</p>
+                        </div>
+                      )}
+
+                      {/* Cambiar estado */}
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold mb-2">Cambiar estado</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(["EVALUATING", "APPLYING", "SUBMITTED", "APPROVED", "DENIED", "WITHDRAWN"] as GrantStatus[]).map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              disabled={grant.status === s}
+                              onClick={(e) => { e.stopPropagation(); void updateGrantStatus(grant.id, s); }}
+                              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${grant.status === s ? "bg-blue-100 border-blue-300 text-blue-800 font-semibold" : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"}`}
+                            >
+                              {GRANT_STATUS_LABELS[s]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Generar documentos */}
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold mb-2">Generar documentos con IA</p>
+                        <div className="flex gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={grantDocLoading}
+                            onClick={(e) => { e.stopPropagation(); void generateGrantDoc(grant.id, "memoria_proyecto"); }}
+                          >
+                            {grantDocLoading ? "Generando..." : "📄 Memoria técnica"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={grantDocLoading}
+                            onClick={(e) => { e.stopPropagation(); void generateGrantDoc(grant.id, "solicitud"); }}
+                          >
+                            {grantDocLoading ? "Generando..." : "📋 Solicitud formal"}
+                          </Button>
+                          {grant.url && (
+                            <a href={grant.url} target="_blank" rel="noopener noreferrer">
+                              <Button size="sm" variant="outline">🔗 Ver convocatoria</Button>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Documento generado */}
+                      {grantDocLoading && <p className="text-sm text-blue-600">Generando documento...</p>}
+                      {grantDoc && !grantDocLoading && (
+                        <div className="mt-3">
+                          <p className="text-xs text-gray-500 font-semibold mb-2">Documento generado</p>
+                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-xs text-gray-700 whitespace-pre-wrap max-h-96 overflow-y-auto font-mono">
+                            {grantDoc}
+                          </div>
+                          <button
+                            type="button"
+                            className="mt-2 text-xs text-blue-600 underline"
+                            onClick={() => {
+                              const blob = new Blob([grantDoc], { type: "text/plain" });
+                              const a = document.createElement("a");
+                              a.href = URL.createObjectURL(blob);
+                              a.download = `${grant.name.replace(/\s+/g, "_")}.txt`;
+                              a.click();
+                            }}
+                          >
+                            Descargar documento
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Historial */}
+        {closedGrants.length > 0 && (
+          <Card tone="glass" title="Historial" subtitle="Ayudas concedidas, denegadas o retiradas">
+            <div className="space-y-2">
+              {closedGrants.map((grant) => (
+                <div key={grant.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                  <div>
+                    <p className="font-medium text-gray-800 text-sm">{grant.name}</p>
+                    <p className="text-xs text-gray-500">{grant.entity} · {grant.outcome_at ? new Date(grant.outcome_at).toLocaleDateString("es-ES") : "—"}</p>
+                  </div>
+                  <Badge variant={grant.status === "APPROVED" ? "ok" : "err"}>{GRANT_STATUS_LABELS[grant.status]}</Badge>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Info sobre el agente */}
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4">
+          <p className="font-semibold text-gray-700 mb-2">ℹ️ Cómo funciona el agente de ayudas</p>
+          <ul className="text-sm text-gray-600 space-y-1">
+            <li>• El agente analiza el perfil de Drako (sector, NIF, SaaS, actividad) y busca convocatorias relevantes</li>
+            <li>• Genera automáticamente la memoria técnica y solicitud formal adaptada a cada ayuda</li>
+            <li>• Puedes seguir el estado de cada postulación desde este panel</li>
+            <li>• Los documentos generados son un punto de partida — revisa y completa con tu gestor</li>
+          </ul>
+        </div>
       </div>
     );
   }
@@ -1108,6 +1500,7 @@ export default function OwnerPage() {
     dashboard:       DashboardSection(),
     finanzas:        FinanzasSection(),
     fiscal:          FiscalSection(),
+    ayudas:          AyudasSection(),
     socialcors:      SocialcorsSection(),
     mentoria:        MentoriaSection(),
     infraestructura: InfraSection(),
@@ -1137,6 +1530,11 @@ export default function OwnerPage() {
               )}
               {item.id === "dashboard" && criticalOpen.length > 0 && (
                 <span className="text-[10px] font-bold text-red-600 bg-red-100 rounded-full px-1.5 py-0.5">{criticalOpen.length}</span>
+              )}
+              {item.id === "ayudas" && grants.filter((g) => ["APPLYING", "SUBMITTED"].includes(g.status)).length > 0 && (
+                <span className="text-[10px] font-bold text-blue-600 bg-blue-100 rounded-full px-1.5 py-0.5">
+                  {grants.filter((g) => ["APPLYING", "SUBMITTED"].includes(g.status)).length}
+                </span>
               )}
             </button>
           ))}
