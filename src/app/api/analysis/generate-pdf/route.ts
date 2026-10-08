@@ -5,8 +5,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { env } from "@/lib/cf";
 import React from 'react';
-import { renderToBuffer } from '@react-pdf/renderer';
-import { CompetitiveAnalysisReport } from "@/components/analysis/CompetitiveAnalysisReport";
 
 // POST - Generate PDF from analysis data
 export async function POST(_req: NextRequest) {
@@ -111,10 +109,22 @@ export async function POST(_req: NextRequest) {
             },
         };
 
-        // Generate PDF
-        const pdfBuffer = await renderToBuffer(
-            React.createElement(CompetitiveAnalysisReport, pdfData) as any
-        );
+        // Generate PDF — dynamic import to keep @react-pdf/renderer out of the CF Worker bundle
+        let pdfBuffer: Buffer;
+        try {
+            const [{ renderToBuffer }, { CompetitiveAnalysisReport }] = await Promise.all([
+                import("@react-pdf/renderer") as Promise<{ renderToBuffer: (element: unknown) => Promise<Buffer> }>,
+                import("@/components/analysis/CompetitiveAnalysisReport") as Promise<{ CompetitiveAnalysisReport: React.ComponentType<typeof pdfData> }>,
+            ]);
+            pdfBuffer = await renderToBuffer(
+                React.createElement(CompetitiveAnalysisReport as React.ComponentType<any>, pdfData)
+            );
+        } catch {
+            return NextResponse.json(
+                { error: "PDF generation is not available in this environment." },
+                { status: 501 }
+            );
+        }
 
         // TODO: Upload to Cloudflare R2
         // For now, return the PDF directly
