@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AppWindow, BarChart3, BookOpen, ChevronDown, ChevronRight, LayoutPanelLeft, MessageCircleMore, Target } from "lucide-react";
+import { AppWindow, BarChart3, BookOpen, ChevronDown, ChevronRight, LayoutPanelLeft, MessageCircleMore, Star, Target, Trophy } from "lucide-react";
 import type { StudentProfile, MentoriaStudentSubject, MentoriaProgress, LearningSession, FocusSession, MentoriaGuardian } from "@/lib/mentoria/types";
 
 type WorkspaceNavProps = {
@@ -118,6 +118,20 @@ export function WorkspaceNav({
             >
               <Target className="h-4 w-4 text-slate-500" aria-hidden="true" />
               <span className="hidden lg:inline">Modo Examen</span>
+            </Link>
+            <Link
+              href={buildHref("/mentoria/app/objetivos")}
+              className="flex items-center gap-3 rounded-2xl bg-white px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              <Star className="h-4 w-4 text-slate-500" aria-hidden="true" />
+              <span className="hidden lg:inline">Objetivos</span>
+            </Link>
+            <Link
+              href={buildHref("/mentoria/app/logros")}
+              className="flex items-center gap-3 rounded-2xl bg-white px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              <Trophy className="h-4 w-4 text-slate-500" aria-hidden="true" />
+              <span className="hidden lg:inline">Logros</span>
             </Link>
           </div>
         </div>
