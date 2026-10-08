@@ -16,9 +16,11 @@ function u32le(view: DataView, offset: number): number {
 
 async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
   const ds = new DecompressionStream("deflate-raw");
-  const writer = ds.writable.getWriter();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const writer = (ds.writable as WritableStream<any>).getWriter();
   const reader = ds.readable.getReader();
-  await writer.write(data);
+  // Pass as ArrayBuffer to satisfy BufferSource — avoids Uint8Array<ArrayBufferLike> mismatch
+  await writer.write(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
   await writer.close();
 
   const chunks: Uint8Array[] = [];
