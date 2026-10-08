@@ -1,5 +1,6 @@
-import { gps } from "exifr";
-
+// exifr is loaded dynamically to keep it out of the CF Worker server bundle.
+// Listed in next.config.ts serverExternalPackages for the same reason.
+//
 // exifr.gps() ya devuelve undefined (sin lanzar) cuando la imagen no tiene tags GPS —
 // ver node_modules/exifr/src/highlevel/gps.mjs. El try/catch de aquí cubre el resto de
 // fallos reales que SÍ pueden lanzar: buffer que no es una imagen válida, formato no
@@ -8,6 +9,7 @@ import { gps } from "exifr";
 // el genérico de siempre, no un error.
 export async function extractGpsFromBuffer(buffer: ArrayBuffer): Promise<{ lat: number; lng: number } | null> {
   try {
+    const { gps } = await import("exifr");
     const result = await gps(buffer);
     if (!result || typeof result.latitude !== "number" || typeof result.longitude !== "number") {
       return null;
