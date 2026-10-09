@@ -919,9 +919,6 @@ async function loadTenantIsolationEvidenceSources() {
     "src/lib/socialflow/auth/server.ts",
     "src/lib/socialflow/auth/tenant-isolation.ts",
     "src/lib/socialflow/export.ts",
-    "src/modules/socialflow-app/settings/account-page.tsx",
-    "src/modules/socialflow-app/settings/ownership-page.tsx",
-    "src/modules/socialflow-app/settings/team-page.tsx",
   ];
 
   const entries = await Promise.all(relativePaths.map(async (relativePath) => [
@@ -1049,12 +1046,12 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
         sharedEvidence.middlewareMismatchRejection &&
         sharedEvidence.tenantIsolationContract &&
         sharedEvidence.serverSessionGuard &&
-        sourceIncludesAll(sources["src/modules/socialflow-app/settings/account-page.tsx"], [
+        sourceIncludesAll(sources["src/app/socialflow/(workspace)/settings/account/page.tsx"], [
           "getCurrentSocialFlowSession()",
           "currentTenantId: session.tenantId",
           "tenantId: session.tenantId",
         ]) &&
-        sourceExcludesAll(sources["src/modules/socialflow-app/settings/account-page.tsx"], [
+        sourceExcludesAll(sources["src/app/socialflow/(workspace)/settings/account/page.tsx"], [
           "@/lib/db",
         ])
           ? "VERIFIED_TENANT_ISOLATED"
@@ -1068,7 +1065,6 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
       flow: {
         entrypoints: [
           "src/app/socialflow/(workspace)/settings/account/page.tsx",
-          "src/modules/socialflow-app/settings/account-page.tsx",
         ],
         services: ["src/components/settings/socialflow-account-settings.tsx"],
         repositories: ["src/lib/auths/repositories.ts"],
@@ -1077,12 +1073,12 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
         tenantFilters: [
           "workspace session resolved from signed SocialFlow token",
           "currentTenantId and memberships are rendered from session.tenantId only",
-          "no DRACO_DB query runs in this route path",
+          "billing snapshot is read with session.tenantId only",
         ],
       },
       evidence: [
         "Route is gated by getCurrentSocialFlowSession() and redirects to /socialflow/auth if the session is absent.",
-        "Rendered workspace identity is sourced from session.tenantId only; no shared DB query executes in the account page path.",
+        "Rendered workspace identity and billing snapshot are sourced from session.tenantId only.",
       ],
       gaps: [],
     },
@@ -1136,7 +1132,7 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
           "getCurrentSocialFlowSession()",
           'redirect("/socialflow/auth")',
         ]) &&
-        sourceIncludesAll(sources["src/modules/socialflow-app/settings/ownership-page.tsx"], [
+        sourceIncludesAll(sources["src/app/socialflow/(workspace)/settings/ownership/page.tsx"], [
           'link.href = "/api/socialflow/exports/current";',
         ]) &&
         exportIsolationChecks.routeSessionSource &&
@@ -1157,7 +1153,6 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
       flow: {
         entrypoints: [
           "src/app/socialflow/(workspace)/settings/ownership/page.tsx",
-          "src/modules/socialflow-app/settings/ownership-page.tsx",
         ],
         services: ["src/app/api/socialflow/exports/current/route.ts", "src/lib/socialflow/export.ts", "src/lib/export/wipeout-package.ts"],
         repositories: ["src/lib/auths/repositories.ts"],
@@ -1185,7 +1180,7 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
         sharedEvidence.tenantIsolationContract &&
         sharedEvidence.serverSessionGuard &&
         sharedEvidence.authRosterTenantQuery &&
-        sourceIncludesAll(sources["src/modules/socialflow-app/settings/team-page.tsx"], [
+        sourceIncludesAll(sources["src/app/socialflow/(workspace)/settings/team/page.tsx"], [
           "getCurrentSocialFlowSession()",
           "listAuthsUsersByTenant({",
           'context: "socialflow"',
@@ -1202,7 +1197,6 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
       flow: {
         entrypoints: [
           "src/app/socialflow/(workspace)/settings/team/page.tsx",
-          "src/modules/socialflow-app/settings/team-page.tsx",
         ],
         services: [],
         repositories: ["src/lib/auths/repositories.ts"],

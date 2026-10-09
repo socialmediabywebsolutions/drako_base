@@ -60,7 +60,7 @@ vi.mock("@/lib/socialflow/token-encryption", () => ({
   encryptToken,
 }));
 
-import { persistLinkedInConnection } from "@/lib/social/linkedin-connection";
+import { persistSocialFlowLinkedInConnection as persistLinkedInConnection } from "@/lib/socialflow/linkedin/repository";
 
 describe("persistLinkedInConnection", () => {
   beforeEach(() => {

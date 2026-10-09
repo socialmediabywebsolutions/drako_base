@@ -48,10 +48,6 @@ vi.mock("@/lib/automation-core", () => ({
   AutomationCoreError,
 }));
 
-vi.mock("@/lib/socialflow/contracts/automation", () => ({
-  runSocialFlowAutomationContract: vi.fn(),
-}));
-
 import {
   SOCIALFLOW_CONTENT_GENERATION_KEY,
   SOCIALFLOW_HEALTH_CHECK_KEY,

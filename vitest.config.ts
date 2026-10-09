@@ -31,7 +31,6 @@ export default defineConfig({
             "src/__tests__/operator-governance-view.test.ts",
             "src/__tests__/owner-governance-route.test.ts",
             "src/__tests__/ui-isolation.test.tsx",
-            "src/components/saas/socialflow/SocialFlowWorkspaceClient.test.tsx",
         ],
         coverage: {
             provider: "v8",

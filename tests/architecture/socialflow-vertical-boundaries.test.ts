@@ -72,25 +72,13 @@ describe("SocialFlow vertical boundaries", () => {
     expect(socialFlowScheduler).toContain("export async function processScheduledPosts");
     expect(socialFlowScheduler).toContain("recoverStalePublishingPosts");
 
-    const legacyRepository = read("src/lib/social/repository.ts");
-    const legacyPublishing = read("src/lib/social/live-publishing.ts");
-    const legacyScheduler = read("src/lib/social/scheduler.ts");
-
-    for (const source of [legacyRepository, legacyPublishing, legacyScheduler]) {
-      expect(source).toContain("@deprecated");
-      expect(source).toMatch(/export \* from "@\/lib\/socialflow\//);
-      expect(source).not.toMatch(/runStatement|recordObservabilityActivity|processScheduledPosts\(/);
-      expect(source).not.toMatch(/claimScheduledPostForPublishing\(|recoverStalePublishingPosts\(/);
-    }
+    // La librería legacy src/lib/social se eliminó en la P2 de SocialCors; no debe reaparecer.
+    expect(existsSync(path.join(repoRoot, "src/lib/social"))).toBe(false);
   });
 
-  it("keeps analytics window and profile repository canonical in SocialFlow", () => {
-    const socialFlowAnalyticsWindow = read("src/lib/socialflow/analytics-window.ts");
+  it("keeps profile repository canonical in SocialFlow", () => {
     const socialFlowProfileRepository = read("src/lib/socialflow/profile/repository.ts");
     const socialFlowProfileTypes = read("src/lib/socialflow/profile/types.ts");
-
-    expect(socialFlowAnalyticsWindow).toContain("getPostAnalyticsMetadata");
-    expect(socialFlowAnalyticsWindow).not.toMatch(/@\/lib\/social\/analytics-window/);
 
     expect(socialFlowProfileRepository).toContain("getChannelKnowledge");
     expect(socialFlowProfileRepository).toContain("upsertChannelProfile");
@@ -98,20 +86,10 @@ describe("SocialFlow vertical boundaries", () => {
 
     expect(socialFlowProfileTypes).toContain("export type ChannelProfile");
     expect(socialFlowProfileTypes).not.toMatch(/@\/lib\/social\/profile\/types/);
-
-    const legacyAnalyticsWindow = read("src/lib/social/analytics-window.ts");
-    const legacyProfileRepository = read("src/lib/social/profile/repository.ts");
-    const legacyProfileTypes = read("src/lib/social/profile/types.ts");
-
-    for (const source of [legacyAnalyticsWindow, legacyProfileRepository, legacyProfileTypes]) {
-      expect(source).toContain("@deprecated");
-      expect(source).toMatch(/export \* from "@\/lib\/socialflow\//);
-    }
   });
 
   it("exposes SocialFlow observability through an operator contract", () => {
     const contract = read("src/lib/socialflow/contracts/observability.ts");
-    const operatorActions = read("src/lib/socialflow/contracts/operator-actions.ts");
     // Canonical service migrated to campamento-base; adapter re-exports
     const adapterService = read("src/lib/campobase/socialflow-service.ts");
     const canonicalService = read("src/lib/campamento-base/socialflow-control-plane-service.ts");
@@ -120,11 +98,6 @@ describe("SocialFlow vertical boundaries", () => {
     expect(contract).toContain("@/lib/socialflow/repository");
     expect(contract).toContain("@/lib/observability-core");
     expect(contract).not.toMatch(/@\/lib\/socialflow\/(live-publishing|scheduler|linkedin\/publishing)/);
-
-    expect(operatorActions).toContain("runSocialFlowOperatorAction");
-    expect(operatorActions).toContain("@/lib/socialflow/repository");
-    expect(operatorActions).toContain("@/lib/observability-core");
-    expect(operatorActions).not.toMatch(/@\/lib\/socialflow\/(live-publishing|scheduler|linkedin\/publishing)/);
 
     expect(adapterService).toContain("@/lib/campamento-base/socialflow-control-plane-service");
     expect(canonicalService).toContain("@/lib/capabilities/internal-api-clients/socialflow-control-plane");
@@ -175,7 +148,6 @@ describe("SocialFlow vertical boundaries", () => {
 
   it("keeps legacy SocialFlow modules detached from Mentoría, Campamento Base and operator surfaces", () => {
     const files = [
-      ...listFiles(path.join(repoRoot, "src/modules/socialflow-app")),
       path.join(repoRoot, "src/components/layouts/socialflow-shell.tsx"),
     ];
 
@@ -309,10 +281,10 @@ describe("SocialFlow vertical boundaries", () => {
     const billingPage = read("src/app/socialflow/(workspace)/settings/billing/page.tsx");
     const billingCheckoutRoute = read("src/app/api/socialflow/billing/checkout/route.ts");
     const billingPortalRoute = read("src/app/api/socialflow/billing/portal/route.ts");
-    const accountPage = read("src/modules/socialflow-app/settings/account-page.tsx");
+    const accountPage = read("src/app/socialflow/(workspace)/settings/account/page.tsx");
     const socialFlowAccountSettings = read("src/components/settings/socialflow-account-settings.tsx");
-    const ownershipPage = read("src/modules/socialflow-app/settings/ownership-page.tsx");
-    const teamPage = read("src/modules/socialflow-app/settings/team-page.tsx");
+    const ownershipPage = read("src/app/socialflow/(workspace)/settings/ownership/page.tsx");
+    const teamPage = read("src/app/socialflow/(workspace)/settings/team/page.tsx");
 
     expect(rootLayout).not.toContain("ShellLayout");
     expect(rootLayout).not.toContain("HostSwitcher");

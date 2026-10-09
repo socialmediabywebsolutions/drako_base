@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   LinkedInIntegrationError,
   publishLinkedInMemberPost,
-} from "@/lib/social/linkedin";
+} from "@/lib/socialflow/linkedin/core";
 
 const fetchMock = vi.fn();
 

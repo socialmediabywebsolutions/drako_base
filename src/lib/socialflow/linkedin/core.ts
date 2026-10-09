@@ -5,9 +5,6 @@
  * error handling, environment resolution, callback resolution, state
  * parsing, token exchange, profile fetching, identity resolution,
  * publishing, and diagnostics.
- *
- * Legacy consumers should import via the deprecated compatibility
- * facade at `@/lib/social/linkedin`.
  */
 import { env } from "@/lib/cf";
 

@@ -5,7 +5,7 @@ import {
   fetchLinkedInUserProfile,
   resolveLinkedInCallbackUrl,
   resolveLinkedInIdentity,
-} from "@/lib/social/linkedin";
+} from "@/lib/socialflow/linkedin/core";
 
 const fetchMock = vi.fn();
 

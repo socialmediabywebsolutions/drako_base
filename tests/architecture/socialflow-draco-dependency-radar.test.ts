@@ -8,7 +8,6 @@ const SOURCE_DIRS = [
   "src/lib/socialflow",
   "src/app/api/socialflow",
   "apps/socialflow-runtime/src",
-  "src/modules/socialflow-app",
 ] as const;
 
 const CODE_FILE_PATTERN = /\.(?:[cm]?[jt]sx?)$/;
@@ -168,8 +167,6 @@ const sqlCoreTableRules: DependencyRule[] = [
 const dependencyRules: DependencyRule[] = [...directDependencyRules, ...sqlCoreTableRules];
 
 const temporaryAllowlist: AllowlistEntry[] = [
-  // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
-  { file: "src/lib/socialflow/contracts/legacy-actions-core.ts", rules: ["direct-draco-db-token", "direct-bindings-draco-db", "sql-core-tenant-dossiers", "sql-core-agent-work-logs"], note: ALLOWLIST_TODO_COMMENT },
   {
     file: "src/lib/socialflow/contracts/export-core-read.ts",
     rules: [
