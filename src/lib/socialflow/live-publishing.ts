@@ -17,7 +17,7 @@ import { requireThreadsCredentials } from "@/lib/socialflow/threads/repository";
 import { claimScheduledPostForPublishing, getSaasSocialPostById, listSaasSocialAccounts, markAsPosted, updateSaasSocialPostStatus, upsertSaasSocialPost } from "@/lib/socialflow/repository";
 import type { SocialContext } from "@/lib/socialflow/repository";
 import type { SaasSocialAccount, SaasSocialContentType, SaasSocialPost, SaasSocialProvider } from "@/lib/social-core/types";
-import { recordObservabilityActivity } from "@/lib/observability-core";
+import { recordPublishActivity } from "@/lib/socialflow/publish-activity";
 import { seedTokenInvalidAlert } from "@/lib/socialflow/instagram/token-health";
 
 const LIVE_PUBLISH_MAX_ATTEMPTS = 3;
@@ -365,14 +365,15 @@ function isRetryablePublishError(error: unknown): boolean {
   return error instanceof Error;
 }
 
+// Se escribe en SOCIAL_DB.socialflow_publish_activity (antes: observability-core en DRACO_DB,
+// que el Worker IA no tiene). Fire-and-forget: el log nunca debe romper la publicación.
 function safeRecordActivity(ctx: SocialContext, postId: string, activityType: string, status: "success" | "error" | "info", summary: string, metadata?: Record<string, unknown>) {
-  if (!ctx.saasId) return;
+  if (!ctx.saasId || !ctx.socialDb) return;
   try {
-    recordObservabilityActivity({
+    recordPublishActivity(ctx.socialDb, {
       tenantId: ctx.tenantId,
       saasId: ctx.saasId,
-      sourceType: "integration",
-      sourceKey: `post:${postId}`,
+      postId,
       activityType,
       status,
       summary,

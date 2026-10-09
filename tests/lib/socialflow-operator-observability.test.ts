@@ -8,6 +8,7 @@ const {
   getObservabilityStatusSummary,
   listObservabilityActivities,
   listObservabilityIncidents,
+  listPublishActivities,
 } = vi.hoisted(() => ({
   resolveSocialContext: vi.fn(),
   listSaasSocialPosts: vi.fn(),
@@ -16,6 +17,7 @@ const {
   getObservabilityStatusSummary: vi.fn(),
   listObservabilityActivities: vi.fn(),
   listObservabilityIncidents: vi.fn(),
+  listPublishActivities: vi.fn(),
 }));
 
 vi.mock("@/lib/socialflow/repository", () => ({
@@ -29,6 +31,10 @@ vi.mock("@/lib/observability-core", () => ({
   getObservabilityStatusSummary,
   listObservabilityActivities,
   listObservabilityIncidents,
+}));
+
+vi.mock("@/lib/socialflow/publish-activity", () => ({
+  listPublishActivities,
 }));
 
 import { getSocialFlowOperatorObservability } from "@/lib/socialflow/contracts/observability";
@@ -100,6 +106,7 @@ describe("SocialFlow operator observability contract", () => {
       },
     ]);
     listObservabilityIncidents.mockResolvedValue([]);
+    listPublishActivities.mockResolvedValue([]);
     listSaasSocialAccounts.mockResolvedValue([
       {
         id: "account-1",
@@ -175,6 +182,32 @@ describe("SocialFlow operator observability contract", () => {
     expect(result.linkedin.connected).toBe(true);
     expect(result.linkedin.primaryStatus).toBe("CONNECTED_REAL");
     expect(result.recentEvents).toHaveLength(1);
+  });
+
+  it("merges SOCIAL_DB publish activity with legacy observability events, newest first", async () => {
+    const socialDb = {} as D1Database;
+    resolveSocialContext.mockResolvedValue({ tenantId: "tenant-1", saasId: "socialflow", socialDb });
+    listSaasSocialPosts.mockResolvedValue([]);
+    listPublishActivities.mockResolvedValue([
+      {
+        id: "pa-1",
+        tenantId: "tenant-1",
+        saasId: "socialflow",
+        postId: "post-9",
+        activityType: "publish_failed",
+        status: "error",
+        summary: "Attempts exhausted",
+        metadata: { errorCode: "INSTAGRAM_PUBLISH_FAILED" },
+        createdAt: "2026-05-03T07:59:00.000Z",
+      },
+    ]);
+
+    const result = await getSocialFlowOperatorObservability({ tenantId: "tenant-1", saasId: "socialflow" });
+
+    expect(listPublishActivities).toHaveBeenCalledWith(socialDb, { tenantId: "tenant-1", saasId: "socialflow", limit: 10 });
+    expect(result.recentEvents.map((event) => event.id)).toEqual(["pa-1", "activity-1"]);
+    expect(result.recentEvents[0]).toMatchObject({ sourceKey: "post:post-9", activityType: "publish_failed", status: "error" });
+    expect(result.health.latestActivityAt).toBe("2026-05-03T07:59:00.000Z");
   });
 
   it("fails closed on missing contract scope", async () => {

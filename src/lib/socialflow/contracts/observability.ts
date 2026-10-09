@@ -12,6 +12,7 @@ import {
   type ObservabilityIncident,
   type ObservabilityStatusSummary,
 } from "@/lib/observability-core";
+import { listPublishActivities, type PublishActivity } from "@/lib/socialflow/publish-activity";
 import type { SaasSocialAccount, SaasSocialPost, SaasSocialPostStatus } from "@/lib/social-core/types";
 
 const POST_STATUSES: SaasSocialPostStatus[] = [
@@ -188,6 +189,41 @@ function deriveHealthStatus(input: {
   return "healthy";
 }
 
+// P5: los eventos de publicación se escriben ahora en SOCIAL_DB (socialflow_publish_activity).
+// Se combinan con los de observability-core (DRACO_DB), que conserva el histórico y otros
+// orígenes, para que el panel del operator no pierda la actividad reciente.
+function toObservabilityActivity(activity: PublishActivity): ObservabilityActivity {
+  return {
+    id: activity.id,
+    tenantId: activity.tenantId,
+    saasId: activity.saasId,
+    sourceType: "integration",
+    sourceKey: `post:${activity.postId}`,
+    activityType: activity.activityType,
+    status: activity.status,
+    summary: activity.summary,
+    metadata: activity.metadata,
+    createdAt: activity.createdAt,
+  };
+}
+
+async function listRecentActivities(
+  socialDb: D1Database | null | undefined,
+  tenantId: string,
+  saasId: string,
+  limit = 10,
+): Promise<ObservabilityActivity[]> {
+  const [legacy, publish] = await Promise.all([
+    listObservabilityActivities({ tenantId, saasId, limit }).catch((): ObservabilityActivity[] => []),
+    socialDb
+      ? listPublishActivities(socialDb, { tenantId, saasId, limit }).catch((): PublishActivity[] => [])
+      : Promise.resolve<PublishActivity[]>([]),
+  ]);
+  return [...legacy, ...publish.map(toObservabilityActivity)]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, limit);
+}
+
 export async function getSocialFlowOperatorObservability(input: {
   tenantId: string;
   saasId: string;
@@ -212,7 +248,7 @@ export async function getSocialFlowOperatorObservability(input: {
       latestSnapshotAt: null,
       recommendation: "Observability core has no snapshot for this SocialFlow workspace yet.",
     })),
-    listObservabilityActivities({ tenantId, saasId, limit: 10 }).catch(() => []),
+    listRecentActivities(ctx.socialDb, tenantId, saasId),
     listObservabilityIncidents({ tenantId, saasId, status: "OPEN", limit: 10 }).catch(() => []),
   ]);
 

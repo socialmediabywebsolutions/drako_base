@@ -7,7 +7,7 @@ const markAsPosted = vi.hoisted(() => vi.fn());
 const upsertSaasSocialPost = vi.hoisted(() => vi.fn());
 const claimScheduledPostForPublishing = vi.hoisted(() => vi.fn());
 const publishPost = vi.hoisted(() => vi.fn());
-const recordObservabilityActivity = vi.hoisted(() => vi.fn());
+const recordPublishActivity = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/socialflow/repository", () => ({
   getSaasSocialPostById,
@@ -22,8 +22,8 @@ vi.mock("@/lib/socialflow/linkedin/publishing", () => ({
   publishPost,
 }));
 
-vi.mock("@/lib/observability-core", () => ({
-  recordObservabilityActivity,
+vi.mock("@/lib/socialflow/publish-activity", () => ({
+  recordPublishActivity,
 }));
 
 import { publishSocialPostLive } from "@/lib/socialflow/live-publishing";
@@ -39,7 +39,7 @@ describe("social live publishing integration", () => {
       ...input,
     }));
     claimScheduledPostForPublishing.mockResolvedValue(true);
-    recordObservabilityActivity.mockResolvedValue(undefined);
+    recordPublishActivity.mockResolvedValue(undefined);
   });
 
   it("publishes LinkedIn post through the persisted social account", async () => {
@@ -375,7 +375,7 @@ describe("social live publishing integration", () => {
     expect(publishPost).toHaveBeenCalled();
   });
 
-  it("records observability events on successful publish", async () => {
+  it("records publish activity in SOCIAL_DB on successful publish", async () => {
     getSaasSocialPostById.mockResolvedValue({
       id: "post-1",
       tenantId: "tenant-a",
@@ -407,11 +407,14 @@ describe("social live publishing integration", () => {
       { skipClaim: true },
     );
 
-    expect(recordObservabilityActivity).toHaveBeenCalledWith(
-      expect.objectContaining({ activityType: "publish_started", status: "info" }),
+    const socialDb = expect.anything();
+    expect(recordPublishActivity).toHaveBeenCalledWith(
+      socialDb,
+      expect.objectContaining({ postId: "post-1", activityType: "publish_started", status: "info" }),
     );
-    expect(recordObservabilityActivity).toHaveBeenCalledWith(
-      expect.objectContaining({ activityType: "publish_succeeded", status: "success" }),
+    expect(recordPublishActivity).toHaveBeenCalledWith(
+      socialDb,
+      expect.objectContaining({ postId: "post-1", activityType: "publish_succeeded", status: "success" }),
     );
   });
 });
