@@ -390,11 +390,13 @@ jobs:
         run: npm install -g wrangler@4.69.0
 
       - name: Apply Mentoria auth schema on dedicated auth D1
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           wrangler d1 execute MENTORIAS_AUTHS_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0136_auths_isolations.sql
 
       - name: Verify Mentoria auth tables exist on dedicated auth D1
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           OUTPUT="$(wrangler d1 execute MENTORIAS_AUTHS_DB --remote --config workers/mentorias/wrangler.workers.toml --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('mentorias_users', 'mentorias_credentials', 'mentorias_sessions');")"
@@ -413,12 +415,14 @@ jobs:
           }
 
       - name: Apply Mentoria migrations (0160 session persistence)
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           echo "==> 0160_mentoria_session_persistence.sql"
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql
 
       - name: Apply Mentoria migrations (0219 family auth tables)
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           # D1 no soporta ADD COLUMN IF NOT EXISTS — pre-añadir columnas con || true
@@ -427,6 +431,7 @@ jobs:
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0219_mentoria_family_auth_tables.sql
 
       - name: Apply Mentoria migrations (0217 guardian student links)
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           # D1 no soporta ADD COLUMN IF NOT EXISTS — pre-añadir columnas con || true
@@ -443,12 +448,14 @@ jobs:
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0217_mentoria_guardian_student_links.sql
 
       - name: Apply Mentoria migrations (0218 family messages)
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           echo "==> 0218_mentoria_family_messages.sql"
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0218_mentoria_family_messages.sql
 
       - name: Verify mentoria_session_state exists in dedicated product D1
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           OUTPUT="$(wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "SELECT name FROM sqlite_master WHERE type='table' AND name='mentoria_session_state';")"
@@ -459,6 +466,7 @@ jobs:
           }
 
       - name: Apply global schema additions on DRACO_DB (idempotent)
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           # 0137: existía en el repo desde hace meses pero nunca estuvo en este paso —
@@ -527,7 +535,9 @@ jobs:
             exit 1
           }
 
+      # Solo en main/manual: un pull_request construye y valida, pero no migra ni despliega.
       - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases)
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           command -v wrangler >/dev/null
@@ -889,6 +899,7 @@ jobs:
     name: Smoke Tests (anti-loop / anti-cross)
     runs-on: ubuntu-latest
     needs: build_and_deploy
+    if: ${{ github.event_name != 'pull_request' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
