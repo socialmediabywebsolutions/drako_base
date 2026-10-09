@@ -2,8 +2,7 @@
 // texto claro y legible (prose limpio, sin el diseño de cables y nodos del Home) y pie simple.
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { LOGO_URL } from "@/app/socialflows/_components/landing-config";
-import { LEGAL_COPYRIGHT, LEGAL_HOLDER, LEGAL_LINKS, LEGAL_UPDATED_LABEL } from "./legal-data";
+import { LEGAL_COPYRIGHT, LEGAL_HOLDER, LEGAL_LINKS, LEGAL_LOGO_URL as LOGO_URL, LEGAL_UPDATED_LABEL } from "./legal-data";
 
 export function LegalLayout({
   title,

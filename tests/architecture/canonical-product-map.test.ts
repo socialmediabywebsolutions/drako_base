@@ -25,7 +25,7 @@ function read(relativePath: string): string {
 }
 
 describe("canonical product map", () => {
-  it("keeps apps as legacy manifests except the explicit inactive SocialFlow runtime scaffold", () => {
+  it("keeps apps as legacy manifests except the SocialFlow runtime scaffold and the SocialCors app", () => {
     const appsDir = path.join(repoRoot, "apps");
     const files = listFiles(appsDir);
 
@@ -41,6 +41,10 @@ describe("canonical product map", () => {
         return false;
       }
       if (relative.startsWith("socialflow-runtime/")) {
+        return false;
+      }
+      // P3: app Next/OpenNext propia de SocialCors (apps/socialcors/wrangler.toml → saas-socialflows-prod).
+      if (relative.startsWith("socialcors/")) {
         return false;
       }
       const baseName = path.basename(file);

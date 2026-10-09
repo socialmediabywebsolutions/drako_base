@@ -10,7 +10,7 @@ function read(relativePath: string) {
 
 describe("socialflow setup minimum pilot UX", () => {
   it("renders setup pages with minimum status flow instead of fail-closed boundary notice", () => {
-    const webSetup = read("src/app/socialflow/(workspace)/setup/page.tsx");
+    const webSetup = read("apps/socialcors/src/app/socialflow/(workspace)/setup/page.tsx");
     const runtimeSetup = read("apps/socialflow-runtime/src/app/socialflow/(workspace)/setup/page.tsx");
 
     for (const source of [webSetup, runtimeSetup]) {

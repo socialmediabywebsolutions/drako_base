@@ -16,7 +16,10 @@ export const LEGAL_UPDATED_LABEL = "septiembre de 2026";
 export const LEGAL_COPYRIGHT = "© 2026 Cristóbal Cors Bernal · SocialCors";
 
 // Directorio de autoridades de protección de datos de la UE (EDPB), para que cada usuario encuentre la suya.
-export const EDPB_MEMBERS_URL = "https://edpb.europa.eu/about-edpb/about-edpb/members_es";
+// Mismo logo que LOGO_URL de la landing de SocialCors (apps/socialcors/src/app/socialflows/_components/landing-config.ts).
+export const LEGAL_LOGO_URL = "https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-perfil.png";
+
+export const EDPB_MEMBERS_URL ="https://edpb.europa.eu/about-edpb/about-edpb/members_es";
 
 // Documentos legales (navegación cruzada en el pie de las páginas legales).
 export const LEGAL_LINKS = [

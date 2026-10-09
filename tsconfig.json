@@ -60,6 +60,7 @@
     "_temp",
     "_temp/**",
     "_temp/socialflow-recovery/**",
+    "apps/socialcors",
     ".next",
     ".next/**"
   ]

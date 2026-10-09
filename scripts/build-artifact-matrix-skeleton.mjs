@@ -906,12 +906,12 @@ async function loadTenantIsolationEvidenceSources() {
     "src/app/layout.tsx",
     "src/middleware.ts",
     "src/app/not-found.tsx",
-    "src/app/api/socialflow/exports/current/route.ts",
-    "src/app/socialflow/(workspace)/layout.tsx",
-    "src/app/socialflow/(workspace)/settings/account/page.tsx",
-    "src/app/socialflow/(workspace)/settings/billing/page.tsx",
-    "src/app/socialflow/(workspace)/settings/ownership/page.tsx",
-    "src/app/socialflow/(workspace)/settings/team/page.tsx",
+    "apps/socialcors/src/app/api/socialflow/exports/current/route.ts",
+    "apps/socialcors/src/app/socialflow/(workspace)/layout.tsx",
+    "apps/socialcors/src/app/socialflow/(workspace)/settings/account/page.tsx",
+    "apps/socialcors/src/app/socialflow/(workspace)/settings/billing/page.tsx",
+    "apps/socialcors/src/app/socialflow/(workspace)/settings/ownership/page.tsx",
+    "apps/socialcors/src/app/socialflow/(workspace)/settings/team/page.tsx",
     "src/components/settings/socialflow-account-settings.tsx",
     "src/lib/auths/repositories.ts",
     "src/lib/export/wipeout-package.ts",
@@ -968,7 +968,7 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
   };
 
   const exportIsolationChecks = {
-    routeSessionSource: sourceIncludesAll(sources["src/app/api/socialflow/exports/current/route.ts"], [
+    routeSessionSource: sourceIncludesAll(sources["apps/socialcors/src/app/api/socialflow/exports/current/route.ts"], [
       "getCurrentSocialFlowSession()",
       "generateSocialFlowExportForTenant(session.tenantId)",
     ]),
@@ -1010,7 +1010,7 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
         ],
       },
       flow: {
-        entrypoints: ["src/app/api/socialflow/exports/current/route.ts"],
+        entrypoints: ["apps/socialcors/src/app/api/socialflow/exports/current/route.ts"],
         services: ["src/lib/socialflow/export.ts", "src/lib/export/wipeout-package.ts"],
         repositories: ["src/lib/auths/repositories.ts"],
         dbWrappers: ["src/lib/db.ts", "src/lib/auths/repositories.ts"],
@@ -1046,12 +1046,12 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
         sharedEvidence.middlewareMismatchRejection &&
         sharedEvidence.tenantIsolationContract &&
         sharedEvidence.serverSessionGuard &&
-        sourceIncludesAll(sources["src/app/socialflow/(workspace)/settings/account/page.tsx"], [
+        sourceIncludesAll(sources["apps/socialcors/src/app/socialflow/(workspace)/settings/account/page.tsx"], [
           "getCurrentSocialFlowSession()",
           "currentTenantId: session.tenantId",
           "tenantId: session.tenantId",
         ]) &&
-        sourceExcludesAll(sources["src/app/socialflow/(workspace)/settings/account/page.tsx"], [
+        sourceExcludesAll(sources["apps/socialcors/src/app/socialflow/(workspace)/settings/account/page.tsx"], [
           "@/lib/db",
         ])
           ? "VERIFIED_TENANT_ISOLATED"
@@ -1064,7 +1064,7 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
       },
       flow: {
         entrypoints: [
-          "src/app/socialflow/(workspace)/settings/account/page.tsx",
+          "apps/socialcors/src/app/socialflow/(workspace)/settings/account/page.tsx",
         ],
         services: ["src/components/settings/socialflow-account-settings.tsx"],
         repositories: ["src/lib/auths/repositories.ts"],
@@ -1089,11 +1089,11 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
         sharedEvidence.middlewareMismatchRejection &&
         sharedEvidence.tenantIsolationContract &&
         sharedEvidence.serverSessionGuard &&
-        sourceIncludesAll(sources["src/app/socialflow/(workspace)/settings/billing/page.tsx"], [
+        sourceIncludesAll(sources["apps/socialcors/src/app/socialflow/(workspace)/settings/billing/page.tsx"], [
           "getCurrentSocialFlowSession()",
           "fails closed until that wiring exists behind the product boundary",
         ]) &&
-        sourceExcludesAll(sources["src/app/socialflow/(workspace)/settings/billing/page.tsx"], [
+        sourceExcludesAll(sources["apps/socialcors/src/app/socialflow/(workspace)/settings/billing/page.tsx"], [
           "@/lib/db",
         ])
           ? "VERIFIED_TENANT_ISOLATED"
@@ -1105,7 +1105,7 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
         paths: ["src/middleware.ts", "src/lib/socialflow/auth/server.ts", "src/lib/socialflow/auth/tenant-isolation.ts"],
       },
       flow: {
-        entrypoints: ["src/app/socialflow/(workspace)/settings/billing/page.tsx"],
+        entrypoints: ["apps/socialcors/src/app/socialflow/(workspace)/settings/billing/page.tsx"],
         services: [],
         repositories: [],
         dbWrappers: [],
@@ -1128,11 +1128,11 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
         sharedEvidence.middlewareMismatchRejection &&
         sharedEvidence.tenantIsolationContract &&
         sharedEvidence.serverSessionGuard &&
-        sourceIncludesAll(sources["src/app/socialflow/(workspace)/layout.tsx"], [
+        sourceIncludesAll(sources["apps/socialcors/src/app/socialflow/(workspace)/layout.tsx"], [
           "getCurrentSocialFlowSession()",
           'redirect("/socialflow/auth")',
         ]) &&
-        sourceIncludesAll(sources["src/app/socialflow/(workspace)/settings/ownership/page.tsx"], [
+        sourceIncludesAll(sources["apps/socialcors/src/app/socialflow/(workspace)/settings/ownership/page.tsx"], [
           'link.href = "/api/socialflow/exports/current";',
         ]) &&
         exportIsolationChecks.routeSessionSource &&
@@ -1145,16 +1145,16 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
       sessionSource: {
         type: "workspace_layout_session_plus_verified_export_api",
         paths: [
-          "src/app/socialflow/(workspace)/layout.tsx",
+          "apps/socialcors/src/app/socialflow/(workspace)/layout.tsx",
           "src/lib/socialflow/auth/server.ts",
-          "src/app/api/socialflow/exports/current/route.ts",
+          "apps/socialcors/src/app/api/socialflow/exports/current/route.ts",
         ],
       },
       flow: {
         entrypoints: [
-          "src/app/socialflow/(workspace)/settings/ownership/page.tsx",
+          "apps/socialcors/src/app/socialflow/(workspace)/settings/ownership/page.tsx",
         ],
-        services: ["src/app/api/socialflow/exports/current/route.ts", "src/lib/socialflow/export.ts", "src/lib/export/wipeout-package.ts"],
+        services: ["apps/socialcors/src/app/api/socialflow/exports/current/route.ts", "src/lib/socialflow/export.ts", "src/lib/export/wipeout-package.ts"],
         repositories: ["src/lib/auths/repositories.ts"],
         dbWrappers: ["src/lib/db.ts", "src/lib/auths/repositories.ts"],
         sql: [
@@ -1180,7 +1180,7 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
         sharedEvidence.tenantIsolationContract &&
         sharedEvidence.serverSessionGuard &&
         sharedEvidence.authRosterTenantQuery &&
-        sourceIncludesAll(sources["src/app/socialflow/(workspace)/settings/team/page.tsx"], [
+        sourceIncludesAll(sources["apps/socialcors/src/app/socialflow/(workspace)/settings/team/page.tsx"], [
           "getCurrentSocialFlowSession()",
           "listAuthsUsersByTenant({",
           'context: "socialflow"',
@@ -1196,7 +1196,7 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
       },
       flow: {
         entrypoints: [
-          "src/app/socialflow/(workspace)/settings/team/page.tsx",
+          "apps/socialcors/src/app/socialflow/(workspace)/settings/team/page.tsx",
         ],
         services: [],
         repositories: ["src/lib/auths/repositories.ts"],

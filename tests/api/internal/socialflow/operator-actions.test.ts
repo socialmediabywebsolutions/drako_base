@@ -177,7 +177,7 @@ describe("POST /api/internal/socialflow/operator/actions", () => {
 
   it("does not import forbidden modules and protected files remain unchanged", () => {
     const routeSource = readFileSync(
-      "src/app/api/internal/socialflow/operator/actions/route.ts",
+      "apps/socialcors/src/app/api/internal/socialflow/operator/actions/route.ts",
       "utf8",
     );
 

@@ -6,7 +6,7 @@ const repoRoot = process.cwd();
 
 const SOURCE_DIRS = [
   "src/lib/socialflow",
-  "src/app/api/socialflow",
+  "apps/socialcors/src/app/api/socialflow",
   "apps/socialflow-runtime/src",
 ] as const;
 
@@ -194,7 +194,7 @@ const temporaryAllowlist: AllowlistEntry[] = [
   // TODO(SocialFlow DB separation): remove this allowlist entry when the dependency is moved to SOCIAL_DB or a Campamento Base contract.
   { file: "apps/socialflow-runtime/src/lib/db/runtime-db.ts", rules: ["direct-ensure-draco-db", "direct-draco-db-token", "direct-draco-db-variable"], note: ALLOWLIST_TODO_COMMENT },
   // TODO(SocialFlow DB separation): SSO routes use DRACO_DB for tenant resolution; migrate to a Campamento Base contract.
-  { file: "src/app/api/socialflow/auths/sso-exchange/route.ts", rules: ["direct-lib-db-import"], note: ALLOWLIST_TODO_COMMENT },
+  { file: "apps/socialcors/src/app/api/socialflow/auths/sso-exchange/route.ts", rules: ["direct-lib-db-import"], note: ALLOWLIST_TODO_COMMENT },
   { file: "src/app/api/socialflow/sso-init/route.ts", rules: ["direct-lib-db-import", "direct-draco-db-token"], note: ALLOWLIST_TODO_COMMENT },
 ];
 

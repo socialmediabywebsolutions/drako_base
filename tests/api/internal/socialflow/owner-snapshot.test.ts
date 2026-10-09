@@ -132,7 +132,7 @@ describe("GET /api/internal/socialflow/owner/snapshot", () => {
 
   it("does not import socialflow owner-dashboard contract and owner file now uses internal client", () => {
     const routeSource = readFileSync(
-      "src/app/api/internal/socialflow/owner/snapshot/route.ts",
+      "apps/socialcors/src/app/api/internal/socialflow/owner/snapshot/route.ts",
       "utf8",
     );
     expect(routeSource).not.toContain("@/lib/socialflow/contracts/owner-dashboard");

@@ -1,0 +1,91 @@
+# Worker web de SocialCors construido desde apps/socialcors (P3).
+#
+# Mismo Worker, dominios, bindings, crons y vars que workers/socialflows/wrangler.workers.toml
+# (la config que hoy despliega el artefacto socialflows-standalone del monolito). Solo
+# cambian `main` (worker.ts propio con scheduled()) y el directorio de assets.
+#
+# Las migraciones D1 siguen aplicándose con workers/socialflows/wrangler.workers.toml
+# hasta P7. No quitar ningún binding en esta fase (ver plan, P9).
+name = "saas-socialflows-prod"
+main = "worker.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+logpush = true
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[[routes]]
+pattern = "socialflows.drako.systems"
+custom_domain = true
+
+[[routes]]
+pattern = "socialflow.drako.systems"
+custom_domain = true
+
+[[routes]]
+pattern = "socialcors.com"
+custom_domain = true
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+
+[[d1_databases]]
+binding = "SAASES_DB"
+database_name = "saas_socialflows_prod_db"
+database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
+
+[[d1_databases]]
+binding = "SOCIAL_DB"
+database_name = "saas_socialflows_prod_db"
+database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
+
+[[d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "saas_socialflow_auths_prod_db"
+database_id = "f6f46e6a-487f-400a-a2d1-c6d23e88f9cf"
+
+[[kv_namespaces]]
+binding = "SAASES_CACHE"
+id = "2962b3ef53fe4433a253551c83a2df72"
+
+[[r2_buckets]]
+binding = "SAASES_STORAGE"
+bucket_name = "saas-socialflows-prod-storage"
+
+[[r2_buckets]]
+binding = "SOCIAL_MEDIA_BUCKET"
+bucket_name = "socialflow-media"
+
+[[queues.producers]]
+binding = "SAASES_EVENTS"
+queue = "saas-socialflows-prod-events"
+
+[[queues.producers]]
+binding = "SOCIALFLOW_AI_QUEUE"
+queue = "saas-socialflow-ai-generation-queue"
+
+# Binding a sí mismo: scheduled() llama a sus rutas /api/cron/* sin pasar por la red
+# pública ni el WAF (ver worker.ts).
+[[services]]
+binding = "SELF"
+service = "saas-socialflows-prod"
+
+[ai]
+binding = "AI"
+
+[triggers]
+# Tabla cron → rutas en worker.ts (scheduled).
+crons = ["*/5 * * * *", "*/20 * * * *", "0 */4 * * *", "0 3 * * *", "0 3 * * 1"]
+
+[vars]
+SAASES_SLUG = "socialflows"
+SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems,socialcors.com"
+WORKERS_ONLY_MODE = "true"
+INSTAGRAM_APP_ID = "1534853271675778"
+APP_URL = "https://socialflows.drako.systems"
+# SOCIALFLOW_STRIPE_PRICE_PRO y SOCIALFLOW_STRIPE_PRICE_CREATOR son secrets del Worker, no vars.

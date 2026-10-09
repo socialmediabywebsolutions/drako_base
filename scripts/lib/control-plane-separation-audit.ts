@@ -512,7 +512,7 @@ function collectCrossImportSignals(projectRoot: string): CrossImportSignal[] {
   });
 
   evaluateImports(
-    ["src/lib/socialflow", "src/app/api/socialflow", "src/lib/mentoria", "src/app/api/mentoria"],
+    ["src/lib/socialflow", "apps/socialcors/src/app/api/socialflow", "src/lib/mentoria", "src/app/api/mentoria"],
     (filePath, importPath) => {
       if (
         !importPath.startsWith("@/lib/campamento-base/")

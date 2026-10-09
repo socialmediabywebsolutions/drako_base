@@ -135,7 +135,7 @@ describe("Legacy alias boundaries", () => {
 
   it("prevents product surfaces from importing owner/campobase legacy internals", () => {
     const productDirs = [
-      "src/app/api/socialflow",
+      "apps/socialcors/src/app/api/socialflow",
       "src/app/api/mentoria",
       "src/lib/socialflow",
       "src/lib/mentoria",

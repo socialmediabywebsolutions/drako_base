@@ -20,28 +20,24 @@ import path from "node:path";
 
 const repoRoot = process.cwd();
 
-// Rutas de Next.js que sirve SocialCors.
-const APP_ROUTE_DIRS = [
-  "src/app/socialflows",
-  "src/app/socialflow",
-  "src/app/api/socialflow",
-  "src/app/api/cron/social",
-  "src/app/api/internal/socialflow",
-  "src/app/api/social",
-  "src/app/auth/linkedin",
-  "src/app/privacidad/datos-eliminados",
-] as const;
+// App Next.js de SocialCors (P3): todas sus rutas viven aquí.
+const APP_DIR = "apps/socialcors";
+const APP_ROUTE_DIRS = [`${APP_DIR}/src/app`] as const;
 
 // Ficheros que Next.js ejecuta por convención; el resto (p. ej. _components) solo cuenta si se importa.
 const NEXT_ENTRY_FILE_PATTERN =
   /\/(?:page|layout|route|loading|error|global-error|not-found|template|default)\.[cm]?[jt]sx?$/;
 
-// `main` de workers/socialflow-ai-worker/wrangler.workers.toml.
-const WORKER_ENTRIES = ["workers/socialflow-ai-worker/src/index.ts"] as const;
+// Middleware de la app, `main` del Worker web (apps/socialcors/wrangler.toml) y del Worker IA.
+const WORKER_ENTRIES = [
+  `${APP_DIR}/src/middleware.ts`,
+  `${APP_DIR}/worker.ts`,
+  "workers/socialflow-ai-worker/src/index.ts",
+] as const;
 
 // Dominio SocialCors: lo que se lleva el futuro repo. Todo lo demás es externo.
 const DOMAIN_DIRS = [
-  ...APP_ROUTE_DIRS,
+  APP_DIR,
   "workers/socialflow-ai-worker/src",
   "src/lib/socialflow",
   "src/lib/social-core",
@@ -72,7 +68,9 @@ const FORBIDDEN_HOLDING_PREFIXES = [
   "src/lib/auth/campamento-core.ts",
 ] as const;
 
+// Igual que apps/socialcors/tsconfig.json: "@/app/*" es la app; si no existe ahí, cae a src/.
 const PATH_ALIASES: Array<[prefix: string, target: string]> = [
+  ["@/app/", `${APP_DIR}/src/app/`],
   ["@/", "src/"],
   ["@shared-neutral/", "packages/shared-neutral/src/"],
   ["@shared-cloudflare/", "packages/shared-cloudflare/src/"],
@@ -95,6 +93,7 @@ const IMPORT_PATTERNS = [
  */
 const EXTERNAL_BASELINE: readonly string[] = [
   "src/components/legal/legal-data.ts",
+  "src/components/legal/legal-layout.tsx", // P3: páginas legales copiadas a la app; P5 las hace propias
   "src/components/settings/socialflow-account-settings.tsx",
   "src/components/settings/socialflow-billing-settings.tsx",
   "src/lib/admin/demo-data.ts",
@@ -201,7 +200,9 @@ function resolveSpecifier(fromFile: string, specifier: string): string | null {
     return resolveFile(path.join(path.dirname(fromFile), specifier));
   }
   for (const [prefix, target] of PATH_ALIASES) {
-    if (specifier.startsWith(prefix)) return resolveFile(target + specifier.slice(prefix.length));
+    if (!specifier.startsWith(prefix)) continue;
+    const resolved = resolveFile(target + specifier.slice(prefix.length));
+    if (resolved) return resolved;
   }
   return null; // paquete npm
 }
@@ -278,6 +279,7 @@ describe("SocialCors: guardarraíl de imports hacia el holding (P1)", () => {
   it("encuentra las entradas de SocialCors", () => {
     expect(graph.entries.length).toBeGreaterThan(100);
     expect(graph.entries).toContain("workers/socialflow-ai-worker/src/index.ts");
+    expect(graph.entries).toContain(`${APP_DIR}/src/middleware.ts`);
   });
 
   it("la baseline está ordenada y sin duplicados", () => {

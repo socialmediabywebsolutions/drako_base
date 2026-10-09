@@ -120,8 +120,8 @@ describe("SocialFlow vertical boundaries", () => {
   });
 
   it("keeps dangerous legacy social routes disabled", () => {
-    const legacyPosts = read("src/app/api/social/posts/route.ts");
-    const legacyLinkedInPublish = read("src/app/api/social/linkedin/publish/route.ts");
+    const legacyPosts = read("apps/socialcors/src/app/api/social/posts/route.ts");
+    const legacyLinkedInPublish = read("apps/socialcors/src/app/api/social/linkedin/publish/route.ts");
 
     for (const source of [legacyPosts, legacyLinkedInPublish]) {
       expect(source).toContain("LEGACY_SOCIAL_ROUTE_DISABLED");
@@ -131,12 +131,12 @@ describe("SocialFlow vertical boundaries", () => {
   });
 
   it("keeps the isolated SocialFlow app routes detached from cross-product modules", () => {
-    const socialFlowLayout = read("src/app/socialflow/(workspace)/layout.tsx");
-    const billingPage = read("src/app/socialflow/(workspace)/settings/billing/page.tsx");
-    const sessionsPage = read("src/app/socialflow/(workspace)/sessions/page.tsx");
-    const analysisPage = read("src/app/socialflow/(workspace)/analysis/page.tsx");
-    const planPage = read("src/app/socialflow/(workspace)/plan/page.tsx");
-    const setupPage = read("src/app/socialflow/(workspace)/setup/page.tsx");
+    const socialFlowLayout = read("apps/socialcors/src/app/socialflow/(workspace)/layout.tsx");
+    const billingPage = read("apps/socialcors/src/app/socialflow/(workspace)/settings/billing/page.tsx");
+    const sessionsPage = read("apps/socialcors/src/app/socialflow/(workspace)/sessions/page.tsx");
+    const analysisPage = read("apps/socialcors/src/app/socialflow/(workspace)/analysis/page.tsx");
+    const planPage = read("apps/socialcors/src/app/socialflow/(workspace)/plan/page.tsx");
+    const setupPage = read("apps/socialcors/src/app/socialflow/(workspace)/setup/page.tsx");
 
     expect(socialFlowLayout).not.toMatch(/@\/modules\/socialflow-app\/layout|DRACO_DB|tenant_strategic_dossiers/);
     expect(billingPage).not.toMatch(/@\/modules\/socialflow-app\/settings\/billing-page|@\/lib\/auth\/campamento-core/);
@@ -274,17 +274,17 @@ describe("SocialFlow vertical boundaries", () => {
     const authServer = read("src/lib/socialflow/auth/server.ts");
     const authRequest = read("src/lib/socialflow/auth/request.ts");
     const authRepositories = read("src/lib/auths/repositories.ts");
-    const exportRoute = read("src/app/api/socialflow/exports/current/route.ts");
+    const exportRoute = read("apps/socialcors/src/app/api/socialflow/exports/current/route.ts");
     const exportService = read("src/lib/socialflow/export.ts");
     const wipeout = read("src/lib/export/wipeout-package.ts");
-    const workspaceLayout = read("src/app/socialflow/(workspace)/layout.tsx");
-    const billingPage = read("src/app/socialflow/(workspace)/settings/billing/page.tsx");
-    const billingCheckoutRoute = read("src/app/api/socialflow/billing/checkout/route.ts");
-    const billingPortalRoute = read("src/app/api/socialflow/billing/portal/route.ts");
-    const accountPage = read("src/app/socialflow/(workspace)/settings/account/page.tsx");
+    const workspaceLayout = read("apps/socialcors/src/app/socialflow/(workspace)/layout.tsx");
+    const billingPage = read("apps/socialcors/src/app/socialflow/(workspace)/settings/billing/page.tsx");
+    const billingCheckoutRoute = read("apps/socialcors/src/app/api/socialflow/billing/checkout/route.ts");
+    const billingPortalRoute = read("apps/socialcors/src/app/api/socialflow/billing/portal/route.ts");
+    const accountPage = read("apps/socialcors/src/app/socialflow/(workspace)/settings/account/page.tsx");
     const socialFlowAccountSettings = read("src/components/settings/socialflow-account-settings.tsx");
-    const ownershipPage = read("src/app/socialflow/(workspace)/settings/ownership/page.tsx");
-    const teamPage = read("src/app/socialflow/(workspace)/settings/team/page.tsx");
+    const ownershipPage = read("apps/socialcors/src/app/socialflow/(workspace)/settings/ownership/page.tsx");
+    const teamPage = read("apps/socialcors/src/app/socialflow/(workspace)/settings/team/page.tsx");
 
     expect(rootLayout).not.toContain("ShellLayout");
     expect(rootLayout).not.toContain("HostSwitcher");
@@ -342,8 +342,8 @@ describe("SocialFlow vertical boundaries", () => {
   });
 
   it("keeps legacy linkedin connect and callback routes as redirect-only bridges", () => {
-    const legacyConnect = read("src/app/api/social/linkedin/connect/route.ts");
-    const legacyCallback = read("src/app/api/social/linkedin/callback/route.ts");
+    const legacyConnect = read("apps/socialcors/src/app/api/social/linkedin/connect/route.ts");
+    const legacyCallback = read("apps/socialcors/src/app/api/social/linkedin/callback/route.ts");
 
     expect(legacyConnect).toContain("/api/socialflow/linkedin/connect");
     expect(legacyConnect).toContain("308");

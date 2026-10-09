@@ -1,0 +1,8 @@
+/*
+ * Transitorio (P3–P9): mismos tokens y utilidades que el monolito.
+ * Tailwind v4 solo escanea el directorio de la app; @source añade el código
+ * compartido de ../../src (componentes y librería de SocialCors) para que no
+ * falten clases. En P10 los estilos pasan a ser propios.
+ */
+@import "../../../../src/app/globals.css";
+@source "../../../../src";

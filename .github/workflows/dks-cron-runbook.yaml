@@ -439,7 +439,7 @@ jobs:
           # Ventanas en minutos. 25min (TrendKeywordAgent/TrendTriggerConnector, cron
           # */20), 300min=5h (ViralMomentAgent, cron 0*/4h), 1500min=25h (agentes del
           # cron diario 0 3 * * * — StyleLearningAgent + los que corren dentro de su
-          # pipeline por tenant, ver src/app/api/cron/social/style-learning/route.ts —
+          # pipeline por tenant, ver apps/socialcors/src/app/api/cron/social/style-learning/route.ts —
           # más SeasonalityAgent/SeasonalOpportunityAgent/ChurnPredictionAgent, que
           # comparten el mismo cron diario, ver scripts/patch-socialflow-cron-handler.mjs),
           # 11520min=8d (NicheIntelligenceCronAgent, único agente semanal que sigue

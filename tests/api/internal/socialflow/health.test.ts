@@ -118,7 +118,7 @@ describe("GET /api/internal/socialflow/health", () => {
 
   it("does not import campobase service from this endpoint", async () => {
     const routeSource = readFileSync(
-      "src/app/api/internal/socialflow/health/route.ts",
+      "apps/socialcors/src/app/api/internal/socialflow/health/route.ts",
       "utf8",
     );
 

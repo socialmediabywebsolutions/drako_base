@@ -38,9 +38,9 @@ describe("socialflow runtime wiring", () => {
   });
 
   it("serves the authenticated workspace from real app routes", () => {
-    const workspaceRuntime = read("src/app/socialflow/(workspace)/page.tsx");
-    const profileRuntime = read("src/app/socialflow/(workspace)/profile/page.tsx");
-    const aiRuntime = read("src/app/socialflow/(workspace)/ai/page.tsx");
+    const workspaceRuntime = read("apps/socialcors/src/app/socialflow/(workspace)/page.tsx");
+    const profileRuntime = read("apps/socialcors/src/app/socialflow/(workspace)/profile/page.tsx");
+    const aiRuntime = read("apps/socialcors/src/app/socialflow/(workspace)/ai/page.tsx");
     const legacyWorkspacePageExists = existsSync(path.join(repoRoot, "src/app/(dashboard)/socialflow/page.tsx"));
     const legacyProfilePageExists = existsSync(path.join(repoRoot, "src/app/(dashboard)/socialflow/profile/page.tsx"));
     const legacyAiPageExists = existsSync(path.join(repoRoot, "src/app/(dashboard)/socialflow/ai/page.tsx"));
@@ -59,7 +59,7 @@ describe("socialflow runtime wiring", () => {
   });
 
   it("keeps the socialflow layout detached from DRACO_DB and legacy shells", () => {
-    const source = read("src/app/socialflow/(workspace)/layout.tsx");
+    const source = read("apps/socialcors/src/app/socialflow/(workspace)/layout.tsx");
 
     expect(source).not.toContain("DRACO_DB");
     expect(source).not.toContain("@/modules/socialflow-app/layout");
@@ -68,11 +68,11 @@ describe("socialflow runtime wiring", () => {
 
   it("keeps isolated runtime pages away from Mentoria and Campamento Base", () => {
     const files = [
-      "src/app/socialflow/(workspace)/analysis/page.tsx",
-      "src/app/socialflow/(workspace)/plan/page.tsx",
-      "src/app/socialflow/(workspace)/setup/page.tsx",
-      "src/app/socialflow/(workspace)/sessions/page.tsx",
-      "src/app/socialflow/(workspace)/settings/billing/page.tsx",
+      "apps/socialcors/src/app/socialflow/(workspace)/analysis/page.tsx",
+      "apps/socialcors/src/app/socialflow/(workspace)/plan/page.tsx",
+      "apps/socialcors/src/app/socialflow/(workspace)/setup/page.tsx",
+      "apps/socialcors/src/app/socialflow/(workspace)/sessions/page.tsx",
+      "apps/socialcors/src/app/socialflow/(workspace)/settings/billing/page.tsx",
     ];
 
     for (const file of files) {

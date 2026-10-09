@@ -135,7 +135,7 @@ describe("GET /api/internal/socialflow/observability/snapshot", () => {
 
   it("does not import forbidden contracts and protected files remain unchanged", () => {
     const routeSource = readFileSync(
-      "src/app/api/internal/socialflow/observability/snapshot/route.ts",
+      "apps/socialcors/src/app/api/internal/socialflow/observability/snapshot/route.ts",
       "utf8",
     );
 

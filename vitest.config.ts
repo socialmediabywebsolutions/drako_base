@@ -15,13 +15,19 @@ export default defineConfig({
     test: {
         environment: "jsdom",
         globals: true,
-        alias: {
-            "@": path.resolve(__dirname, "./src"),
-            "@shared-neutral": path.resolve(__dirname, "./packages/shared-neutral/src"),
-            "@shared-cloudflare": path.resolve(__dirname, "./packages/shared-cloudflare/src"),
-            "@shared-ui-neutral": path.resolve(__dirname, "./packages/shared-ui-neutral/src"),
-            "server-only": path.resolve(__dirname, "src/__tests__/mocks/empty.ts"),
-        },
+        alias: [
+            // Rutas de SocialCors movidas a apps/socialcors (P3). Deben ir antes que "@".
+            // api/socialflow/sso-init se queda en el monolito.
+            {
+                find: /^@\/app\/(socialflows?|api\/socialflow(?!\/sso-init)|api\/cron\/social|api\/internal\/socialflow|api\/social|auth\/linkedin|privacidad\/datos-eliminados)(?=\/|$)/,
+                replacement: path.resolve(__dirname, "./apps/socialcors/src/app") + "/$1",
+            },
+            { find: "@", replacement: path.resolve(__dirname, "./src") },
+            { find: "@shared-neutral", replacement: path.resolve(__dirname, "./packages/shared-neutral/src") },
+            { find: "@shared-cloudflare", replacement: path.resolve(__dirname, "./packages/shared-cloudflare/src") },
+            { find: "@shared-ui-neutral", replacement: path.resolve(__dirname, "./packages/shared-ui-neutral/src") },
+            { find: "server-only", replacement: path.resolve(__dirname, "src/__tests__/mocks/empty.ts") },
+        ],
         exclude: [
             ...configDefaults.exclude,
             "tests/**/*.spec.ts",

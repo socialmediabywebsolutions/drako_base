@@ -568,7 +568,7 @@ const DEFAULT_SOCIALFLOW_BOUNDARY_GUARD: SourceBoundaryGuard = {
   sourcePaths: [
     "src/modules/socialflow-app",
     "src/components/layouts/socialflow-shell.tsx",
-    "src/app/socialflow",
+    "apps/socialcors/src/app/socialflow",
   ],
   forbiddenTokens: [
     "@/components/mentoria",
