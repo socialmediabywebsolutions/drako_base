@@ -18,17 +18,18 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
-vi.mock("@/lib/auths/cookies", () => ({
-  getAuthsCookieName: (...args: unknown[]) => mockGetAuthsCookieName(...args),
+vi.mock("@/lib/socialflow/platform/auth/cookies", () => ({
+  getSocialFlowCookieName: (...args: unknown[]) => mockGetAuthsCookieName(...args),
   readCookieFromHeader: vi.fn(),
 }));
 
-vi.mock("@/lib/auths/tokens", () => ({
-  verifyAuthsSessionToken: (...args: unknown[]) => mockVerifyAuthsSessionToken(...args),
+vi.mock("@/lib/socialflow/platform/auth/tokens", () => ({
+  verifySocialFlowSessionToken: (...args: unknown[]) => mockVerifyAuthsSessionToken(...args),
 }));
 
-vi.mock("@/lib/auths/repositories", () => ({
-  getAuthsUserById: (...args: unknown[]) => mockGetAuthsUserById(...args),
+vi.mock("@/lib/socialflow/platform/auth/repository", () => ({
+  getSocialFlowAuthUserById: (...args: unknown[]) => mockGetAuthsUserById(...args),
+  resolveSocialFlowAuthsDb: () => null,
 }));
 
 vi.mock("@/lib/socialflow/auth/tenant-isolation", () => ({

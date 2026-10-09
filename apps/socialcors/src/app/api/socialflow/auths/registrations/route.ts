@@ -1,11 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { socialflowAuths } from "@/lib/auths/socialflow-auths";
-import { jsonError, setAuthsSessionCookie } from "@/lib/auths/http";
-import { isAuthsIsolationEnabled, isTelemetriesHoldingEnabled } from "@/lib/auths/flags";
+import { enforceSocialFlowAuthBoundary } from "@/lib/socialflow/platform/auth/boundary";
+import { isAuthsIsolationEnabled, isTelemetriesHoldingEnabled } from "@/lib/socialflow/platform/auth/flags";
+import { jsonError, setSocialFlowSessionCookie } from "@/lib/socialflow/platform/auth/http";
+import { loginSocialFlowUser, registerSocialFlowUser } from "@/lib/socialflow/platform/auth/services";
 import { recordCampamentoEvent } from "@/lib/empire/events";
-import { enforceAuthBoundary, resolveSaasSlugForAuthContext } from "@/lib/auths/ssot";
 import { run } from "@/lib/db";
 import { recordTermsAcceptance } from "@/lib/socialflow/auth/terms-acceptance";
 
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     return jsonError("AUTHS_ISOLATIONS_DISABLED", "Auth isolation is disabled.", 503);
   }
 
-  const boundary = enforceAuthBoundary({ request, expectedContext: "socialflow", endpoint: "/api/socialflow/auths/registrations" });
+  const boundary = enforceSocialFlowAuthBoundary({ request, endpoint: "/api/socialflow/auths/registrations" });
   if (!boundary.ok) return boundary.response;
   const body = (await request.json().catch(() => null)) as RegistrationBody | null;
   if (!body?.email || !body.password) {
@@ -38,8 +38,7 @@ export async function POST(request: Request) {
     return jsonError("TERMS_NOT_ACCEPTED", "Debes aceptar los Términos de servicio y la Política de privacidad.", 400);
   }
 
-  const registration = await socialflowAuths.register({
-    context: "socialflow",
+  const registration = await registerSocialFlowUser({
     email: body.email,
     password: body.password,
     name: body.name ?? null,
@@ -52,8 +51,7 @@ export async function POST(request: Request) {
   // Prueba de la aceptación: fecha/hora en socialflow_users.accepted_terms_at (no bloquea el alta si falla).
   await recordTermsAcceptance(registration.userId);
 
-  const login = await socialflowAuths.login({
-    context: "socialflow",
+  const login = await loginSocialFlowUser({
     email: body.email,
     password: body.password,
   });
@@ -85,11 +83,11 @@ export async function POST(request: Request) {
       email: body.email.trim().toLowerCase(),
       role: login.role,
       tenantId: login.tenantId,
-      saas_slug: resolveSaasSlugForAuthContext("socialflow"),
+      saas_slug: "socialflow",
     },
   }, { status: 201 });
 
-  setAuthsSessionCookie({ response, context: "socialflow", token: login.token });
+  setSocialFlowSessionCookie({ response, token: login.token });
 
   if (isTelemetriesHoldingEnabled()) {
     await recordCampamentoEvent({

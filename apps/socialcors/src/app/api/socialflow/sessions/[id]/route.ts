@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
-import { resolveAuthsDbForContext } from "@/lib/auths/repositories";
+import { resolveSocialFlowAuthsDb } from "@/lib/socialflow/platform/auth/repository";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -19,7 +19,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       return json({ ok: false, error: "MISSING_SESSION_ID" }, 400);
     }
 
-    const db = resolveAuthsDbForContext("socialflow");
+    const db = resolveSocialFlowAuthsDb();
     if (!db) {
       return json({ ok: false, error: "AUTHS_DB_UNAVAILABLE" }, 503);
     }

@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
-import { resolveAuthsDbForContext } from "@/lib/auths/repositories";
+import { resolveSocialFlowAuthsDb } from "@/lib/socialflow/platform/auth/repository";
 
 type SessionRow = {
   id: string;
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   try {
     const session = await requireCurrentSocialFlowSession(request);
 
-    const db = resolveAuthsDbForContext("socialflow");
+    const db = resolveSocialFlowAuthsDb();
     if (!db) {
       return json({ ok: false, error: "AUTHS_DB_UNAVAILABLE" }, 503);
     }

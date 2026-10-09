@@ -7,9 +7,9 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { queryOne, run } from "@/lib/db";
-import { resolveAuthsDbForContext } from "@/lib/auths/repositories";
-import { createAuthsSessionToken } from "@/lib/auths/tokens";
-import { setAuthsSessionCookie } from "@/lib/auths/http";
+import { setSocialFlowSessionCookie } from "@/lib/socialflow/platform/auth/http";
+import { resolveSocialFlowAuthsDb } from "@/lib/socialflow/platform/auth/repository";
+import { createSocialFlowSessionToken } from "@/lib/socialflow/platform/auth/tokens";
 
 const SOCIALFLOW_ORIGIN =
   process.env.SOCIALFLOW_SSO_ORIGIN ?? "https://socialflows.drako.systems";
@@ -69,7 +69,7 @@ async function findOrProvisionSocialFlowUser(params: {
   tenantId: string;
   role: "admin" | "user";
 }): Promise<{ id: string; tenantId: string; role: "admin" | "user" } | null> {
-  const db = resolveAuthsDbForContext("socialflow");
+  const db = resolveSocialFlowAuthsDb();
   if (!db) {
     console.error("SSO_EXCHANGE_NO_SOCIALFLOW_DB");
     return null;
@@ -147,8 +147,7 @@ export async function GET(request: Request) {
 
   let sessionToken: string;
   try {
-    sessionToken = await createAuthsSessionToken({
-      context: "socialflow",
+    sessionToken = await createSocialFlowSessionToken({
       sub: user.id,
       email: token.email,
       tenantId: user.tenantId,
@@ -162,7 +161,7 @@ export async function GET(request: Request) {
   const safeRedirect = redirectAfter.startsWith("/") ? redirectAfter : DEFAULT_REDIRECT;
   const response = NextResponse.redirect(`${SOCIALFLOW_ORIGIN}${safeRedirect}`, { status: 302 });
 
-  setAuthsSessionCookie({ response, context: "socialflow", token: sessionToken, request });
+  setSocialFlowSessionCookie({ response, token: sessionToken, request });
 
   return response;
 }

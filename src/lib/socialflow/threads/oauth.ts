@@ -3,7 +3,7 @@
 // El App Secret se configura como wrangler secret THREADS_APP_SECRET.
 
 import { env } from "@/lib/cf";
-import { getSession } from "@/lib/auth/session";
+import { getCurrentSocialFlowSessionFromRequest } from "@/lib/socialflow/auth/request";
 import { verifyAndConsumeOAuthState } from "@/lib/socialflow/oauth/state";
 import { exchangeThreadsCodeForLongLivedToken, fetchThreadsUserProfile } from "@/lib/socialflow/threads/core";
 import { persistSocialFlowThreadsConnection } from "@/lib/socialflow/threads/repository";
@@ -140,7 +140,7 @@ export async function handleThreadsCallback(
   }
 
   // Verificar que hay sesión activa
-  const session = await getSession(request);
+  const session = await getCurrentSocialFlowSessionFromRequest(request).catch(() => null);
   if (!session || session.tenantId !== oauthContext.tenantId) {
     return {
       ok: false,

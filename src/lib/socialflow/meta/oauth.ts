@@ -1,4 +1,7 @@
-import { getSession, type SessionData } from "@/lib/auth/session";
+// P5: sesión propia de SocialCors (__Host-socialflow_session), no la multi-producto del holding.
+import { getCurrentSocialFlowSessionFromRequest } from "@/lib/socialflow/auth/request";
+
+type CallbackSession = { tenantId: string };
 import {
   MetaIntegrationError,
   exchangeMetaCodeForAccessToken,
@@ -85,7 +88,7 @@ export async function buildSocialFlowMetaConnectUrl(input: {
 
 export async function handleSocialFlowMetaCallback(
   request: Request,
-  session?: SessionData | null,
+  session?: CallbackSession | null,
 ): Promise<SocialFlowMetaCallbackResult> {
   const diagnostics = resolveMetaOAuthDiagnostics(request, { callbackPath: SOCIALFLOW_META_CALLBACK_PATH });
   const url = new URL(request.url);
@@ -313,5 +316,5 @@ export async function connectSocialFlowMetaPage(input: {
 }
 
 export async function resolveSocialFlowMetaCallbackSession(request: Request) {
-  return getSession(request).catch(() => null);
+  return getCurrentSocialFlowSessionFromRequest(request).catch(() => null);
 }

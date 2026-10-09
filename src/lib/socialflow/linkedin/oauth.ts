@@ -1,5 +1,8 @@
 import { env } from "@/lib/cf";
-import { getSession, type SessionData } from "@/lib/auth/session";
+// P5: sesión propia de SocialCors (__Host-socialflow_session), no la multi-producto del holding.
+import { getCurrentSocialFlowSessionFromRequest } from "@/lib/socialflow/auth/request";
+
+type CallbackSession = { tenantId: string };
 import { emitLinkedInOAuthActivity } from "@/lib/socialflow/contracts/linkedin-oauth-runtime";
 import {
   LinkedInIntegrationError,
@@ -165,7 +168,7 @@ export async function buildSocialFlowLinkedInConnectUrl(input: {
 
 export async function handleSocialFlowLinkedInCallback(
   request: Request,
-  session?: SessionData | null,
+  session?: CallbackSession | null,
 ): Promise<SocialFlowLinkedInCallbackResult> {
   const diagnostics = resolveLinkedInOAuthDiagnostics(request, {
     callbackPath: SOCIALFLOW_LINKEDIN_CALLBACK_PATH,
@@ -395,5 +398,5 @@ export async function handleSocialFlowLinkedInCallback(
 }
 
 export async function resolveSocialFlowLinkedInCallbackSession(request: Request) {
-  return getSession(request).catch(() => null);
+  return getCurrentSocialFlowSessionFromRequest(request).catch(() => null);
 }

@@ -22,8 +22,8 @@ const TestLinkedInIntegrationError = vi.hoisted(() => class TestLinkedInIntegrat
   }
 });
 
-vi.mock("@/lib/auth/session", () => ({
-  getSession,
+vi.mock("@/lib/socialflow/auth/request", () => ({
+  getCurrentSocialFlowSessionFromRequest: getSession,
 }));
 
 vi.mock("@/lib/socialflow/linkedin/core", () => ({

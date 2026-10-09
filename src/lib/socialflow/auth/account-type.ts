@@ -1,4 +1,4 @@
-import { resolveAuthsDbForContext } from "@/lib/auths/repositories";
+import { resolveSocialFlowAuthsDb } from "@/lib/socialflow/platform/auth/repository";
 
 // Deliberately free of "next/headers" (unlike auth/server.ts / auth/request.ts): this is
 // imported by live-publishing.ts, which is also bundled directly into the standalone
@@ -6,7 +6,7 @@ import { resolveAuthsDbForContext } from "@/lib/auths/repositories";
 // in next/headers there breaks that worker's build (ua-parser-js needs __dirname, which
 // only Next's own bundling provides a shim for).
 export async function getSocialFlowAccountTypeByTenant(tenantId: string): Promise<"influencer" | "empresa" | null> {
-  const db = resolveAuthsDbForContext("socialflow");
+  const db = resolveSocialFlowAuthsDb();
   if (!db) return null;
   const row = await db
     .prepare(`SELECT account_type FROM socialflow_users WHERE tenant_id = ? LIMIT 1`)

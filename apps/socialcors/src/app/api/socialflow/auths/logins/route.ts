@@ -1,10 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { socialflowAuths } from "@/lib/auths/socialflow-auths";
-import { jsonError, setAuthsSessionCookie } from "@/lib/auths/http";
-import { isAuthsIsolationEnabled } from "@/lib/auths/flags";
-import { enforceAuthBoundary, resolveSaasSlugForAuthContext } from "@/lib/auths/ssot";
+import { enforceSocialFlowAuthBoundary } from "@/lib/socialflow/platform/auth/boundary";
+import { isAuthsIsolationEnabled } from "@/lib/socialflow/platform/auth/flags";
+import { jsonError, setSocialFlowSessionCookie } from "@/lib/socialflow/platform/auth/http";
+import { loginSocialFlowUser } from "@/lib/socialflow/platform/auth/services";
 
 type LoginBody = {
   email?: string;
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     return jsonError("AUTHS_ISOLATIONS_DISABLED", "Auth isolation is disabled.", 503);
   }
 
-  const boundary = enforceAuthBoundary({ request, expectedContext: "socialflow", endpoint: "/api/socialflow/auths/logins" });
+  const boundary = enforceSocialFlowAuthBoundary({ request, endpoint: "/api/socialflow/auths/logins" });
   if (!boundary.ok) return boundary.response;
 
   const body = (await request.json().catch(() => null)) as LoginBody | null;
@@ -24,8 +24,7 @@ export async function POST(request: Request) {
     return jsonError("INVALID_INPUT", "Email and password are required.");
   }
 
-  const login = await socialflowAuths.login({
-    context: "socialflow",
+  const login = await loginSocialFlowUser({
     email: body.email,
     password: body.password,
   });
@@ -37,8 +36,8 @@ export async function POST(request: Request) {
     ok: true,
     role: login.role,
     tenantId: login.tenantId,
-    saas_slug: resolveSaasSlugForAuthContext("socialflow"),
+    saas_slug: "socialflow",
   });
-  setAuthsSessionCookie({ response, context: "socialflow", token: login.token });
+  setSocialFlowSessionCookie({ response, token: login.token });
   return response;
 }

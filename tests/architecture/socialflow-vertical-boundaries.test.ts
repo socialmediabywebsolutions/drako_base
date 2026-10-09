@@ -273,7 +273,7 @@ describe("SocialFlow vertical boundaries", () => {
     const tenantIsolation = read("src/lib/socialflow/auth/tenant-isolation.ts");
     const authServer = read("src/lib/socialflow/auth/server.ts");
     const authRequest = read("src/lib/socialflow/auth/request.ts");
-    const authRepositories = read("src/lib/auths/repositories.ts");
+    const authRepositories = read("src/lib/socialflow/platform/auth/repository.ts");
     const exportRoute = read("apps/socialcors/src/app/api/socialflow/exports/current/route.ts");
     const exportService = read("src/lib/socialflow/export.ts");
     const wipeout = read("src/lib/export/wipeout-package.ts");
@@ -306,7 +306,7 @@ describe("SocialFlow vertical boundaries", () => {
     expect(authRequest).toContain("SOCIALFLOW_REQUEST_TENANT_ISOLATION_FAILED");
     expect(authRequest).toContain("requireAuthUser: true");
 
-    expect(authRepositories).toContain("listAuthsUsersByTenant");
+    expect(authRepositories).toContain("listSocialFlowAuthUsersByTenant");
     expect(authRepositories).toContain("WHERE tenant_id = ?");
 
     expect(exportRoute).toContain("generateSocialFlowExportForTenant(session.tenantId)");
@@ -337,8 +337,7 @@ describe("SocialFlow vertical boundaries", () => {
     expect(billingPortalRoute).toContain('saasSlug: "socialflow"');
     expect(billingPortalRoute).not.toMatch(/@\/lib\/campobase|@\/lib\/campamento-base|@\/lib\/auth\/campamento-core/);
     expect(ownershipPage).toContain('link.href = "/api/socialflow/exports/current"');
-    expect(teamPage).toContain("tenantId: session.tenantId");
-    expect(teamPage).toContain('context: "socialflow"');
+    expect(teamPage).toContain("listSocialFlowAuthUsersByTenant(session.tenantId)");
   });
 
   it("keeps legacy linkedin connect and callback routes as redirect-only bridges", () => {

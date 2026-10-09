@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
-import { resolveAuthsDbForContext } from "@/lib/auths/repositories";
+import { resolveSocialFlowAuthsDb } from "@/lib/socialflow/platform/auth/repository";
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, code: "INVALID_ACCOUNT_TYPE" }, { status: 400 });
     }
 
-    const db = resolveAuthsDbForContext("socialflow");
+    const db = resolveSocialFlowAuthsDb();
     if (!db) {
       return NextResponse.json({ ok: false, code: "DB_UNAVAILABLE" }, { status: 503 });
     }

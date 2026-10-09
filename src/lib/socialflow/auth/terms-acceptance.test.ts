@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const resolveDb = vi.fn();
-vi.mock("@/lib/auths/repositories", () => ({ resolveAuthsDbForContext: (...args: unknown[]) => resolveDb(...args) }));
+vi.mock("@/lib/socialflow/platform/auth/repository", () => ({ resolveSocialFlowAuthsDb: (...args: unknown[]) => resolveDb(...args) }));
 
 import { recordTermsAcceptance } from "./terms-acceptance";
 

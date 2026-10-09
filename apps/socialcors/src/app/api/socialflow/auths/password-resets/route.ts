@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { resolveAuthsDbForContext } from "@/lib/auths/repositories";
+import { resolveSocialFlowAuthsDb } from "@/lib/socialflow/platform/auth/repository";
 import { sendEmail } from "@/lib/email";
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
   // Always respond with success to prevent email enumeration.
   const ok = NextResponse.json({ ok: true });
 
-  const db = resolveAuthsDbForContext("socialflow");
+  const db = resolveSocialFlowAuthsDb();
   if (!db) return ok;
 
   type UserRow = { id: string; email: string; status: string };

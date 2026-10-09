@@ -1,7 +1,7 @@
 import { cookies, headers } from "next/headers";
-import { getAuthsCookieName, readCookieFromHeader } from "@/lib/auths/cookies";
-import { verifyAuthsSessionToken } from "@/lib/auths/tokens";
-import { getAuthsUserById, resolveAuthsDbForContext } from "@/lib/auths/repositories";
+import { getSocialFlowCookieName, readCookieFromHeader } from "@/lib/socialflow/platform/auth/cookies";
+import { getSocialFlowAuthUserById, resolveSocialFlowAuthsDb } from "@/lib/socialflow/platform/auth/repository";
+import { verifySocialFlowSessionToken } from "@/lib/socialflow/platform/auth/tokens";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import {
   readTenantIdFromHeaderGetter,
@@ -19,7 +19,7 @@ export type SocialFlowSession = {
 };
 
 export async function getSocialFlowAccountType(userId: string): Promise<"influencer" | "empresa" | null> {
-  const db = resolveAuthsDbForContext("socialflow");
+  const db = resolveSocialFlowAuthsDb();
   if (!db) return null;
   const row = await db
     .prepare(`SELECT account_type FROM socialflow_users WHERE id = ? LIMIT 1`)
@@ -63,7 +63,7 @@ export async function getCurrentSocialFlowSession(): Promise<SocialFlowSession |
     };
   }
 
-  const cookieName = getAuthsCookieName("socialflow");
+  const cookieName = getSocialFlowCookieName();
   const cookieStore = await cookies();
   const token =
     cookieStore.get(cookieName)?.value
@@ -71,13 +71,10 @@ export async function getCurrentSocialFlowSession(): Promise<SocialFlowSession |
 
   if (!token) return null;
 
-  const claims = await verifyAuthsSessionToken(token, "socialflow");
+  const claims = await verifySocialFlowSessionToken(token);
   if (!claims) return null;
 
-  const user = await getAuthsUserById({
-    context: "socialflow",
-    userId: claims.sub,
-  });
+  const user = await getSocialFlowAuthUserById(claims.sub);
 
   const tenantIsolation = validateSocialFlowTenantIsolation({
     sessionTenantId: claims.tenantId,

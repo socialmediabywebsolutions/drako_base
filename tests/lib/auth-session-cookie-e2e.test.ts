@@ -182,14 +182,14 @@ describe("auth cookie/session e2e by context", () => {
       tenantId: "tenant_socialflow",
       role: "user",
     });
-    vi.doMock("@/lib/auths/socialflow-auths", () => ({
-      socialflowAuths: {
-        register: vi.fn().mockResolvedValue({ ok: true, userId: "u3" }),
-        login: vi.fn().mockResolvedValue({ ok: true, token, role: "user", tenantId: "tenant_socialflow" }),
-      },
+    // P5: la ruta usa la auth propia de SocialCors; la sesión siguiente se resuelve con
+    // getSession del holding, lo que además comprueba que ambas implementaciones son compatibles.
+    vi.doMock("@/lib/socialflow/platform/auth/services", () => ({
+      registerSocialFlowUser: vi.fn().mockResolvedValue({ ok: true, userId: "u3" }),
+      loginSocialFlowUser: vi.fn().mockResolvedValue({ ok: true, token, role: "user", tenantId: "tenant_socialflow" }),
     }));
-    vi.doMock("@/lib/auths/flags", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("@/lib/auths/flags")>();
+    vi.doMock("@/lib/socialflow/platform/auth/flags", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/lib/socialflow/platform/auth/flags")>();
       return {
         ...actual,
         isAuthsIsolationEnabled: () => true,

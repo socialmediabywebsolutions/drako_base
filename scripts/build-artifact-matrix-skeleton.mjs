@@ -913,7 +913,7 @@ async function loadTenantIsolationEvidenceSources() {
     "apps/socialcors/src/app/socialflow/(workspace)/settings/ownership/page.tsx",
     "apps/socialcors/src/app/socialflow/(workspace)/settings/team/page.tsx",
     "src/components/settings/socialflow-account-settings.tsx",
-    "src/lib/auths/repositories.ts",
+    "src/lib/socialflow/platform/auth/repository.ts",
     "src/lib/export/wipeout-package.ts",
     "src/lib/socialflow/auth/request.ts",
     "src/lib/socialflow/auth/server.ts",
@@ -961,8 +961,8 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
       "requireAuthUser: true",
       "SOCIALFLOW_REQUEST_TENANT_ISOLATION_FAILED",
     ]),
-    authRosterTenantQuery: sourceIncludesAll(sources["src/lib/auths/repositories.ts"], [
-      "listAuthsUsersByTenant",
+    authRosterTenantQuery: sourceIncludesAll(sources["src/lib/socialflow/platform/auth/repository.ts"], [
+      "listSocialFlowAuthUsersByTenant",
       "WHERE tenant_id = ?",
     ]),
   };
@@ -1006,14 +1006,14 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
           "src/middleware.ts",
           "src/lib/socialflow/auth/server.ts",
           "src/lib/socialflow/auth/tenant-isolation.ts",
-          "src/lib/auths/repositories.ts",
+          "src/lib/socialflow/platform/auth/repository.ts",
         ],
       },
       flow: {
         entrypoints: ["apps/socialcors/src/app/api/socialflow/exports/current/route.ts"],
         services: ["src/lib/socialflow/export.ts", "src/lib/export/wipeout-package.ts"],
-        repositories: ["src/lib/auths/repositories.ts"],
-        dbWrappers: ["src/lib/db.ts", "src/lib/auths/repositories.ts"],
+        repositories: ["src/lib/socialflow/platform/auth/repository.ts"],
+        dbWrappers: ["src/lib/db.ts", "src/lib/socialflow/platform/auth/repository.ts"],
         sql: [
           "SELECT id, slug FROM saas WHERE tenant_id = ? AND lower(slug) IN (?, ?) ORDER BY created_at DESC LIMIT 1",
           "SELECT * FROM saas_instances WHERE id = ? AND tenant_id = ?",
@@ -1067,8 +1067,8 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
           "apps/socialcors/src/app/socialflow/(workspace)/settings/account/page.tsx",
         ],
         services: ["src/components/settings/socialflow-account-settings.tsx"],
-        repositories: ["src/lib/auths/repositories.ts"],
-        dbWrappers: ["src/lib/auths/repositories.ts"],
+        repositories: ["src/lib/socialflow/platform/auth/repository.ts"],
+        dbWrappers: ["src/lib/socialflow/platform/auth/repository.ts"],
         sql: [],
         tenantFilters: [
           "workspace session resolved from signed SocialFlow token",
@@ -1155,8 +1155,8 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
           "apps/socialcors/src/app/socialflow/(workspace)/settings/ownership/page.tsx",
         ],
         services: ["apps/socialcors/src/app/api/socialflow/exports/current/route.ts", "src/lib/socialflow/export.ts", "src/lib/export/wipeout-package.ts"],
-        repositories: ["src/lib/auths/repositories.ts"],
-        dbWrappers: ["src/lib/db.ts", "src/lib/auths/repositories.ts"],
+        repositories: ["src/lib/socialflow/platform/auth/repository.ts"],
+        dbWrappers: ["src/lib/db.ts", "src/lib/socialflow/platform/auth/repository.ts"],
         sql: [
           "Delegates all data export reads to api/socialflow/exports/current",
           "Delegated export path is tenant-scoped through saas, saas_instances, tenant_strategic_dossiers, agent_work_logs, orchestrator_messages, economic_events and saas_domains queries",
@@ -1182,9 +1182,7 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
         sharedEvidence.authRosterTenantQuery &&
         sourceIncludesAll(sources["apps/socialcors/src/app/socialflow/(workspace)/settings/team/page.tsx"], [
           "getCurrentSocialFlowSession()",
-          "listAuthsUsersByTenant({",
-          'context: "socialflow"',
-          "tenantId: session.tenantId",
+          "listSocialFlowAuthUsersByTenant(session.tenantId)",
         ])
           ? "VERIFIED_TENANT_ISOLATED"
           : "PARTIALLY_ISOLATED",
@@ -1199,8 +1197,8 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
           "apps/socialcors/src/app/socialflow/(workspace)/settings/team/page.tsx",
         ],
         services: [],
-        repositories: ["src/lib/auths/repositories.ts"],
-        dbWrappers: ["src/lib/auths/repositories.ts"],
+        repositories: ["src/lib/socialflow/platform/auth/repository.ts"],
+        dbWrappers: ["src/lib/socialflow/platform/auth/repository.ts"],
         sql: [
           "SELECT id, email, name, role, tenant_id, status FROM socialflow_users WHERE tenant_id = ? ORDER BY created_at ASC",
         ],

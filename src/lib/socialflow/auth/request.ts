@@ -1,6 +1,6 @@
-import { getAuthsCookieCandidateNames } from "@/lib/auths/cookies";
-import { getAuthsUserById } from "@/lib/auths/repositories";
-import { verifyAuthsSessionToken } from "@/lib/auths/tokens";
+import { getSocialFlowCookieCandidateNames } from "@/lib/socialflow/platform/auth/cookies";
+import { getSocialFlowAuthUserById } from "@/lib/socialflow/platform/auth/repository";
+import { verifySocialFlowSessionToken } from "@/lib/socialflow/platform/auth/tokens";
 import {
   readTenantIdFromHeaderGetter,
   validateSocialFlowTenantIsolation,
@@ -26,7 +26,7 @@ function readCookieValue(cookieHeader: string | null, name: string): string | nu
 
 export async function getCurrentSocialFlowSessionFromRequest(request: Request): Promise<SocialFlowRequestSession | null> {
   const cookieHeader = request.headers.get("cookie");
-  const candidateNames = getAuthsCookieCandidateNames("socialflow", request);
+  const candidateNames = getSocialFlowCookieCandidateNames(request);
   let token: string | null = null;
   for (const name of candidateNames) {
     token = readCookieValue(cookieHeader, name);
@@ -34,13 +34,10 @@ export async function getCurrentSocialFlowSessionFromRequest(request: Request): 
   }
   if (!token) return null;
 
-  const claims = await verifyAuthsSessionToken(token, "socialflow");
+  const claims = await verifySocialFlowSessionToken(token);
   if (!claims) return null;
 
-  const user = await getAuthsUserById({
-    context: "socialflow",
-    userId: claims.sub,
-  });
+  const user = await getSocialFlowAuthUserById(claims.sub);
   const tenantIsolation = validateSocialFlowTenantIsolation({
     sessionTenantId: claims.tenantId,
     headerTenantId: readTenantIdFromHeaderGetter((name) => request.headers.get(name)),

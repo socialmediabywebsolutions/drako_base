@@ -1,4 +1,4 @@
-import { listAuthsUsersByTenant } from "@/lib/auths/repositories";
+import { listSocialFlowAuthUsersByTenant } from "@/lib/socialflow/platform/auth/repository";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { redirect } from "next/navigation";
 
@@ -8,10 +8,7 @@ export default async function SocialFlowTeamSettingsPage() {
     redirect("/socialflow/auth");
   }
 
-  const members = await listAuthsUsersByTenant({
-    context: "socialflow",
-    tenantId: session.tenantId,
-  });
+  const members = await listSocialFlowAuthUsersByTenant(session.tenantId);
 
   const admins = members.filter((m) => m.role === "admin");
   const nonAdmins = members.filter((m) => m.role !== "admin");

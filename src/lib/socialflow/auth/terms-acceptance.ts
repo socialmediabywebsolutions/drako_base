@@ -1,4 +1,4 @@
-import { resolveAuthsDbForContext } from "@/lib/auths/repositories";
+import { resolveSocialFlowAuthsDb } from "@/lib/socialflow/platform/auth/repository";
 
 // Registro de la aceptación de los Términos y de la Política de privacidad al crear la cuenta.
 // Guarda la fecha/hora (ISO 8601, UTC) en socialflow_users.accepted_terms_at como prueba.
@@ -36,7 +36,7 @@ async function writeAcceptance(db: D1Database, userId: string, acceptedAt: strin
  * (devuelve false), para no bloquear registros por un problema de esquema.
  */
 export async function recordTermsAcceptance(userId: string, acceptedAt: string = new Date().toISOString()): Promise<boolean> {
-  const db = resolveAuthsDbForContext("socialflow");
+  const db = resolveSocialFlowAuthsDb();
   if (!db) {
     console.error("SOCIALFLOW_TERMS_ACCEPTANCE_DB_MISSING", { userId });
     return false;

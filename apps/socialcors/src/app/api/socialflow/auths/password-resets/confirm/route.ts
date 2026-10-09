@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { resolveAuthsDbForContext } from "@/lib/auths/repositories";
-import { hashPassword } from "@/lib/auth/crypto";
+import { hashPassword } from "@/lib/socialflow/platform/auth/crypto";
+import { resolveSocialFlowAuthsDb } from "@/lib/socialflow/platform/auth/repository";
 
 async function sha256Hex(value: string): Promise<string> {
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const db = resolveAuthsDbForContext("socialflow");
+  const db = resolveSocialFlowAuthsDb();
   if (!db) {
     return NextResponse.json({ error: "SERVICE_UNAVAILABLE" }, { status: 503 });
   }
