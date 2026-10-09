@@ -13,7 +13,15 @@ type DuePostRow = {
 
 type SchedulerPostResult = { id: string; tenantId: string; saasId: string; status: string; code: string | null; message: string | null };
 
-export async function processScheduledPosts(): Promise<{ results: SchedulerPostResult[]; recovered: number }> {
+export type ProcessScheduledPostsOptions = {
+  // Solo posts vencidos hace al menos estos minutos. Lo usa el Worker web como red de
+  // seguridad cuando el Worker IA es el responsable (ver publish-scheduler-owner.ts).
+  minOverdueMinutes?: number;
+};
+
+export async function processScheduledPosts(
+  options: ProcessScheduledPostsOptions = {},
+): Promise<{ results: SchedulerPostResult[]; recovered: number }> {
   const bindings = env();
   const socialDb = bindings?.SOCIAL_DB;
   if (!socialDb) {
@@ -25,7 +33,8 @@ export async function processScheduledPosts(): Promise<{ results: SchedulerPostR
     console.log(`[SocialFlow Scheduler] Recovered ${recovered} stale PUBLISHING post(s) back to SCHEDULED.`);
   }
 
-  const now = new Date().toISOString();
+  const overdueMs = Math.max(0, options.minOverdueMinutes ?? 0) * 60 * 1000;
+  const now = new Date(Date.now() - overdueMs).toISOString();
   const { results: posts } = await socialDb.prepare(
     `SELECT id, tenant_id, saas_id
      FROM saas_social_posts

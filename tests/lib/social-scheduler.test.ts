@@ -65,6 +65,19 @@ describe("processScheduledPosts", () => {
     ]);
   });
 
+  it("only selects posts overdue by minOverdueMinutes when asked (web fallback mode)", async () => {
+    const bind = vi.fn(() => ({ all: vi.fn(async () => ({ results: [] })) }));
+    env.mockReturnValue({ SOCIAL_DB: { prepare: vi.fn(() => ({ bind })) } });
+    const before = Date.now();
+
+    await processScheduledPosts({ minOverdueMinutes: 10 });
+
+    const cutoff = Date.parse(bind.mock.calls[0][0] as unknown as string);
+    expect(cutoff).toBeLessThanOrEqual(before - 10 * 60 * 1000 + 1000);
+    expect(cutoff).toBeGreaterThan(before - 11 * 60 * 1000);
+    expect(publishSocialPostLive).not.toHaveBeenCalled();
+  });
+
   it("skips auto-publish when private pilot mode blocks scheduler publishing", async () => {
     isAutoPublishBlockedByPrivatePilotMode.mockReturnValue(true);
 

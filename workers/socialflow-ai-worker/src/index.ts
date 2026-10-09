@@ -13,6 +13,8 @@ import { resolveSocialContext, upsertSaasSocialCampaign } from "../../../src/lib
 import { watermarkCampaignImages } from "./image-watermark";
 import { overlayTenantLogoOnCampaignImages } from "./image-logo";
 import { processScheduledPosts } from "../../../src/lib/socialflow/scheduler";
+import { resolvePublishSchedulerOwner } from "../../../src/lib/socialflow/publish-scheduler-owner";
+import { claimCronTurn } from "../../../src/lib/security/cron-turn";
 import { runTrendAutoApproveCron } from "../../../src/lib/socialflow/intelligence/TrendAutoApproveCron";
 import { withAgentExecutionLog } from "../../../src/lib/socialflow/intelligence/agent-execution-log";
 import { ImageAnalysisAgent, type ImageAnalysis } from "../../../src/lib/socialflow/ai/agents/ImageAnalysisAgent";
@@ -834,9 +836,25 @@ export default {
       return;
     }
 
+    // P4: con owner=web la publicación programada la hace solo el Worker web.
+    const owner = resolvePublishSchedulerOwner(env);
+    if (owner === "web") {
+      return;
+    }
+
+    // Cloudflare puede entregar el mismo evento scheduled dos veces; un turno por minuto.
+    if (env.SOCIAL_DB) {
+      const { claimed, turn } = await claimCronTurn(env.SOCIAL_DB, "social-publish-ai", 1);
+      if (!claimed) {
+        console.log("[SocialFlowCron] Skipped: turn already claimed", turn);
+        return;
+      }
+    }
+
     try {
       const result = await processScheduledPosts();
       console.log("[SocialFlowCron] Batch complete", JSON.stringify({
+        owner,
         processed: result.results.length,
         recovered: result.recovered,
         results: result.results,

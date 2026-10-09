@@ -96,6 +96,9 @@ SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems,socialcors.c
 WORKERS_ONLY_MODE = "true"
 INSTAGRAM_APP_ID = "1534853271675778"
 APP_URL = "https://socialflows.drako.systems"
+# P4: el Worker IA publica los posts programados; este Worker solo recoge los que lleven
+# >10 min vencidos (red de seguridad). Valores: ai | web | both (ver publish-scheduler-owner.ts).
+SOCIALFLOW_PUBLISH_SCHEDULER_OWNER = "ai"
 # SOCIALFLOW_STRIPE_PRICE_PRO and SOCIALFLOW_STRIPE_PRICE_CREATOR are NOT stored here.
 # Set them as Wrangler secrets so they never appear in source control:
 #   npx wrangler secret put SOCIALFLOW_STRIPE_PRICE_PRO -c workers/socialflows/wrangler.workers.toml

@@ -161,6 +161,7 @@ const EXTERNAL_BASELINE: readonly string[] = [
   "src/lib/saas/marketing-types.ts",
   "src/lib/security/cron-auth.ts",
   "src/lib/security/cron-lock.ts",
+  "src/lib/security/cron-turn.ts", // P4: núcleo de cron-lock sin Next.js, para el scheduled() del Worker IA
   "src/lib/stripe/rest.ts",
   "src/lib/tenants/services.ts",
 ];

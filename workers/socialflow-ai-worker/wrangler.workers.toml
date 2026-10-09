@@ -34,3 +34,8 @@ crons = ["* * * * *", "*/15 * * * *"]
 [[r2_buckets]]
 binding = "SOCIAL_MEDIA_BUCKET"
 bucket_name = "socialflow-media"
+
+[vars]
+# P4: este Worker es el responsable de publicar los posts programados (cron cada minuto,
+# lock social-publish-ai por minuto). Debe coincidir con el valor del Worker web.
+SOCIALFLOW_PUBLISH_SCHEDULER_OWNER = "ai"

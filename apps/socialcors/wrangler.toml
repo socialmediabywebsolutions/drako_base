@@ -88,4 +88,7 @@ SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems,socialcors.c
 WORKERS_ONLY_MODE = "true"
 INSTAGRAM_APP_ID = "1534853271675778"
 APP_URL = "https://socialflows.drako.systems"
+# P4: el Worker IA publica los posts programados; este Worker solo recoge los que lleven
+# >10 min vencidos (red de seguridad). Valores: ai | web | both (ver publish-scheduler-owner.ts).
+SOCIALFLOW_PUBLISH_SCHEDULER_OWNER = "ai"
 # SOCIALFLOW_STRIPE_PRICE_PRO y SOCIALFLOW_STRIPE_PRICE_CREATOR son secrets del Worker, no vars.

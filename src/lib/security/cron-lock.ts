@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/cf";
-
-const LOCK_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
+import { claimCronTurn } from "@/lib/security/cron-turn";
 
 // Bloqueo por turno para las rutas de /api/cron/social/*. Cloudflare entrega a veces el
 // mismo evento scheduled dos veces cuando varias expresiones de cron coinciden en el mismo
@@ -26,29 +25,9 @@ export async function guardCronTurn(
   const db = env()?.SOCIAL_DB;
   if (!db) return null;
 
-  const intervalMs = intervalMinutes * 60 * 1000;
-  const now = Date.now();
-  const turn = new Date(Math.floor(now / intervalMs) * intervalMs).toISOString();
-
-  try {
-    await db
-      .prepare(`INSERT INTO cron_locks (cron_route, turn, created_at) VALUES (?, ?, ?)`)
-      .bind(lockKey, turn, new Date(now).toISOString())
-      .run();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (/UNIQUE constraint failed/i.test(message)) {
-      return NextResponse.json({ ok: true, skipped: "ALREADY_RAN_THIS_TURN", lockKey, turn });
-    }
-    console.error("[cron-lock] lock insert failed, running anyway", lockKey, message);
-    return null;
+  const { claimed, turn } = await claimCronTurn(db, lockKey, intervalMinutes);
+  if (!claimed) {
+    return NextResponse.json({ ok: true, skipped: "ALREADY_RAN_THIS_TURN", lockKey, turn });
   }
-
-  await db
-    .prepare(`DELETE FROM cron_locks WHERE created_at < ?`)
-    .bind(new Date(now - LOCK_RETENTION_MS).toISOString())
-    .run()
-    .catch(() => {});
-
   return null;
 }
