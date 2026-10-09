@@ -282,7 +282,7 @@ describe("SocialFlow vertical boundaries", () => {
     const billingCheckoutRoute = read("apps/socialcors/src/app/api/socialflow/billing/checkout/route.ts");
     const billingPortalRoute = read("apps/socialcors/src/app/api/socialflow/billing/portal/route.ts");
     const accountPage = read("apps/socialcors/src/app/socialflow/(workspace)/settings/account/page.tsx");
-    const socialFlowAccountSettings = read("src/components/settings/socialflow-account-settings.tsx");
+    const socialFlowAccountSettings = read("src/components/socialflow/settings/socialflow-account-settings.tsx");
     const ownershipPage = read("apps/socialcors/src/app/socialflow/(workspace)/settings/ownership/page.tsx");
     const teamPage = read("apps/socialcors/src/app/socialflow/(workspace)/settings/team/page.tsx");
 

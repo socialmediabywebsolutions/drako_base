@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
-import { guardCronTurn } from "@/lib/security/cron-lock";
+import { CronAuthError, verifyCronAuth } from "@/lib/socialflow/platform/cron/auth";
+import { guardCronTurn } from "@/lib/socialflow/platform/cron/lock";
 import { env } from "@/lib/cf";
 import { runBestPracticesCron } from "@/lib/socialflow/ai/agents/BestPracticesAgent";
 import { withAgentExecutionLog } from "@/lib/socialflow/intelligence/agent-execution-log";

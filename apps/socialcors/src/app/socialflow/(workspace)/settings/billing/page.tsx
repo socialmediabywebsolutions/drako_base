@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getSocialFlowPlanDefinition, listSocialFlowPaidPlans, resolveSocialFlowPlanCode } from "@/lib/socialflow/billing/plans";
-import SocialFlowBillingSettings from "@/components/settings/socialflow-billing-settings";
+import SocialFlowBillingSettings from "@/components/socialflow/settings/socialflow-billing-settings";
 
 export default async function SocialFlowBillingSettingsPage() {
   const session = await getCurrentSocialFlowSession();

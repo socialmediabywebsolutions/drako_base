@@ -4,7 +4,7 @@ import {
   generateCorrelationId,
   isValidCorrelationId,
   normalizeCorrelationId,
-} from "@/lib/correlation";
+} from "@/lib/socialflow/platform/correlation";
 
 /**
  * Middleware propio de SocialCors (P3).

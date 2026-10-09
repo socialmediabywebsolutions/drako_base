@@ -92,10 +92,6 @@ const IMPORT_PATTERNS = [
  * Esta lista solo debe encoger. Cada fase del plan (P2, P5–P10) retira entradas.
  */
 const EXTERNAL_BASELINE: readonly string[] = [
-  "src/components/legal/legal-data.ts",
-  "src/components/legal/legal-layout.tsx", // P3: páginas legales copiadas a la app; P5 las hace propias
-  "src/components/settings/socialflow-account-settings.tsx",
-  "src/components/settings/socialflow-billing-settings.tsx",
   "src/lib/admin/demo-data.ts",
   "src/lib/ai/usage.ts",
   "src/lib/billing/subscriptions.ts",
@@ -106,11 +102,8 @@ const EXTERNAL_BASELINE: readonly string[] = [
   "src/lib/conversations/types.ts",
   "src/lib/correlation.ts",
   "src/lib/db.ts",
-  "src/lib/email.ts",
   "src/lib/empire/events.ts",
   "src/lib/export/wipeout-package.ts",
-  "src/lib/google-places-client.ts",
-  "src/lib/http/base-url.ts",
   "src/lib/http/errors.ts",
   "src/lib/integration-core/connections.ts",
   "src/lib/integration-core/definitions.ts",
@@ -132,10 +125,6 @@ const EXTERNAL_BASELINE: readonly string[] = [
   "src/lib/packs/types.ts",
   "src/lib/saas/marketing-packs.ts",
   "src/lib/saas/marketing-types.ts",
-  "src/lib/security/cron-auth.ts",
-  "src/lib/security/cron-lock.ts",
-  "src/lib/security/cron-turn.ts", // P4: núcleo de cron-lock sin Next.js, para el scheduled() del Worker IA
-  "src/lib/stripe/rest.ts",
   "src/lib/tenants/services.ts",
 ];
 

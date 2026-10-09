@@ -2,7 +2,7 @@ import { defaultLocalModel } from "../ai/models/localModel";
 import { resolveSocialContext, listSaasSocialPosts, listSaasSocialMetricsForPost } from "@/lib/socialflow/repository";
 import { getChannelProfile } from "@/lib/socialflow/profile/repository";
 import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
-import { sendEmail } from "@/lib/email";
+import { sendEmail } from "@/lib/socialflow/platform/email";
 import type { SaasSocialPost } from "@/lib/social-core/types";
 import { getNicheIntelligence, getStyleHistory, detectContentFatigue, type Env } from "./NicheIntelligenceService";
 

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { HeroSystem } from "./hero-system";
 import LiveZone from "./live-zone";
 import Reveal from "./reveal";
-import { LEGAL_COPYRIGHT } from "@/components/legal/legal-data";
+import { LEGAL_COPYRIGHT } from "@/components/socialflow/legal/legal-data";
 import { CoreDisc, SysHead, Wires, vars, type WirePath } from "./flow";
 import {
   DEMO_VIDEO_URL,

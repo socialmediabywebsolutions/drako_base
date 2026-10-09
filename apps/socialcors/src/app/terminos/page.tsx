@@ -1,5 +1,5 @@
-import { LegalLayout, LegalLink, LegalList, LegalSection } from "@/components/legal/legal-layout";
-import { LEGAL_HOLDER } from "@/components/legal/legal-data";
+import { LegalLayout, LegalLink, LegalList, LegalSection } from "@/components/socialflow/legal/legal-layout";
+import { LEGAL_HOLDER } from "@/components/socialflow/legal/legal-data";
 
 export const dynamic = "force-static";
 

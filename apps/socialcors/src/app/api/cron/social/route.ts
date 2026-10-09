@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyCronAuth, CronAuthError } from "@/lib/security/cron-auth";
-import { guardCronTurn } from "@/lib/security/cron-lock";
+import { verifyCronAuth, CronAuthError } from "@/lib/socialflow/platform/cron/auth";
+import { guardCronTurn } from "@/lib/socialflow/platform/cron/lock";
 import { processScheduledPosts } from "@/lib/socialflow/scheduler";
 import { resolvePublishSchedulerOwner, WEB_FALLBACK_MIN_OVERDUE_MINUTES } from "@/lib/socialflow/publish-scheduler-owner";
 

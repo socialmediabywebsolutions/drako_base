@@ -20,7 +20,7 @@ import type { BrandProfile, KeywordEngineOutput, StrategyItem } from "@/lib/soci
 import { isActiveSocialFlowTrial } from "@/lib/socialflow/billing/enforce";
 import { calculateViralScore, mapContentTypeToViralFormat, type ViralScore } from "@/lib/socialflow/intelligence/ViralScoreAgent";
 import { extractGpsFromBuffer } from "@/lib/socialflow/geo/exif";
-import { reverseGeocode } from "@/lib/google-places-client";
+import { reverseGeocode } from "@/lib/socialflow/platform/google-places-client";
 import { getWikipediaContext } from "@/lib/socialflow/geo/wikipedia";
 
 function unauthorizedResponse() {

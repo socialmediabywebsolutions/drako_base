@@ -912,7 +912,7 @@ async function loadTenantIsolationEvidenceSources() {
     "apps/socialcors/src/app/socialflow/(workspace)/settings/billing/page.tsx",
     "apps/socialcors/src/app/socialflow/(workspace)/settings/ownership/page.tsx",
     "apps/socialcors/src/app/socialflow/(workspace)/settings/team/page.tsx",
-    "src/components/settings/socialflow-account-settings.tsx",
+    "src/components/socialflow/settings/socialflow-account-settings.tsx",
     "src/lib/socialflow/platform/auth/repository.ts",
     "src/lib/export/wipeout-package.ts",
     "src/lib/socialflow/auth/request.ts",
@@ -1066,7 +1066,7 @@ async function buildSocialflowTenantIsolationVerification(routeClassifications) 
         entrypoints: [
           "apps/socialcors/src/app/socialflow/(workspace)/settings/account/page.tsx",
         ],
-        services: ["src/components/settings/socialflow-account-settings.tsx"],
+        services: ["src/components/socialflow/settings/socialflow-account-settings.tsx"],
         repositories: ["src/lib/socialflow/platform/auth/repository.ts"],
         dbWrappers: ["src/lib/socialflow/platform/auth/repository.ts"],
         sql: [],

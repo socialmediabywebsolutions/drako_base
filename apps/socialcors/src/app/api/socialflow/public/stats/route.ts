@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getCloudflareContextSafeSync } from "@/lib/cloudflare/runtime";
+import { getCloudflareContextSafeSync } from "@/lib/socialflow/platform/cloudflare-runtime";
 
 export async function GET() {
   try {

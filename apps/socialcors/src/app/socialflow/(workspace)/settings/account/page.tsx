@@ -1,4 +1,4 @@
-import SocialFlowAccountSettings from "@/components/settings/socialflow-account-settings";
+import SocialFlowAccountSettings from "@/components/socialflow/settings/socialflow-account-settings";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import { getSocialFlowPlanDefinition, resolveSocialFlowPlanCode } from "@/lib/socialflow/billing/plans";

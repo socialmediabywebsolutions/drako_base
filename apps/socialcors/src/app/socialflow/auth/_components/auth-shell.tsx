@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { LOGO_HEADER_URL } from "@/app/socialflows/_components/landing-config";
-import { LEGAL_COPYRIGHT } from "@/components/legal/legal-data";
+import { LEGAL_COPYRIGHT } from "@/components/socialflow/legal/legal-data";
 import "../auth.css";
 
 // Marco común de la pantalla de acceso (login / registro) y de la recuperación de contraseña.

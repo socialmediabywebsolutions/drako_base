@@ -1,5 +1,5 @@
 import { env } from "@/lib/cf";
-import { geocodeAddress, searchNearbyCompetitors } from "@/lib/google-places-client";
+import { geocodeAddress, searchNearbyCompetitors } from "@/lib/socialflow/platform/google-places-client";
 import { getLocal, updateLocalCoordinates } from "../../local/repository";
 import type { EmpresaLocal } from "../../local/types";
 import { defaultLocalModel } from "../models/localModel";

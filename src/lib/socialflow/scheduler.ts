@@ -1,5 +1,5 @@
 import { env } from "@/lib/cf";
-import { getCloudflareContextSafeAsync } from "@/lib/cloudflare/runtime";
+import { getCloudflareContextSafeAsync } from "@/lib/socialflow/platform/cloudflare-runtime";
 import { publishSocialPostLive } from "@/lib/socialflow/live-publishing";
 import { recoverStalePublishingPosts, resolveSocialContext } from "@/lib/socialflow/repository";
 import { isAutoPublishBlockedByPrivatePilotMode } from "@/lib/socialflow/private-pilot";

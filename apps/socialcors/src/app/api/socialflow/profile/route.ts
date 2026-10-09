@@ -10,7 +10,7 @@ import {
 } from "@/lib/socialflow/profile/repository";
 import { SocialContextError } from "@/lib/socialflow/repository";
 import { analyzeCompetitorForKnowledgeBase, buildCompetitorSourceUrl } from "@/lib/socialflow/knowledge/competitor-analysis";
-import { getCloudflareContextSafeAsync } from "@/lib/cloudflare/runtime";
+import { getCloudflareContextSafeAsync } from "@/lib/socialflow/platform/cloudflare-runtime";
 
 const DEFAULT_SAAS_ID = "socialflow";
 

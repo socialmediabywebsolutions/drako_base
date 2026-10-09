@@ -3,9 +3,9 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
-import { getRequestBaseUrl } from "@/lib/http/base-url";
+import { getRequestBaseUrl } from "@/lib/socialflow/platform/http/base-url";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
-import { createStripeBillingPortalSession } from "@/lib/stripe/rest";
+import { createStripeBillingPortalSession } from "@/lib/socialflow/platform/stripe-rest";
 
 export async function POST(request: Request) {
   try {

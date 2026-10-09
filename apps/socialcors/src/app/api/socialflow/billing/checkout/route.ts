@@ -3,10 +3,10 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
-import { getRequestBaseUrl } from "@/lib/http/base-url";
+import { getRequestBaseUrl } from "@/lib/socialflow/platform/http/base-url";
 import { requireCurrentSocialFlowSession } from "@/lib/socialflow/auth/request";
 import { getSocialFlowStripePriceId, type SocialFlowPlanCode } from "@/lib/socialflow/billing/plans";
-import { createStripeCheckoutSession, createStripeCustomer } from "@/lib/stripe/rest";
+import { createStripeCheckoutSession, createStripeCustomer } from "@/lib/socialflow/platform/stripe-rest";
 
 type RequestBody = {
   plan?: string;

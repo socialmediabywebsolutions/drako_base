@@ -14,7 +14,7 @@ import { watermarkCampaignImages } from "./image-watermark";
 import { overlayTenantLogoOnCampaignImages } from "./image-logo";
 import { processScheduledPosts } from "../../../src/lib/socialflow/scheduler";
 import { resolvePublishSchedulerOwner } from "../../../src/lib/socialflow/publish-scheduler-owner";
-import { claimCronTurn } from "../../../src/lib/security/cron-turn";
+import { claimCronTurn } from "../../../src/lib/socialflow/platform/cron/turn";
 import { runTrendAutoApproveCron } from "../../../src/lib/socialflow/intelligence/TrendAutoApproveCron";
 import { withAgentExecutionLog } from "../../../src/lib/socialflow/intelligence/agent-execution-log";
 import { ImageAnalysisAgent, type ImageAnalysis } from "../../../src/lib/socialflow/ai/agents/ImageAnalysisAgent";

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyCronAuth, CronAuthError } from "@/lib/security/cron-auth";
-import { guardCronTurn } from "@/lib/security/cron-lock";
+import { verifyCronAuth, CronAuthError } from "@/lib/socialflow/platform/cron/auth";
+import { guardCronTurn } from "@/lib/socialflow/platform/cron/lock";
 import { processFacebookPageMetrics, processInstagramMetrics } from "@/lib/socialflow/meta/metrics-collector";
 import { processLinkedInMetrics } from "@/lib/socialflow/linkedin/metrics-collector";
 import { checkAllLinkedInAccountTokens } from "@/lib/socialflow/linkedin/token-health";

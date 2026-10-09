@@ -7,7 +7,7 @@
  */
 
 import { env } from "@/lib/cf";
-import { sendEmail } from "@/lib/email";
+import { sendEmail } from "@/lib/socialflow/platform/email";
 import type { SocialFlowProspect } from "./types";
 
 // ─── Generación de contenido ──────────────────────────────────────────────────

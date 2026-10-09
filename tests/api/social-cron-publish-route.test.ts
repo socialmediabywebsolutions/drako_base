@@ -14,7 +14,7 @@ const CronAuthError = vi.hoisted(() => class CronAuthError extends Error {
   }
 });
 
-vi.mock("@/lib/security/cron-auth", () => ({
+vi.mock("@/lib/socialflow/platform/cron/auth", () => ({
   CronAuthError,
   verifyCronAuth,
 }));
@@ -23,7 +23,7 @@ vi.mock("@/lib/socialflow/scheduler", () => ({
   processScheduledPosts,
 }));
 
-vi.mock("@/lib/security/cron-lock", () => ({
+vi.mock("@/lib/socialflow/platform/cron/lock", () => ({
   guardCronTurn,
 }));
 

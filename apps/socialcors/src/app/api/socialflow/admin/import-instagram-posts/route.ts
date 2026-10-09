@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
+import { CronAuthError, verifyCronAuth } from "@/lib/socialflow/platform/cron/auth";
 import { env } from "@/lib/cf";
 import { fetchInstagramMediaSince, MetaIntegrationError } from "@/lib/socialflow/meta/core";
 import { importInstagramMediaItems, resolveInstagramCredentials, type InstagramImportAccount } from "@/lib/socialflow/meta/instagram-import";

@@ -1,4 +1,4 @@
-import { sendEmail } from "@/lib/email";
+import { sendEmail } from "@/lib/socialflow/platform/email";
 import { getChannelProfile } from "@/lib/socialflow/profile/repository";
 import type { LeadTemperature } from "./types";
 

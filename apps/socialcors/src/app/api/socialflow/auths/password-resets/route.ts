@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { resolveSocialFlowAuthsDb } from "@/lib/socialflow/platform/auth/repository";
-import { sendEmail } from "@/lib/email";
+import { sendEmail } from "@/lib/socialflow/platform/email";
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const SOCIALFLOW_ORIGIN =
