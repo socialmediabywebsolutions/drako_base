@@ -1,3 +1,35 @@
+/**
+ * Contrato interno DracoBase (holding) ↔ SocialCors (P6).
+ *
+ * Única superficie por la que el holding consulta o pide cosas a SocialCors. Reglas:
+ * - El holding NO importa módulos de SocialCors ni accede a SOCIAL_DB / SOCIALFLOW_AUTHS_DB:
+ *   solo estos endpoints y estos tipos.
+ * - Autenticación: Authorization: Bearer <SOCIALFLOW_INTERNAL_SERVICE_TOKEN>,
+ *   X-Drako-Control-Plane: campobase y X-Drako-Request-Id obligatorios.
+ * - Transporte: service binding SOCIALCORS_INTERNAL (saas-drakos-prod → saas-socialflows-prod,
+ *   sin pasar por el WAF) o, si no existe, SOCIALFLOW_INTERNAL_API_BASE_URL.
+ * - Toda respuesta lleva la cabecera X-SocialCors-Contract-Version. Un cambio incompatible
+ *   de forma exige nueva versión; añadir campos opcionales no.
+ */
+export const SOCIALCORS_INTERNAL_CONTRACT_VERSION = "2026-10-09";
+export const SOCIALCORS_CONTRACT_VERSION_HEADER = "X-SocialCors-Contract-Version";
+
+export const SOCIALCORS_INTERNAL_ENDPOINTS = {
+  health: { method: "GET", path: "/api/internal/socialflow/health" },
+  ownerSnapshot: { method: "GET", path: "/api/internal/socialflow/owner/snapshot" },
+  observabilitySnapshot: { method: "GET", path: "/api/internal/socialflow/observability/snapshot" },
+  trendTriggers: { method: "GET", path: "/api/internal/socialflow/trend-triggers" },
+  events: { method: "POST", path: "/api/internal/socialflow/events" },
+  automationTrigger: { method: "POST", path: "/api/internal/socialflow/automation/trigger" },
+  operatorActions: { method: "POST", path: "/api/internal/socialflow/operator/actions" },
+} as const;
+
+export type SocialCorsInternalEndpoint = keyof typeof SOCIALCORS_INTERNAL_ENDPOINTS;
+
+// "monolith": respuestas servidas por el build del monolito (antes de P3).
+// "socialcors": app propia apps/socialcors.
+export type SocialFlowRuntime = "monolith" | "socialcors";
+
 export type InternalApiErrorCode =
   | "INTERNAL_API_BAD_REQUEST"
   | "INTERNAL_API_UNAUTHORIZED"
@@ -11,7 +43,7 @@ export type InternalApiError = {
 
 export type SocialFlowHealthStatus = "ok" | "degraded" | "down";
 
-export type SocialFlowHealthCheckKey = "contract" | "runtime" | "auth";
+export type SocialFlowHealthCheckKey = "contract" | "runtime" | "auth" | "database" | "scheduler";
 
 export type SocialFlowHealthCheck = {
   status: SocialFlowHealthStatus;
@@ -23,8 +55,9 @@ export type SocialFlowHealthChecks = Record<SocialFlowHealthCheckKey, SocialFlow
 export type SocialFlowHealthResponse = {
   service: "socialflow";
   status: SocialFlowHealthStatus;
-  runtime: "monolith";
+  runtime: SocialFlowRuntime;
   version: string;
+  contractVersion?: string;
   timestamp: string;
   requestId: string;
   checks: SocialFlowHealthChecks;
@@ -41,7 +74,8 @@ export type SocialFlowOwnerSnapshot = {
 
 export type SocialFlowOwnerSnapshotResponse = {
   service: "socialflow";
-  runtime: "monolith";
+  runtime: SocialFlowRuntime;
+  contractVersion?: string;
   timestamp: string;
   requestId: string;
   tenantId: string | null;

@@ -54,6 +54,12 @@ binding = "PROVISIONING_QUEUE"
 binding = "SCHEDULER"
 service = "drako-scheduler"
 
+# P6: contrato interno con SocialCors por service binding (sin red pública ni WAF).
+# Ver src/lib/capabilities/internal-api-clients/socialcors-transport.ts.
+[[services]]
+binding = "SOCIALCORS_INTERNAL"
+service = "saas-socialflows-prod"
+
 [vars]
 NEXTAUTH_URL = "https://drako.systems"
 AUTHS_ISOLATIONS_ENABLED = "true"

@@ -1,6 +1,38 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { GET } from "@/app/api/internal/socialflow/owner/snapshot/route";
+
+const env = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/cf", () => ({ env }));
+
+// D1 falso: responde según la consulta (SELECT 1, cron_locks, conteos de SOCIAL_DB).
+function fakeSocialDb(answers: { lastTurn?: string | null; counts?: Record<string, number>; lastRun?: string | null; fail?: boolean } = {}) {
+  const calls: Array<{ sql: string; binds: unknown[] }> = [];
+  const first = async (sql: string) => {
+    if (answers.fail) throw new Error("D1 unavailable");
+    if (sql.includes("SELECT 1")) return { ok: 1 };
+    if (sql.includes("cron_locks")) return { last_turn: answers.lastTurn ?? null };
+    if (sql.includes("MAX(posted_at)")) return { last_run: answers.lastRun ?? null };
+    const key = Object.keys(answers.counts ?? {}).find((fragment) => sql.includes(fragment));
+    return { n: key ? answers.counts![key] : 0 };
+  };
+  const db = {
+    prepare: (sql: string) => {
+      const statement = {
+        bind: (...binds: unknown[]) => {
+          calls.push({ sql, binds });
+          return { first: () => first(sql) };
+        },
+        first: () => {
+          calls.push({ sql, binds: [] });
+          return first(sql);
+        },
+      };
+      return statement;
+    },
+  };
+  return { db: db as unknown as D1Database, calls };
+}
 
 describe("GET /api/internal/socialflow/owner/snapshot", () => {
   beforeEach(() => {
@@ -8,6 +40,7 @@ describe("GET /api/internal/socialflow/owner/snapshot", () => {
     delete process.env.SOCIALFLOW_INTERNAL_SERVICE_TOKEN;
     delete process.env.INTERNAL_SERVICE_TOKEN;
     delete process.env.INTERNAL_API_SERVICE_TOKEN;
+    env.mockReturnValue({ SOCIAL_DB: fakeSocialDb().db });
   });
 
   function buildRequest(headers?: HeadersInit) {
@@ -44,7 +77,7 @@ describe("GET /api/internal/socialflow/owner/snapshot", () => {
     };
 
     expect(payload.service).toBe("socialflow");
-    expect(payload.runtime).toBe("monolith");
+    expect(payload.runtime).toBe("socialcors");
     expect(typeof payload.timestamp).toBe("string");
     expect(payload.requestId).toBe("req-owner-snapshot-200");
     expect(payload.tenantId).toBe("tenant-1");
@@ -55,6 +88,48 @@ describe("GET /api/internal/socialflow/owner/snapshot", () => {
     expect(payload.snapshot.connectedProfiles).toBe(0);
     expect(payload.snapshot.lastRunAt).toBeNull();
     expect(Array.isArray(payload.warnings)).toBe(true);
+  });
+
+  it("computes real counts from SOCIAL_DB scoped to the requested tenant", async () => {
+    const { db, calls } = fakeSocialDb({
+      counts: {
+        "saas_social_campaigns WHERE status = 'ACTIVE'": 3,
+        "status = 'SCHEDULED'": 7,
+        "status = 'FAILED'": 2,
+        "saas_social_accounts WHERE status = 'CONNECTED_REAL'": 1,
+      },
+      lastRun: "2026-10-09T08:00:00.000Z",
+    });
+    env.mockReturnValue({ SOCIAL_DB: db });
+
+    const response = await GET(buildRequest({
+      Authorization: "Bearer test-service-token",
+      "X-Drako-Control-Plane": "campobase",
+      "X-Drako-Request-Id": "req-owner-real",
+      "X-Drako-Tenant-Id": "tenant-9",
+    }));
+    const payload = await response.json() as { snapshot: Record<string, unknown>; warnings: string[] };
+
+    expect(payload.snapshot).toEqual({
+      status: "degraded",
+      activeCampaigns: 3,
+      scheduledPosts: 7,
+      failedPostsLast24h: 2,
+      connectedProfiles: 1,
+      lastRunAt: "2026-10-09T08:00:00.000Z",
+    });
+    expect(payload.warnings).toEqual([]);
+    expect(calls.every((call) => call.sql.includes("tenant_id = ?") && call.binds.includes("tenant-9"))).toBe(true);
+  });
+
+  it("returns 503 when SOCIAL_DB is not bound", async () => {
+    env.mockReturnValue({});
+    const response = await GET(buildRequest({
+      Authorization: "Bearer test-service-token",
+      "X-Drako-Control-Plane": "campobase",
+      "X-Drako-Request-Id": "req-owner-no-db",
+    }));
+    expect(response.status).toBe(503);
   });
 
   it("returns 401 without Authorization", async () => {
@@ -114,7 +189,7 @@ describe("GET /api/internal/socialflow/owner/snapshot", () => {
     const payload = await response.json() as Record<string, unknown>;
 
     expect(payload).toHaveProperty("service", "socialflow");
-    expect(payload).toHaveProperty("runtime", "monolith");
+    expect(payload).toHaveProperty("runtime", "socialcors");
     expect(payload).toHaveProperty("timestamp");
     expect(payload).toHaveProperty("requestId", "req-shape");
     expect(payload).toHaveProperty("tenantId", null);

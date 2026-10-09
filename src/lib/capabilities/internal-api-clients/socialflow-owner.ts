@@ -1,3 +1,4 @@
+import { resolveSocialCorsTransport } from "@/lib/capabilities/internal-api-clients/socialcors-transport";
 import type {
   InternalApiError,
   SocialFlowOwnerSnapshotResponse,
@@ -152,8 +153,13 @@ export async function fetchSocialFlowOwnerSnapshot(
     });
   }
 
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const url = `${resolveBaseUrl(options.baseUrl)}${SOCIALFLOW_OWNER_SNAPSHOT_PATH}`;
+  const transport = resolveSocialCorsTransport({
+    baseUrl: options.baseUrl,
+    fetchImpl: options.fetchImpl,
+    resolveFallbackBaseUrl: resolveBaseUrl,
+  });
+  const fetchImpl = transport.fetchImpl;
+  const url = `${transport.baseUrl}${SOCIALFLOW_OWNER_SNAPSHOT_PATH}`;
 
   let response: Response;
   try {

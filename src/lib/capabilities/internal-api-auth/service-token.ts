@@ -61,6 +61,19 @@ function resolveExpectedServiceToken(): string | null {
   return null;
 }
 
+// Comparación en tiempo constante: no revela por tiempos cuántos caracteres coinciden.
+function timingSafeEqual(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const left = encoder.encode(a);
+  const right = encoder.encode(b);
+  let diff = left.length ^ right.length;
+  const length = Math.max(left.length, right.length);
+  for (let i = 0; i < length; i += 1) {
+    diff |= (left[i] ?? 0) ^ (right[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 function getBearerToken(headerValue: string | null): string | null {
   if (!headerValue) {
     return null;
@@ -108,7 +121,7 @@ export function validateInternalServiceTokenRequest(request: Request): InternalS
   }
 
   const expectedToken = resolveExpectedServiceToken();
-  if (!expectedToken || bearerToken !== expectedToken) {
+  if (!expectedToken || !timingSafeEqual(bearerToken, expectedToken)) {
     return buildError(403, "INTERNAL_API_FORBIDDEN", "Invalid service token", requestId);
   }
 

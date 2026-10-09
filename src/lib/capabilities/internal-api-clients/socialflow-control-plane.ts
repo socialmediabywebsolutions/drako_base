@@ -1,4 +1,5 @@
 import { getCloudflareContextSafeSync } from "@/lib/cloudflare/runtime";
+import { resolveSocialCorsTransport } from "@/lib/capabilities/internal-api-clients/socialcors-transport";
 import type {
   InternalApiError,
   SocialFlowAutomationTriggerRequest,
@@ -215,8 +216,13 @@ async function requestJson<T>(input: {
     });
   }
 
-  const fetchImpl = input.options.fetchImpl ?? fetch;
-  const url = `${resolveBaseUrl(input.options.baseUrl)}${input.path}`;
+  const transport = resolveSocialCorsTransport({
+    baseUrl: input.options.baseUrl,
+    fetchImpl: input.options.fetchImpl,
+    resolveFallbackBaseUrl: resolveBaseUrl,
+  });
+  const fetchImpl = transport.fetchImpl;
+  const url = `${transport.baseUrl}${input.path}`;
 
   const headers = buildHeaders({
     requestId,
