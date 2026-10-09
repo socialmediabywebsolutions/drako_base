@@ -1,5 +1,9 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
+const queueOperatorCampaign = vi.hoisted(() => vi.fn());
+const checkTenantConnections = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/socialflow/internal-api/operator-actions", () => ({ queueOperatorCampaign, checkTenantConnections }));
+
 import { POST } from "@/app/api/internal/socialflow/automation/trigger/route";
 
 describe("POST /api/internal/socialflow/automation/trigger", () => {
@@ -8,17 +12,22 @@ describe("POST /api/internal/socialflow/automation/trigger", () => {
     delete process.env.SOCIALFLOW_INTERNAL_SERVICE_TOKEN;
     delete process.env.INTERNAL_SERVICE_TOKEN;
     delete process.env.INTERNAL_API_SERVICE_TOKEN;
+    queueOperatorCampaign.mockReset().mockResolvedValue({ campaignId: "camp-1" });
+    checkTenantConnections.mockReset().mockResolvedValue({ checksPassed: 2, checksFailed: 0, recommendedAction: "All connections are healthy.", accounts: [] });
   });
 
   function buildValidBody() {
     return {
-      automationType: "publish_due_posts",
+      automationType: "generate_schedule",
       source: "campobase",
-      tenantId: null,
+      tenantId: "tenant-1",
       correlationId: "corr-1",
       requestedBy: "campobase-cron",
       payload: {
-        priority: "normal",
+        saasId: "socialflow",
+        niche: "fitness",
+        tone: "cercano",
+        frequencyPerWeek: 3,
       },
     };
   }
@@ -56,14 +65,58 @@ describe("POST /api/internal/socialflow/automation/trigger", () => {
     };
 
     expect(payload.service).toBe("socialflow");
-    expect(payload.runtime).toBe("monolith");
+    expect(payload.runtime).toBe("socialcors");
     expect(payload.accepted).toBe(true);
-    expect(typeof payload.automationId).toBe("string");
-    expect(payload.automationType).toBe("publish_due_posts");
+    expect(payload.automationId).toBe("camp-1");
+    expect(payload.automationType).toBe("generate_schedule");
     expect(payload.requestId).toBe("req-automation-202");
-    expect(payload.tenantId).toBeNull();
+    expect(payload.tenantId).toBe("tenant-1");
     expect(typeof payload.timestamp).toBe("string");
     expect(payload.status).toBe("queued");
+    expect(queueOperatorCampaign).toHaveBeenCalledWith({
+      tenantId: "tenant-1",
+      saasId: "socialflow",
+      niche: "fitness",
+      tone: "cercano",
+      frequencyPerWeek: 3,
+    });
+  });
+
+  it("runs validate_connections for real and returns the check result", async () => {
+    const response = await POST(buildRequest({ ...buildValidBody(), automationType: "validate_connections", payload: { saasId: "socialflow" } }, {
+      Authorization: "Bearer test-service-token",
+      "X-Drako-Control-Plane": "campobase",
+      "X-Drako-Request-Id": "req-validate",
+    }));
+
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { status: string; result: { checksPassed: number } };
+    expect(payload.status).toBe("completed");
+    expect(payload.result.checksPassed).toBe(2);
+    expect(checkTenantConnections).toHaveBeenCalledWith({ tenantId: "tenant-1", saasId: "socialflow" });
+  });
+
+  it("rejects automations that only SocialCors crons run (422, no fake queued)", async () => {
+    const response = await POST(buildRequest({ ...buildValidBody(), automationType: "publish_due_posts" }, {
+      Authorization: "Bearer test-service-token",
+      "X-Drako-Control-Plane": "campobase",
+      "X-Drako-Request-Id": "req-not-supported",
+    }));
+
+    expect(response.status).toBe(422);
+    expect((await response.json() as { code: string }).code).toBe("INTERNAL_API_NOT_SUPPORTED");
+    expect(queueOperatorCampaign).not.toHaveBeenCalled();
+  });
+
+  it("requires a niche to generate a schedule", async () => {
+    const response = await POST(buildRequest({ ...buildValidBody(), payload: { saasId: "socialflow" } }, {
+      Authorization: "Bearer test-service-token",
+      "X-Drako-Control-Plane": "campobase",
+      "X-Drako-Request-Id": "req-no-niche",
+    }));
+
+    expect(response.status).toBe(400);
+    expect(queueOperatorCampaign).not.toHaveBeenCalled();
   });
 
   it("returns 401 without Authorization", async () => {
@@ -163,10 +216,10 @@ describe("POST /api/internal/socialflow/automation/trigger", () => {
     const payload = await response.json() as Record<string, unknown>;
 
     expect(payload).toHaveProperty("service", "socialflow");
-    expect(payload).toHaveProperty("runtime", "monolith");
+    expect(payload).toHaveProperty("runtime", "socialcors");
     expect(payload).toHaveProperty("accepted", true);
     expect(payload).toHaveProperty("automationId");
-    expect(payload).toHaveProperty("automationType", "publish_due_posts");
+    expect(payload).toHaveProperty("automationType", "generate_schedule");
     expect(payload).toHaveProperty("requestId", "req-shape");
     expect(payload).toHaveProperty("tenantId", "tenant-from-body");
     expect(payload).toHaveProperty("timestamp");

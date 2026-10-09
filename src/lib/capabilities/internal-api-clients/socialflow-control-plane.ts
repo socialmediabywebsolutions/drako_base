@@ -11,7 +11,13 @@ import type {
   SocialFlowOperatorActionRequest,
   SocialFlowOperatorActionResponse,
   SocialFlowTrendTriggersSnapshot,
+  SocialFlowAgentsStatusResponse,
+  SocialFlowChurnRiskResponse,
+  SocialFlowTenantsResponse,
+  SocialFlowWhatsappReplyRequest,
+  SocialFlowWhatsappReplyResponse,
 } from "@/lib/capabilities/internal-api-types/socialflow";
+import { SOCIALCORS_INTERNAL_ENDPOINTS } from "@/lib/capabilities/internal-api-types/socialflow";
 
 const SOCIALFLOW_HEALTH_PATH = "/api/internal/socialflow/health";
 const SOCIALFLOW_OBSERVABILITY_SNAPSHOT_PATH = "/api/internal/socialflow/observability/snapshot";
@@ -337,6 +343,41 @@ export async function postSocialFlowOperatorAction(
     path: SOCIALFLOW_OPERATOR_ACTIONS_PATH,
     method: "POST",
     options,
+    body: request,
+  });
+}
+
+// ── P6: lecturas y canal WhatsApp del panel del operator ──────────────────────────────
+
+export async function fetchSocialFlowTenants(
+  options: SocialFlowControlPlaneRequestOptions = {},
+): Promise<SocialFlowTenantsResponse> {
+  return requestJson<SocialFlowTenantsResponse>({ path: SOCIALCORS_INTERNAL_ENDPOINTS.tenants.path, method: "GET", options });
+}
+
+export async function fetchSocialFlowAgentsStatus(
+  options: SocialFlowControlPlaneRequestOptions = {},
+): Promise<SocialFlowAgentsStatusResponse> {
+  return requestJson<SocialFlowAgentsStatusResponse>({ path: SOCIALCORS_INTERNAL_ENDPOINTS.agentsStatus.path, method: "GET", options });
+}
+
+export async function fetchSocialFlowChurnRisk(
+  options: SocialFlowControlPlaneRequestOptions & { minScore?: number } = {},
+): Promise<SocialFlowChurnRiskResponse> {
+  const { minScore, ...requestOptions } = options;
+  const base = SOCIALCORS_INTERNAL_ENDPOINTS.churnRisk.path;
+  const path = typeof minScore === "number" ? `${base}?minScore=${encodeURIComponent(String(minScore))}` : base;
+  return requestJson<SocialFlowChurnRiskResponse>({ path, method: "GET", options: requestOptions });
+}
+
+export async function postSocialFlowWhatsappReply(
+  request: SocialFlowWhatsappReplyRequest,
+  options: SocialFlowControlPlaneRequestOptions = {},
+): Promise<SocialFlowWhatsappReplyResponse> {
+  return requestJson<SocialFlowWhatsappReplyResponse>({
+    path: SOCIALCORS_INTERNAL_ENDPOINTS.whatsappReply.path,
+    method: "POST",
+    options: { ...options, tenantId: options.tenantId ?? request.tenantId },
     body: request,
   });
 }

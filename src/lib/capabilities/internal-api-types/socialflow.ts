@@ -22,6 +22,10 @@ export const SOCIALCORS_INTERNAL_ENDPOINTS = {
   events: { method: "POST", path: "/api/internal/socialflow/events" },
   automationTrigger: { method: "POST", path: "/api/internal/socialflow/automation/trigger" },
   operatorActions: { method: "POST", path: "/api/internal/socialflow/operator/actions" },
+  tenants: { method: "GET", path: "/api/internal/socialflow/tenants" },
+  agentsStatus: { method: "GET", path: "/api/internal/socialflow/agents/status" },
+  churnRisk: { method: "GET", path: "/api/internal/socialflow/churn-risk" },
+  whatsappReply: { method: "POST", path: "/api/internal/socialflow/whatsapp/reply" },
 } as const;
 
 export type SocialCorsInternalEndpoint = keyof typeof SOCIALCORS_INTERNAL_ENDPOINTS;
@@ -33,7 +37,9 @@ export type SocialFlowRuntime = "monolith" | "socialcors";
 export type InternalApiErrorCode =
   | "INTERNAL_API_BAD_REQUEST"
   | "INTERNAL_API_UNAUTHORIZED"
-  | "INTERNAL_API_FORBIDDEN";
+  | "INTERNAL_API_FORBIDDEN"
+  | "INTERNAL_API_NOT_SUPPORTED"
+  | "INTERNAL_API_UNAVAILABLE";
 
 export type InternalApiError = {
   code: InternalApiErrorCode;
@@ -126,9 +132,20 @@ export type SocialFlowObservabilityConnectionSnapshot = {
 // que este endpoint envuelve directamente. No hay campos "sin fuente" aquí: cada uno
 // viene de saas_social_posts / saas_social_accounts / saas_social_metrics /
 // observability-core.
+export type SocialFlowAgentRun = {
+  agentName: string;
+  tenantId: string | null;
+  status: "success" | "error" | "skipped" | "started" | "completed";
+  startedAt: string;
+  finishedAt: string | null;
+  rowsWritten: number | null;
+  errorMessage: string | null;
+};
+
 export type SocialFlowObservabilitySnapshot = {
   service: "socialflow";
-  runtime: "monolith";
+  runtime: SocialFlowRuntime;
+  contractVersion?: string;
   requestId: string;
   tenantId: string;
   saasId: string;
@@ -175,6 +192,8 @@ export type SocialFlowObservabilitySnapshot = {
   };
   recentEvents: Array<{ id: string; activityType: string; summary: string; createdAt: string }>;
   recentIncidents: Array<{ id: string; severity: string; summary: string; openedAt: string }>;
+  // Últimas ejecuciones de agentes (agent_execution_log): agregadas (tenant NULL) + del tenant.
+  recentAgentRuns?: SocialFlowAgentRun[];
   warnings: string[];
 };
 
@@ -228,22 +247,55 @@ export type SocialFlowAutomationTriggerRequest = {
 
 export type SocialFlowAutomationTriggerResponse = {
   service: "socialflow";
-  runtime: "monolith";
+  runtime: SocialFlowRuntime;
+  contractVersion?: string;
   accepted: true;
   automationId: string;
   automationType: SocialFlowAutomationType;
   requestId: string;
   tenantId: string | null;
   timestamp: string;
-  status: "queued" | "accepted";
+  status: "queued" | "accepted" | "completed";
+  // generate_schedule: campaña creada y job encolado; validate_connections: resultado del chequeo.
+  result?: SocialFlowGenerateScheduleResult | SocialFlowConnectionCheckResult;
 };
 
+export type SocialFlowGenerateScheduleResult = { campaignId: string };
+
+export type SocialFlowConnectionCheckResult = {
+  checksPassed: number;
+  checksFailed: number;
+  recommendedAction: string;
+  accounts: Array<{ id: string; provider: string; status: string; expiresAt: string | null; ok: boolean; reason: string | null }>;
+};
+
+// P6: acciones reales que el operator puede pedir a SocialCors (antes: tipos sin ejecución).
 export type SocialFlowOperatorActionType =
-  | "pause_automation"
-  | "resume_automation"
-  | "force_health_check"
-  | "refresh_connection_status"
-  | "request_diagnostics";
+  | "recover_stale_publishing"
+  | "retry_failed_posts"
+  | "launch_campaign"
+  | "test_ai_reply";
+
+export type SocialFlowPostActionResult = {
+  scanned: number;
+  affected: number;
+  skipped: number;
+  items: Array<{ id: string; title: string; previousStatus: string; nextStatus: string | null; ok: boolean; reason: string | null }>;
+  message: string;
+};
+
+export type SocialFlowLaunchCampaignResult = {
+  results: Array<{ tenantId: string; ok: boolean; campaignId?: string; error?: string }>;
+};
+
+export type SocialFlowTestAiReplyResult =
+  | { kind: "BLOCKED_INTENT"; suggestedReply: string }
+  | { kind: "AI_GENERATED"; suggestedReply: string; aiMetadata: Record<string, unknown> | null };
+
+export type SocialFlowOperatorActionResult =
+  | SocialFlowPostActionResult
+  | SocialFlowLaunchCampaignResult
+  | SocialFlowTestAiReplyResult;
 
 export type SocialFlowOperatorActionSource = "campobase" | "owner" | "system";
 
@@ -259,14 +311,111 @@ export type SocialFlowOperatorActionRequest = {
 
 export type SocialFlowOperatorActionResponse = {
   service: "socialflow";
-  runtime: "monolith";
+  runtime: SocialFlowRuntime;
+  contractVersion?: string;
   accepted: true;
   actionId: string;
   actionType: SocialFlowOperatorActionType;
   requestId: string;
   tenantId: string | null;
   timestamp: string;
-  status: "queued" | "accepted";
+  status: "completed";
+  result: SocialFlowOperatorActionResult;
+};
+
+// ── Lecturas del panel del operator (P6) ──────────────────────────────────────────────
+
+export type SocialFlowTenantListItem = {
+  id: string;
+  tenantId: string;
+  saasId: string;
+  name: string;
+  niche: string | null;
+  plan: string | null;
+};
+
+export type SocialFlowTenantsResponse = {
+  service: "socialflow";
+  runtime: SocialFlowRuntime;
+  contractVersion: string;
+  requestId: string;
+  tenants: SocialFlowTenantListItem[];
+};
+
+// result = ChurnPredictionResult de SocialCors (score de riesgo y señales), opaco para el holding.
+export type SocialFlowChurnRiskTenant = { tenantId: string; saasId: string; result: Record<string, unknown> };
+
+export type SocialFlowChurnRiskResponse = {
+  service: "socialflow";
+  runtime: SocialFlowRuntime;
+  contractVersion: string;
+  requestId: string;
+  minScore: number;
+  tenants: SocialFlowChurnRiskTenant[];
+};
+
+// Centro de control de agentes (Cerebro): grupos → agentes con estado, última ejecución y
+// resumen del contenido real que producen. Calculado en SocialCors (agent-control-center.ts).
+export type AgentControlCenterStatus = "conectado" | "sin_datos" | "investigando";
+
+export type AgentControlCenterRun = {
+  startedAt: string;
+  status: "success" | "error" | "skipped";
+  rowsWritten: number | null;
+  errorMessage: string | null;
+};
+
+export type AgentControlCenterAgent = {
+  key: string;
+  nameEs: string;
+  status: AgentControlCenterStatus;
+  lastRun: AgentControlCenterRun | null;
+  contentSummary: string;
+  contentAt: string | null;
+  contentTenantId: string | null;
+  flow: string;
+  note: string | null;
+};
+
+export type AgentControlCenterGroup = {
+  key: string;
+  titleEs: string;
+  agents: AgentControlCenterAgent[];
+};
+
+export type SocialFlowAgentsStatusResponse = {
+  service: "socialflow";
+  runtime: SocialFlowRuntime;
+  contractVersion: string;
+  requestId: string;
+  groups: AgentControlCenterGroup[];
+};
+
+// ── Canal WhatsApp (router del holding → SocialCors) ───────────────────────────────────
+
+export type SocialFlowWhatsappReplyRequest = {
+  tenantId: string;
+  saasId: string;
+  message: string;
+};
+
+export type SocialFlowWhatsappReplyResponse = {
+  service: "socialflow";
+  runtime: SocialFlowRuntime;
+  contractVersion: string;
+  requestId: string;
+  handled: boolean;
+  reply: string | null;
+  error: string | null;
+};
+
+// Resumen del propietario que usa el panel owner del holding (antes importado de
+// src/lib/socialflow/contracts/owner-dashboard).
+export type SocialOwnerSummary = {
+  accountsConnected: number;
+  activeCampaigns: number;
+  scheduledPostsThisWeek: number;
+  recentEngagementScore: number;
 };
 
 // Nivel 3 — panel de solo lectura /operator/socialflow para el conector de tendencias

@@ -16,21 +16,19 @@ import {
   runCampoBaseSocialHealthCheckForRegisteredSaas,
   runCampoBaseSocialAutomationForRegisteredSaas,
   runCampoBaseSocialFlowOperatorAction,
+  getCampoBaseSocialFlowAgentControlCenter,
+  launchCampoBaseSocialFlowCampaign,
+  listCampoBaseSocialFlowTenants,
+  testCampoBaseSocialFlowAiReply,
   type CampoBaseSocialFlowOperatorAction,
   type SocialFlowAutomationKey,
 } from "@/lib/campamento-base/socialflow-control-plane-service";
-import { getCampoBaseAgentControlCenter } from "@/lib/campamento-base/socialflow-agent-control-center";
-import { getChannelKnowledge } from "@/lib/socialflow/profile/repository";
-import { getKnowledgeContext } from "@/lib/socialflow/knowledge/repository";
-import { generateConversationalReply } from "@/lib/socialflow/conversational/engine";
-import { BLOCKED_INTENT_REPLY, detectBlockedIntent } from "@/lib/socialflow/conversational/blocked-intent";
-import type { ConversationThreadType } from "@/lib/socialflow/conversational/types";
-import { env } from "@/lib/cf";
-import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
-import { resolveSocialFlowPlanCode } from "@/lib/socialflow/billing/plans";
-import { getSocialFlowAccountTypeByTenant } from "@/lib/socialflow/auth/account-type";
-import { resolveSocialContext, upsertSaasSocialCampaign } from "@/lib/socialflow/repository";
-import { getChannelProfile } from "@/lib/socialflow/profile/repository";
+import type { SocialFlowTenantListItem } from "@/lib/capabilities/internal-api-types/socialflow";
+
+// P6: este panel del holding solo habla con SocialCors por el contrato interno
+// (/api/internal/socialflow/*), a través de socialflow-control-plane-service.
+
+type ConversationThreadType = "DM" | "COMMENT";
 
 type SocialFlowRouteAction =
   | { action: "run_all" }
@@ -326,159 +324,7 @@ function buildHistorySummary(
   };
 }
 
-type TenantProfileRow = {
-  tenant_id: string;
-  saas_id: string;
-  brand_name: string | null;
-  display_name: string | null;
-  business_type: string | null;
-  contact_email: string | null;
-  metadata_json: string | null;
-};
-
-export type OperatorTenantListItem = {
-  id: string;
-  tenantId: string;
-  saasId: string;
-  name: string;
-  niche: string | null;
-  plan: string | null;
-};
-
-// business_type es la columna real donde se guarda el nicho (ver
-// profile/repository.ts upsertProfileRow) — cae a metadata_json.profile.niche solo
-// para filas viejas que todavía no tienen esa columna rellenada.
-function parseNicheFromMetadata(metadataJson: string | null): string | null {
-  if (!metadataJson) return null;
-  try {
-    const parsed = JSON.parse(metadataJson) as { profile?: { niche?: unknown } };
-    const niche = parsed?.profile?.niche;
-    return typeof niche === "string" && niche.trim() ? niche.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-function mapTenantProfileRow(row: TenantProfileRow): { tenantId: string; saasId: string; name: string; niche: string | null } {
-  const niche = row.business_type?.trim() || parseNicheFromMetadata(row.metadata_json);
-  const name =
-    row.brand_name?.trim()
-    || row.display_name?.trim()
-    || row.contact_email?.trim()
-    || row.tenant_id;
-  return { tenantId: row.tenant_id, saasId: row.saas_id, name, niche: niche || null };
-}
-
-// Mismo criterio que resolvePlanCode() en billing/enforce.ts (no exportado desde ahí):
-// cuenta interna → plan "top tier" resuelto vía accountType; cuenta normal → plan real
-// de la suscripción canónica. Nunca lanza — un fallo de billing para un tenant no debe
-// tumbar el listado completo de tenants.
-async function resolveTenantPlanCode(tenantId: string): Promise<string | null> {
-  try {
-    const snapshot = await getCanonicalBillingSnapshot({ tenantId, saasSlug: "socialflow" });
-    if (!snapshot.isInternalAccount) {
-      return resolveSocialFlowPlanCode(snapshot.subscription);
-    }
-    const accountType = await getSocialFlowAccountTypeByTenant(tenantId);
-    return resolveSocialFlowPlanCode(snapshot.subscription, { isInternalAccount: true, accountType });
-  } catch {
-    return null;
-  }
-}
-
-// Lista TODOS los tenants activos de Socialcors — leídos directo de
-// socialflow_profiles en SOCIAL_DB (la misma tabla que usa el resto del producto para
-// resolver el perfil/nicho de cada cliente, ver profile/repository.ts), no del
-// registro de automatización (que solo cubre tenants con automatización configurada,
-// típicamente solo el tenant interno).
-async function listOperatorSocialFlowTenants(): Promise<OperatorTenantListItem[]> {
-  const db = env()?.SOCIAL_DB;
-  if (!db) return [];
-
-  let rows: TenantProfileRow[] = [];
-  try {
-    const result = await db
-      .prepare(
-        `SELECT tenant_id, saas_id, brand_name, display_name, business_type, contact_email, metadata_json
-         FROM socialflow_profiles WHERE saas_id = 'socialflow' ORDER BY updated_at DESC`,
-      )
-      .all<TenantProfileRow>();
-    rows = result.results ?? [];
-  } catch (err) {
-    console.error("OPERATOR_SOCIALFLOW_LIST_TENANTS_ERROR", err);
-    return [];
-  }
-
-  return Promise.all(
-    rows.map(async (row) => {
-      const base = mapTenantProfileRow(row);
-      const plan = await resolveTenantPlanCode(base.tenantId);
-      return { id: base.tenantId, tenantId: base.tenantId, saasId: base.saasId, name: base.name, niche: base.niche, plan };
-    }),
-  );
-}
-
-const LAUNCH_CAMPAIGN_SAAS_ID = "socialflow";
-const LAUNCH_CAMPAIGN_DEFAULT_TONE = "profesional y cercano";
-
-type LaunchCampaignResult = { tenantId: string; ok: boolean; campaignId?: string; error?: string };
-
-// Mismo job "campaign" que el endpoint de generación de Socialflow, pero en nombre de cada tenant
-// (esa ruta exige la sesión del propio tenant). La IA escribe los posts: title va como
-// niche, scheduledAt solo aporta el día (startDate — la hora la elige SchedulerAgent),
-// y body/networks no llegan al orquestador.
-async function launchOperatorCampaign(input: { tenants: string[]; title: string; scheduledAt: string | null }): Promise<LaunchCampaignResult[]> {
-  if (["1", "true", "yes", "on"].includes((process.env.SOCIALFLOW_DISABLE_AI ?? "").trim().toLowerCase())) {
-    return input.tenants.map((tenantId) => ({ tenantId, ok: false, error: "SOCIALFLOW_AI_GENERATION_DISABLED" }));
-  }
-
-  const queue = env()?.SOCIALFLOW_AI_QUEUE;
-  if (!queue) {
-    return input.tenants.map((tenantId) => ({ tenantId, ok: false, error: "SOCIALFLOW_AI_QUEUE_UNAVAILABLE" }));
-  }
-
-  const startDate = input.scheduledAt ? input.scheduledAt.slice(0, 10) : null;
-  const results: LaunchCampaignResult[] = [];
-
-  for (const tenantId of input.tenants) {
-    try {
-      const saasId = LAUNCH_CAMPAIGN_SAAS_ID;
-      const ctx = await resolveSocialContext({ tenantId, saasId });
-      const profile = await getChannelProfile(tenantId, saasId).catch(() => null);
-      const campaignId = `ai_campaign_operator_${Date.now()}_${tenantId.slice(0, 8)}`;
-
-      await upsertSaasSocialCampaign(ctx, {
-        id: campaignId,
-        saasId,
-        name: `AI Campaign: ${input.title}`,
-        objective: null,
-        status: "GENERATING",
-        targetSegment: "DEFAULT",
-        startDate,
-        endDate: null,
-        budgetEstimate: null,
-        notes: null,
-      });
-
-      await queue.send({
-        type: "campaign",
-        tenantId,
-        saasId,
-        niche: input.title,
-        tone: profile?.toneOfVoice?.trim() || LAUNCH_CAMPAIGN_DEFAULT_TONE,
-        frequencyPerWeek: 1,
-        campaignId,
-        startDate,
-      });
-
-      results.push({ tenantId, ok: true, campaignId });
-    } catch (error) {
-      results.push({ tenantId, ok: false, error: error instanceof Error ? error.message : String(error) });
-    }
-  }
-
-  return results;
-}
+export type OperatorTenantListItem = SocialFlowTenantListItem;
 
 export async function GET(request: Request) {
   try {
@@ -521,7 +367,7 @@ export async function GET(request: Request) {
     // Nivel 3 — sin gate de tenantId/saasId: es un piloto de un único tenant interno,
     // el filtro vive server-side en el endpoint interno, no depende de query params.
     const { triggers: trendTriggers, health: trendTriggerHealth } = await getCampoBaseSocialFlowTrendTriggers();
-    const agentControlCenter = await getCampoBaseAgentControlCenter();
+    const agentControlCenter = await getCampoBaseSocialFlowAgentControlCenter();
     return NextResponse.json({ status, history: filteredHistory, summary, observability, trendTriggers, trendTriggerHealth, agentControlCenter });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
@@ -557,7 +403,7 @@ export async function POST(request: Request) {
     }
 
     if (action.action === "launch_campaign") {
-      const results = await launchOperatorCampaign(action);
+      const { results } = await launchCampoBaseSocialFlowCampaign(action);
       return NextResponse.json({
         action: action.action,
         result: { results },
@@ -565,7 +411,7 @@ export async function POST(request: Request) {
     }
 
     if (action.action === "list_tenants") {
-      const tenants = await listOperatorSocialFlowTenants();
+      const tenants = await listCampoBaseSocialFlowTenants();
       return NextResponse.json({
         action: action.action,
         result: { tenants },
@@ -653,49 +499,20 @@ export async function POST(request: Request) {
         );
       }
 
-      // Probador de respuestas IA — movido aquí desde el CRM Social del cliente (era
-      // una herramienta de diagnóstico interna, no algo que el cliente final deba ver).
-      // Llama directamente a las funciones del motor conversacional del producto
-      // (detectBlockedIntent, generateConversationalReply) — NUNCA a través de un
-      // endpoint HTTP de producto final, con el tenant elegido por el operador en vez
-      // del tenant de la sesión.
-      if (detectBlockedIntent(action.message)) {
-        return NextResponse.json({
-          action: action.action,
-          result: {
-            kind: "BLOCKED_INTENT" as const,
-            suggestedReply: BLOCKED_INTENT_REPLY,
-          },
-        });
-      }
-
-      const [knowledge, knowledgeContext] = await Promise.all([
-        getChannelKnowledge(action.tenantId, action.saasId),
-        getKnowledgeContext(action.tenantId, action.saasId).catch(() => ""),
-      ]);
-      // El nicho del selector es editable a propósito (ver UI): permite probar cómo
-      // respondería la IA si este tenant tuviera otro nicho, sin tocar su perfil real
-      // — solo se usa para esta llamada, nunca se persiste.
-      const profile = action.niche ? { ...knowledge.profile, niche: action.niche } : knowledge.profile;
-
-      const { suggestedReply, aiMetadata } = await generateConversationalReply({
-        incomingMessage: action.message,
-        threadType: action.threadType,
-        provider: action.provider,
-        profile,
-        knowledge,
-        knowledgeContext,
+      // Probador de respuestas IA del operator: lo ejecuta SocialCors con el tenant
+      // elegido aquí (operator/actions → test_ai_reply). El nicho editable nunca se persiste.
+      const result = await testCampoBaseSocialFlowAiReply({
         tenantId: action.tenantId,
         saasId: action.saasId,
+        message: action.message,
+        threadType: action.threadType,
+        provider: action.provider,
+        niche: action.niche,
       });
 
       return NextResponse.json({
         action: action.action,
-        result: {
-          kind: "AI_GENERATED" as const,
-          suggestedReply,
-          aiMetadata,
-        },
+        result,
       });
     }
 

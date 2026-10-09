@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
 import {
+  SOCIALCORS_INTERNAL_CONTRACT_VERSION,
   type SocialFlowAutomationTriggerRequest,
   type SocialFlowAutomationTriggerResponse,
   type SocialFlowAutomationType,
 } from "@/lib/capabilities/internal-api-types/socialflow";
-import { validateInternalServiceTokenRequest } from "@/lib/capabilities/internal-api-auth/service-token";
+import { authenticateInternalRequest, internalError, internalJson, readNonEmptyString } from "@/lib/socialflow/internal-api/respond";
+import { checkTenantConnections, queueOperatorCampaign } from "@/lib/socialflow/internal-api/operator-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -55,45 +56,68 @@ function validateAutomationTriggerBody(body: unknown): body is SocialFlowAutomat
   return true;
 }
 
-function buildBadRequestResponse(requestId: string, message: string) {
-  return NextResponse.json(
-    {
-      code: "INTERNAL_API_BAD_REQUEST",
-      message,
-      requestId,
-    },
-    { status: 400 },
-  );
-}
+const DEFAULT_SAAS_ID = "socialflow";
 
 export async function POST(request: Request) {
-  const authResult = validateInternalServiceTokenRequest(request);
-
-  if (!authResult.ok) {
-    return NextResponse.json(authResult.error, { status: authResult.status });
-  }
+  const auth = authenticateInternalRequest(request);
+  if (!auth.ok) return auth.response;
+  const { requestId } = auth.caller;
 
   const body = await request.json().catch(() => null);
   if (!body) {
-    return buildBadRequestResponse(authResult.requestId, "Invalid JSON body");
+    return internalError("INTERNAL_API_BAD_REQUEST", "Invalid JSON body", requestId, 400);
   }
-
   if (!validateAutomationTriggerBody(body)) {
-    return buildBadRequestResponse(authResult.requestId, "Invalid automation trigger payload");
+    return internalError("INTERNAL_API_BAD_REQUEST", "Invalid automation trigger payload", requestId, 400);
   }
 
-  const response: SocialFlowAutomationTriggerResponse = {
-    service: "socialflow",
-    runtime: "monolith",
-    accepted: true,
+  const tenantId = body.tenantId ?? auth.caller.tenantId;
+  const saasId = readNonEmptyString(body.payload.saasId) ?? DEFAULT_SAAS_ID;
+  const base = {
+    service: "socialflow" as const,
+    runtime: "socialcors" as const,
+    contractVersion: SOCIALCORS_INTERNAL_CONTRACT_VERSION,
+    accepted: true as const,
     automationId: crypto.randomUUID(),
     automationType: body.automationType,
-    requestId: authResult.requestId,
-    tenantId: body.tenantId ?? authResult.tenantId,
+    requestId,
+    tenantId,
     timestamp: new Date().toISOString(),
-    status: "queued",
   };
 
-  // Stable initial contract: real automation execution wiring will be connected in a later phase.
-  return NextResponse.json(response, { status: 202 });
+  if (body.automationType === "generate_schedule") {
+    const niche = readNonEmptyString(body.payload.niche);
+    if (!tenantId || !niche) {
+      return internalError("INTERNAL_API_BAD_REQUEST", "tenantId and payload.niche are required", requestId, 400);
+    }
+    const frequency = Number(body.payload.frequencyPerWeek);
+    const { campaignId } = await queueOperatorCampaign({
+      tenantId,
+      saasId,
+      niche,
+      tone: readNonEmptyString(body.payload.tone),
+      frequencyPerWeek: Number.isFinite(frequency) && frequency > 0 ? Math.min(Math.floor(frequency), 14) : 1,
+    });
+    // La generación es asíncrona (Worker IA): campaña creada y job encolado.
+    const response: SocialFlowAutomationTriggerResponse = { ...base, automationId: campaignId, status: "queued", result: { campaignId } };
+    return internalJson(response, 202);
+  }
+
+  if (body.automationType === "validate_connections") {
+    if (!tenantId) {
+      return internalError("INTERNAL_API_BAD_REQUEST", "tenantId is required", requestId, 400);
+    }
+    const result = await checkTenantConnections({ tenantId, saasId });
+    const response: SocialFlowAutomationTriggerResponse = { ...base, status: "completed", result };
+    return internalJson(response, 200);
+  }
+
+  // publish_due_posts / sync_profiles / refresh_metrics los ejecutan los crons propios de
+  // SocialCors; el contrato no los expone (antes respondía "queued" sin hacer nada).
+  return internalError(
+    "INTERNAL_API_NOT_SUPPORTED",
+    `automationType ${body.automationType} is run by SocialCors crons and cannot be triggered remotely`,
+    requestId,
+    422,
+  );
 }

@@ -150,39 +150,51 @@ describe("campamento-base socialflow control-plane service", () => {
     });
   });
 
-  it("returns legacy-compatible observability shape", async () => {
+  it("reads observability through the internal contract (snapshot + agent runs)", async () => {
     fetchSocialFlowObservabilitySnapshot.mockResolvedValue({
       service: "socialflow",
-      runtime: "monolith",
-      timestamp: "2026-06-06T00:00:00.000Z",
+      runtime: "socialcors",
       requestId: "req-obs",
       tenantId: "tenant-a",
-      status: "ok",
-      metrics: {
-        activeAutomations: 2,
-        queuedJobs: 5,
-        failedJobsLast24h: 1,
-        successfulJobsLast24h: 9,
-        averageLatencyMs: 42,
+      saasId: "saas-a",
+      capturedAt: "2026-10-09T00:00:00.000Z",
+      health: {
+        status: "healthy",
+        freshnessStatus: "fresh",
+        schedulerStatus: "active",
+        recommendation: "ok",
+        openIncidentsCount: 0,
+        latestActivityAt: null,
+        latestSnapshotAt: null,
       },
-      recentErrors: [
-        {
-          code: "WARN_1",
-          message: "warning",
-          occurredAt: "2026-06-06T00:00:00.000Z",
-        },
+      scheduler: { scheduledPosts: 6, dueScheduledPosts: 5, publishingPosts: 0, stalePublishingPosts: 0, nextScheduledAt: null, lastPublishedAt: null },
+      posts: { total: 0, byStatus: {}, recentPublished: [], recentFailed: [], stalePublishing: [] },
+      publishing: { successLast30Days: 0, failedLast30Days: 0, successRateLast30Days: 0, lastFailureAt: null },
+      linkedin: { connected: false, totalConnections: 0, primaryStatus: null, connections: [] },
+      metrics: {
+        last7Days: { engagement: 0, publishedPosts: 0, topProvider: null },
+        last30Days: { engagement: 0, publishedPosts: 0, topProvider: null },
+      },
+      recentEvents: [],
+      recentIncidents: [],
+      recentAgentRuns: [
+        { agentName: "StyleLearningAgent", tenantId: null, status: "success", startedAt: "2026-10-09T03:00:00.000Z", finishedAt: null, rowsWritten: 3, errorMessage: null },
       ],
-      warnings: ["SOCIALFLOW_OBSERVABILITY_SNAPSHOT_NEUTRAL_VALUES"],
+      warnings: [],
     });
 
     const result = await getCampoBaseSocialFlowObservability("tenant-a", "saas-a");
 
+    expect(fetchSocialFlowObservabilitySnapshot).toHaveBeenCalledWith({ tenantId: "tenant-a", saasId: "saas-a" });
     expect(result.tenantId).toBe("tenant-a");
     expect(result.saasId).toBe("saas-a");
     expect(result.health.status).toBe("healthy");
     expect(result.scheduler.dueScheduledPosts).toBe(5);
     expect(result.posts.total).toBe(0);
     expect(Array.isArray(result.recentIncidents)).toBe(true);
+    expect(result.recentAgentRuns).toEqual([
+      expect.objectContaining({ agentName: "StyleLearningAgent", status: "success", finishedAt: "2026-10-09T03:00:00.000Z" }),
+    ]);
   });
 
   it("handles client errors in controlled way for observability", async () => {
@@ -201,28 +213,32 @@ describe("campamento-base socialflow control-plane service", () => {
     expect(result.health.recommendation).toContain("temporarily unavailable");
   });
 
-  it("returns operator action shape compatible with legacy", async () => {
+  it("asks SocialCors to run the real operator action and maps its result", async () => {
+    const items = [{ id: "p1", title: "Post", previousStatus: "FAILED", nextStatus: "SCHEDULED", ok: true, reason: null }];
     postSocialFlowOperatorAction.mockResolvedValue({
       service: "socialflow",
-      runtime: "monolith",
+      runtime: "socialcors",
       accepted: true,
       actionId: "op-1",
-      actionType: "request_diagnostics",
+      actionType: "retry_failed_posts",
       requestId: "req-op",
       tenantId: "tenant-a",
-      timestamp: "2026-06-06T00:00:00.000Z",
-      status: "queued",
+      timestamp: "2026-10-09T00:00:00.000Z",
+      status: "completed",
+      result: { scanned: 4, affected: 1, skipped: 3, items, message: "Queued 1 failed post(s) for retry." },
     });
 
     const result = await runCampoBaseSocialFlowOperatorAction({
-      action: "recover_stale_publishing",
+      action: "retry_failed_posts",
       tenantId: "tenant-a",
       saasId: "saas-a",
     });
 
-    expect(result.action).toBe("recover_stale_publishing");
-    expect(result.message).toContain("queued via control-plane");
-    expect(result.items).toEqual([]);
+    expect(postSocialFlowOperatorAction).toHaveBeenCalledWith(
+      expect.objectContaining({ actionType: "retry_failed_posts", tenantId: "tenant-a", payload: { saasId: "saas-a" } }),
+      { tenantId: "tenant-a" },
+    );
+    expect(result).toMatchObject({ action: "retry_failed_posts", scanned: 4, affected: 1, skipped: 3, items, message: "Queued 1 failed post(s) for retry." });
   });
 
   it("does not create any new file named campobase", () => {

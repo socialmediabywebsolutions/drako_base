@@ -1,6 +1,19 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
+const runPostRecoveryAction = vi.hoisted(() => vi.fn());
+const launchOperatorCampaign = vi.hoisted(() => vi.fn());
+const testOperatorAiReply = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/socialflow/internal-api/operator-actions", () => ({ runPostRecoveryAction, launchOperatorCampaign, testOperatorAiReply }));
+
 import { POST } from "@/app/api/internal/socialflow/operator/actions/route";
+
+const recoveryResult = {
+  scanned: 3,
+  affected: 1,
+  skipped: 2,
+  items: [{ id: "p1", title: "Post", previousStatus: "PUBLISHING", nextStatus: "SCHEDULED", ok: true, reason: null }],
+  message: "Recovered 1 stale PUBLISHING post(s).",
+};
 
 describe("POST /api/internal/socialflow/operator/actions", () => {
   beforeEach(() => {
@@ -8,18 +21,21 @@ describe("POST /api/internal/socialflow/operator/actions", () => {
     delete process.env.SOCIALFLOW_INTERNAL_SERVICE_TOKEN;
     delete process.env.INTERNAL_SERVICE_TOKEN;
     delete process.env.INTERNAL_API_SERVICE_TOKEN;
+    runPostRecoveryAction.mockReset().mockResolvedValue(recoveryResult);
+    launchOperatorCampaign.mockReset().mockResolvedValue({ results: [{ tenantId: "tenant-1", ok: true, campaignId: "c1" }] });
+    testOperatorAiReply.mockReset().mockResolvedValue({ kind: "AI_GENERATED", suggestedReply: "Hola", aiMetadata: null });
   });
 
   function buildValidBody() {
     return {
-      actionType: "pause_automation",
+      actionType: "recover_stale_publishing",
       source: "campobase",
-      tenantId: null,
+      tenantId: "tenant-1",
       correlationId: "corr-1",
       requestedBy: "campobase-ops",
       reason: "maintenance-window",
       payload: {
-        dryRun: false,
+        saasId: "socialflow",
       },
     };
   }
@@ -35,7 +51,7 @@ describe("POST /api/internal/socialflow/operator/actions", () => {
     });
   }
 
-  it("returns 202 with valid headers and valid body", async () => {
+  it("executes the action and returns 200 with its real result", async () => {
     const response = await POST(buildRequest(buildValidBody(), {
       Authorization: "Bearer test-service-token",
       "X-Drako-Control-Plane": "campobase",
@@ -43,7 +59,8 @@ describe("POST /api/internal/socialflow/operator/actions", () => {
       "Idempotency-Key": "idem-1",
     }));
 
-    expect(response.status).toBe(202);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-SocialCors-Contract-Version")).toBe("2026-10-09");
     const payload = await response.json() as {
       service: string;
       runtime: string;
@@ -54,17 +71,53 @@ describe("POST /api/internal/socialflow/operator/actions", () => {
       tenantId: string | null;
       timestamp: string;
       status: string;
+      result: unknown;
     };
 
     expect(payload.service).toBe("socialflow");
-    expect(payload.runtime).toBe("monolith");
+    expect(payload.runtime).toBe("socialcors");
     expect(payload.accepted).toBe(true);
     expect(typeof payload.actionId).toBe("string");
-    expect(payload.actionType).toBe("pause_automation");
+    expect(payload.actionType).toBe("recover_stale_publishing");
     expect(payload.requestId).toBe("req-operator-202");
-    expect(payload.tenantId).toBeNull();
+    expect(payload.tenantId).toBe("tenant-1");
     expect(typeof payload.timestamp).toBe("string");
-    expect(payload.status).toBe("queued");
+    expect(payload.status).toBe("completed");
+    expect(payload.result).toEqual(recoveryResult);
+    expect(runPostRecoveryAction).toHaveBeenCalledWith({ action: "recover_stale_publishing", tenantId: "tenant-1", saasId: "socialflow" });
+  });
+
+  const authHeaders = {
+    Authorization: "Bearer test-service-token",
+    "X-Drako-Control-Plane": "campobase",
+    "X-Drako-Request-Id": "req-x",
+  };
+
+  it("launch_campaign validates tenants and title strictly", async () => {
+    const empty = await POST(buildRequest({ ...buildValidBody(), actionType: "launch_campaign", tenantId: null, payload: { tenants: [], title: "Black Friday" } }, authHeaders));
+    expect(empty.status).toBe(400);
+    const noTitle = await POST(buildRequest({ ...buildValidBody(), actionType: "launch_campaign", tenantId: null, payload: { tenants: ["t1"] } }, authHeaders));
+    expect(noTitle.status).toBe(400);
+    expect(launchOperatorCampaign).not.toHaveBeenCalled();
+
+    const ok = await POST(buildRequest({ ...buildValidBody(), actionType: "launch_campaign", tenantId: null, payload: { tenants: ["t1", "t2"], title: "Black Friday", scheduledAt: "2026-11-27T10:00:00Z" } }, authHeaders));
+    expect(ok.status).toBe(200);
+    expect(launchOperatorCampaign).toHaveBeenCalledWith({
+      actionType: "launch_campaign",
+      tenants: ["t1", "t2"],
+      saasId: "socialflow",
+      title: "Black Friday",
+      scheduledAt: "2026-11-27T10:00:00Z",
+    });
+  });
+
+  it("test_ai_reply requires a message and runs the AI reply in SocialCors", async () => {
+    const missing = await POST(buildRequest({ ...buildValidBody(), actionType: "test_ai_reply", payload: {} }, authHeaders));
+    expect(missing.status).toBe(400);
+
+    const ok = await POST(buildRequest({ ...buildValidBody(), actionType: "test_ai_reply", payload: { message: "¿Precio?", threadType: "COMMENT", niche: "yoga" } }, authHeaders));
+    expect(ok.status).toBe(200);
+    expect(testOperatorAiReply).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-1", message: "¿Precio?", threadType: "COMMENT", niche: "yoga", provider: "INSTAGRAM" }));
   });
 
   it("returns 401 without Authorization", async () => {
@@ -161,14 +214,14 @@ describe("POST /api/internal/socialflow/operator/actions", () => {
       "X-Drako-Tenant-Id": "tenant-from-header",
     }));
 
-    expect(response.status).toBe(202);
+    expect(response.status).toBe(200);
     const payload = await response.json() as Record<string, unknown>;
 
     expect(payload).toHaveProperty("service", "socialflow");
-    expect(payload).toHaveProperty("runtime", "monolith");
+    expect(payload).toHaveProperty("runtime", "socialcors");
     expect(payload).toHaveProperty("accepted", true);
     expect(payload).toHaveProperty("actionId");
-    expect(payload).toHaveProperty("actionType", "pause_automation");
+    expect(payload).toHaveProperty("actionType", "recover_stale_publishing");
     expect(payload).toHaveProperty("requestId", "req-shape");
     expect(payload).toHaveProperty("tenantId", "tenant-from-body");
     expect(payload).toHaveProperty("timestamp");

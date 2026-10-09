@@ -2,13 +2,14 @@
  * conversation-router/handlers/socialflow-whatsapp-handler.ts
  *
  * Thin router adapter for SocialFlow (Socialcors) WhatsApp domain logic.
- * Calls generateSocialflowWhatsappReply() directly — no HTTP subrequest,
- * avoiding the self-referential fetch() back into this same worker/zone
- * that previously caused Cloudflare 522s.
+ *
+ * P6: la respuesta la genera SocialCors (POST /api/internal/socialflow/whatsapp/reply).
+ * Va por el service binding SOCIALCORS_INTERNAL, que no pasa por la zona pública:
+ * no repite el problema de los 522 del antiguo fetch() del Worker a su propio dominio.
  */
 import { registerHandler } from "../index";
 import type { ConversationHandler, RouteResult } from "../types";
-import { generateSocialflowWhatsappReply } from "@/lib/socialflow/ai/whatsapp-reply";
+import { postSocialFlowWhatsappReply } from "@/lib/capabilities/internal-api-clients/socialflow-control-plane";
 
 const HANDLER_ID = "socialflow";
 
@@ -23,13 +24,16 @@ const socialflowWhatsappHandler: ConversationHandler = async (route): Promise<Ro
   }
 
   try {
-    const reply = await generateSocialflowWhatsappReply({
+    const response = await postSocialFlowWhatsappReply({
       tenantId: route.tenantId,
       saasId,
       message: route.message,
     });
 
-    return { handled: true, handler: HANDLER_ID, reply };
+    if (!response.handled) {
+      return { handled: false, handler: HANDLER_ID, reply: null, error: response.error ?? "SOCIALFLOW_WHATSAPP_FAILED" };
+    }
+    return { handled: true, handler: HANDLER_ID, reply: response.reply };
   } catch (error) {
     return {
       handled: false,

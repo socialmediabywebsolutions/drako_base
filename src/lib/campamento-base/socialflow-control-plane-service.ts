@@ -13,15 +13,30 @@ import {
   type AutomationExecutionResult,
   type AutomationRegistration,
 } from "@/lib/automation-core";
-import type { SocialFlowTrendTrigger, SocialFlowTrendTriggerHealth } from "@/lib/capabilities/internal-api-types/socialflow";
+import type {
+  AgentControlCenterGroup,
+  SocialFlowChurnRiskTenant,
+  SocialFlowConnectionCheckResult,
+  SocialFlowLaunchCampaignResult,
+  SocialFlowPostActionResult,
+  SocialFlowTenantListItem,
+  SocialFlowTestAiReplyResult,
+  SocialFlowTrendTrigger,
+  SocialFlowTrendTriggerHealth,
+} from "@/lib/capabilities/internal-api-types/socialflow";
 import {
   SocialFlowControlPlaneInternalApiError,
+  fetchSocialFlowAgentsStatus,
+  fetchSocialFlowChurnRisk,
+  fetchSocialFlowObservabilitySnapshot,
+  fetchSocialFlowTenants,
   fetchSocialFlowTrendTriggersSnapshot,
   postSocialFlowOperatorAction,
   triggerSocialFlowAutomation,
 } from "@/lib/capabilities/internal-api-clients/socialflow-control-plane";
-import { env } from "@/lib/cf";
-import { getSocialFlowOperatorObservability } from "@/lib/socialflow/contracts/observability";
+
+// P6: todo lo que este servicio sabe de SocialCors llega por el contrato interno
+// (/api/internal/socialflow/*). Sin imports de @/lib/socialflow ni acceso a SOCIAL_DB.
 
 export const SOCIALFLOW_CONTENT_GENERATION_KEY = "socialflow.content_generation";
 export const SOCIALFLOW_HEALTH_CHECK_KEY = "socialflow.health_check";
@@ -416,10 +431,6 @@ function mapTriggerError(error: unknown): never {
   throw error;
 }
 
-function mapLegacyActionToControlPlaneAction(_action: CampoBaseSocialFlowOperatorAction) {
-  return "request_diagnostics" as const;
-}
-
 registerAutomationHandler(SOCIALFLOW_CONTENT_GENERATION_KEY, async ({ tenantId, saasId, config }) => {
   const normalized = normalizeContentGenerationConfig(config as Record<string, unknown> | null);
   const result = await runCampoBaseSocialAutomation({
@@ -446,14 +457,29 @@ registerAutomationHandler(SOCIALFLOW_CONTENT_GENERATION_KEY, async ({ tenantId, 
   return executionResult;
 });
 
+// Chequeo real de las conexiones del tenant en SocialCors (antes devolvía 3/0 fijo).
 registerAutomationHandler(SOCIALFLOW_HEALTH_CHECK_KEY, async ({ tenantId, saasId, config }) => {
   const normalized = normalizeHealthCheckConfig(config as Record<string, unknown> | null);
-  const checksPassed = 3;
-  const checksFailed = 0;
+  const response = await triggerSocialFlowAutomation(
+    {
+      automationType: "validate_connections",
+      source: "campobase",
+      tenantId,
+      correlationId: null,
+      requestedBy: "control-plane",
+      payload: { saasId },
+    },
+    { tenantId },
+  );
+  const check = response.result as SocialFlowConnectionCheckResult | undefined;
+  const checksPassed = check?.checksPassed ?? 0;
+  const checksFailed = check?.checksFailed ?? 0;
 
   return {
-    ok: true,
-    summary: `Health check passed for ${saasId}`,
+    ok: checksFailed === 0,
+    summary: checksFailed === 0
+      ? `Health check passed for ${saasId} (${checksPassed} connection(s))`
+      : `Health check found ${checksFailed} problem(s) for ${saasId}`,
     metrics: {
       checksPassed,
       checksFailed,
@@ -463,7 +489,8 @@ registerAutomationHandler(SOCIALFLOW_HEALTH_CHECK_KEY, async ({ tenantId, saasId
       tenantId,
       saasId,
       tone: normalized.tone,
-      recommendedAction: "Automation is ready for manual execution and future scheduling.",
+      recommendedAction: check?.recommendedAction ?? "Review the automation setup.",
+      accounts: check?.accounts ?? [],
     },
   };
 });
@@ -540,12 +567,13 @@ export async function runCampoBaseSocialAutomation(
       },
     );
 
+    const generated = response.result as { campaignId?: string } | undefined;
     return {
-      campaignId: response.automationId,
+      campaignId: generated?.campaignId ?? response.automationId,
+      // La generación es asíncrona en el Worker IA de SocialCors: los posts y su
+      // calendario aparecen en la campaña cuando termina el job.
       postsCount: 0,
       scheduledCount: 0,
-      // Internal v1 trigger endpoint returns queued contract data only.
-      // Detailed post schedule remains pending until richer internal response is available.
       schedule: [],
     };
   } catch (error) {
@@ -725,61 +753,20 @@ export async function getCampoBaseSocialAutomationStatusForSaas(
   return item ? mapRegistrationToStatusItem(item) : null;
 }
 
-type AgentExecutionLogRow = {
-  agent_name: string;
-  tenant_id: string | null;
-  status: string;
-  started_at: string;
-  finished_at: string;
-  rows_written: number | null;
-  error_message: string | null;
-};
-
-// Lee agent_execution_log directo (mismo binding SOCIAL_DB que ya usa
-// getSocialFlowOperatorObservability vía resolveSocialContext) — runs agregados
-// (tenant_id NULL, la mayoría de los 26 crons del Cerebro) + runs propios del tenant
-// (p.ej. AudienceInsightAgent, que sí loggea por tenant).
-async function fetchRecentAgentRuns(
-  tenantId: string,
-): Promise<CampoBaseSocialFlowObservability["recentAgentRuns"]> {
-  const bindings = env();
-  const socialDb = bindings?.SOCIAL_DB;
-  if (!socialDb) return [];
-
-  const result = await socialDb
-    .prepare(
-      `SELECT agent_name, tenant_id, status, started_at, finished_at, rows_written, error_message
-       FROM agent_execution_log
-       WHERE tenant_id = ? OR tenant_id IS NULL
-       ORDER BY datetime(started_at) DESC
-       LIMIT 10`,
-    )
-    .bind(tenantId)
-    .all<AgentExecutionLogRow>();
-
-  return (result.results ?? []).map((row) => ({
-    agentName: row.agent_name,
-    tenantId: row.tenant_id,
-    status: row.status as "success" | "error" | "skipped",
-    startedAt: row.started_at,
-    finishedAt: row.finished_at,
-    rowsWritten: row.rows_written,
-    errorMessage: row.error_message,
-  }));
-}
-
 export async function getCampoBaseSocialFlowObservability(
   tenantId: string,
   saasId: string,
 ): Promise<CampoBaseSocialFlowObservability> {
   try {
-    // Lectura directa en proceso — sin llamada HTTP al endpoint interno
-    // (drakos-prod ya tiene SOCIAL_DB bindeado, ver workers/drakos/wrangler.workers.toml).
-    // Misma función real ya usada por /api/internal/socialflow/observability/snapshot.
-    const [observability, recentAgentRuns] = await Promise.all([
-      getSocialFlowOperatorObservability({ tenantId, saasId }),
-      fetchRecentAgentRuns(tenantId),
-    ]);
+    // Contrato interno: GET /api/internal/socialflow/observability/snapshot (incluye las
+    // ejecuciones recientes de agentes).
+    const observability = await fetchSocialFlowObservabilitySnapshot({ tenantId, saasId });
+    const recentAgentRuns = (observability.recentAgentRuns ?? []).map((run) => ({
+      ...run,
+      status: run.status as "success" | "error" | "skipped",
+      // La columna finished_at siempre se rellena al escribir (agent-execution-log.ts).
+      finishedAt: run.finishedAt ?? run.startedAt,
+    }));
 
     return {
       tenantId: observability.tenantId,
@@ -797,7 +784,7 @@ export async function getCampoBaseSocialFlowObservability(
     };
   } catch (error) {
     console.error(
-      "[getCampoBaseSocialFlowObservability] direct SOCIAL_DB read failed",
+      "[getCampoBaseSocialFlowObservability] internal contract unavailable",
       tenantId,
       saasId,
       error instanceof Error ? `${error.name}: ${error.message}` : String(error),
@@ -810,7 +797,7 @@ export async function getCampoBaseSocialFlowObservability(
         status: "unknown",
         freshnessStatus: "unknown",
         schedulerStatus: "needs_attention",
-        recommendation: "Socialcors observability data is temporarily unavailable — SOCIAL_DB read failed, see server logs.",
+        recommendation: "Socialcors observability data is temporarily unavailable — internal contract request failed, see server logs.",
         openIncidentsCount: 0,
         latestActivityAt: null,
         latestSnapshotAt: null,
@@ -897,34 +884,29 @@ export async function runCampoBaseSocialFlowOperatorAction(input: {
   saasId: string;
 }): Promise<CampoBaseSocialFlowOperatorActionResult> {
   try {
-    const actionType = mapLegacyActionToControlPlaneAction(input.action);
     const response = await postSocialFlowOperatorAction(
       {
-        actionType,
+        actionType: input.action,
         source: "campobase",
         tenantId: input.tenantId,
         correlationId: null,
         requestedBy: "control-plane",
-        reason: `legacy-action:${input.action}`,
-        payload: {
-          saasId: input.saasId,
-          legacyAction: input.action,
-        },
+        reason: null,
+        payload: { saasId: input.saasId },
       },
-      {
-        tenantId: input.tenantId,
-      },
+      { tenantId: input.tenantId },
     );
+    const result = response.result as SocialFlowPostActionResult;
 
     return {
       action: input.action,
       tenantId: input.tenantId,
       saasId: input.saasId,
-      scanned: 0,
-      affected: 0,
-      skipped: 0,
-      items: [],
-      message: `Operator action queued via control-plane (${response.actionType}/${response.status}).`,
+      scanned: result.scanned,
+      affected: result.affected,
+      skipped: result.skipped,
+      items: result.items,
+      message: result.message,
     };
   } catch (error) {
     if (error instanceof SocialFlowControlPlaneInternalApiError) {
@@ -941,6 +923,78 @@ export async function runCampoBaseSocialFlowOperatorAction(input: {
     }
     throw error;
   }
+}
+
+// ── P6: lecturas y acciones del panel del operator por el contrato interno ───────────
+
+export async function listCampoBaseSocialFlowTenants(): Promise<SocialFlowTenantListItem[]> {
+  try {
+    return (await fetchSocialFlowTenants()).tenants;
+  } catch (error) {
+    console.error("[listCampoBaseSocialFlowTenants] internal contract unavailable", error instanceof Error ? error.message : String(error));
+    return [];
+  }
+}
+
+export async function launchCampoBaseSocialFlowCampaign(input: {
+  tenants: string[];
+  title: string;
+  scheduledAt: string | null;
+}): Promise<SocialFlowLaunchCampaignResult> {
+  const response = await postSocialFlowOperatorAction({
+    actionType: "launch_campaign",
+    source: "campobase",
+    tenantId: null,
+    correlationId: null,
+    requestedBy: "control-plane",
+    reason: null,
+    payload: { saasId: "socialflow", tenants: input.tenants, title: input.title, scheduledAt: input.scheduledAt },
+  });
+  return response.result as SocialFlowLaunchCampaignResult;
+}
+
+export async function testCampoBaseSocialFlowAiReply(input: {
+  tenantId: string;
+  saasId: string;
+  message: string;
+  threadType: "DM" | "COMMENT";
+  provider: string;
+  niche?: string;
+}): Promise<SocialFlowTestAiReplyResult> {
+  const response = await postSocialFlowOperatorAction(
+    {
+      actionType: "test_ai_reply",
+      source: "campobase",
+      tenantId: input.tenantId,
+      correlationId: null,
+      requestedBy: "control-plane",
+      reason: null,
+      payload: {
+        saasId: input.saasId,
+        message: input.message,
+        threadType: input.threadType,
+        provider: input.provider,
+        ...(input.niche ? { niche: input.niche } : {}),
+      },
+    },
+    { tenantId: input.tenantId },
+  );
+  return response.result as SocialFlowTestAiReplyResult;
+}
+
+// Mismo criterio que el resto de lecturas del panel: si el contrato falla, el panel
+// carga sin este bloque en vez de tumbarse.
+export async function getCampoBaseSocialFlowAgentControlCenter(): Promise<AgentControlCenterGroup[]> {
+  try {
+    return (await fetchSocialFlowAgentsStatus()).groups;
+  } catch (error) {
+    console.error("[getCampoBaseSocialFlowAgentControlCenter] internal contract unavailable", error instanceof Error ? error.message : String(error));
+    return [];
+  }
+}
+
+export async function getCampoBaseSocialFlowChurnRisk(minScore: number): Promise<SocialFlowChurnRiskTenant[]> {
+  return (await fetchSocialFlowChurnRisk({ minScore })).tenants;
 }
 
 export async function enableCampoBaseSocialAutomationForSaas(

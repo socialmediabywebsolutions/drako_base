@@ -16,7 +16,7 @@ import type {
   CampoBaseSocialFlowOperatorActionResult,
 } from "@/lib/campamento-base/socialflow-control-plane-service";
 import type { SocialFlowTrendTrigger, SocialFlowTrendTriggerHealth } from "@/lib/capabilities/internal-api-types/socialflow";
-import type { AgentControlCenterAgent, AgentControlCenterGroup, AgentControlCenterStatus } from "@/lib/campamento-base/socialflow-agent-control-center";
+import type { AgentControlCenterAgent, AgentControlCenterGroup, AgentControlCenterStatus } from "@/lib/capabilities/internal-api-types/socialflow";
 import CerebroSynapseMap from "@/components/operator/CerebroSynapseMap";
 import CrmOperationsPanel from "@/components/operator/CrmOperationsPanel";
 import AutoPublishPanel from "@/components/operator/AutoPublishPanel";
@@ -59,7 +59,7 @@ type ControlResponse = {
   code?: string;
 };
 
-// Tenant real de Socialcors, leído de socialflow_profiles en SOCIAL_DB (acción
+// Tenant real de Socialcors, servido por el contrato interno (GET /api/internal/socialflow/tenants; acción
 // "list_tenants") — no del registro de automatización, que solo cubre tenants con
 // automatización configurada.
 type OperatorTenantOption = {
@@ -519,7 +519,7 @@ export default function CampoBaseSocialAutomationControl() {
         subtitle="Encola una campaña IA por cada tenant elegido — la IA escribe los posts a partir del tema y el cron los publica"
       >
         {tenantOptionsLoading ? (
-          <EmptyState title="Cargando tenants…" subtitle="Leyendo clientes activos de Socialcors desde SOCIAL_DB." />
+          <EmptyState title="Cargando tenants…" subtitle="Leyendo clientes activos de Socialcors por el contrato interno." />
         ) : tenantOptions.length === 0 ? (
           <EmptyState
             title="Sin tenants activos"
@@ -667,12 +667,12 @@ export default function CampoBaseSocialAutomationControl() {
       <Card
         tone="default"
         title="Centro de control de agentes"
-        subtitle="Los 26 agentes del Cerebro Socialcors — estado, última ejecución y contenido real, leídos directo de SOCIAL_DB"
+        subtitle="Los 26 agentes del Cerebro Socialcors — estado, última ejecución y contenido real, vía contrato interno de SocialCors"
       >
         {agentControlCenter.length === 0 ? (
           <EmptyState
             title="Sin datos del centro de control"
-            subtitle="Todavía no se pudo leer el estado de los agentes desde SOCIAL_DB."
+            subtitle="Todavía no se pudo leer el estado de los agentes desde SocialCors."
           />
         ) : (
           <div className="space-y-8">
@@ -710,7 +710,7 @@ export default function CampoBaseSocialAutomationControl() {
         subtitle="Herramienta de diagnóstico interna — simula un mensaje entrante y ve exactamente qué respondería la IA para un tenant real"
       >
         {tenantOptionsLoading ? (
-          <EmptyState title="Cargando tenants…" subtitle="Leyendo clientes activos de Socialcors desde SOCIAL_DB." />
+          <EmptyState title="Cargando tenants…" subtitle="Leyendo clientes activos de Socialcors por el contrato interno." />
         ) : tenantOptions.length === 0 ? (
           <EmptyState
             title="Sin tenants activos"

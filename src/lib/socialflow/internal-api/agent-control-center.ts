@@ -1,39 +1,22 @@
 import { env } from "@/lib/cf";
 
-// Nivel 3 — Centro de control de agentes del Cerebro Socialcors. Lee directo de
-// SOCIAL_DB (mismo binding que ya usa getCampoBaseSocialFlowObservability en
-// socialflow-control-plane-service.ts) — sin llamadas HTTP internas. Cada función
+// Nivel 3 — Centro de control de agentes del Cerebro Socialcors. Lee de SOCIAL_DB dentro
+// de SocialCors; el panel del holding lo consulta por el contrato interno
+// (GET /api/internal/socialflow/agents/status, P6) — antes vivía en el holding y leía
+// SOCIAL_DB directamente. Cada función
 // de contenido devuelve la fila real más reciente de su tabla (cross-tenant, no
 // solo Socialcors) porque la mayoría de estas tablas todavía no tienen ninguna fila
 // del tenant piloto — mostrar la fila global más reciente es honesto: es lo último
 // que ese agente produjo de verdad, en cualquier cuenta.
 
-export type AgentControlCenterStatus = "conectado" | "sin_datos" | "investigando";
+import type {
+  AgentControlCenterAgent,
+  AgentControlCenterGroup,
+  AgentControlCenterRun,
+  AgentControlCenterStatus,
+} from "@/lib/capabilities/internal-api-types/socialflow";
 
-export type AgentControlCenterRun = {
-  startedAt: string;
-  status: "success" | "error" | "skipped";
-  rowsWritten: number | null;
-  errorMessage: string | null;
-};
-
-export type AgentControlCenterAgent = {
-  key: string;
-  nameEs: string;
-  status: AgentControlCenterStatus;
-  lastRun: AgentControlCenterRun | null;
-  contentSummary: string;
-  contentAt: string | null;
-  contentTenantId: string | null;
-  flow: string;
-  note: string | null;
-};
-
-export type AgentControlCenterGroup = {
-  key: string;
-  titleEs: string;
-  agents: AgentControlCenterAgent[];
-};
+export type { AgentControlCenterAgent, AgentControlCenterGroup, AgentControlCenterRun, AgentControlCenterStatus };
 
 type AgentExecutionLogRow = {
   agent_name: string;
@@ -574,7 +557,7 @@ function resolveStatus(key: string, content: ContentResult): AgentControlCenterS
   return content.hasData ? "conectado" : "sin_datos";
 }
 
-export async function getCampoBaseAgentControlCenter(): Promise<AgentControlCenterGroup[]> {
+export async function getSocialCorsAgentControlCenter(): Promise<AgentControlCenterGroup[]> {
   const bindings = env();
   const db = bindings?.SOCIAL_DB;
   if (!db) {
