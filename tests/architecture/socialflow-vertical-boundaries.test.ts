@@ -240,30 +240,16 @@ describe("SocialFlow vertical boundaries", () => {
     expect(artifactBuilder).toContain("product-scoped-preview");
     expect(artifactBuilder).toContain("validateProductScopedPreviewRuntime");
 
-    expect(deployWorkflow).toContain("Verify SocialFlow standalone active artifact");
-    expect(deployWorkflow).toContain("Verify SocialFlow standalone runtime active");
-    expect(deployWorkflow).toContain('"productKey": "socialflows"');
-    expect(deployWorkflow).toContain('"artifactMode": "standalone"');
-    expect(deployWorkflow).toContain('"artifactState": "active"');
-    expect(deployWorkflow).toContain("SocialFlow scope audit summary");
-    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING");
-    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM");
-    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_ARTIFACT_FAKE");
-    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION");
-    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_GENERATED_FROM_GLOBAL");
-    expect(deployWorkflow).toContain("SOCIALFLOW_STANDALONE_NOT_ACTIVATED");
-    expect(deployWorkflow).toContain("Verify SocialFlow product-scoped preview artifact");
-    expect(deployWorkflow).toContain("SocialFlow product-scoped preview summary");
-    expect(deployWorkflow).toContain("runtime-audit.json");
-    expect(deployWorkflow).toContain("runtimeRiskScore");
-    expect(deployWorkflow).toContain("suspiciousRoutes");
-    expect(deployWorkflow).toContain("crossProductLeaks");
-    expect(deployWorkflow).toContain("scopedActivationReady");
-    expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_MISSING");
-    expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE");
-    expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_INTEGRITY_FAILURE");
-    expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_RUNTIME_AUDIT_MISSING");
-    expect(deployWorkflow).toContain("SOCIALFLOW_PRODUCT_SCOPED_UNSAFE_ACTIVATION_CLAIM");
+    // P3b: SocialCors se despliega desde apps/socialcors con su propio lane fail-closed.
+    expect(deployWorkflow).toContain("SocialCors bundle budget and route scope");
+    expect(deployWorkflow).toContain("SOCIALCORS_HANDLER_MISSING");
+    expect(deployWorkflow).toContain("SOCIALCORS_BUNDLE_OVER_BUDGET");
+    expect(deployWorkflow).toContain("FOREIGN_ROUTES_IN_SOCIALCORS");
+    expect(deployWorkflow).toContain("SOCIALCORS_ROUTE_MISSING");
+    expect(deployWorkflow).toContain("SOCIALCORS_SCHEDULED_HANDLER_MISSING");
+    expect(deployWorkflow).toContain("Guard SocialCors Worker config before deploy");
+    expect(deployWorkflow).toContain("HOLDING_BUNDLE_OVER_CLOUDFLARE_LIMIT");
+    expect(deployWorkflow).toContain("SOCIALCORS_ROUTES_IN_HOLDING");
   });
 
   it("keeps shared-db SocialFlow routes guarded by tenant isolation evidence", () => {

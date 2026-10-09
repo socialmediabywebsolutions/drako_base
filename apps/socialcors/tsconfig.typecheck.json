@@ -1,0 +1,9 @@
+{
+  "//": "Typecheck determinista de la app (pnpm typecheck). next build reescribe tsconfig.json y añade .next/types; aquí no, para que el resultado no dependa de si hay un build local.",
+  "extends": "./tsconfig.json",
+  "include": [
+    "../../src/types/**/*.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ]
+}

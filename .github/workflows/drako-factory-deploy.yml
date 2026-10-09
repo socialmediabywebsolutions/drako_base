@@ -202,6 +202,37 @@ jobs:
           # Cleanup always
           rm -f wrangler.toml
 
+      - name: Holding bundle budget (64 MiB Cloudflare limit, no SocialCors routes)
+        run: |
+          set -euo pipefail
+          # P3b: SocialCors se construye y despliega en su propio job (apps/socialcors).
+          # El monolito no debe volver a contener sus rutas ni acercarse al límite.
+          HANDLER=".open-next/server-functions/default/handler.mjs"
+          test -f "$HANDLER"
+          BYTES="$(wc -c < "$HANDLER")"
+          MIB="$(awk "BEGIN { printf \"%.2f\", ${BYTES} / 1048576 }")"
+          echo "Holding handler.mjs: ${MIB} MiB (${BYTES} bytes)"
+          echo "### Holding handler.mjs: ${MIB} MiB" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$BYTES" -ge 67108864 ]; then
+            echo "BLOCKED: HOLDING_BUNDLE_OVER_CLOUDFLARE_LIMIT ${MIB} MiB >= 64 MiB"
+            exit 1
+          fi
+          if [ "$BYTES" -ge 58720256 ]; then
+            echo "::warning::Holding handler.mjs at ${MIB} MiB (>= 56 MiB, close to the 64 MiB limit)"
+          fi
+          node <<'NODE'
+          const fs = require("node:fs");
+          const routes = Object.keys(JSON.parse(fs.readFileSync(".next/server/app-paths-manifest.json", "utf8")));
+          const leaked = routes.filter((route) =>
+            /^\/(socialflows?|api\/socialflow|api\/cron\/social|api\/internal\/socialflow|api\/social\/)/.test(route)
+            && route !== "/api/socialflow/sso-init/route");
+          if (leaked.length > 0) {
+            console.error(`BLOCKED: SOCIALCORS_ROUTES_IN_HOLDING ${leaked.join(",")}`);
+            process.exit(1);
+          }
+          console.log(`Holding routes: ${routes.length}, SocialCors routes: 0 (sso-init stays in the holding)`);
+          NODE
+
       - name: Emit global artifact matrix skeleton index
         env:
           ARTIFACT_MATRIX_PRODUCT: all
@@ -211,137 +242,10 @@ jobs:
           set -euo pipefail
           pnpm build:artifacts:skeleton
 
-      - name: Verify SocialFlow product-scoped preview artifact
-        run: |
-          set -euo pipefail
-          test -f .open-next/socialflows-product-scoped-preview/worker.js
-          test -d .open-next/socialflows-product-scoped-preview/assets
-          test -d .open-next/socialflows-product-scoped-preview/server-functions
-          test -d .open-next/socialflows-product-scoped-preview/.build
-          test -f .open-next/socialflows-product-scoped-preview/artifact-manifest.json
-          test -f .open-next/socialflows-product-scoped-preview/scope-audit.json
-          test -f .open-next/socialflows-product-scoped-preview/filter-report.json
-          test -f .open-next/socialflows-product-scoped-preview/runtime-audit.json
-          grep -q '"productKey": "socialflows"' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
-          grep -q '"artifactMode": "product-scoped-preview"' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
-          grep -q '"artifactState": "inactive-preview"' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
-          grep -q '"derivedFrom": "socialflows-standalone"' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
-          grep -q '"runtimeIntegrity": true' .open-next/socialflows-product-scoped-preview/artifact-manifest.json
-          grep -q '"runtimeIntegrity": true' .open-next/socialflows-product-scoped-preview/filter-report.json
-          node <<'NODE'
-          const fs = require("node:fs");
-          const manifest = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/artifact-manifest.json", "utf8"));
-          const audit = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/scope-audit.json", "utf8"));
-          const report = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/filter-report.json", "utf8"));
-          const runtimeAudit = JSON.parse(fs.readFileSync(".open-next/socialflows-product-scoped-preview/runtime-audit.json", "utf8"));
-          const missing = [];
-          for (const field of ["filterVersion", "filterGeneratedAt", "runtimeIntegrity", "removedCount", "remainingCount", "unresolvedDependencyCount", "runtimeAuditVersion", "runtimeRiskScore", "scopedActivationReady", "suspiciousRoutes", "crossProductLeaks", "previousLeakCount", "newLeakCount", "removedLeakPrefixes", "remainingCriticalLeaks"]) {
-            if (!(field in manifest)) missing.push(`manifest:${field}`);
-          }
-          for (const field of ["removedRoutes", "remainingRoutes", "unresolvedDependencies", "filteringWarnings"]) {
-            if (!(field in report)) missing.push(`report:${field}`);
-          }
-          for (const field of ["totalRoutes", "allowedRoutes", "suspiciousRoutes", "crossProductLeaks", "unknownRoutes", "sharedInfraRoutes", "runtimeIntegrity", "unresolvedDependencies", "unresolvedDependencyCount", "runtimeRiskScore", "scopedActivationReady", "previousLeakCount", "newLeakCount", "removedLeakPrefixes", "remainingCriticalLeaks", "leakReduction", "removedSurfaces", "retainedSurfaces", "blockingFindings", "warnings", "severityCounts", "leaksBySeverity", "routeClassifications"]) {
-            if (!(field in runtimeAudit)) missing.push(`runtimeAudit:${field}`);
-          }
-          if (missing.length > 0) {
-            console.error(`SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_MISSING ${missing.join(",")}`);
-            console.error(`SOCIALFLOW_PRODUCT_SCOPED_RUNTIME_AUDIT_MISSING ${missing.join(",")}`);
-            process.exit(1);
-          }
-          if (manifest.artifactMode !== "product-scoped-preview" || manifest.artifactState !== "inactive-preview" || manifest.derivedFrom !== "socialflows-standalone") {
-            console.error("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE");
-            process.exit(1);
-          }
-          if (manifest.runtimeIntegrity !== true || report.runtimeIntegrity !== true || manifest.unresolvedDependencyCount !== 0 || report.unresolvedDependencies.length > 0) {
-            console.error("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_INTEGRITY_FAILURE");
-            process.exit(1);
-          }
-          if (manifest.removedCount <= 0 || report.removedRoutes.length !== manifest.removedCount || report.remainingRoutes.length !== manifest.remainingCount) {
-            console.error("SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE");
-            process.exit(1);
-          }
-          if (runtimeAudit.totalRoutes !== report.remainingCount || runtimeAudit.routeClassifications.length !== runtimeAudit.totalRoutes) {
-            console.error("SOCIALFLOW_PRODUCT_SCOPED_RUNTIME_AUDIT_MISSING");
-            process.exit(1);
-          }
-          if (runtimeAudit.scopedActivationReady === true && (runtimeAudit.crossProductLeaks > 0 || runtimeAudit.suspiciousRoutes > 0 || runtimeAudit.unknownRoutes > 0 || runtimeAudit.runtimeRiskScore > 0 || runtimeAudit.remainingCriticalLeaks.length > 0)) {
-            console.error("SOCIALFLOW_PRODUCT_SCOPED_UNSAFE_ACTIVATION_CLAIM");
-            process.exit(1);
-          }
-          console.log(`SocialFlow product-scoped preview summary: removedCount=${report.removedCount} remainingCount=${report.remainingCount} runtimeIntegrity=${report.runtimeIntegrity} unresolvedDependencies=${report.unresolvedDependencies.length} scopedReady=${audit.scopedReady}`);
-          console.log(`SocialFlow product-scoped runtime audit summary: runtimeRiskScore=${runtimeAudit.runtimeRiskScore} suspiciousRoutes=${runtimeAudit.suspiciousRoutes} crossProductLeaks=${runtimeAudit.crossProductLeaks} previousLeakCount=${runtimeAudit.previousLeakCount} newLeakCount=${runtimeAudit.newLeakCount} removedLeakPrefixes=${runtimeAudit.removedLeakPrefixes.length} remainingCriticalLeaks=${runtimeAudit.remainingCriticalLeaks.length} scopedActivationReady=${runtimeAudit.scopedActivationReady}`);
-          NODE
-          if grep -Eq 'export \{ default \} from|export \* from|../worker.js|.open-next/worker.js' .open-next/socialflows-product-scoped-preview/worker.js; then
-            echo "SOCIALFLOW_PRODUCT_SCOPED_PREVIEW_FAKE"
-            exit 1
-          fi
-
       - name: Production readiness after generated artifacts
         run: |
           set -euo pipefail
           FIXTURES_DIR=tests/fixtures/production-audits/pass pnpm check:production
-
-      - name: open-next-socialflows-standalone-build
-        run: |
-          set -euo pipefail
-          test -f .open-next/socialflows-standalone/worker.js || (echo "SOCIALFLOW_STANDALONE_ARTIFACT_MISSING"; exit 1)
-
-      - name: Verify SocialFlow standalone active artifact
-        run: |
-          set -euo pipefail
-          test -f .open-next/socialflows-standalone/worker.js
-          test -d .open-next/socialflows-standalone/assets
-          test -d .open-next/socialflows-standalone/server-functions
-          test -d .open-next/socialflows-standalone/.build
-          test -f .open-next/socialflows-standalone/artifact-manifest.json
-          test -f .open-next/socialflows-standalone/scope-audit.json
-          grep -q '"productKey": "socialflows"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"artifactMode": "standalone"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"artifactState": "active"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"standaloneArtifactName": "open-next-socialflows-standalone-build"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"scopeMode": "standalone-runtime-copy"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"foreignRouteCount"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"scopedReady": false' .open-next/socialflows-standalone/artifact-manifest.json
-          node <<'NODE'
-          const fs = require("node:fs");
-          const manifest = JSON.parse(fs.readFileSync(".open-next/socialflows-standalone/artifact-manifest.json", "utf8"));
-          const audit = JSON.parse(fs.readFileSync(".open-next/socialflows-standalone/scope-audit.json", "utf8"));
-          const requiredManifestFields = ["scopeMode", "foreignRouteHits", "foreignRouteCount", "scopeAuditVersion", "scopeAuditGeneratedAt", "scopedReady"];
-          const requiredAuditFields = ["product", "runtimeMode", "scopeMode", "serverFunctionsPath", "routeCount", "allowedRouteCount", "containsForeignRoutes", "foreignRouteHits", "foreignRouteCount", "foreignRouteExamples", "scopeAuditVersion", "scopeAuditGeneratedAt", "scopedReady"];
-          const missing = [
-            ...requiredManifestFields.filter((field) => !(field in manifest)).map((field) => `manifest:${field}`),
-            ...requiredAuditFields.filter((field) => !(field in audit)).map((field) => `audit:${field}`),
-          ];
-          if (missing.length > 0) {
-            console.error(`SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING ${missing.join(",")}`);
-            process.exit(1);
-          }
-          console.log(`SocialFlow scope audit summary: scopeMode=${manifest.scopeMode} foreignRouteCount=${manifest.foreignRouteCount} scopedReady=${manifest.scopedReady}`);
-          if (manifest.scopeMode === "product-scoped" && (manifest.foreignRouteCount > 0 || audit.foreignRouteCount > 0 || manifest.scopedReady !== true)) {
-            console.error("SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM");
-            process.exit(1);
-          }
-          NODE
-          grep -q './server-functions/default/handler.mjs' .open-next/socialflows-standalone/worker.js
-          if grep -Eq 'export \{ default \} from|export \* from' .open-next/socialflows-standalone/worker.js; then
-            echo "SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION"
-            exit 1
-          fi
-          if grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/socialflows-standalone/artifact-manifest.json; then
-            echo "SOCIALFLOW_STANDALONE_GENERATED_FROM_GLOBAL"
-            exit 1
-          fi
-          if grep -Ein 'dry-run|stub|dummy|placeholder|success: true|text/html' .open-next/socialflows-standalone/worker.js; then
-            echo "SOCIALFLOW_STANDALONE_ARTIFACT_FAKE"
-            exit 1
-          fi
-          grep -q 'main = "../../.open-next/socialflows-standalone/worker.js"' workers/socialflows/wrangler.workers.toml
-          grep -q 'directory = "../../.open-next/socialflows-standalone/assets"' workers/socialflows/wrangler.workers.toml
-          if grep -q 'main = "../../.open-next/socialflows/worker.js"' workers/socialflows/wrangler.workers.toml; then
-            echo "SOCIALFLOW_STANDALONE_NOT_ACTIVATED"
-            exit 1
-          fi
 
       - name: Guardrail (real worker only, no dry-run/stub)
         run: |
@@ -434,81 +338,6 @@ jobs:
             echo "BASES_DEDICATED_ARTIFACT_FAKE"
             exit 1
           fi
-
-      - name: Verify SocialFlow standalone runtime active
-        run: |
-          set -euo pipefail
-          test -f .open-next/socialflows-standalone/worker.js
-          test -d .open-next/socialflows-standalone/assets
-          test -d .open-next/socialflows-standalone/server-functions
-          test -d .open-next/socialflows-standalone/.build
-          test -f .open-next/socialflows-standalone/artifact-manifest.json
-          test -f .open-next/socialflows-standalone/scope-audit.json
-          grep -q '"productKey": "socialflows"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"artifactMode": "standalone"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"artifactState": "active"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"standaloneArtifactName": "open-next-socialflows-standalone-build"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"scopeMode": "standalone-runtime-copy"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"foreignRouteCount"' .open-next/socialflows-standalone/artifact-manifest.json
-          grep -q '"scopedReady": false' .open-next/socialflows-standalone/artifact-manifest.json
-          node <<'NODE'
-          const fs = require("node:fs");
-          const manifest = JSON.parse(fs.readFileSync(".open-next/socialflows-standalone/artifact-manifest.json", "utf8"));
-          const audit = JSON.parse(fs.readFileSync(".open-next/socialflows-standalone/scope-audit.json", "utf8"));
-          const requiredManifestFields = ["scopeMode", "foreignRouteHits", "foreignRouteCount", "scopeAuditVersion", "scopeAuditGeneratedAt", "scopedReady"];
-          const requiredAuditFields = ["product", "runtimeMode", "scopeMode", "serverFunctionsPath", "routeCount", "allowedRouteCount", "containsForeignRoutes", "foreignRouteHits", "foreignRouteCount", "foreignRouteExamples", "scopeAuditVersion", "scopeAuditGeneratedAt", "scopedReady"];
-          const missing = [
-            ...requiredManifestFields.filter((field) => !(field in manifest)).map((field) => `manifest:${field}`),
-            ...requiredAuditFields.filter((field) => !(field in audit)).map((field) => `audit:${field}`),
-          ];
-          if (missing.length > 0) {
-            console.error(`SOCIALFLOW_STANDALONE_SCOPE_AUDIT_MISSING ${missing.join(",")}`);
-            process.exit(1);
-          }
-          console.log(`SocialFlow scope audit summary: scopeMode=${manifest.scopeMode} foreignRouteCount=${manifest.foreignRouteCount} scopedReady=${manifest.scopedReady}`);
-          if (manifest.scopeMode === "product-scoped" && (manifest.foreignRouteCount > 0 || audit.foreignRouteCount > 0 || manifest.scopedReady !== true)) {
-            console.error("SOCIALFLOW_STANDALONE_FAKE_SCOPED_CLAIM");
-            process.exit(1);
-          }
-          NODE
-          grep -q './server-functions/default/handler.mjs' .open-next/socialflows-standalone/worker.js
-          grep -q 'main = "../../.open-next/socialflows-standalone/worker.js"' workers/socialflows/wrangler.workers.toml
-          grep -q 'directory = "../../.open-next/socialflows-standalone/assets"' workers/socialflows/wrangler.workers.toml
-          if grep -Eq 'export \{ default \} from|export \* from' .open-next/socialflows-standalone/worker.js; then
-            echo "SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION"
-            exit 1
-          fi
-          if grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/socialflows-standalone/artifact-manifest.json; then
-            echo "SOCIALFLOW_STANDALONE_GENERATED_FROM_GLOBAL"
-            exit 1
-          fi
-          if grep -q 'main = "../../.open-next/socialflows/worker.js"' workers/socialflows/wrangler.workers.toml; then
-            echo "SOCIALFLOW_STANDALONE_NOT_ACTIVATED"
-            exit 1
-          fi
-          if grep -q 'directory = "../../.open-next/socialflows/assets"' workers/socialflows/wrangler.workers.toml; then
-            echo "SOCIALFLOW_STANDALONE_ASSETS_NOT_ACTIVATED"
-            exit 1
-          fi
-          if grep -q 'main = "../../.open-next/worker.js"' workers/socialflows/wrangler.workers.toml; then
-            echo "SOCIALFLOW_STANDALONE_GLOBAL_REGRESSION"
-            exit 1
-          fi
-          if grep -Ein 'dry-run|stub|dummy|placeholder|success: true|text/html' .open-next/socialflows-standalone/worker.js; then
-            echo "SOCIALFLOW_STANDALONE_ARTIFACT_FAKE"
-            exit 1
-          fi
-
-      - name: Patch SocialFlow cron handler (inject scheduled())
-        run: |
-          set -euo pipefail
-          # Must run AFTER both SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION guardrails above
-          # (this step's own and "Verify SocialFlow standalone active artifact" earlier) —
-          # the patch's output keeps `export * from` (see scripts/patch-socialflow-cron-handler.mjs),
-          # which those guardrails reject. Running from repo root, not workers/socialflows/,
-          # so `.open-next/socialflows-standalone/worker.js` resolves correctly.
-          node scripts/patch-socialflow-cron-handler.mjs
-          grep -q '__socialflowCronHandlerPatched' .open-next/socialflows-standalone/worker.js || (echo "SOCIALFLOW_CRON_PATCH_FAILED"; exit 1)
 
       - name: Verify Mentoria dedicated artifact
         run: |
@@ -629,20 +458,243 @@ jobs:
             exit 1
           }
 
-      - name: Apply SocialFlow auth schema on dedicated auth D1
+      - name: Apply global schema additions on DRACO_DB (idempotent)
         run: |
           set -euo pipefail
-          wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config workers/socialflows/wrangler.workers.toml \
+          # 0137: existía en el repo desde hace meses pero nunca estuvo en este paso —
+          # por eso auth_users/tenant_users en producción llevan sin las columnas que
+          # el código (campamento-core.ts) ya asume (password_hash, active_tenant_id,
+          # user_id, invited_by), y las 6 tablas nuevas de este archivo nunca se
+          # crearon. Mezcla ALTER TABLE ADD COLUMN (no re-ejecutable tal cual) con
+          # CREATE TABLE/INDEX IF NOT EXISTS (sí) — misma tolerancia a "duplicate
+          # column name" que ya usa el bucle de SOCIAL_DB más abajo.
+          if ! OUTPUT="$(wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0137_campamento_base_workspace_core.sql 2>&1)"; then
+            echo "$OUTPUT"
+            echo "$OUTPUT" | grep -qi "duplicate column name" || {
+              echo "BLOCKED: 0137_campamento_base_workspace_core.sql failed with an unexpected error."
+              exit 1
+            }
+            echo "Column(s) in 0137 already exist — skipping (idempotent re-run)."
+          else
+            echo "$OUTPUT"
+          fi
+          # 0138: mismo bug que 0137 (número consecutivo, casi seguro escrita en la
+          # misma sesión) — nunca estuvo en este paso, por eso la Card "Operator
+          # Social Automation" del panel daba "D1_ERROR: no such table:
+          # drako_automation_registrations". Solo CREATE TABLE/INDEX IF NOT EXISTS,
+          # sin ALTER TABLE — no necesita la tolerancia a "duplicate column name" que
+          # sí hace falta arriba para 0137, siempre es re-ejecutable sin más.
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0138_drako_automation_core.sql
+          # 0194: ALTER TABLE ADD COLUMN — skip if columns already exist
+          if ! wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --command "SELECT saas_id FROM ai_usage_counters LIMIT 1;" > /dev/null 2>&1; then
+            echo "Applying 0194_ai_usage_counters_saas_id.sql (columns not yet present)..."
+            wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+              --file migrations/0194_ai_usage_counters_saas_id.sql
+          else
+            echo "0194 already applied — skipping."
+          fi
+          # 0195: CREATE TABLE IF NOT EXISTS — always idempotent
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0195_sso_tokens.sql
+          # 0205: Journal IA de drako.systems — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0205_drako_journal.sql
+          # 0206: Métricas sociales del ecosistema Drako — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0206_drako_ecosystem_metrics.sql
+          # 0207: Oportunidades del Agente de Financiación — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0207_drako_funding.sql
+          # 0208: Ventas del CRM de /operator/socialflow — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0208_drako_crm_sales.sql
+          # 0209: Posts del AutoPublishAgent de @drako.systems — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0209_drako_social_posts.sql
+
+      - name: Validate Cloudflare account identifier
+        run: |
+          set -euo pipefail
+          RESPONSE="$(curl -sS -X GET "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json")"
+          echo "$RESPONSE"
+          echo "$RESPONSE" | grep -q '"success":true' || {
+            echo "BLOCKED: invalid CLOUDFLARE_ACCOUNT_ID/token mapping (Cloudflare API validation failed)."
+            exit 1
+          }
+
+      - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases)
+        run: |
+          set -euo pipefail
+          command -v wrangler >/dev/null
+          wrangler --version
+          ls -la .open-next
+          test -f .open-next/worker.js
+          test -d .open-next/assets
+
+          pushd workers/drako-scheduler
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          pushd workers/drakos
+          test -f ../../.open-next/drakos/worker.js
+          test -d ../../.open-next/drakos/assets
+          grep -q 'main = "../../.open-next/drakos/worker.js"' wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/drakos/assets"' wrangler.workers.toml
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          pushd workers/mentorias
+          test -f ../../.open-next/mentorias/worker.js
+          test -d ../../.open-next/mentorias/assets
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          pushd workers/bases
+          test -f ../../.open-next/bases/worker.js
+          test -d ../../.open-next/bases/assets
+          grep -q 'main = "../../.open-next/bases/worker.js"' wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/bases/assets"' wrangler.workers.toml
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          # SocialCors (saas-socialflows-prod + saas-socialflow-ai-worker-prod) se despliega
+          # en el job socialcors_build_and_deploy, desde apps/socialcors (P3b).
+
+          pushd workers/whatsapp-channel
+          wrangler deploy -c wrangler.workers.toml --env production
+          popd
+
+  socialcors_build_and_deploy:
+    name: SocialCors Build and Deploy (apps/socialcors)
+    runs-on: ubuntu-latest
+    # P3b: lane propio, independiente del monolito. Un fallo del holding no bloquea a
+    # SocialCors ni al revés.
+    needs: gates
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SOCIALCORS_WRANGLER_CONFIG: apps/socialcors/wrangler.toml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.25.0"
+
+      - name: Setup Node.js (LTS) + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.1"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build SocialCors (OpenNext, apps/socialcors)
+        working-directory: apps/socialcors
+        env:
+          CI: "true"
+        run: |
+          set -euo pipefail
+          ../../node_modules/.bin/opennextjs-cloudflare build 2>&1 | tee ../../open-next-socialcors-build.log
+
+      - name: SocialCors bundle budget and route scope
+        working-directory: apps/socialcors
+        run: |
+          set -euo pipefail
+          # OpenNext en monorepo deja el handler bajo server-functions/default/apps/socialcors/.
+          HANDLER=".open-next/server-functions/default/apps/socialcors/handler.mjs"
+          test -f "$HANDLER" || { echo "BLOCKED: SOCIALCORS_HANDLER_MISSING $HANDLER"; exit 1; }
+          BYTES="$(wc -c < "$HANDLER")"
+          MIB="$(awk "BEGIN { printf \"%.2f\", ${BYTES} / 1048576 }")"
+          echo "SocialCors handler.mjs: ${MIB} MiB (${BYTES} bytes)"
+          echo "### SocialCors handler.mjs: ${MIB} MiB" >> "$GITHUB_STEP_SUMMARY"
+          # Presupuesto del plan (P3): bloqueo a 40 MiB, aviso a 32 MiB. Límite de Cloudflare: 64 MiB.
+          if [ "$BYTES" -ge 41943040 ]; then
+            echo "BLOCKED: SOCIALCORS_BUNDLE_OVER_BUDGET ${MIB} MiB >= 40 MiB"
+            exit 1
+          fi
+          if [ "$BYTES" -ge 33554432 ]; then
+            echo "::warning::SocialCors handler.mjs at ${MIB} MiB (>= 32 MiB budget warning)"
+          fi
+          node <<'NODE'
+          const fs = require("node:fs");
+          const routes = Object.keys(JSON.parse(fs.readFileSync(".next/server/app-paths-manifest.json", "utf8")));
+          const foreign = routes.filter((route) =>
+            /^\/(operator|owner|admin|mentorias?|bases|campobase|campamento-base|site|drakos|factory|journal|analysis|api\/(operator|owner|mentorias?|bases|drakos|factory|stripe|campobase|campamento-base))(\/|$)/.test(route));
+          if (foreign.length > 0) {
+            console.error(`BLOCKED: FOREIGN_ROUTES_IN_SOCIALCORS ${foreign.join(",")}`);
+            process.exit(1);
+          }
+          for (const required of ["/socialflows/page", "/socialflow/(workspace)/page", "/socialflow/auth/page", "/api/socialflow/auths/logins/route", "/api/cron/social/route", "/api/internal/socialflow/health/route"]) {
+            if (!routes.includes(required)) {
+              console.error(`BLOCKED: SOCIALCORS_ROUTE_MISSING ${required}`);
+              process.exit(1);
+            }
+          }
+          console.log(`SocialCors routes: ${routes.length}, foreign routes: 0`);
+          NODE
+
+      - name: Guard SocialCors Worker config before deploy
+        run: |
+          set -euo pipefail
+          TOML="$SOCIALCORS_WRANGLER_CONFIG"
+          grep -q '^name = "saas-socialflows-prod"' "$TOML" || { echo "BLOCKED: $TOML must deploy saas-socialflows-prod"; exit 1; }
+          grep -q '^main = "worker.ts"' "$TOML" || { echo "BLOCKED: $TOML must use worker.ts (fetch + scheduled)"; exit 1; }
+          for domain in socialflows.drako.systems socialflow.drako.systems socialcors.com; do
+            grep -q "pattern = \"${domain}\"" "$TOML" || { echo "BLOCKED: $TOML missing custom domain ${domain}"; exit 1; }
+          done
+          for binding in SOCIAL_DB SOCIALFLOW_AUTHS_DB SOCIAL_MEDIA_BUCKET SOCIALFLOW_AI_QUEUE SELF; do
+            grep -q "binding = \"${binding}\"" "$TOML" || { echo "BLOCKED: $TOML missing binding ${binding}"; exit 1; }
+          done
+          echo "SocialCors Worker config guard passed."
+
+      - name: Verify Cloudflare credentials
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "BLOCKED: missing CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID secrets."
+            exit 1
+          fi
+
+      - name: Install Wrangler 4.69.0
+        run: npm install -g wrangler@4.69.0
+
+      - name: Bundle SocialCors Worker (dry-run, verifies fetch + scheduled)
+        working-directory: apps/socialcors
+        run: |
+          set -euo pipefail
+          # --config explícito: sin él, wrangler resuelve el wrangler.jsonc de la raíz del repo.
+          wrangler deploy --config wrangler.toml --dry-run --outdir .wrangler/dry-run 2>&1 | tee ../../wrangler-socialcors-dry-run.log
+          grep -q "Total Upload" ../../wrangler-socialcors-dry-run.log
+          grep -q "async function scheduled" .wrangler/dry-run/worker.js || { echo "BLOCKED: SOCIALCORS_SCHEDULED_HANDLER_MISSING"; exit 1; }
+          grep -q "/api/cron/social/strategic-plan" .wrangler/dry-run/worker.js || { echo "BLOCKED: SOCIALCORS_CRON_TABLE_MISSING"; exit 1; }
+
+      - name: Apply SocialFlow auth schema on dedicated auth D1
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config apps/socialcors/wrangler.toml \
             --file migrations/0142_socialflow_auths.sql
-          wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config workers/socialflows/wrangler.workers.toml \
+          wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config apps/socialcors/wrangler.toml \
             --file migrations/0196_socialflow_password_reset_tokens.sql
-          wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config workers/socialflows/wrangler.workers.toml \
+          wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config apps/socialcors/wrangler.toml \
             --file migrations/0198_socialflow_users_account_type.sql
 
       - name: Verify SocialFlow auth tables exist on dedicated auth D1
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
-          OUTPUT="$(wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config workers/socialflows/wrangler.workers.toml \
+          OUTPUT="$(wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config apps/socialcors/wrangler.toml \
             --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('socialflow_users','socialflow_credentials','socialflow_sessions','socialflow_password_reset_tokens');")"
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "socialflow_users" || {
@@ -655,6 +707,7 @@ jobs:
           }
 
       - name: Apply SocialFlow product schema on SOCIAL_DB
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           # This list re-runs on every deploy (no migration-tracking table), so it only
@@ -690,13 +743,14 @@ jobs:
             workers/socialflows/migrations/0219_socialflow_conversation_settings_active_hours.sql \
             workers/socialflows/migrations/0220_empresa_services.sql \
             workers/socialflows/migrations/0221_empresa_services_zona_tarifa_credencial.sql \
-            workers/socialflows/migrations/0222_socialcors_trend_triggers.sql; do
+            workers/socialflows/migrations/0222_socialcors_trend_triggers.sql \
+            workers/socialflows/migrations/0253_socialflow_publish_activity.sql; do
             echo "Applying ${migration}..."
 
             attempt=1
             max_attempts=3
             while true; do
-              if OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config workers/socialflows/wrangler.workers.toml \
+              if OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config apps/socialcors/wrangler.toml \
                 --file "${migration}" 2>&1)"; then
                 echo "$OUTPUT"
                 break
@@ -722,9 +776,10 @@ jobs:
           done
 
       - name: Verify SocialFlow product tables exist in SOCIAL_DB
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
-          OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config workers/socialflows/wrangler.workers.toml \
+          OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config apps/socialcors/wrangler.toml \
             --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('saas_social_accounts','saas_social_posts','saas_social_metrics','socialflow_conversation_threads','socialflow_knowledge_documents');")"
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "saas_social_accounts" || {
@@ -744,104 +799,8 @@ jobs:
             exit 1
           }
 
-      - name: Apply global schema additions on DRACO_DB (idempotent)
-        run: |
-          set -euo pipefail
-          # 0137: existía en el repo desde hace meses pero nunca estuvo en este paso —
-          # por eso auth_users/tenant_users en producción llevan sin las columnas que
-          # el código (campamento-core.ts) ya asume (password_hash, active_tenant_id,
-          # user_id, invited_by), y las 6 tablas nuevas de este archivo nunca se
-          # crearon. Mezcla ALTER TABLE ADD COLUMN (no re-ejecutable tal cual) con
-          # CREATE TABLE/INDEX IF NOT EXISTS (sí) — misma tolerancia a "duplicate
-          # column name" que ya usa el bucle de SOCIAL_DB más abajo.
-          if ! OUTPUT="$(wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
-            --file migrations/0137_campamento_base_workspace_core.sql 2>&1)"; then
-            echo "$OUTPUT"
-            echo "$OUTPUT" | grep -qi "duplicate column name" || {
-              echo "BLOCKED: 0137_campamento_base_workspace_core.sql failed with an unexpected error."
-              exit 1
-            }
-            echo "Column(s) in 0137 already exist — skipping (idempotent re-run)."
-          else
-            echo "$OUTPUT"
-          fi
-          # 0138: mismo bug que 0137 (número consecutivo, casi seguro escrita en la
-          # misma sesión) — nunca estuvo en este paso, por eso la Card "Operator
-          # Social Automation" del panel daba "D1_ERROR: no such table:
-          # drako_automation_registrations". Solo CREATE TABLE/INDEX IF NOT EXISTS,
-          # sin ALTER TABLE — no necesita la tolerancia a "duplicate column name" que
-          # sí hace falta arriba para 0137, siempre es re-ejecutable sin más.
-          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
-            --file migrations/0138_drako_automation_core.sql
-          # 0194: ALTER TABLE ADD COLUMN — skip if columns already exist
-          if ! wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
-            --command "SELECT saas_id FROM ai_usage_counters LIMIT 1;" > /dev/null 2>&1; then
-            echo "Applying 0194_ai_usage_counters_saas_id.sql (columns not yet present)..."
-            wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
-              --file migrations/0194_ai_usage_counters_saas_id.sql
-          else
-            echo "0194 already applied — skipping."
-          fi
-          # 0195: CREATE TABLE IF NOT EXISTS — always idempotent
-          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
-            --file migrations/0195_sso_tokens.sql
-          # 0205: Journal IA de drako.systems — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
-          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
-            --file migrations/0205_drako_journal.sql
-          # 0206: Métricas sociales del ecosistema Drako — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
-          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
-            --file migrations/0206_drako_ecosystem_metrics.sql
-          # 0207: Oportunidades del Agente de Financiación — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
-          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
-            --file migrations/0207_drako_funding.sql
-          # 0208: Ventas del CRM de /operator/socialflow — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
-          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
-            --file migrations/0208_drako_crm_sales.sql
-          # 0209: Posts del AutoPublishAgent de @drako.systems — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
-          wrangler d1 execute DRACO_DB --remote --config workers/socialflows/wrangler.workers.toml \
-            --file migrations/0209_drako_social_posts.sql
-
-      - name: Validate Cloudflare account identifier
-        run: |
-          set -euo pipefail
-          RESPONSE="$(curl -sS -X GET "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}" \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            -H "Content-Type: application/json")"
-          echo "$RESPONSE"
-          echo "$RESPONSE" | grep -q '"success":true' || {
-            echo "BLOCKED: invalid CLOUDFLARE_ACCOUNT_ID/token mapping (Cloudflare API validation failed)."
-            exit 1
-          }
-
-      - name: Guard SocialFlow custom domains before deploy
-        run: |
-          set -euo pipefail
-          TOML="workers/socialflows/wrangler.workers.toml"
-
-          if [ ! -f "$TOML" ]; then
-            echo "BLOCKED: $TOML not found."
-            exit 1
-          fi
-
-          if ! grep -q 'pattern = "socialflows.drako.systems"' "$TOML"; then
-            echo "BLOCKED: $TOML missing plural domain route."
-            exit 1
-          fi
-
-          if ! grep -q 'pattern = "socialflow.drako.systems"' "$TOML"; then
-            echo "BLOCKED: $TOML missing canonical domain route."
-            exit 1
-          fi
-
-          CUSTOM_DOMAIN_COUNT=$(grep -c 'custom_domain = true' "$TOML" || true)
-          if [ "$CUSTOM_DOMAIN_COUNT" -lt 2 ]; then
-            echo "BLOCKED: $TOML must have at least 2 custom_domain = true entries (found: $CUSTOM_DOMAIN_COUNT)."
-            exit 1
-          fi
-
-          echo "SocialFlow custom domains guard passed (plural + canonical routes present)."
-
       - name: Ensure SocialFlow AI generation queue exists
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           if wrangler queues create saas-socialflow-ai-generation-queue 2>&1 | tee /tmp/socialflow-ai-queue-create.log; then
@@ -854,62 +813,35 @@ jobs:
             exit 1
           fi
 
-      - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases -> socialflows)
+      - name: Deploy SocialCors (AI Worker first, then web)
+        # Solo en main/manual: un pull_request construye y valida, pero no despliega.
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
-          command -v wrangler >/dev/null
-          wrangler --version
-          ls -la .open-next
-          test -f .open-next/worker.js
-          test -d .open-next/assets
-
-          pushd workers/drako-scheduler
+          # Primero el consumidor de la cola (Worker IA, dueño de la publicación programada
+          # con SOCIALFLOW_PUBLISH_SCHEDULER_OWNER=ai) y después el productor (web).
+          pushd workers/socialflow-ai-worker
           wrangler deploy -c wrangler.workers.toml
           popd
 
-          pushd workers/drakos
-          test -f ../../.open-next/drakos/worker.js
-          test -d ../../.open-next/drakos/assets
-          grep -q 'main = "../../.open-next/drakos/worker.js"' wrangler.workers.toml
-          grep -q 'directory = "../../.open-next/drakos/assets"' wrangler.workers.toml
-          wrangler deploy -c wrangler.workers.toml
-          popd
-
-          pushd workers/mentorias
-          test -f ../../.open-next/mentorias/worker.js
-          test -d ../../.open-next/mentorias/assets
-          wrangler deploy -c wrangler.workers.toml
-          popd
-
-          pushd workers/bases
-          test -f ../../.open-next/bases/worker.js
-          test -d ../../.open-next/bases/assets
-          grep -q 'main = "../../.open-next/bases/worker.js"' wrangler.workers.toml
-          grep -q 'directory = "../../.open-next/bases/assets"' wrangler.workers.toml
-          wrangler deploy -c wrangler.workers.toml
-          popd
-
-          pushd workers/socialflows
-          test -f ../../.open-next/socialflows-standalone/worker.js
-          test -d ../../.open-next/socialflows-standalone/assets
+          pushd apps/socialcors
           max_attempts=3
           for attempt in $(seq 1 "$max_attempts"); do
             log_file="../../wrangler-socialflow-deploy-attempt-${attempt}.log"
-            echo "SocialFlow deploy attempt ${attempt}/${max_attempts}"
-            if wrangler deploy -c wrangler.workers.toml 2>&1 | tee "$log_file"; then
-              echo "SocialFlow deploy succeeded on attempt ${attempt}/${max_attempts}"
+            echo "SocialCors deploy attempt ${attempt}/${max_attempts}"
+            if wrangler deploy --config wrangler.toml 2>&1 | tee "$log_file"; then
+              echo "SocialCors deploy succeeded on attempt ${attempt}/${max_attempts}"
               break
             fi
 
             if grep -Eiq 'assets-upload-session|code:[[:space:]]*10013|unknown error' "$log_file"; then
-              transient_error_detected=1
               if [ "$attempt" -lt "$max_attempts" ]; then
                 backoff_seconds=$((attempt * 10))
                 echo "TRANSIENT_SOCIALFLOW_ASSETS_UPLOAD_SESSION_FAILURE: retrying in ${backoff_seconds}s"
                 sleep "$backoff_seconds"
                 continue
               fi
-              echo "SocialFlow deploy failed after ${max_attempts} attempts due to repeated assets-upload-session/code 10013 failures."
+              echo "SocialCors deploy failed after ${max_attempts} attempts due to repeated assets-upload-session/code 10013 failures."
               exit 1
             fi
 
@@ -918,13 +850,40 @@ jobs:
           done
           popd
 
-          pushd workers/socialflow-ai-worker
-          wrangler deploy -c wrangler.workers.toml
-          popd
+  socialcors_smoke:
+    name: SocialCors Smoke Tests
+    runs-on: ubuntu-latest
+    needs: socialcors_build_and_deploy
+    if: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-          pushd workers/whatsapp-channel
-          wrangler deploy -c wrangler.workers.toml --env production
-          popd
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.25.0"
+
+      - name: Setup Node.js (LTS) + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.1"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Wait for route propagation
+        run: sleep 20
+
+      - name: Validate SocialFlow canonical domain
+        env:
+          SOCIALFLOW_CANONICAL_SMOKE_ENABLED: "1"
+          SOCIALFLOW_CANONICAL_HOST: "socialflow.drako.systems"
+          SOCIALFLOW_COMPAT_HOST: "socialflows.drako.systems"
+        run: |
+          set -euo pipefail
+          pnpm smoke:socialflow:canonical:manual
 
   smoke:
     name: Smoke Tests (anti-loop / anti-cross)
@@ -1011,12 +970,3 @@ jobs:
           check_url "bases-admin" "https://bases.drako.systems/admin" "bases.drako.systems" "drako.systems,mentorias.drako.systems"
 
           echo "SMOKE_OK"
-
-      - name: Validate SocialFlow canonical domain
-        env:
-          SOCIALFLOW_CANONICAL_SMOKE_ENABLED: "1"
-          SOCIALFLOW_CANONICAL_HOST: "socialflow.drako.systems"
-          SOCIALFLOW_COMPAT_HOST: "socialflows.drako.systems"
-        run: |
-          set -euo pipefail
-          pnpm smoke:socialflow:canonical:manual

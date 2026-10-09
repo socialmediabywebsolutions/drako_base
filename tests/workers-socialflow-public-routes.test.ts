@@ -99,21 +99,17 @@ describe("socialflow runtime wiring", () => {
     expect(source).toContain('pathname.startsWith("/api/socialflow/runtime/reharden/")');
   });
 
-  it("keeps the CI artifact lane strict for SocialFlow", () => {
+  it("keeps the CI lane strict for SocialCors (own build from apps/socialcors, P3b)", () => {
     const source = read(".github/workflows/drako-factory-deploy.yml");
 
-    expect(source).toContain("Verify SocialFlow standalone active artifact");
-    expect(source).toContain("Verify SocialFlow standalone runtime active");
-    expect(source).toContain("name: open-next-socialflows-standalone-build");
-    expect(source).toContain('grep -q \'"productKey": "socialflows"\' .open-next/socialflows-standalone/artifact-manifest.json');
-    expect(source).toContain('grep -q \'"artifactMode": "standalone"\' .open-next/socialflows-standalone/artifact-manifest.json');
-    expect(source).toContain('grep -q \'"artifactState": "active"\' .open-next/socialflows-standalone/artifact-manifest.json');
-    expect(source).toContain('grep -q \'"standaloneArtifactName": "open-next-socialflows-standalone-build"\' .open-next/socialflows-standalone/artifact-manifest.json');
-    expect(source).toContain('grep -q \'main = "../../.open-next/socialflows-standalone/worker.js"\' workers/socialflows/wrangler.workers.toml');
-    expect(source).toContain("SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION");
-    expect(source).toContain("SOCIALFLOW_STANDALONE_GENERATED_FROM_GLOBAL");
-    expect(source).toContain("SOCIALFLOW_STANDALONE_NOT_ACTIVATED");
-    expect(source).toContain("SOCIALFLOW_STANDALONE_ARTIFACT_FAKE");
+    expect(source).toContain("socialcors_build_and_deploy:");
+    expect(source).toContain("working-directory: apps/socialcors");
+    expect(source).toContain("opennextjs-cloudflare build");
+    expect(source).toContain("SOCIALCORS_BUNDLE_OVER_BUDGET");
+    expect(source).toContain("FOREIGN_ROUTES_IN_SOCIALCORS");
+    expect(source).toContain("SOCIALCORS_SCHEDULED_HANDLER_MISSING");
+    expect(source).toContain("wrangler deploy --config wrangler.toml");
+    expect(source).toContain("if: ${{ github.event_name != 'pull_request' }}");
     expect(source).toContain("max_attempts=3");
     expect(source).toContain("wrangler-socialflow-deploy-attempt-${attempt}.log");
     expect(source).toContain("assets-upload-session");
@@ -121,9 +117,14 @@ describe("socialflow runtime wiring", () => {
     expect(source).toContain("TRANSIENT_SOCIALFLOW_ASSETS_UPLOAD_SESSION_FAILURE");
     expect(source).toContain("SocialFlow deploy failed with non-retryable error on attempt ${attempt}/${max_attempts}.");
     expect(source).not.toContain("wrangler deploy -c wrangler.workers.toml || true");
+
+    // El monolito ya no construye ni despliega SocialCors.
+    expect(source).not.toContain("pushd workers/socialflows");
+    expect(source).not.toContain("node scripts/patch-socialflow-cron-handler.mjs");
+    expect(source).toContain("SOCIALCORS_ROUTES_IN_HOLDING");
   });
 
-  it("activates SocialFlow standalone without falling back to wrapper metadata", () => {
+  it("keeps the legacy standalone artifact undeployed while production ships from apps/socialcors", () => {
     const matrix = read("docs/config/open-next-artifact-matrix.json");
     const workflow = read(".github/workflows/drako-factory-deploy.yml");
     const wrangler = read("workers/socialflows/wrangler.workers.toml");
@@ -135,11 +136,10 @@ describe("socialflow runtime wiring", () => {
     expect(matrix).toContain('"workerPath": ".open-next/socialflows-standalone/worker.js"');
     expect(matrix).not.toContain('"generatedFrom": ".open-next/worker.js"');
 
-    expect(workflow).toContain("Verify SocialFlow standalone active artifact");
-    expect(workflow).toContain("Verify SocialFlow standalone runtime active");
-    expect(workflow).toContain("SOCIALFLOW_STANDALONE_WRAPPER_REGRESSION");
-    expect(workflow).toContain("SOCIALFLOW_STANDALONE_ARTIFACT_FAKE");
-    expect(workflow).toContain("name: open-next-socialflows-standalone-build");
+    // P3b: el artefacto standalone se sigue generando (retirada en P13) pero ya no se
+    // despliega: producción sale de apps/socialcors.
+    expect(workflow).not.toContain("pushd workers/socialflows");
+    expect(workflow).toContain("socialcors_build_and_deploy:");
     expect(workflow).not.toContain("Verify SocialFlow standalone prepared artifact (inactive)");
     expect(workflow).not.toContain("Verify SocialFlow standalone remains inactive");
 

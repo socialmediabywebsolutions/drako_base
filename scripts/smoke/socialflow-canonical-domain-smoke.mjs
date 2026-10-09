@@ -90,7 +90,9 @@ const checks = [
     id: "operator-not-public",
     method: "GET",
     path: "/operator/socialflow",
-    expectedStatuses: [302, 307, 308, 401, 403],
+    // Desde P3 el panel del operator no existe en la app de SocialCors (404); antes el
+    // monolito respondía con redirect/401/403. Las dos cosas significan "no público".
+    expectedStatuses: [302, 307, 308, 401, 403, 404],
   },
 ];
 
