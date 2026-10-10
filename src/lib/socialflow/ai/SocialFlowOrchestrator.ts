@@ -1,6 +1,5 @@
 import { MarketResearchAgent } from "./agents/MarketResearchAgent";
 import { KeywordAgent } from "./agents/KeywordAgent";
-import { CompetitorAgent } from "./agents/CompetitorAgent";
 import { StrategyAgent } from "./agents/StrategyAgent";
 import { ContentGeneratorAgent } from "./agents/ContentGeneratorAgent";
 import { OptimizationAgent } from "./agents/OptimizationAgent";
@@ -10,7 +9,7 @@ import type { BrandProfile, SocialAIPipelineInput, SocialAIPipelineResult, Strat
 import { STRATEGY_FORMAT_TO_CONTENT_TYPE } from "./types";
 import type { SaasSocialContentType } from "@/lib/social-core/types";
 import { getSaasSocialCampaignById, listSaasSocialAccounts, listSaasSocialChannels, resolveSocialContext, upsertSaasSocialCampaign, upsertSaasSocialPost } from "../repository";
-import { getChannelKnowledge, saveCompetitorInsights } from "../profile/repository";
+import { getChannelKnowledge } from "../profile/repository";
 import { getKnowledgeContext } from "../knowledge/repository";
 import { getLocal } from "../local/repository";
 import { getStyleHistory } from "../intelligence/NicheIntelligenceService";
@@ -57,7 +56,6 @@ async function listConnectedProviders(ctx: Awaited<ReturnType<typeof resolveSoci
 export class SocialFlowOrchestrator {
   private marketResearch = new MarketResearchAgent();
   private keywordAgent = new KeywordAgent();
-  private competitorAgent = new CompetitorAgent();
   private strategyAgent = new StrategyAgent();
   private contentGenerator = new ContentGeneratorAgent();
   private optimizationAgent = new OptimizationAgent();
@@ -195,21 +193,18 @@ export class SocialFlowOrchestrator {
 
   async generateFullCampaign(input: SocialAIPipelineInput): Promise<SocialAIPipelineResult> {
     const profile = await this.buildProfile(input);
-    // competitorAgent/trendAgent/marketResearch son independientes entre sí (ninguno
-    // depende del resultado de otro) — se paralelizan. marketResearch nunca debe romper
-    // la generación de campaña: degrada a null ante cualquier fallo (ver comentario en
-    // SocialAIPipelineResult — su output todavía no se propaga al resto del pipeline de
-    // redacción, solo queda disponible en el resultado final).
-    const [competitors, trends, marketResearch] = await Promise.all([
-      this.competitorAgent.run({ niche: profile.niche }),
+    // trendAgent y marketResearch son independientes entre sí — se paralelizan.
+    // marketResearch nunca debe romper la generación de campaña: degrada a null ante
+    // cualquier fallo (su output todavía no se propaga al pipeline de redacción, solo
+    // queda disponible en el resultado final). Los insights de competidores reales llegan
+    // al ContentGeneratorAgent vía getKnowledgeContext() → longDescription (ver buildProfile).
+    const [trends, marketResearch] = await Promise.all([
       this.trendAgent.run({ profile }),
       this.marketResearch.run({ profile, tenantId: input.tenantId, saasId: input.saasId }).catch((err) => {
         console.error("[SocialFlowOrchestrator] marketResearch failed, continuing without it", err instanceof Error ? err.message : String(err));
         return null;
       }),
     ]);
-    // Persist AI-discovered competitor insights back into socialflow_profiles
-    await saveCompetitorInsights(input.tenantId, competitors, input.saasId).catch(() => {});
     const ctx = await resolveSocialContext({ tenantId: input.tenantId, saasId: input.saasId });
     const channels = await listSaasSocialChannels(ctx);
     const { research, engine: keywordEngine } = await this.keywordAgent.run({ profile, trends });
@@ -308,7 +303,7 @@ export class SocialFlowOrchestrator {
       preferredWeekdays,
     });
     const campaignId = await this.persistToDb(input, profile, strategy.items as StrategyItem[], optimizedPosts, schedule, linkedinVariants, facebookVariants);
-    return { profile, research, keywords: research, competitors, marketResearch, strategy, generatedPosts, optimizedPosts, schedule, campaignId };
+    return { profile, research, keywords: research, competitors: [], marketResearch, strategy, generatedPosts, optimizedPosts, schedule, campaignId };
   }
 
   // Una variante de texto por item para otra red (LinkedIn/Facebook). Un item fallido se
@@ -331,7 +326,7 @@ export class SocialFlowOrchestrator {
     return variants;
   }
 
-  async generateStrategyOnly(input: SocialAIPipelineInput) { const profile = await this.buildProfile(input); const competitors = await this.competitorAgent.run({ niche: profile.niche }); const trends = await this.trendAgent.run({ profile }); const { research } = await this.keywordAgent.run({ profile, trends }); const strategy = await this.strategyAgent.run({ profile, horizonDays: 7 }); return { profile, research, keywords: research, competitors, strategy }; }
+  async generateStrategyOnly(input: SocialAIPipelineInput) { const profile = await this.buildProfile(input); const trends = await this.trendAgent.run({ profile }); const { research } = await this.keywordAgent.run({ profile, trends }); const strategy = await this.strategyAgent.run({ profile, horizonDays: 7 }); return { profile, research, keywords: research, competitors: [], strategy }; }
   async generateSinglePost(input: SocialAIPipelineInput) { const profile = await this.buildProfile(input); const trends = await this.trendAgent.run({ profile }); const { engine: keywordEngine } = await this.keywordAgent.run({ profile, trends }); const strategy = await this.strategyAgent.run({ profile, horizonDays: 1 }); const item = strategy.items[0]; const generated = await this.contentGenerator.run({ profile, strategyItem: item, keywordEngine, trends, tenantId: input.tenantId, saasId: input.saasId }); const optimized = await this.optimizationAgent.run({ profile, variant: generated.variants[0], keywordEngine }); return { profile, strategyItem: item, generated, optimized }; }
 
   private async persistToDb(input: SocialAIPipelineInput, profile: BrandProfile, strategyItems: StrategyItem[], optimizedPosts: { id: string; improvedText: string; hashtags?: string[] }[], schedule: { id: string; postId: string; scheduledAt: string }[], linkedinVariants: Map<string, string> = new Map(), facebookVariants: Map<string, string> = new Map()): Promise<string> {
