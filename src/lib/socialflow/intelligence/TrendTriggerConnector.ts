@@ -72,6 +72,30 @@ function generateUuid(): string {
   }
 }
 
+// Comprueba si el tenant tiene una suscripción activa de pago en saas_subscriptions
+// (cualquier plan_code distinto de 'free' con status active/trialing/trial).
+// Consulta DRACO_DB directamente para evitar importar el stack de billing completo,
+// que arrastraría next/headers y otros módulos incompatibles con el worker AI standalone.
+// Falla seguro: si no hay DB o la consulta lanza, devuelve false (no autopublica).
+async function tenantHasActivePaidPlan(tenantId: string, db: D1Database): Promise<boolean> {
+  try {
+    const row = await db
+      .prepare(
+        `SELECT plan_code FROM saas_subscriptions
+         WHERE tenant_id = ? AND saas_slug = 'socialflow'
+           AND status IN ('active', 'trialing', 'trial')
+           AND plan_code IS NOT NULL
+           AND plan_code != 'free'
+         LIMIT 1`,
+      )
+      .bind(tenantId)
+      .first<{ plan_code: string }>();
+    return Boolean(row);
+  } catch {
+    return false;
+  }
+}
+
 export type TrendTriggerResult =
   | { ok: true; triggered: false; reason: string; tenantId: string; niche: string; score?: number }
   | { ok: true; triggered: true; campaignId: string; score: number; tenantId: string; niche: string }
@@ -204,10 +228,20 @@ async function computeAndPersistTrendScore(
     }
 
     // AUTO-PUBLICACIÓN: el score ya quedó persistido arriba independientemente de este
-    // gate — isTenantAllowedInPrivatePilot solo decide si esta tendencia dispara una
-    // campaña real en cola, no si el score existe o es visible.
-    if (!isTenantAllowedInPrivatePilot(tenantId, env)) {
-      return { ok: true, triggered: false, reason: "PRIVATE_PILOT_TENANT_NOT_ALLOWED_FOR_AUTOPUBLISH", tenantId, niche, score: finalScore };
+    // gate. Dos rutas de acceso:
+    //  1. Piloto privado activo (SOCIALFLOW_PRIVATE_PILOT_MODE=true) → solo los tenants
+    //     de la allowlist pueden generar campañas reales.
+    //  2. Producción abierta → cualquier tenant con un plan de pago activo en
+    //     saas_subscriptions tiene el autopiloto habilitado; los tenants en plan free
+    //     ven el score en "¿Qué creo hoy?" pero no disparan campañas automáticas.
+    const allowedByPilot = isTenantAllowedInPrivatePilot(tenantId, env);
+    if (!allowedByPilot) {
+      const hasPaidPlan = env?.DRACO_DB
+        ? await tenantHasActivePaidPlan(tenantId, env.DRACO_DB)
+        : false;
+      if (!hasPaidPlan) {
+        return { ok: true, triggered: false, reason: "AUTOPILOT_NOT_ENABLED_FREE_PLAN", tenantId, niche, score: finalScore };
+      }
     }
 
     const queue = env?.SOCIALFLOW_AI_QUEUE;
