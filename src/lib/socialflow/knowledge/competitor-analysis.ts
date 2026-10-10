@@ -93,6 +93,8 @@ export async function analyzeCompetitorForKnowledgeBase(input: {
   // true for the automatic path — updates the existing doc for this competitor
   // instead of piling up a new row every time the profile is saved.
   dedupe?: boolean;
+  // Extra metadata stored alongside the doc (e.g. { auto_detected: true, source: "discovery" }).
+  metadata?: Record<string, unknown> | null;
 }): Promise<KnowledgeDoc> {
   const competitorName = input.name?.trim() ?? "";
   const competitorUrl = input.url?.trim() ?? "";
@@ -141,6 +143,7 @@ Extract:
     type: "competitor" as const,
     contentText,
     sourceUrl: resolvedUrl,
+    metadata: input.metadata ?? null,
   };
 
   return input.dedupe ? upsertKnowledgeDocByTypeAndName(docParams) : saveKnowledgeDoc(docParams);

@@ -17,6 +17,7 @@ export type KnowledgeDoc = {
   type: KnowledgeDocType;
   content_text: string;
   source_url: string | null;
+  metadata_json: string | null;
   created_at: string;
 };
 
@@ -32,7 +33,7 @@ export async function listKnowledgeDocs(
   const db = await getDb(tenantId, saasId);
   const { results } = await db
     .prepare(
-      `SELECT id, tenant_id, saas_id, name, type, source_url, created_at
+      `SELECT id, tenant_id, saas_id, name, type, source_url, metadata_json, created_at
        FROM ${TABLE}
        WHERE tenant_id = ? AND saas_id = ?
        ORDER BY created_at DESC
@@ -43,6 +44,20 @@ export async function listKnowledgeDocs(
   return results ?? [];
 }
 
+// Returns how many competitor docs of any origin exist for this tenant.
+// Used by CompetitorDiscoveryAgent to skip tenants that already have enough coverage.
+export async function countCompetitorDocs(
+  tenantId: string,
+  saasId: string,
+): Promise<number> {
+  const db = await getDb(tenantId, saasId);
+  const row = await db
+    .prepare(`SELECT COUNT(*) AS n FROM ${TABLE} WHERE tenant_id = ? AND saas_id = ? AND type = 'competitor'`)
+    .bind(tenantId, saasId)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
 export async function saveKnowledgeDoc(params: {
   tenantId: string;
   saasId: string;
@@ -50,17 +65,19 @@ export async function saveKnowledgeDoc(params: {
   type: KnowledgeDoc["type"];
   contentText: string;
   sourceUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
 }): Promise<KnowledgeDoc> {
   const db = await getDb(params.tenantId, params.saasId);
   const id = crypto.randomUUID();
   const content = params.contentText.slice(0, MAX_CONTENT_CHARS);
+  const metaJson = params.metadata ? JSON.stringify(params.metadata) : null;
   const now = new Date().toISOString();
   await db
     .prepare(
-      `INSERT INTO ${TABLE} (id, tenant_id, saas_id, name, type, content_text, source_url, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ${TABLE} (id, tenant_id, saas_id, name, type, content_text, source_url, metadata_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(id, params.tenantId, params.saasId, params.name, params.type, content, params.sourceUrl ?? null, now)
+    .bind(id, params.tenantId, params.saasId, params.name, params.type, content, params.sourceUrl ?? null, metaJson, now)
     .run();
   return {
     id,
@@ -70,6 +87,7 @@ export async function saveKnowledgeDoc(params: {
     type: params.type,
     content_text: content,
     source_url: params.sourceUrl ?? null,
+    metadata_json: metaJson,
     created_at: now,
   };
 }
@@ -111,6 +129,7 @@ export async function upsertKnowledgeDocByType(params: {
       type: params.type,
       content_text: content,
       source_url: params.sourceUrl ?? null,
+      metadata_json: null,
       created_at: now,
     };
   }
@@ -129,9 +148,11 @@ export async function upsertKnowledgeDocByTypeAndName(params: {
   type: KnowledgeDoc["type"];
   contentText: string;
   sourceUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
 }): Promise<KnowledgeDoc> {
   const db = await getDb(params.tenantId, params.saasId);
   const content = params.contentText.slice(0, MAX_CONTENT_CHARS);
+  const metaJson = params.metadata ? JSON.stringify(params.metadata) : null;
   const existing = await db
     .prepare(
       `SELECT id, created_at FROM ${TABLE} WHERE tenant_id = ? AND saas_id = ? AND type = ? AND name = ? LIMIT 1`,
@@ -144,9 +165,9 @@ export async function upsertKnowledgeDocByTypeAndName(params: {
   if (existing) {
     await db
       .prepare(
-        `UPDATE ${TABLE} SET content_text = ?, source_url = ?, created_at = ? WHERE id = ?`,
+        `UPDATE ${TABLE} SET content_text = ?, source_url = ?, metadata_json = ?, created_at = ? WHERE id = ?`,
       )
-      .bind(content, params.sourceUrl ?? null, now, existing.id)
+      .bind(content, params.sourceUrl ?? null, metaJson, now, existing.id)
       .run();
     return {
       id: existing.id,
@@ -156,6 +177,7 @@ export async function upsertKnowledgeDocByTypeAndName(params: {
       type: params.type,
       content_text: content,
       source_url: params.sourceUrl ?? null,
+      metadata_json: metaJson,
       created_at: now,
     };
   }
