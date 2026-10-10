@@ -38,22 +38,25 @@ export async function provisionTenantFromStripe(event: ProvisioningEvent): Promi
 
     try {
         // 1. Identify Plan
-        const plan = await queryOne<{ plan_code: string; limits_json: string; departments_json: string }>(
+        // Primary lookup: match by stripe_price_id or stripe_product_id.
+        // Fallback: treat stripePriceId as a literal plan_code (useful for manual/test events).
+        type PlanRow = { plan_code: string; limits_json: string; departments_json: string };
+
+        const planByStripeId = await queryOne<PlanRow>(
             `SELECT plan_code, limits_json, departments_json FROM saas_pricing_plans WHERE saas_slug = ? AND (stripe_price_id = ? OR stripe_product_id = ?)`,
             saasSlug, stripePriceId, stripePriceId
         );
 
-        // Fallback strategy omitted for brevity but recommended in prod
-        if (!plan) {
-            const planByCode = await queryOne<{ plan_code: string; limits_json: string; departments_json: string }>(
-                `SELECT plan_code, limits_json, departments_json FROM saas_pricing_plans WHERE saas_slug = ? AND plan_code = ?`,
-                saasSlug, stripePriceId
-            );
-            if (!planByCode) throw new Error(`Plan not found for price ${stripePriceId} on ${saasSlug}`);
-            Object.assign(plan!, planByCode);
+        const resolvedPlan: PlanRow | null = planByStripeId ?? await queryOne<PlanRow>(
+            `SELECT plan_code, limits_json, departments_json FROM saas_pricing_plans WHERE saas_slug = ? AND plan_code = ?`,
+            saasSlug, stripePriceId
+        );
+
+        if (!resolvedPlan) {
+            throw new Error(`Plan not found for price/code "${stripePriceId}" on saas "${saasSlug}"`);
         }
 
-        const { plan_code, limits_json, departments_json } = plan!;
+        const { plan_code, limits_json, departments_json } = resolvedPlan;
         const limits = JSON.parse(limits_json);
         const departments = JSON.parse(departments_json);
 
