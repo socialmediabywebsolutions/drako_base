@@ -40,6 +40,9 @@ const CRON_ROUTES: Record<string, string[]> = {
     "/api/cron/social/best-practices",
     "/api/cron/social/strategic-plan",
   ],
+  // CompetitorDiscoveryAgent — lunes 04:00 UTC, una hora después del bloque de inteligencia
+  // semanal de las 03:00 para no solapar con las corridas largas de niche-intelligence.
+  "0 4 * * 1": ["/api/cron/social/competitor-discovery"],
 };
 
 // "*/5 * * * *" y cualquier expresión no listada.
