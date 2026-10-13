@@ -5,7 +5,7 @@
   "description": "App Next.js/OpenNext propia de SocialCors (P3). Etapa alias: usa node_modules y src/ de la raíz del monorepo.",
   "scripts": {
     "dev": "../../node_modules/.bin/next dev",
-    "build": "../../node_modules/.bin/next build",
+    "build": "next build && mkdir -p .next/standalone/.next/server && cp .next/BUILD_ID .next/standalone/.next/BUILD_ID && echo \"{}\" > .next/standalone/.next/server/pages-manifest.json && echo \"{}\" > .next/standalone/.next/server/app-path-routes-manifest.json",
     "build:cf": "../../node_modules/.bin/opennextjs-cloudflare build",
     "typecheck": "../../node_modules/.bin/tsc -p tsconfig.typecheck.json --noEmit",
     "deploy:dry-run": "../../node_modules/.bin/wrangler deploy --config wrangler.toml --dry-run --outdir .wrangler/dry-run"
