@@ -87,3 +87,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, code: "SOCIALFLOW_BILLING_CHECKOUT_FAILED" }, { status: 500 });
   }
 }
+nano src/app/api/socialflow/billing/checkout/route.ts

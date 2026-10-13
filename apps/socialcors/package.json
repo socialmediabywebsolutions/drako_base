@@ -9,5 +9,8 @@
     "build:cf": "../../node_modules/.bin/opennextjs-cloudflare build",
     "typecheck": "../../node_modules/.bin/tsc -p tsconfig.typecheck.json --noEmit",
     "deploy:dry-run": "../../node_modules/.bin/wrangler deploy --config wrangler.toml --dry-run --outdir .wrangler/dry-run"
+  },
+  "devDependencies": {
+    "wrangler": "^4.149.0"
   }
 }

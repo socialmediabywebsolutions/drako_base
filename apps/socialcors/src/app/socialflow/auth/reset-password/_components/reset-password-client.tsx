@@ -18,11 +18,11 @@ function Card({ children }: { children: React.ReactNode }) {
 
 function BackToLogin({ button = false }: { button?: boolean }) {
   return button ? (
-    <Link href="/socialflow/auth" className="sa-btn" style={{ textDecoration: "none" }}>
+    <Link href="/socialflow/planes" className="sa-btn" style={{ textDecoration: "none" }}>
       Ir al inicio de sesión
     </Link>
   ) : (
-    <Link href="/socialflow/auth" className="sa-link">
+    <Link href="/socialflow/planes" className="sa-link">
       ← Volver al inicio de sesión
     </Link>
   );

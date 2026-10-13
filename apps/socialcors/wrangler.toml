@@ -1,5 +1,4 @@
 # Worker web de SocialCors construido desde apps/socialcors (P3).
-#
 # Mismo Worker, dominios, bindings, crons y vars que workers/socialflows/wrangler.workers.toml
 # (la config que hoy despliega el artefacto socialflows-standalone del monolito). Solo
 # cambian `main` (worker.ts propio con scheduled()) y el directorio de assets.
@@ -31,18 +30,9 @@ custom_domain = true
 
 [[d1_databases]]
 binding = "DRACO_DB"
-database_name = "drako_db_prod"
-database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
-
-[[d1_databases]]
-binding = "SAASES_DB"
 database_name = "saas_socialflows_prod_db"
 database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
 
-[[d1_databases]]
-binding = "SOCIAL_DB"
-database_name = "saas_socialflows_prod_db"
-database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
 
 [[d1_databases]]
 binding = "SOCIALFLOW_AUTHS_DB"

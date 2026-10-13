@@ -13,7 +13,7 @@ export const TRIAL_DAYS = 15;
 export const DEMO_VIDEO_URL: string | null = null;
 
 // ?mode=register abre /socialflow/auth directamente en la pestaña "Crear cuenta".
-export const HREF_START = "/socialflow/auth?mode=register";
+export const HREF_START = "/socialflow/planes";
 export const HREF_PLANS = "/socialflow/planes";
 export const HREF_LOGIN = "/socialflow/auth";
 

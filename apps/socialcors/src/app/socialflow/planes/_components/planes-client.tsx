@@ -1,393 +1,283 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
-// ─── Design tokens — mismos que landing-client.tsx (morado dominante para nav/logo,
-// colores de red para el contenido específico de cada tipo de plan) ──────────────
-const BG = "#F7F6FA";
-const INK = "#1a1a2e";
-const MUTED = "#64748b";
-const ACCENT_SOFT = "#6D5DFB";
-const ACCENT = "#4338CA";
+type PlanKind = "empresa" | "influencer";
 
-const IG_PINK = "#DD2A7B";
-const LI_BLUE = "#0A66C2";
-const IG_GRADIENT = "linear-gradient(90deg, #F58529, #DD2A7B, #8134AF)";
-const LI_GRADIENT = "linear-gradient(90deg, #0A66C2, #0077B5)";
-
-type PlanDetail = {
+interface PlanDetail {
   slug: string;
   name: string;
   price: string;
   period: string;
   description: string;
+  videoSpec: string;
   checks: string[];
   crosses: string[];
   popular?: boolean;
-};
-
-type PlanKind = "influencer" | "empresa";
-
-type PlanKindConfig = {
-  badgeLabel: string;
-  badgeColor: string;
-  title: string;
-  networkColor: string;
-  ctaGradient: string;
-  ctaGlowClass: string;
-  plans: PlanDetail[];
-};
-
-const PLAN_KIND_CONFIG: Record<PlanKind, PlanKindConfig> = {
-  influencer: {
-    badgeLabel: "INFLUENCER · INSTAGRAM + LINKEDIN + FACEBOOK",
-    badgeColor: IG_PINK,
-    title: "Elige tu plan de Influencer",
-    networkColor: IG_PINK,
-    ctaGradient: IG_GRADIENT,
-    ctaGlowClass: "sc-cta-glow-ig",
-    plans: [
-      {
-        slug: "starter",
-        name: "Starter",
-        price: "99€",
-        period: "/mes",
-        description: "Para creadores que empiezan a automatizar",
-        checks: [
-          "8 piezas/semana Instagram",
-          "Máx. 2/día",
-          "1 historia/día",
-          "6 vídeos IA/mes",
-          "Caption en tu voz",
-          "Hashtags con tracción real",
-          "Hora de publicación IA",
-        ],
-        crosses: ["LinkedIn personal", "Página de Facebook", "Análisis de competencia", "CRM Social", "Soporte prioritario"],
-      },
-      {
-        slug: "basico",
-        name: "Básico",
-        price: "179€",
-        period: "/mes",
-        popular: true,
-        description: "Para creadores que quieren crecer de verdad",
-        checks: [
-          "12 piezas/semana Instagram",
-          "Máx. 2/día",
-          "2 historias/día",
-          "12 vídeos IA/mes",
-          "Caption en tu voz",
-          "Hashtags con tracción real",
-          "Hora de publicación IA",
-          "LinkedIn personal (2/sem)",
-          "Página de Facebook",
-          "Análisis de imagen con IA",
-          "Reels y carruseles automáticos",
-        ],
-        crosses: ["CRM Social", "Soporte prioritario"],
-      },
-      {
-        slug: "pro",
-        name: "Pro",
-        price: "299€",
-        period: "/mes",
-        description: "Para influencers que quieren el máximo impacto",
-        checks: [
-          "Todo lo de Básico",
-          "14 piezas/semana",
-          "2 historias/día",
-          "20 vídeos IA/mes",
-          "LinkedIn personal (5/sem)",
-          "Página de Facebook",
-          "Análisis avanzado",
-          "CRM Social completo",
-          "Soporte prioritario",
-        ],
-        crosses: [],
-      },
-    ],
-  },
-  empresa: {
-    badgeLabel: "EMPRESA · INSTAGRAM + LINKEDIN + FACEBOOK",
-    badgeColor: LI_BLUE,
-    title: "Elige tu plan de Empresa",
-    networkColor: LI_BLUE,
-    ctaGradient: LI_GRADIENT,
-    ctaGlowClass: "sc-cta-glow-li",
-    plans: [
-      {
-        slug: "starter",
-        name: "Starter",
-        price: "169€",
-        period: "/mes",
-        description: "Para negocios que quieren empezar a publicar solos",
-        checks: [
-          "6 piezas/semana Instagram",
-          "Máx. 2/día",
-          "1 historia/día",
-          "6 vídeos IA/mes",
-          "Reconocimiento de empleados",
-          "Caption adaptado a tu marca",
-          "Hora de publicación IA",
-          "Página de Facebook",
-        ],
-        crosses: ["LinkedIn empresa", "CRM Social", "Análisis de competencia", "Soporte prioritario"],
-      },
-      {
-        slug: "basico",
-        name: "Básico",
-        price: "299€",
-        period: "/mes",
-        popular: true,
-        description: "Para empresas que quieren presencia real en redes",
-        checks: [
-          "12 piezas/semana Instagram",
-          "Máx. 2/día",
-          "2 historias/día",
-          "12 vídeos IA/mes",
-          "Reconocimiento de empleados",
-          "Caption adaptado a tu marca",
-          "Hora de publicación IA",
-          "LinkedIn empresa (3/sem)",
-          "Página de Facebook",
-          "Análisis de imagen con IA",
-          "Reels y carruseles automáticos",
-        ],
-        crosses: ["CRM Social", "Soporte prioritario"],
-      },
-      {
-        slug: "pro",
-        name: "Pro",
-        price: "449€",
-        period: "/mes",
-        description: "Para empresas que quieren el máximo rendimiento",
-        checks: [
-          "Todo lo de Básico",
-          "14 piezas/semana",
-          "2 historias/día",
-          "20 vídeos IA/mes",
-          "LinkedIn empresa (4/sem)",
-          "Página de Facebook",
-          "Análisis avanzado",
-          "CRM Social completo",
-          "Soporte prioritario",
-        ],
-        crosses: [],
-      },
-    ],
-  },
-};
-
-// ─── Hooks ─────────────────────────────────────────────────────────────────────
-function useScrolledNav() {
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handler, { passive: true });
-    return () => window.removeEventListener("scroll", handler);
-  }, []);
-  return scrolled;
 }
 
-// ─── Sub-components ────────────────────────────────────────────────────────────
-function PlanCard({ plan, kind, config }: { plan: PlanDetail; kind: PlanKind; config: PlanKindConfig }) {
-  const isInfluencer = kind === "influencer";
-  const cardShadowClass = plan.popular
-    ? isInfluencer
-      ? "shadow-[0_10px_30px_rgba(221,42,123,0.16)] hover:shadow-[0_16px_36px_rgba(221,42,123,0.26)]"
-      : "shadow-[0_10px_30px_rgba(10,102,194,0.16)] hover:shadow-[0_16px_36px_rgba(10,102,194,0.26)]"
-    : isInfluencer
-      ? "hover:shadow-[0_16px_36px_rgba(221,42,123,0.22)]"
-      : "hover:shadow-[0_16px_36px_rgba(10,102,194,0.22)]";
+const INFLUENCER_PLANS: PlanDetail[] = [
+  {
+    slug: "influencer-starter",
+    name: "Starter",
+    price: "99€",
+    period: "/mes",
+    description: "Para creadores que empiezan a automatizar su presencia.",
+    videoSpec: "6 vídeos IA/mes · hasta 15s (Reels cortos/gancho)",
+    checks: [
+      "8 piezas/semana en Instagram",
+      "Máx. 2 publicaciones al día",
+      "1 historia al día",
+      "6 vídeos IA/mes (hasta 15s)",
+      "Caption adaptado a tu voz",
+      "Hashtags con tracción real",
+      "Hora de publicación por IA",
+    ],
+    crosses: [
+      "LinkedIn personal",
+      "Página de Facebook",
+      "Análisis de competencia",
+      "CRM Social",
+      "Soporte prioritario",
+    ],
+  },
+  {
+    slug: "influencer-basico",
+    name: "Básico",
+    price: "179€",
+    period: "/mes",
+    description: "Para creadores que quieren crecer con vídeos de mayor valor.",
+    videoSpec: "12 vídeos IA/mes · hasta 30s (explicativos y reels)",
+    popular: true,
+    checks: [
+      "12 piezas/semana en Instagram",
+      "Máx. 2 publicaciones al día",
+      "2 historias al día",
+      "12 vídeos IA/mes (hasta 30s)",
+      "Caption adaptado a tu voz",
+      "Hashtags con tracción real",
+      "Hora de publicación por IA",
+      "LinkedIn personal (2/sem)",
+      "Página de Facebook",
+      "Análisis de imagen con IA",
+      "Reels y carruseles automáticos",
+    ],
+    crosses: ["CRM Social", "Soporte prioritario"],
+  },
+  {
+    slug: "influencer-pro",
+    name: "Pro",
+    price: "299€",
+    period: "/mes",
+    description: "Para influencers que buscan el máximo impacto audiovisual.",
+    videoSpec: "20 vídeos IA/mes · hasta 60s (producción completa)",
+    checks: [
+      "Todo lo de Básico",
+      "14 piezas/semana en Instagram",
+      "2 historias al día",
+      "20 vídeos IA/mes (hasta 60s)",
+      "LinkedIn personal (5/sem)",
+      "Página de Facebook",
+      "Análisis avanzado",
+      "CRM Social completo",
+      "Soporte prioritario",
+    ],
+    crosses: [],
+  },
+];
 
-  return (
-    <div
-      className={[
-        "relative flex h-full flex-col rounded-[14px] bg-white p-7 transition-all duration-300 hover:-translate-y-[3px]",
-        cardShadowClass,
-      ].join(" ")}
-      style={{ border: `${plan.popular ? 2 : 1.5}px solid ${config.networkColor}` }}
-    >
-      {plan.popular && (
-        <span
-          className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg"
-          style={{ background: config.ctaGradient }}
-        >
-          Más popular
-        </span>
-      )}
-
-      <h3 className="text-lg font-black" style={{ color: INK }}>{plan.name}</h3>
-      <p className="mt-1.5 text-sm leading-relaxed" style={{ color: MUTED }}>{plan.description}</p>
-
-      <div className="mt-4 flex items-baseline gap-1.5">
-        <span className="font-black" style={{ fontSize: "26px", color: config.networkColor }}>{plan.price}</span>
-        <span className="text-sm" style={{ color: MUTED }}>{plan.period}</span>
-      </div>
-      <p className="mt-0.5 text-xs" style={{ color: MUTED }}>IVA no incluido</p>
-
-      <ul className="mt-6 flex-1 space-y-2.5">
-        {plan.checks.map((f) => (
-          <li key={f} className="flex items-start gap-2 text-sm" style={{ color: `${INK}cc` }}>
-            <span className="mt-px shrink-0 font-black" style={{ color: config.networkColor }}>✓</span>
-            {f}
-          </li>
-        ))}
-        {plan.crosses.map((f) => (
-          <li key={f} className="flex items-start gap-2 text-sm" style={{ color: MUTED }}>
-            <span className="mt-px shrink-0 font-black text-gray-300">✗</span>
-            {f}
-          </li>
-        ))}
-      </ul>
-
-      <Link
-        href={`/socialflow/auth?type=${kind}&plan=${plan.slug}`}
-        className={`${config.ctaGlowClass} sc-cta-shine mt-6 block w-full rounded-xl py-3 text-center text-sm font-black tracking-wide text-white transition-all duration-200 hover:brightness-110`}
-        style={{ background: config.ctaGradient }}
-      >
-        Empezar gratis 15 días →
-      </Link>
-    </div>
-  );
-}
+const EMPRESA_PLANS: PlanDetail[] = [
+  {
+    slug: "empresa-starter",
+    name: "Starter",
+    price: "169€",
+    period: "/mes",
+    description: "Para negocios que quieren presencia constante sin agencias.",
+    videoSpec: "6 vídeos IA/mes · hasta 15s (anuncios y dinámicos)",
+    checks: [
+      "6 piezas/semana en Instagram",
+      "Máx. 2 publicaciones al día",
+      "1 historia al día",
+      "6 vídeos IA/mes (hasta 15s)",
+      "Reconocimiento de empleados",
+      "Caption adaptado a tu marca",
+      "Hora de publicación por IA",
+      "Página de Facebook",
+    ],
+    crosses: [
+      "LinkedIn empresa",
+      "CRM Social",
+      "Análisis de competencia",
+      "Soporte prioritario",
+    ],
+  },
+  {
+    slug: "empresa-basico",
+    name: "Básico",
+    price: "299€",
+    period: "/mes",
+    description: "Para empresas que necesitan autoridad y Reels trabajados.",
+    videoSpec: "12 vídeos IA/mes · hasta 30s (demostraciones y marca)",
+    popular: true,
+    checks: [
+      "12 piezas/semana en Instagram",
+      "Máx. 2 publicaciones al día",
+      "2 historias al día",
+      "12 vídeos IA/mes (hasta 30s)",
+      "Reconocimiento de empleados",
+      "Caption adaptado a tu marca",
+      "Hora de publicación por IA",
+      "LinkedIn empresa (3/sem)",
+      "Página de Facebook",
+      "Análisis de imagen con IA",
+      "Reels y carruseles automáticos",
+    ],
+    crosses: ["CRM Social", "Soporte prioritario"],
+  },
+  {
+    slug: "empresa-pro",
+    name: "Pro",
+    price: "449€",
+    period: "/mes",
+    description: "Sustituto completo de agencia de marketing audiovisual.",
+    videoSpec: "20 vídeos IA/mes · hasta 60s (micro-documentales y anuncios)",
+    checks: [
+      "Todo lo de Básico",
+      "14 piezas/semana en Instagram",
+      "2 historias al día",
+      "20 vídeos IA/mes (hasta 60s)",
+      "LinkedIn empresa (4/sem)",
+      "Página de Facebook",
+      "Análisis avanzado",
+      "CRM Social completo",
+      "Soporte prioritario",
+    ],
+    crosses: [],
+  },
+];
 
 export default function PlanesClient() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const scrolled = useScrolledNav();
-
   const rawType = searchParams.get("type");
-  const planKind: PlanKind | null = rawType === "influencer" || rawType === "empresa" ? rawType : null;
 
-  useEffect(() => {
-    if (!planKind) router.replace("/socialflows");
-  }, [planKind, router]);
+  const [activeTab, setActiveTab] = useState<PlanKind>(
+    rawType === "influencer" ? "influencer" : "empresa"
+  );
 
-  if (!planKind) return null;
-
-  const config = PLAN_KIND_CONFIG[planKind];
+  const plans = activeTab === "empresa" ? EMPRESA_PLANS : INFLUENCER_PLANS;
 
   return (
-    <div className="min-h-screen overflow-x-hidden font-sans antialiased" style={{ backgroundColor: BG }}>
-      <style>{`
-        @keyframes sc-cta-glow {
-          0%, 100% { box-shadow: 0 10px 26px rgba(67,56,202,0.38), 0 0 0 0 rgba(0,245,212,0); }
-          50% { box-shadow: 0 16px 40px rgba(67,56,202,0.55), 0 0 26px 6px rgba(0,245,212,0.22); }
-        }
-        .sc-cta-glow {
-          animation: sc-cta-glow 2.6s ease-in-out infinite;
-        }
-
-        @keyframes sc-cta-glow-ig {
-          0%, 100% { box-shadow: 0 10px 26px rgba(221,42,123,0.35), 0 0 0 0 rgba(245,133,41,0); }
-          50% { box-shadow: 0 16px 40px rgba(221,42,123,0.5), 0 0 26px 6px rgba(245,133,41,0.28); }
-        }
-        .sc-cta-glow-ig {
-          animation: sc-cta-glow-ig 2.6s ease-in-out infinite;
-        }
-
-        @keyframes sc-cta-glow-li {
-          0%, 100% { box-shadow: 0 10px 26px rgba(10,102,194,0.35), 0 0 0 0 rgba(10,102,194,0); }
-          50% { box-shadow: 0 16px 40px rgba(10,102,194,0.5), 0 0 26px 6px rgba(0,119,181,0.28); }
-        }
-        .sc-cta-glow-li {
-          animation: sc-cta-glow-li 2.6s ease-in-out infinite;
-        }
-
-        @keyframes sc-cta-shine {
-          0% { transform: translateX(-140%) skewX(-20deg); }
-          35% { transform: translateX(140%) skewX(-20deg); }
-          100% { transform: translateX(140%) skewX(-20deg); }
-        }
-        .sc-cta-shine {
-          position: relative;
-          overflow: hidden;
-        }
-        .sc-cta-shine::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 50%, transparent 70%);
-          transform: translateX(-140%) skewX(-20deg);
-          animation: sc-cta-shine 3.2s ease-in-out infinite;
-          pointer-events: none;
-        }
-        .sc-cta-shine-dark::after {
-          background: linear-gradient(115deg, transparent 30%, rgba(67,56,202,0.35) 50%, transparent 70%);
-        }
-      `}</style>
-
-      {/* ── NAV ───────────────────────────────────────────────────────────── */}
-      <nav className={[
-        "fixed top-0 z-50 w-full border-b transition-all duration-300",
-        scrolled
-          ? "border-black/5 bg-white/85 backdrop-blur-xl"
-          : "border-transparent bg-transparent",
-      ].join(" ")}>
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/socialflows" className="flex items-center gap-2.5">
-            <img src="https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-cabecera.png" alt="Socialcors" className="h-8 w-auto" />
-            <span className="text-lg font-black tracking-tight" style={{ color: INK }}>Socialcors</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/socialflow/auth"
-              className="hidden px-3 py-2 text-sm font-semibold transition-colors sm:block"
-              style={{ color: MUTED }}
-            >
-              Iniciar sesión
-            </Link>
-            <Link
-              href="/socialflow/auth"
-              className="sc-cta-glow sc-cta-shine rounded-lg px-4 py-2 text-sm font-bold text-white transition-all hover:brightness-110"
-              style={{ background: `linear-gradient(90deg, ${ACCENT_SOFT}, ${ACCENT})` }}
-            >
-              Empezar gratis
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* ── HEADER ────────────────────────────────────────────────────────── */}
-      <section className="pt-28">
-        <div className="mx-auto max-w-6xl px-6 text-center">
-          <div
-            className="mb-5 inline-flex items-center gap-2 rounded-full border px-4 py-2"
-            style={{ borderColor: `${config.badgeColor}40`, backgroundColor: `${config.badgeColor}14` }}
-          >
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ backgroundColor: config.badgeColor }} />
-            <span className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: config.badgeColor }}>
-              {config.badgeLabel}
-            </span>
-          </div>
-
-          <h1 className="mx-auto max-w-3xl text-4xl font-black leading-[1.1] tracking-tight md:text-5xl" style={{ color: INK }}>
-            {config.title}
-          </h1>
-          <p className="mt-4 text-base" style={{ color: MUTED }}>
-            15 días gratis en todos los planes · sin tarjeta de crédito
-          </p>
-        </div>
-      </section>
-
-      {/* ── PLANES ────────────────────────────────────────────────────────── */}
-      <section className="py-16">
-        <div className="mx-auto grid max-w-5xl grid-cols-1 items-start gap-6 px-6 sm:grid-cols-3">
-          {config.plans.map((plan) => (
-            <PlanCard key={plan.slug} plan={plan} kind={planKind} config={config} />
-          ))}
-        </div>
-      </section>
-
-      {/* ── FOOTER ────────────────────────────────────────────────────────── */}
-      <footer className="border-t border-black/5 py-10" style={{ backgroundColor: BG }}>
-        <p className="text-center text-sm" style={{ color: MUTED }}>
-          Todos los planes incluyen 15 días gratis · Cancela cuando quieras · Sin permanencia
+    <div className="min-h-screen text-slate-100 py-12 px-4 sm:px-6 lg:px-8 bg-slate-950">
+      <div className="max-w-7xl mx-auto text-center">
+        <p className="text-xs font-bold tracking-widest text-indigo-400 uppercase mb-2">
+          AUTOMATIZACIÓN AUDIOVISUAL CON IA
         </p>
-      </footer>
+        <h1 className="text-4xl font-extrabold sm:text-5xl text-white">
+          Elige el plan ideal para tu proyecto
+        </h1>
+        <p className="mt-4 text-base text-slate-400 max-w-2xl mx-auto">
+          15 días gratis en todos los planes · Sin tarjeta de crédito · Modifica la duración y los vídeos por IA según tus necesidades.
+        </p>
+
+        {/* Selector de Pestañas [ Empresa | Influencer ] */}
+        <div className="mt-8 flex justify-center">
+          <div className="bg-slate-900 p-1 rounded-xl border border-slate-800 inline-flex gap-1">
+            <button
+              onClick={() => setActiveTab("empresa")}
+              className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition ${
+                activeTab === "empresa"
+                  ? "bg-indigo-600 text-white shadow-lg"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Planes para Empresas
+            </button>
+            <button
+              onClick={() => setActiveTab("influencer")}
+              className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition ${
+                activeTab === "influencer"
+                  ? "bg-indigo-600 text-white shadow-lg"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Planes para Influencers / Creadores
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid de Tarjetas */}
+      <div className="mt-12 max-w-7xl mx-auto grid gap-8 lg:grid-cols-3 lg:gap-8 items-stretch">
+        {plans.map((plan) => (
+          <div
+            key={plan.slug}
+            className={`flex flex-col justify-between rounded-2xl bg-slate-900 p-8 border transition relative ${
+              plan.popular
+                ? "border-indigo-500 shadow-2xl shadow-indigo-500/10 scale-105"
+                : "border-slate-800 hover:border-slate-700"
+            }`}
+          >
+            {plan.popular && (
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                Más Popular
+              </span>
+            )}
+
+            <div>
+              <h3 className="text-xl font-bold text-white">{plan.name}</h3>
+              <p className="mt-2 text-xs text-slate-400">{plan.description}</p>
+
+              <div className="mt-6 flex items-baseline">
+                <span className="text-4xl font-extrabold text-white">
+                  {plan.price}
+                </span>
+                <span className="ml-1 text-sm text-slate-400">
+                  {plan.period}
+                </span>
+              </div>
+
+              {/* Destacado de Producción de Vídeo IA */}
+              <div className="mt-4 p-3 rounded-lg bg-indigo-950/40 border border-indigo-900/50 text-indigo-300 text-xs font-medium">
+                🎬 <span className="font-bold">Vídeo IA:</span> {plan.videoSpec}
+              </div>
+
+              <ul className="mt-6 space-y-3 text-xs text-slate-300">
+                {plan.checks.map((check, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span>{check}</span>
+                  </li>
+                ))}
+                {plan.crosses.map((cross, i) => (
+                  <li key={i} className="flex items-center gap-2 text-slate-500 line-through">
+                    <span className="text-slate-600">✕</span>
+                    <span>{cross}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-8">
+              <Link
+                href={`/socialflow/auth?type=${activeTab}&plan=${plan.slug}`}
+                className={`block text-center w-full py-3 px-4 rounded-xl text-sm font-bold transition ${
+                  plan.popular
+                    ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/30"
+                    : "bg-slate-800 hover:bg-slate-700 text-white"
+                }`}
+              >
+                Empezar gratis 15 días →
+              </Link>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-12 text-center text-xs text-slate-500">
+        Todos los planes incluyen 15 días de prueba sin tarjeta · Cancela cuando quieras · IVA no incluido
+      </p>
     </div>
   );
 }

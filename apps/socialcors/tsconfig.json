@@ -33,6 +33,7 @@
     ".open-next",
     "worker.ts",
     "src/**/*.test.ts",
-    "src/**/*.test.tsx"
+    "src/**/*.test.tsx",
+    ".next"
   ]
 }

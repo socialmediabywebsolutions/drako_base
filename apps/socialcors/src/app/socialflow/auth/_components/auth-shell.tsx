@@ -1,79 +1,35 @@
-import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
-import { LOGO_HEADER_URL } from "@/app/socialflows/_components/landing-config";
-import { LEGAL_COPYRIGHT } from "@/components/socialflow/legal/legal-data";
-import "../auth.css";
+import type { ReactNode } from "react";
 
-// Marco común de la pantalla de acceso (login / registro) y de la recuperación de contraseña.
-// Izquierda (o franja superior en tablet y móvil): el logo REAL de SocialCors (logo-cabecera.png en
-// R2, tal cual, sin recortar ni deformar) y la propuesta "analiza, crea, publica y aprende por ti".
-// Derecha: el contenido (la tarjeta de acceso) y los enlaces legales.
-const STEPS = [
-  { title: "Analiza", text: "Tus fotos, tu marca y tu audiencia." },
-  { title: "Crea", text: "Texto, hashtags y formato adaptados a tu negocio." },
-  { title: "Publica", text: "En el mejor momento, con tu aprobación." },
-  { title: "Aprende", text: "De tus métricas para mejorar lo siguiente." },
-] as const;
+interface AuthShellProps {
+  children: ReactNode;
+}
 
-const LEGAL_ROW = [
-  { label: "Aviso Legal", href: "/aviso-legal" },
-  { label: "Privacidad", href: "/privacidad" },
-  { label: "Cookies", href: "/cookies" },
-  { label: "Términos", href: "/terminos" },
-  { label: "Contacto", href: "/contacto" },
-] as const;
-
-export function AuthShell({ children }: { children: ReactNode }) {
+export function AuthShell({ children }: AuthShellProps) {
   return (
-    <div className="sa-root">
-      <div className="sa-grid">
-        <aside className="sa-brand" aria-label="SocialCors">
-          <div className="sa-brand-top">
-            <Link href="/" className="sa-logo" aria-label="SocialCors — ir al inicio">
-              {/* Logo oficial en Cloudflare R2, usado tal cual. La altura sale de su proporción (1536×1024). */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={LOGO_HEADER_URL}
-                alt="SocialCors"
-                width={1536}
-                height={1024}
-                className="sa-logo-img"
-                decoding="async"
-                {...({ fetchpriority: "high" } as Record<string, string>)}
-              />
-            </Link>
-            <div>
-              <p className="sa-eyebrow"><i aria-hidden="true" />Tu Community Manager con IA</p>
-              <p className="sa-statement">
-                SocialCors <b>analiza, crea, publica y aprende</b> por ti.
-              </p>
-            </div>
+    <div className="min-h-screen bg-[#07090e] text-slate-100 flex items-center justify-center p-4 md:p-8">
+      <div className="w-full max-w-5xl bg-[#0d1322] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
+        
+        <div className="lg:col-span-6 bg-gradient-to-br from-[#0a0f1d] via-[#10172a] to-[#181132] p-8 md:p-12 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-800/80">
+          <div className="space-y-6">
+            <h2 className="text-xl font-bold text-indigo-400">SocialCors</h2>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-white">
+              SocialCors analiza, crea, publica y aprende por ti.
+            </h1>
           </div>
+          <div className="space-y-3 text-sm text-slate-300">
+            <p>• <strong>Analiza:</strong> Tus fotos, marca y audiencia.</p>
+            <p>• <strong>Crea:</strong> Textos y hashtags a tu estilo.</p>
+            <p>• <strong>Publica:</strong> Directamente sin esfuerzo.</p>
+          </div>
+          <div className="text-xs text-slate-500">© 2026 SocialCors</div>
+        </div>
 
-          <ol className="sa-steps" aria-label="Cómo trabaja SocialCors">
-            <span className="sa-runner" aria-hidden="true" />
-            {STEPS.map((step, i) => (
-              <li key={step.title} className="sa-step" style={{ "--d": `${0.25 + i * 0.3}s` } as CSSProperties}>
-                <span className="sa-node" aria-hidden="true" />
-                <p className="sa-step-t">{step.title}</p>
-                <p className="sa-step-d">{step.text}</p>
-              </li>
-            ))}
-          </ol>
+        <div className="lg:col-span-6 p-6 md:p-12 flex items-center justify-center bg-[#0d1322]/50">
+          <div className="w-full max-w-sm">
+            {children}
+          </div>
+        </div>
 
-          <p className="sa-brand-foot">{LEGAL_COPYRIGHT}</p>
-        </aside>
-
-        <main className="sa-main">
-          {children}
-          <nav aria-label="Información legal" className="sa-links">
-            {LEGAL_ROW.map((l) => (
-              <Link key={l.href} href={l.href}>
-                {l.label}
-              </Link>
-            ))}
-          </nav>
-        </main>
       </div>
     </div>
   );
