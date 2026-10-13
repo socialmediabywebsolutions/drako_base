@@ -57,6 +57,12 @@
 			"binding": "SOCIALFLOW_AUTHS_DB",
 			"database_name": "saas_socialflow_auths_prod_db",
 			"database_id": "f6f46e6a-487f-400a-a2d1-c6d23e88f9cf"
+		},
+		{
+			"binding": "social_db_prod",
+			"database_name": "social-db-prod",
+			"database_id": "1342acdf-04f5-40f5-9544-e0fa6a37f8b6",
+			"remote": true
 		}
 	],
 	"services": [

@@ -1,0 +1,11 @@
+name = "socialflow-ai-worker"
+main = "src/index.js"
+compatibility_date = "2026-05-25"
+
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "SOCIAL_DB"
+database_name = "social-db-prod"
+database_id = "1342acdf-04f5-40f5-9544-e0fa6a37f8b6"
