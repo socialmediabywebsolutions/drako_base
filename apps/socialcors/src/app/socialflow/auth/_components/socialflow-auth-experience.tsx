@@ -30,7 +30,7 @@ export default function SocialFlowAuthExperience() {
         const data = await res.json();
 
         if (!res.ok) {
-          throw new Error(data.error || 'Error en la autenticación');
+          throw new Error((data as any).error || 'Error en la autenticación');
         }
 
         router.push(`/api/socialflow/billing/checkout?plan=${plan}&type=${type}`);
