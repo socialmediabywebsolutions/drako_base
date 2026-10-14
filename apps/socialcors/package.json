@@ -5,7 +5,7 @@
   "description": "App Next.js/OpenNext propia de SocialCors (P3). Etapa alias: usa node_modules y src/ de la raíz del monorepo.",
   "scripts": {
     "dev": "../../node_modules/.bin/next dev",
-    "build": "next build && mkdir -p .next/standalone/.next/server && echo \"{}\" > .next/standalone/.next/server/pages-manifest.json",
+    "build": "next build && node -e 'const fs=require(\"fs\"); const dirs=[\"./.next/server\", \"./.next/standalone/.next/server\"]; dirs.forEach(d => { fs.mkdirSync(d, {recursive: true}); [\"pages-manifest.json\", \"app-path-routes-manifest.json\", \"middleware-manifest.json\"].forEach(f => { const p = d + \"/\" + f; if (!fs.existsSync(p) || fs.readFileSync(p, \"utf8\").trim() === \"\") fs.writeFileSync(p, \"{}\"); }); }); const src=\"./.next/required-server-files.json\"; dirs.forEach(d => { const dest=d.replace(\"/server\", \"/required-server-files.json\"); if(fs.existsSync(src)&&!fs.existsSync(dest)) fs.copyFileSync(src,dest); else if(!fs.existsSync(dest)) fs.writeFileSync(dest, JSON.stringify({config:{}})); });' && opennextjs-cloudflare build",
     "build:cf": "opennextjs-cloudflare build",
     "typecheck": "../../node_modules/.bin/tsc -p tsconfig.typecheck.json --noEmit",
     "deploy:dry-run": "../../node_modules/.bin/wrangler deploy --config wrangler.toml --dry-run --outdir .wrangler/dry-run",
