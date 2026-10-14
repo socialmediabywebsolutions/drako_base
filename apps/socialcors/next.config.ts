@@ -11,6 +11,7 @@ if (process.argv.some((arg) => arg === "dev" || arg.endsWith("/next-dev.js"))) {
 const repoRoot = path.resolve(__dirname, "../..");
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   outputFileTracingRoot: repoRoot,
   images: {
     remotePatterns: [
