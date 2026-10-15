@@ -615,6 +615,9 @@ jobs:
           CI: "true"
         run: |
           set -euo pipefail
+          # OpenNext hardcodea `next build` como comando de shell.
+          # En el monorepo next vive en la raíz, no en PATH global → añadirlo.
+          export PATH="$(pwd)/../../node_modules/.bin:$PATH"
           ../../node_modules/.bin/opennextjs-cloudflare build 2>&1 | tee ../../open-next-socialcors-build.log
 
       - name: SocialCors bundle budget and route scope
