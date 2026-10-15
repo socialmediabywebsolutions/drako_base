@@ -780,10 +780,10 @@ jobs:
                 break
               fi
 
-              if echo "$OUTPUT" | grep -Eqi "D1_RESET_DO|internal error; reference" && [ "$attempt" -lt "$max_attempts" ]; then
+              if echo "$OUTPUT" | grep -Eqi "D1_RESET_DO|internal error; reference|Upstream service unavailable|code: 7009|upstream connect error" && [ "$attempt" -lt "$max_attempts" ]; then
                 attempt=$((attempt + 1))
-                echo "Transient D1 error on ${migration} — retrying (attempt ${attempt}/${max_attempts}) in 5s..."
-                sleep 5
+                echo "Transient D1 error on ${migration} — retrying (attempt ${attempt}/${max_attempts}) in 10s..."
+                sleep 10
                 continue
               fi
 
