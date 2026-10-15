@@ -71,10 +71,22 @@ if (handlerCode.includes('endsWith("/prerender-manifest.json")')) {
   process.exit(0);
 }
 
+// ── Extraer el nombre real del parámetro (esbuild puede minificarlo) ─────────
+// El throw completo es: throw new Error(`Unexpected loadManifest(${VARNAME}) call!`)
+// Extraemos VARNAME del propio código para no asumir que sigue siendo "$PATH".
+const throwIdx = handlerCode.indexOf(THROW_MARKER);
+const afterMarker = handlerCode.slice(throwIdx + THROW_MARKER.length);
+const closingIdx = afterMarker.indexOf("}) call!`");
+if (closingIdx === -1) {
+  console.error("[patch-prerender-manifest] ERROR: no se pudo extraer el nombre del parámetro del throw.");
+  process.exit(1);
+}
+const varName = afterMarker.slice(0, closingIdx).trim();
+console.log(`[patch-prerender-manifest] Parámetro detectado: ${varName}`);
+
 // ── Insertar el return antes del throw ──────────────────────────────────────
-// Buscamos el throw y pegamos justo antes el return para prerender-manifest.json.
 const prerenderReturnSnippet =
-  `if ($PATH.endsWith("/prerender-manifest.json")) { return ${manifestJson}; }\n  `;
+  `if (${varName}.endsWith("/prerender-manifest.json")) { return ${manifestJson}; }\n  `;
 
 const patched = handlerCode.replace(
   THROW_MARKER,
