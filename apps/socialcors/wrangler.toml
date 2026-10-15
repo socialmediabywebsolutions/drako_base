@@ -29,7 +29,7 @@ pattern = "socialcors.com"
 custom_domain = true
 
 [[d1_databases]]
-binding = "DRACO_DB"
+binding = "SOCIAL_DB"
 database_name = "saas_socialflows_prod_db"
 database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
 
