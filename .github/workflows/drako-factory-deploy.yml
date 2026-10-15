@@ -624,9 +624,13 @@ jobs:
         working-directory: apps/socialcors
         run: |
           set -euo pipefail
-          # OpenNext en monorepo deja el handler bajo server-functions/default/apps/socialcors/.
-          HANDLER=".open-next/server-functions/default/apps/socialcors/handler.mjs"
-          test -f "$HANDLER" || { echo "BLOCKED: SOCIALCORS_HANDLER_MISSING $HANDLER"; exit 1; }
+          # OpenNext ejecutado desde apps/socialcors/ deja el handler en la ruta plana.
+          # Si hubiera ruta anidada (monorepo root), se prueba como fallback.
+          HANDLER=".open-next/server-functions/default/handler.mjs"
+          if [ ! -f "$HANDLER" ]; then
+            HANDLER=".open-next/server-functions/default/apps/socialcors/handler.mjs"
+          fi
+          test -f "$HANDLER" || { echo "BLOCKED: SOCIALCORS_HANDLER_MISSING (buscado en rutas plana y anidada)"; exit 1; }
           BYTES="$(wc -c < "$HANDLER")"
           MIB="$(awk "BEGIN { printf \"%.2f\", ${BYTES} / 1048576 }")"
           echo "SocialCors handler.mjs: ${MIB} MiB (${BYTES} bytes)"
