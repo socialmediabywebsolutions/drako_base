@@ -16,6 +16,12 @@ const TIMEOUT_MS = Number(process.env.SOCIALFLOW_CANONICAL_SMOKE_TIMEOUT_MS ?? "
 
 const checks = [
   {
+    id: "diag-worker-health",
+    method: "GET",
+    path: "/__diag",
+    expectedStatuses: [200],
+  },
+  {
     id: "canonical-root",
     method: "GET",
     path: "/",
@@ -201,7 +207,7 @@ async function runCanonicalChecks(baseUrl) {
         if (response.status === 500) {
           try {
             const raw = await response.text();
-            bodyHint = ` | body: ${raw.slice(0, 600).replace(/\n/g, " ↵ ")}`;
+            bodyHint = ` | body: ${raw.slice(0, 2000).replace(/\n/g, " ↵ ")}`;
           } catch { /* ignore */ }
         }
         reportFail(

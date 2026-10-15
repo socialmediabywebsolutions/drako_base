@@ -92,6 +92,21 @@ async function scheduled(event: ScheduledEventLike, env: ScheduledEnv): Promise<
 }
 
 async function fetchHandler(req: Request, env: unknown, ctx: ExecutionContext): Promise<Response> {
+  // Diagnostic endpoint — bypasses OpenNext completely for health checks
+  const url = new URL(req.url);
+  if (url.pathname === "/__diag") {
+    const info = {
+      ok: !_initError && !!_worker,
+      workerLoaded: !!_worker,
+      initError: _initError ? (_initError instanceof Error ? _initError.stack ?? _initError.message : String(_initError)) : null,
+      timestamp: Date.now(),
+    };
+    return new Response(JSON.stringify(info, null, 2), {
+      status: info.ok ? 200 : 500,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
+  }
+
   if (_initError) {
     const msg = _initError instanceof Error ? _initError.stack ?? _initError.message : String(_initError);
     console.error("[worker.ts] Serving error response due to init failure:", msg);
