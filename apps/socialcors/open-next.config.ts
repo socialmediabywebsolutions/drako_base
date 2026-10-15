@@ -1,9 +1,4 @@
 const config = {
-  // Evita el bucle infinito: el workflow llama a opennextjs-cloudflare build
-  // directamente, que por defecto ejecuta `pnpm run build` (= el script build del
-  // package.json, que a su vez contiene opennextjs-cloudflare build → recursión).
-  // Con buildCommand explícito, OpenNext llama solo a `next build` y corta el ciclo.
-  buildCommand: "../../node_modules/.bin/next build",
   default: {
     override: {
       wrapper: "cloudflare-node",
