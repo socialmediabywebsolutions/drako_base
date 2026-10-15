@@ -11,7 +11,9 @@ if (process.argv.some((arg) => arg === "dev" || arg.endsWith("/next-dev.js"))) {
 const repoRoot = path.resolve(__dirname, "../..");
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  // output: 'standalone' is incompatible with OpenNext for Cloudflare — OpenNext
+  // has its own Cloudflare Worker bundler and does not consume the standalone output.
+  // Setting it produces a broken worker that returns 500 on all routes.
   outputFileTracingRoot: repoRoot,
   images: {
     remotePatterns: [
