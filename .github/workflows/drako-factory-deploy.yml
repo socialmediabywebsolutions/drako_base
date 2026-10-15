@@ -670,7 +670,7 @@ jobs:
           for domain in socialflows.drako.systems socialflow.drako.systems socialcors.com; do
             grep -q "pattern = \"${domain}\"" "$TOML" || { echo "BLOCKED: $TOML missing custom domain ${domain}"; exit 1; }
           done
-          for binding in SOCIAL_DB SOCIALFLOW_AUTHS_DB SOCIAL_MEDIA_BUCKET SOCIALFLOW_AI_QUEUE SELF; do
+          for binding in SOCIAL_DB SOCIALFLOW_AUTHS_DB SOCIAL_MEDIA_BUCKET SOCIALFLOW_AI_QUEUE SELF WORKER_SELF_REFERENCE; do
             grep -q "binding = \"${binding}\"" "$TOML" || { echo "BLOCKED: $TOML missing binding ${binding}"; exit 1; }
           done
           echo "SocialCors Worker config guard passed."
