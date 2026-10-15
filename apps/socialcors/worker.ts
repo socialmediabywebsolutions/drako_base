@@ -103,7 +103,16 @@ async function fetchHandler(req: Request, env: unknown, ctx: ExecutionContext): 
   if (!_worker) {
     return new Response("OpenNext worker not loaded", { status: 500, headers: { "content-type": "text/plain" } });
   }
-  return _worker.fetch(req, env, ctx);
+  try {
+    return await _worker.fetch(req, env, ctx);
+  } catch (err) {
+    const msg = err instanceof Error ? err.stack ?? err.message : String(err);
+    console.error("[worker.ts] fetch THREW:", msg);
+    return new Response(
+      `Worker fetch threw:\n\n${msg}`,
+      { status: 500, headers: { "content-type": "text/plain; charset=utf-8" } },
+    );
+  }
 }
 
 export default {
