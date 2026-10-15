@@ -197,11 +197,18 @@ async function runCanonicalChecks(baseUrl) {
       });
       const ok = check.expectedStatuses.includes(response.status);
       if (!ok) {
+        let bodyHint = "";
+        if (response.status === 500) {
+          try {
+            const raw = await response.text();
+            bodyHint = ` | body: ${raw.slice(0, 600).replace(/\n/g, " ↵ ")}`;
+          } catch { /* ignore */ }
+        }
         reportFail(
           check.id,
           response.status,
           url,
-          `expected one of [${check.expectedStatuses.join(", ")}]`,
+          `expected one of [${check.expectedStatuses.join(", ")}]${bodyHint}`,
         );
         failed = true;
         continue;
