@@ -8,9 +8,25 @@
  *
  * Este fichero lo empaqueta wrangler (esbuild) tras `opennextjs-cloudflare build`;
  * no entra en el typecheck de la app porque ./.open-next/worker.js solo existe tras el build.
+ *
+ * NOTA: usamos dynamic import para capturar cualquier error de inicialización de OpenNext
+ * (p.ej. top-level await que falla en middleware/handler.mjs) y exponerlo como respuesta
+ * HTTP legible en lugar de un 500 opaco. Facilita la diagnosis en CI.
  */
+
 // @ts-ignore -- generado por `opennextjs-cloudflare build`
-import openNextWorker from "./.open-next/worker.js";
+type OpenNextWorker = { fetch: (req: Request, env: unknown, ctx: ExecutionContext) => Promise<Response> };
+let _worker: OpenNextWorker | null = null;
+let _initError: unknown = null;
+
+try {
+  // @ts-ignore -- generado por `opennextjs-cloudflare build`
+  const mod = await import("./.open-next/worker.js");
+  _worker = (mod.default ?? mod) as OpenNextWorker;
+} catch (err) {
+  _initError = err;
+  console.error("[worker.ts] OpenNext init FAILED:", err instanceof Error ? err.stack : String(err));
+}
 
 type ScheduledEnv = {
   APP_URL?: string;
@@ -75,7 +91,22 @@ async function scheduled(event: ScheduledEventLike, env: ScheduledEnv): Promise<
   }
 }
 
+async function fetchHandler(req: Request, env: unknown, ctx: ExecutionContext): Promise<Response> {
+  if (_initError) {
+    const msg = _initError instanceof Error ? _initError.stack ?? _initError.message : String(_initError);
+    console.error("[worker.ts] Serving error response due to init failure:", msg);
+    return new Response(
+      `OpenNext initialization failed:\n\n${msg}`,
+      { status: 500, headers: { "content-type": "text/plain; charset=utf-8" } },
+    );
+  }
+  if (!_worker) {
+    return new Response("OpenNext worker not loaded", { status: 500, headers: { "content-type": "text/plain" } });
+  }
+  return _worker.fetch(req, env, ctx);
+}
+
 export default {
-  fetch: openNextWorker.fetch,
+  fetch: fetchHandler,
   scheduled,
 };
