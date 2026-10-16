@@ -139,20 +139,32 @@ if (!handlerCode.includes(THROW_MARKER)) {
   }
 }
 
-// ── 2ª pasada: parchar dynamic require() de manifests que esbuild no puede resolver ─
-// Next.js llama a require("/.next/server/middleware-manifest.json") en getMiddlewareManifest.
-// esbuild sustituye los require() no resolubilizables en CF Workers por:
-//   throw new Error(`Dynamic require of "${x}" is not supported`)
-// Necesitamos sustituir el call-site __require("/.next/server/middleware-manifest.json")
-// por el contenido JSON inline antes de que el worker llegue a ese throw.
+// ── 2ª pasada: parchar dynamic require() en .open-next/worker.js ──────────────
 //
-// Búsqueda: cualquier identificador seguido de ("/.next/server/<manifest>")
-// Reemplazo: el JSON del manifest como literal de objeto.
+// worker.ts importa directamente `.open-next/worker.js` (ya bundleado por OpenNext/esbuild).
+// Wrangler toma ese archivo como entrada para su propio bundle. Por tanto el parche
+// DEBE aplicarse sobre .open-next/worker.js, NO sobre handler.mjs.
+//
+// Next.js llama a require("/.next/server/middleware-manifest.json") en getMiddlewareManifest.
+// esbuild sustituye los require() no resolvibles en CF Workers por un helper __require
+// que lanza: Dynamic require of "${x}" is not supported
+//
+// Buscamos el call-site: <ident>("/.next/server/middleware-manifest.json")
+// Lo sustituimos por: ({...json inline...})
+
 const DYNAMIC_REQUIRE_MANIFESTS = [
   "/.next/server/middleware-manifest.json",
 ];
 
-let handlerCode2 = readFileSync(handlerPath, "utf-8");
+// El archivo que wrangler usa: .open-next/worker.js (bundle completo de OpenNext)
+const openNextWorkerPath = path.join(appDir, ".open-next", "worker.js");
+if (!existsSync(openNextWorkerPath)) {
+  console.error(`[patch-manifests] ERROR: .open-next/worker.js no encontrado en ${openNextWorkerPath}`);
+  process.exit(1);
+}
+console.log(`[patch-manifests] Pass 2: parchando ${openNextWorkerPath}`);
+
+let workerCode = readFileSync(openNextWorkerPath, "utf-8");
 let dynamicRequirePatched = 0;
 
 for (const manifestKey of DYNAMIC_REQUIRE_MANIFESTS) {
@@ -177,27 +189,27 @@ for (const manifestKey of DYNAMIC_REQUIRE_MANIFESTS) {
   // Buscar el patrón: <ident>("/.next/server/middleware-manifest.json")
   // esbuild puede minificar el nombre de __require a cualquier identificador corto.
   // Negative lookbehind (?<!\.) para excluir llamadas a método como path.endsWith(...)
-  // que la 1ª pasada ya pudo haber inyectado como `varName.endsWith(manifestKey)`.
   const callPattern = new RegExp(
     `(?<!\\.)(\\b[A-Za-z_$][\\w$]*)\\(${JSON.stringify(manifestKey).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`,
     "g"
   );
 
-  const before = handlerCode2;
-  handlerCode2 = handlerCode2.replace(callPattern, (_match, _fn) => {
+  const before = workerCode;
+  workerCode = workerCode.replace(callPattern, (_match, _fn) => {
     return `(${jsonContent})`;
   });
 
-  if (handlerCode2 !== before) {
-    console.log(`[patch-manifests] Dynamic require parchado: ${manifestKey}`);
+  if (workerCode !== before) {
+    console.log(`[patch-manifests] Pass 2: dynamic require parchado: ${manifestKey}`);
     dynamicRequirePatched++;
   } else {
-    // Puede que ya esté inlineado por el plugin, o que la firma cambie
-    console.log(`[patch-manifests] Dynamic require no encontrado (ya inlineado o firma distinta): ${manifestKey}`);
+    console.log(`[patch-manifests] Pass 2: dynamic require no encontrado en worker.js (ya inlineado o firma distinta): ${manifestKey}`);
   }
 }
 
 if (dynamicRequirePatched > 0) {
-  writeFileSync(handlerPath, handlerCode2, "utf-8");
-  console.log(`[patch-manifests] ✅ Dynamic requires parchados: ${dynamicRequirePatched}`);
+  writeFileSync(openNextWorkerPath, workerCode, "utf-8");
+  console.log(`[patch-manifests] ✅ Pass 2: ${dynamicRequirePatched} dynamic require(s) parchados en .open-next/worker.js`);
+} else {
+  console.log(`[patch-manifests] Pass 2: nada que parchar en .open-next/worker.js`);
 }
