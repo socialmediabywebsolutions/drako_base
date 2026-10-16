@@ -22,6 +22,20 @@ const checks = [
     expectedStatuses: [200],
   },
   {
+    // API mínima sin dependencias del monolito: si falla → problema de infraestructura CF/OpenNext.
+    id: "diag-ping-api",
+    method: "GET",
+    path: "/api/__ping",
+    expectedStatuses: [200],
+  },
+  {
+    // Página mínima SSR sin dependencias del monolito: aísla si el fallo es de page-rendering.
+    id: "diag-ping-page",
+    method: "GET",
+    path: "/__ping",
+    expectedStatuses: [200],
+  },
+  {
     id: "canonical-root",
     method: "GET",
     path: "/",
@@ -202,6 +216,20 @@ async function runCanonicalChecks(baseUrl) {
         headers: buildRequestHeaders(baseUrl, CANONICAL_HOST_HEADER),
       });
       const ok = check.expectedStatuses.includes(response.status);
+      // Para /__diag siempre imprimir el cuerpo (errores capturados, pingTest, etc.)
+      if (check.id === "diag-worker-health" || check.id === "diag-ping-api" || check.id === "diag-ping-page") {
+        try {
+          const raw = await response.text();
+          console.log(`[DIAG] ${check.id} body: ${raw.slice(0, 3000).replace(/\n/g, " ↵ ")}`);
+          if (!ok) {
+            reportFail(check.id, response.status, url, `expected one of [${check.expectedStatuses.join(", ")}]`);
+            failed = true;
+          } else {
+            reportPass(check.id, response.status, url);
+          }
+          continue;
+        } catch { /* fall through to normal handling */ }
+      }
       if (!ok) {
         let bodyHint = "";
         if (response.status === 500) {

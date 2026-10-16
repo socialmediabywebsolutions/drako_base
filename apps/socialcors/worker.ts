@@ -19,13 +19,25 @@ type OpenNextWorker = { fetch: (req: Request, env: unknown, ctx: ExecutionContex
 let _worker: OpenNextWorker | null = null;
 let _initError: unknown = null;
 
+// ── Captura de console.error para diagnóstico ──────────────────────────────
+// Next.js llama a console.error cuando una ruta lanza una excepción no manejada.
+// Capturamos los últimos 30 mensajes para exponerlos en /__diag.
+const _capturedErrors: { ts: number; msg: string }[] = [];
+const _origConsoleError = console.error;
+console.error = (...args: unknown[]) => {
+  const msg = args.map((a) => (a instanceof Error ? a.stack ?? a.message : String(a))).join(" ");
+  _capturedErrors.push({ ts: Date.now(), msg: msg.slice(0, 2000) });
+  if (_capturedErrors.length > 30) _capturedErrors.shift();
+  _origConsoleError(...args);
+};
+
 try {
   // @ts-ignore -- generado por `opennextjs-cloudflare build`
   const mod = await import("./.open-next/worker.js");
   _worker = (mod.default ?? mod) as OpenNextWorker;
 } catch (err) {
   _initError = err;
-  console.error("[worker.ts] OpenNext init FAILED:", err instanceof Error ? err.stack : String(err));
+  _origConsoleError("[worker.ts] OpenNext init FAILED:", err instanceof Error ? (err as Error).stack : String(err));
 }
 
 type ScheduledEnv = {
@@ -95,11 +107,34 @@ async function fetchHandler(req: Request, env: unknown, ctx: ExecutionContext): 
   // Diagnostic endpoint — bypasses OpenNext completely for health checks
   const url = new URL(req.url);
   if (url.pathname === "/__diag") {
+    // Opcional: hacer una llamada de prueba a Next.js y capturar el resultado
+    let testResult: { status: number; headers: Record<string, string>; body: string } | null = null;
+    if (_worker && !_initError) {
+      try {
+        const testReq = new Request(new URL("/api/__ping", req.url).toString(), {
+          method: "GET",
+          headers: { "user-agent": "diag-internal" },
+        });
+        const testResp = await _worker.fetch(testReq, env, ctx);
+        const hdrs: Record<string, string> = {};
+        testResp.headers.forEach((v, k) => { hdrs[k] = v; });
+        testResult = {
+          status: testResp.status,
+          headers: hdrs,
+          body: (await testResp.text()).slice(0, 500),
+        };
+      } catch (e) {
+        testResult = { status: -1, headers: {}, body: String(e) };
+      }
+    }
+
     const info = {
       ok: !_initError && !!_worker,
       workerLoaded: !!_worker,
-      initError: _initError ? (_initError instanceof Error ? _initError.stack ?? _initError.message : String(_initError)) : null,
+      initError: _initError ? (_initError instanceof Error ? (_initError as Error).stack ?? (_initError as Error).message : String(_initError)) : null,
       timestamp: Date.now(),
+      pingTest: testResult,
+      recentErrors: _capturedErrors.slice(-10),
     };
     return new Response(JSON.stringify(info, null, 2), {
       status: info.ok ? 200 : 500,
