@@ -28,6 +28,13 @@ function resolveCheckoutPlan(rawPlan: string | undefined): Exclude<SocialFlowPla
   if (rawPlan === "pro") return "influencer_pro";
   // "empresa_basica" is a legacy alias kept from before the empresa_basica → empresa_basico rename.
   if (rawPlan === "empresa_basica") return "empresa_basico";
+  // Hyphen variants: landing pages and auth component use hyphens; API uses underscores.
+  if (rawPlan === "influencer-starter") return "influencer_starter";
+  if (rawPlan === "influencer-basico") return "influencer_basico";
+  if (rawPlan === "influencer-pro") return "influencer_pro";
+  if (rawPlan === "empresa-starter") return "empresa_starter";
+  if (rawPlan === "empresa-basico") return "empresa_basico";
+  if (rawPlan === "empresa-pro") return "empresa_pro";
   if (rawPlan && VALID_CHECKOUT_PLANS.has(rawPlan as Exclude<SocialFlowPlanCode, "free">)) {
     return rawPlan as Exclude<SocialFlowPlanCode, "free">;
   }

@@ -44,11 +44,18 @@ export default async function SocialFlowWorkspaceLayout({
 
   const weeklyPublishStatus = await getWeeklyPublishStatus(session.tenantId, session.role).catch(() => null);
 
-  const socialCtx = await resolveSocialContext({ tenantId: session.tenantId, saasId: "socialflow" });
-  const socialAccounts = await listSaasSocialAccounts(socialCtx);
-  const connectedProviders = socialAccounts
-    .filter((account) => account.status === "CONNECTED_REAL" || account.status === "PENDING_REAL")
-    .map((account) => account.provider);
+  // resolveSocialContext throws SocialContextError for new tenants with no social record yet.
+  // Catch it here so the layout renders cleanly and the page's own redirect (→ onboarding) fires.
+  let connectedProviders: string[] = [];
+  try {
+    const socialCtx = await resolveSocialContext({ tenantId: session.tenantId, saasId: "socialflow" });
+    const socialAccounts = await listSaasSocialAccounts(socialCtx);
+    connectedProviders = socialAccounts
+      .filter((account) => account.status === "CONNECTED_REAL" || account.status === "PENDING_REAL")
+      .map((account) => account.provider);
+  } catch {
+    // New tenant or missing social context — sidebar shows no connected accounts.
+  }
 
   // Real paid subscription (has actual Stripe customer ID, status active/trialing)
   const hasPaidAccess =
