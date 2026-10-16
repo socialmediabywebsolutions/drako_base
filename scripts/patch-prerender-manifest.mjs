@@ -173,8 +173,10 @@ for (const manifestKey of DYNAMIC_REQUIRE_MANIFESTS) {
 
   // Buscar el patrón: <ident>("/.next/server/middleware-manifest.json")
   // esbuild puede minificar el nombre de __require a cualquier identificador corto.
+  // Negative lookbehind (?<!\.) para excluir llamadas a método como path.endsWith(...)
+  // que la 1ª pasada ya pudo haber inyectado como `varName.endsWith(manifestKey)`.
   const callPattern = new RegExp(
-    `\\b([A-Za-z_$][\\w$]*)\\(${JSON.stringify(manifestKey).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`,
+    `(?<!\\.)(\\b[A-Za-z_$][\\w$]*)\\(${JSON.stringify(manifestKey).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`,
     "g"
   );
 
