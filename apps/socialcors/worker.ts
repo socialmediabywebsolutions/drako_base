@@ -19,6 +19,26 @@ type OpenNextWorker = { fetch: (req: Request, env: unknown, ctx: ExecutionContex
 let _worker: OpenNextWorker | null = null;
 let _initError: unknown = null;
 
+// ── CF Workers: require() shim ─────────────────────────────────────────────
+// Next.js llama a require(path) para cargar algunos manifests en runtime
+// (p.ej. middleware-manifest.json). CF Workers no tiene require() nativo.
+//
+// esbuild genera un stub __require que hace:
+//   if (typeof require !== "undefined") return require(x); else throw ...
+//
+// Si definimos globalThis.require ANTES del import de .open-next/worker.js,
+// el stub llama a nuestro shim en vez de lanzar el error.
+//
+// scripts/patch-prerender-manifest.mjs reemplaza el bloque entre
+// CF_REQUIRE_SHIM_BEGIN y CF_REQUIRE_SHIM_END con los returns de JSON reales
+// durante el paso de CI, antes de que wrangler compile este archivo.
+//
+// CF_REQUIRE_SHIM_BEGIN
+(globalThis as any).require = (id: string): unknown => {
+  throw new Error(`[CF Workers] Dynamic require of "${id}" not handled — add to patch-prerender-manifest.mjs`);
+};
+// CF_REQUIRE_SHIM_END
+
 // ── Captura de console.error para diagnóstico ──────────────────────────────
 // Next.js llama a console.error cuando una ruta lanza una excepción no manejada.
 // Capturamos los últimos 30 mensajes para exponerlos en /__diag.

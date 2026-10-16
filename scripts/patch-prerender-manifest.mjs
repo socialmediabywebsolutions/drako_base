@@ -152,84 +152,87 @@ if (!handlerCode.includes(THROW_MARKER)) {
 // Buscamos el call-site: <ident>("/.next/server/middleware-manifest.json")
 // Lo sustituimos por: ({...json inline...})
 
-// El archivo que wrangler usa: .open-next/worker.js (bundle completo de OpenNext)
-const openNextWorkerPath = path.join(appDir, ".open-next", "worker.js");
-if (!existsSync(openNextWorkerPath)) {
-  console.error(`[patch-manifests] ERROR: .open-next/worker.js no encontrado en ${openNextWorkerPath}`);
+// Pass 2 parchea worker.ts (TypeScript fuente) ANTES de que wrangler lo compile.
+// worker.ts define globalThis.require con un shim stub entre los marcadores
+// CF_REQUIRE_SHIM_BEGIN y CF_REQUIRE_SHIM_END. Aquí reemplazamos ese shim
+// con returns reales para los manifests que Next.js carga dinámicamente.
+//
+// Ventaja vs parchar el bundle compilado:
+//   - El path "/.next/server/middleware-manifest.json" no aparece como literal
+//     en el call-site (lo compone Next.js con path.join en runtime), por lo que
+//     los regex sobre el bundle nunca podían matchear.
+//   - globalThis.require es detectado por el stub __require de esbuild:
+//     "if (typeof require !== 'undefined') return require(x)"
+//   - Parchar worker.ts es determinístico: los marcadores son literales exactos.
+
+const workerTsPath = path.join(appDir, "worker.ts");
+if (!existsSync(workerTsPath)) {
+  console.error(`[patch-manifests] ERROR: worker.ts no encontrado en ${workerTsPath}`);
   process.exit(1);
 }
-console.log(`[patch-manifests] Pass 2: parchando ${openNextWorkerPath}`);
+console.log(`[patch-manifests] Pass 2: parchando ${workerTsPath}`);
 
-let workerCode = readFileSync(openNextWorkerPath, "utf-8");
+let workerCode = readFileSync(workerTsPath, "utf-8");
 
-// ── Estrategia: parchar el STUB __require de esbuild, no el call-site ──────────
-//
-// El path "/.next/server/middleware-manifest.json" se compone dinámicamente en
-// runtime dentro de Next.js (path.join(this.distDir, ...)), por lo que NO aparece
-// como literal en el call-site dentro de worker.js — el regex de call-site nunca
-// podía matchear.
-//
-// esbuild genera un stub __require que lanza:
-//   throw new Error(`Dynamic require of "${varName}" is not supported`)
-// donde varName es el parámetro minificado (x, e, t, r…).
-//
-// Interceptamos ese stub: antes del throw inyectamos condicionalmente los manifests
-// que necesitamos devolver inline. En runtime, __require se llama con el path real
-// ya calculado, y la condición endsWith() lo captura.
+// Manifests que Next.js puede requerir dinámicamente en runtime
+const SHIM_MANIFESTS = [
+  "/.next/server/middleware-manifest.json",
+];
 
-// Localizar el stub con template literal (esbuild unminificado):
-//   throw new Error(`Dynamic require of "${varName}" is not supported`)
-// o con concatenación (minificado):
-//   throw new Error("Dynamic require of \""+varName+"\" is not supported")
-const stubPatternTpl  = /throw new Error\(`Dynamic require of "\$\{([^}]+)\}" is not supported`\)/;
-const stubPatternConcat = /throw new Error\("Dynamic require of \\\""\s*\+\s*([A-Za-z_$][\w$]*)\s*\+\s*"\\\" is not supported"\)/;
+const SHIM_BEGIN = "// CF_REQUIRE_SHIM_BEGIN";
+const SHIM_END   = "// CF_REQUIRE_SHIM_END";
 
-let stubMatch = workerCode.match(stubPatternTpl) ?? workerCode.match(stubPatternConcat);
+const beginIdx = workerCode.indexOf(SHIM_BEGIN);
+const endIdx   = workerCode.indexOf(SHIM_END);
 
-if (!stubMatch) {
-  console.log(`[patch-manifests] Pass 2: stub __require no encontrado — puede que esbuild lo haya eliminado o cambiado de forma. Continuando sin parche.`);
+if (beginIdx === -1 || endIdx === -1 || endIdx <= beginIdx) {
+  console.error(`[patch-manifests] ERROR Pass 2: marcadores CF_REQUIRE_SHIM_BEGIN/END no encontrados en ${workerTsPath}`);
+  process.exit(1);
+}
+
+// Construir el cuerpo del shim con los manifests inline
+const shimLines = [];
+for (const manifestKey of SHIM_MANIFESTS) {
+  const diskRelative = manifestKey.replace(/^\//, "");
+  const diskFull = path.join(appDir, diskRelative.split("/").join(path.sep));
+  if (!existsSync(diskFull)) {
+    console.warn(`[patch-manifests] WARN: ${diskFull} no existe — saltando`);
+    continue;
+  }
+  let jsonContent;
+  try {
+    jsonContent = readFileSync(diskFull, "utf-8").trim();
+    JSON.parse(jsonContent);
+  } catch (e) {
+    console.warn(`[patch-manifests] WARN: no se pudo leer ${diskFull}: ${e.message}`);
+    continue;
+  }
+  // endsWith() funciona con paths calculados dinámicamente en runtime
+  shimLines.push(`  if (id.endsWith(${JSON.stringify(manifestKey)})) return (${jsonContent});`);
+  console.log(`[patch-manifests] Pass 2: inyectando manifest inline: ${manifestKey}`);
+}
+
+if (shimLines.length === 0) {
+  console.log(`[patch-manifests] Pass 2: ningún manifest disponible — shim vacío.`);
 } else {
-  const varName = stubMatch[1]; // el parámetro minificado, p.ej. "x", "e", "t"…
-  console.log(`[patch-manifests] Pass 2: stub __require encontrado, parámetro = "${varName}"`);
+  const shimBody = [
+    SHIM_BEGIN,
+    `(globalThis as any).require = (id: string): unknown => {`,
+    ...shimLines,
+    `  throw new Error(\`[CF Workers] Dynamic require of "\${id}" not handled — add to patch-prerender-manifest.mjs\`);`,
+    `};`,
+    SHIM_END,
+  ].join("\n");
 
-  // Manifests que necesitamos devolver inline desde el stub
-  const STUB_MANIFESTS = [
-    "/.next/server/middleware-manifest.json",
-  ];
+  const before = workerCode.slice(0, beginIdx);
+  const after  = workerCode.slice(endIdx + SHIM_END.length);
+  const patched = before + shimBody + after;
 
-  const conditionals = [];
-  for (const manifestKey of STUB_MANIFESTS) {
-    const diskRelative = manifestKey.replace(/^\//, "");
-    const diskFull = path.join(appDir, diskRelative.split("/").join(path.sep));
-    if (!existsSync(diskFull)) {
-      console.warn(`[patch-manifests] WARN: ${diskFull} no existe — saltando`);
-      continue;
-    }
-    let jsonContent;
-    try {
-      jsonContent = readFileSync(diskFull, "utf-8").trim();
-      JSON.parse(jsonContent);
-    } catch (e) {
-      console.warn(`[patch-manifests] WARN: no se pudo leer ${diskFull}: ${e.message}`);
-      continue;
-    }
-    // endsWith() funciona con paths calculados dinámicamente en runtime
-    conditionals.push(
-      `if (${varName}.endsWith(${JSON.stringify(manifestKey)})) return (${jsonContent});`
-    );
-    console.log(`[patch-manifests] Pass 2: inyectando inline: ${manifestKey}`);
+  if (patched === workerCode) {
+    console.error(`[patch-manifests] ERROR Pass 2: la sustitución de worker.ts no tuvo efecto.`);
+    process.exit(1);
   }
 
-  if (conditionals.length > 0) {
-    const injection = conditionals.join(" ") + " ";
-    const patched = workerCode.replace(stubMatch[0], injection + stubMatch[0]);
-    if (patched === workerCode) {
-      console.error(`[patch-manifests] ERROR Pass 2: la sustitución no tuvo efecto.`);
-      process.exit(1);
-    }
-    writeFileSync(openNextWorkerPath, patched, "utf-8");
-    console.log(`[patch-manifests] ✅ Pass 2: stub __require parchado con ${conditionals.length} manifest(s).`);
-  } else {
-    console.log(`[patch-manifests] Pass 2: nada que parchar (manifests no encontrados en disco).`);
-  }
+  writeFileSync(workerTsPath, patched, "utf-8");
+  console.log(`[patch-manifests] ✅ Pass 2: worker.ts parchado con ${shimLines.length} manifest(s) en globalThis.require.`);
 }
