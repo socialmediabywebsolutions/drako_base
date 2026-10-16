@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
 import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
 import { resolveSocialFlowPlanCode } from "@/lib/socialflow/billing/plans";
+import type { SaasSocialProvider } from "@/lib/social-core/types";
 import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
 import { getWeeklyPublishStatus } from "@/lib/socialflow/billing/enforce";
 import SidebarNav from "./_components/sidebar-nav";
@@ -46,7 +47,7 @@ export default async function SocialFlowWorkspaceLayout({
 
   // resolveSocialContext throws SocialContextError for new tenants with no social record yet.
   // Catch it here so the layout renders cleanly and the page's own redirect (→ onboarding) fires.
-  let connectedProviders: string[] = [];
+  let connectedProviders: SaasSocialProvider[] = [];
   try {
     const socialCtx = await resolveSocialContext({ tenantId: session.tenantId, saasId: "socialflow" });
     const socialAccounts = await listSaasSocialAccounts(socialCtx);
