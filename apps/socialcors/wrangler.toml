@@ -29,7 +29,7 @@ pattern = "socialcors.com"
 custom_domain = true
 
 [[d1_databases]]
-binding = "DRACO_DB"
+binding = "SOCIAL_DB"
 database_name = "saas_socialflows_prod_db"
 database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
 
@@ -58,6 +58,13 @@ queue = "saas-socialflows-prod-events"
 [[queues.producers]]
 binding = "SOCIALFLOW_AI_QUEUE"
 queue = "saas-socialflow-ai-generation-queue"
+
+# Binding requerido por OpenNext: el Worker generated code (worker.js) usa
+# WORKER_SELF_REFERENCE para operaciones internas (Image Optimization, ISR, etc.).
+# Sin este binding, OpenNext falla en todas las rutas con HTTP 500.
+[[services]]
+binding = "WORKER_SELF_REFERENCE"
+service = "saas-socialflows-prod"
 
 # Binding a sí mismo: scheduled() llama a sus rutas /api/cron/* sin pasar por la red
 # pública ni el WAF (ver worker.ts).

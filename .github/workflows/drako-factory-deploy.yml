@@ -615,15 +615,28 @@ jobs:
           CI: "true"
         run: |
           set -euo pipefail
+          # OpenNext hardcodea `next build` como comando de shell.
+          # En el monorepo next vive en la raíz, no en PATH global → añadirlo.
+          export PATH="$(pwd)/../../node_modules/.bin:$PATH"
           ../../node_modules/.bin/opennextjs-cloudflare build 2>&1 | tee ../../open-next-socialcors-build.log
+
+      - name: Patch prerender-manifest into handler.mjs
+        working-directory: apps/socialcors
+        run: |
+          set -euo pipefail
+          node ../../scripts/patch-prerender-manifest.mjs
 
       - name: SocialCors bundle budget and route scope
         working-directory: apps/socialcors
         run: |
           set -euo pipefail
-          # OpenNext en monorepo deja el handler bajo server-functions/default/apps/socialcors/.
-          HANDLER=".open-next/server-functions/default/apps/socialcors/handler.mjs"
-          test -f "$HANDLER" || { echo "BLOCKED: SOCIALCORS_HANDLER_MISSING $HANDLER"; exit 1; }
+          # OpenNext ejecutado desde apps/socialcors/ deja el handler en la ruta plana.
+          # Si hubiera ruta anidada (monorepo root), se prueba como fallback.
+          HANDLER=".open-next/server-functions/default/handler.mjs"
+          if [ ! -f "$HANDLER" ]; then
+            HANDLER=".open-next/server-functions/default/apps/socialcors/handler.mjs"
+          fi
+          test -f "$HANDLER" || { echo "BLOCKED: SOCIALCORS_HANDLER_MISSING (buscado en rutas plana y anidada)"; exit 1; }
           BYTES="$(wc -c < "$HANDLER")"
           MIB="$(awk "BEGIN { printf \"%.2f\", ${BYTES} / 1048576 }")"
           echo "SocialCors handler.mjs: ${MIB} MiB (${BYTES} bytes)"
@@ -663,7 +676,7 @@ jobs:
           for domain in socialflows.drako.systems socialflow.drako.systems socialcors.com; do
             grep -q "pattern = \"${domain}\"" "$TOML" || { echo "BLOCKED: $TOML missing custom domain ${domain}"; exit 1; }
           done
-          for binding in SOCIAL_DB SOCIALFLOW_AUTHS_DB SOCIAL_MEDIA_BUCKET SOCIALFLOW_AI_QUEUE SELF; do
+          for binding in SOCIAL_DB SOCIALFLOW_AUTHS_DB SOCIAL_MEDIA_BUCKET SOCIALFLOW_AI_QUEUE SELF WORKER_SELF_REFERENCE; do
             grep -q "binding = \"${binding}\"" "$TOML" || { echo "BLOCKED: $TOML missing binding ${binding}"; exit 1; }
           done
           echo "SocialCors Worker config guard passed."
@@ -773,10 +786,10 @@ jobs:
                 break
               fi
 
-              if echo "$OUTPUT" | grep -Eqi "D1_RESET_DO|internal error; reference" && [ "$attempt" -lt "$max_attempts" ]; then
+              if echo "$OUTPUT" | grep -Eqi "D1_RESET_DO|internal error; reference|Upstream service unavailable|code: 7009|upstream connect error" && [ "$attempt" -lt "$max_attempts" ]; then
                 attempt=$((attempt + 1))
-                echo "Transient D1 error on ${migration} — retrying (attempt ${attempt}/${max_attempts}) in 5s..."
-                sleep 5
+                echo "Transient D1 error on ${migration} — retrying (attempt ${attempt}/${max_attempts}) in 10s..."
+                sleep 10
                 continue
               fi
 
