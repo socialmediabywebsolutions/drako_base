@@ -11,6 +11,7 @@ const AUTH_PATH_CONTEXTS: Array<[prefix: string, context: string]> = [
   ["/api/drakos/auths", "drakos"],
   ["/api/mentorias/auths", "mentorias"],
   ["/api/socialflow/auths", "socialflow"],
+  ["/api/socialflow/auth", "socialflow"],
   ["/api/bases", "bases"],
   ["/drakos/auths", "drakos"],
   ["/mentorias/auths", "mentorias"],
@@ -31,7 +32,7 @@ function resolveContextFromHost(hostname: string | null | undefined): string {
   if (host === "mentoria.drako.systems" || host === "mentorias.drako.systems" || host.startsWith("mentoria.") || host.startsWith("mentorias.")) {
     return "mentorias";
   }
-  if (host === "socialflow.drako.systems" || host.startsWith("socialflow.") || host.includes("socialflow")) return "socialflow";
+  if (host === "socialflow.drako.systems" || host.startsWith("socialflow.") || host.includes("socialflow") || host === "socialcors.com" || host.endsWith(".socialcors.com")) return "socialflow";
   return "drakos";
 }
 
