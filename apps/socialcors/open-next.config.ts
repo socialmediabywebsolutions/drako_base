@@ -21,6 +21,8 @@ const config = {
       queue: "direct",
     },
   },
+  // Forzar que OpenNext empaquete los manifiestos necesarios para evitar el error de require dinámico
+  buildCommand: "next build",
 };
 
 export default config;
