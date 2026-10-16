@@ -152,10 +152,6 @@ if (!handlerCode.includes(THROW_MARKER)) {
 // Buscamos el call-site: <ident>("/.next/server/middleware-manifest.json")
 // Lo sustituimos por: ({...json inline...})
 
-const DYNAMIC_REQUIRE_MANIFESTS = [
-  "/.next/server/middleware-manifest.json",
-];
-
 // El archivo que wrangler usa: .open-next/worker.js (bundle completo de OpenNext)
 const openNextWorkerPath = path.join(appDir, ".open-next", "worker.js");
 if (!existsSync(openNextWorkerPath)) {
@@ -165,51 +161,75 @@ if (!existsSync(openNextWorkerPath)) {
 console.log(`[patch-manifests] Pass 2: parchando ${openNextWorkerPath}`);
 
 let workerCode = readFileSync(openNextWorkerPath, "utf-8");
-let dynamicRequirePatched = 0;
 
-for (const manifestKey of DYNAMIC_REQUIRE_MANIFESTS) {
-  // El path en disco: quitar la barra inicial y convertir a ruta del SO
-  const diskRelative = manifestKey.replace(/^\//, ""); // ".next/server/middleware-manifest.json"
-  const diskFull = path.join(appDir, diskRelative.split("/").join(path.sep));
+// ── Estrategia: parchar el STUB __require de esbuild, no el call-site ──────────
+//
+// El path "/.next/server/middleware-manifest.json" se compone dinámicamente en
+// runtime dentro de Next.js (path.join(this.distDir, ...)), por lo que NO aparece
+// como literal en el call-site dentro de worker.js — el regex de call-site nunca
+// podía matchear.
+//
+// esbuild genera un stub __require que lanza:
+//   throw new Error(`Dynamic require of "${varName}" is not supported`)
+// donde varName es el parámetro minificado (x, e, t, r…).
+//
+// Interceptamos ese stub: antes del throw inyectamos condicionalmente los manifests
+// que necesitamos devolver inline. En runtime, __require se llama con el path real
+// ya calculado, y la condición endsWith() lo captura.
 
-  if (!existsSync(diskFull)) {
-    console.warn(`[patch-manifests] WARN: ${diskFull} no existe — saltando dynamic require patch`);
-    continue;
-  }
+// Localizar el stub con template literal (esbuild unminificado):
+//   throw new Error(`Dynamic require of "${varName}" is not supported`)
+// o con concatenación (minificado):
+//   throw new Error("Dynamic require of \""+varName+"\" is not supported")
+const stubPatternTpl  = /throw new Error\(`Dynamic require of "\$\{([^}]+)\}" is not supported`\)/;
+const stubPatternConcat = /throw new Error\("Dynamic require of \\\""\s*\+\s*([A-Za-z_$][\w$]*)\s*\+\s*"\\\" is not supported"\)/;
 
-  let jsonContent;
-  try {
-    jsonContent = readFileSync(diskFull, "utf-8").trim();
-    JSON.parse(jsonContent); // validar
-  } catch (e) {
-    console.warn(`[patch-manifests] WARN: no se pudo leer ${diskFull}: ${e.message}`);
-    continue;
-  }
+let stubMatch = workerCode.match(stubPatternTpl) ?? workerCode.match(stubPatternConcat);
 
-  // Buscar el patrón: <ident>("/.next/server/middleware-manifest.json")
-  // esbuild puede minificar el nombre de __require a cualquier identificador corto.
-  // Negative lookbehind (?<!\.) para excluir llamadas a método como path.endsWith(...)
-  const callPattern = new RegExp(
-    `(?<!\\.)(\\b[A-Za-z_$][\\w$]*)\\(${JSON.stringify(manifestKey).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`,
-    "g"
-  );
-
-  const before = workerCode;
-  workerCode = workerCode.replace(callPattern, (_match, _fn) => {
-    return `(${jsonContent})`;
-  });
-
-  if (workerCode !== before) {
-    console.log(`[patch-manifests] Pass 2: dynamic require parchado: ${manifestKey}`);
-    dynamicRequirePatched++;
-  } else {
-    console.log(`[patch-manifests] Pass 2: dynamic require no encontrado en worker.js (ya inlineado o firma distinta): ${manifestKey}`);
-  }
-}
-
-if (dynamicRequirePatched > 0) {
-  writeFileSync(openNextWorkerPath, workerCode, "utf-8");
-  console.log(`[patch-manifests] ✅ Pass 2: ${dynamicRequirePatched} dynamic require(s) parchados en .open-next/worker.js`);
+if (!stubMatch) {
+  console.log(`[patch-manifests] Pass 2: stub __require no encontrado — puede que esbuild lo haya eliminado o cambiado de forma. Continuando sin parche.`);
 } else {
-  console.log(`[patch-manifests] Pass 2: nada que parchar en .open-next/worker.js`);
+  const varName = stubMatch[1]; // el parámetro minificado, p.ej. "x", "e", "t"…
+  console.log(`[patch-manifests] Pass 2: stub __require encontrado, parámetro = "${varName}"`);
+
+  // Manifests que necesitamos devolver inline desde el stub
+  const STUB_MANIFESTS = [
+    "/.next/server/middleware-manifest.json",
+  ];
+
+  const conditionals = [];
+  for (const manifestKey of STUB_MANIFESTS) {
+    const diskRelative = manifestKey.replace(/^\//, "");
+    const diskFull = path.join(appDir, diskRelative.split("/").join(path.sep));
+    if (!existsSync(diskFull)) {
+      console.warn(`[patch-manifests] WARN: ${diskFull} no existe — saltando`);
+      continue;
+    }
+    let jsonContent;
+    try {
+      jsonContent = readFileSync(diskFull, "utf-8").trim();
+      JSON.parse(jsonContent);
+    } catch (e) {
+      console.warn(`[patch-manifests] WARN: no se pudo leer ${diskFull}: ${e.message}`);
+      continue;
+    }
+    // endsWith() funciona con paths calculados dinámicamente en runtime
+    conditionals.push(
+      `if (${varName}.endsWith(${JSON.stringify(manifestKey)})) return (${jsonContent});`
+    );
+    console.log(`[patch-manifests] Pass 2: inyectando inline: ${manifestKey}`);
+  }
+
+  if (conditionals.length > 0) {
+    const injection = conditionals.join(" ") + " ";
+    const patched = workerCode.replace(stubMatch[0], injection + stubMatch[0]);
+    if (patched === workerCode) {
+      console.error(`[patch-manifests] ERROR Pass 2: la sustitución no tuvo efecto.`);
+      process.exit(1);
+    }
+    writeFileSync(openNextWorkerPath, patched, "utf-8");
+    console.log(`[patch-manifests] ✅ Pass 2: stub __require parchado con ${conditionals.length} manifest(s).`);
+  } else {
+    console.log(`[patch-manifests] Pass 2: nada que parchar (manifests no encontrados en disco).`);
+  }
 }
