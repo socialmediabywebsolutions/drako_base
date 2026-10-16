@@ -135,3 +135,64 @@ if (patched === handlerCode) {
 writeFileSync(handlerPath, patched, "utf-8");
 console.log(`[patch-manifests] ✅ handler.mjs parchado con ${snippets.length} manifest(s).`);
 console.log(`  handler: ${handlerPath}`);
+
+// ── 2ª pasada: parchar dynamic require() de manifests que esbuild no puede resolver ─
+// Next.js llama a require("/.next/server/middleware-manifest.json") en getMiddlewareManifest.
+// esbuild sustituye los require() no resolubilizables en CF Workers por:
+//   throw new Error(`Dynamic require of "${x}" is not supported`)
+// Necesitamos sustituir el call-site __require("/.next/server/middleware-manifest.json")
+// por el contenido JSON inline antes de que el worker llegue a ese throw.
+//
+// Búsqueda: cualquier identificador seguido de ("/.next/server/<manifest>")
+// Reemplazo: el JSON del manifest como literal de objeto.
+const DYNAMIC_REQUIRE_MANIFESTS = [
+  "/.next/server/middleware-manifest.json",
+];
+
+let handlerCode2 = readFileSync(handlerPath, "utf-8");
+let dynamicRequirePatched = 0;
+
+for (const manifestKey of DYNAMIC_REQUIRE_MANIFESTS) {
+  // El path en disco: quitar la barra inicial y convertir a ruta del SO
+  const diskRelative = manifestKey.replace(/^\//, ""); // ".next/server/middleware-manifest.json"
+  const diskFull = path.join(appDir, diskRelative.split("/").join(path.sep));
+
+  if (!existsSync(diskFull)) {
+    console.warn(`[patch-manifests] WARN: ${diskFull} no existe — saltando dynamic require patch`);
+    continue;
+  }
+
+  let jsonContent;
+  try {
+    jsonContent = readFileSync(diskFull, "utf-8").trim();
+    JSON.parse(jsonContent); // validar
+  } catch (e) {
+    console.warn(`[patch-manifests] WARN: no se pudo leer ${diskFull}: ${e.message}`);
+    continue;
+  }
+
+  // Buscar el patrón: <ident>("/.next/server/middleware-manifest.json")
+  // esbuild puede minificar el nombre de __require a cualquier identificador corto.
+  const callPattern = new RegExp(
+    `\\b([A-Za-z_$][\\w$]*)\\(${JSON.stringify(manifestKey).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`,
+    "g"
+  );
+
+  const before = handlerCode2;
+  handlerCode2 = handlerCode2.replace(callPattern, (_match, _fn) => {
+    return `(${jsonContent})`;
+  });
+
+  if (handlerCode2 !== before) {
+    console.log(`[patch-manifests] Dynamic require parchado: ${manifestKey}`);
+    dynamicRequirePatched++;
+  } else {
+    // Puede que ya esté inlineado por el plugin, o que la firma cambie
+    console.log(`[patch-manifests] Dynamic require no encontrado (ya inlineado o firma distinta): ${manifestKey}`);
+  }
+}
+
+if (dynamicRequirePatched > 0) {
+  writeFileSync(handlerPath, handlerCode2, "utf-8");
+  console.log(`[patch-manifests] ✅ Dynamic requires parchados: ${dynamicRequirePatched}`);
+}
