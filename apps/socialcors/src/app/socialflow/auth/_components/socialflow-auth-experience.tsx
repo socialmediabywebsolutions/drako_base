@@ -33,7 +33,22 @@ export default function SocialFlowAuthExperience() {
           throw new Error((data as any).error || 'Error en la autenticación');
         }
 
-        router.push(`/api/socialflow/billing/checkout?plan=${plan}&type=${type}`);
+        // Iniciar sesión de checkout en Stripe
+        const checkoutRes = await fetch('/api/socialflow/billing/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan, context: 'onboarding' }),
+        });
+        const checkoutData = await checkoutRes.json() as { ok: boolean; url?: string; code?: string };
+
+        if (!checkoutRes.ok || !checkoutData.url) {
+          // Si no hay plan de pago configurado o el usuario ya tiene trial, ir al dashboard
+          router.push('/socialflow');
+          return;
+        }
+
+        // Redirigir a Stripe Checkout
+        window.location.href = checkoutData.url;
       } catch (err: any) {
         setError(err.message || 'Ocurrió un error inesperado');
       }
