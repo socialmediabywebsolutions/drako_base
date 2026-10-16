@@ -2,7 +2,7 @@
   "name": "@drako/socialcors",
   "version": "0.1.0",
   "private": true,
-  "description": "App Next.js/OpenNext propia de SocialCors (P3). Etapa alias: usa node_modules y src/ de la raíz del monorepo.",
+  "description": "App Next.js/OpenNext propia de SocialCors (P3).",
   "scripts": {
     "dev": "../../node_modules/.bin/next dev",
     "build": "../../node_modules/.bin/next build && node -e 'const fs=require(\"fs\"); const path=require(\"path\"); const dirs=[\".next/standalone/.next/server\", \".next/server\"]; dirs.forEach(d => fs.mkdirSync(d, {recursive: true})); [\"BUILD_ID\", \"required-server-files.json\"].forEach(f => { const src=path.join(\".next\", f); const dst=path.join(\".next/standalone/.next\", f); if(fs.existsSync(src)) fs.copyFileSync(src, dst); }); if(fs.existsSync(\".next/server\")) fs.cpSync(\".next/server\", \".next/standalone/.next/server\", {recursive: true, force: true}); [\"pages-manifest.json\", \"app-build-manifest.json\"].forEach(m => { dirs.forEach(d => { const p=path.join(d, m); if(!fs.existsSync(p)) fs.writeFileSync(p, \"{}\"); }); });'",
