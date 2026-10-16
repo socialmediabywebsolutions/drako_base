@@ -131,7 +131,7 @@ async function fetchHandler(req: Request, env: unknown, ctx: ExecutionContext): 
     let testResult: { status: number; headers: Record<string, string>; body: string } | null = null;
     if (_worker && !_initError) {
       try {
-        const testReq = new Request(new URL("/api/__ping", req.url).toString(), {
+        const testReq = new Request(new URL("/api/ping", req.url).toString(), {
           method: "GET",
           headers: { "user-agent": "diag-internal" },
         });

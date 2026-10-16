@@ -25,14 +25,14 @@ const checks = [
     // API mínima sin dependencias del monolito: si falla → problema de infraestructura CF/OpenNext.
     id: "diag-ping-api",
     method: "GET",
-    path: "/api/__ping",
+    path: "/api/ping",
     expectedStatuses: [200],
   },
   {
     // Página mínima SSR sin dependencias del monolito: aísla si el fallo es de page-rendering.
     id: "diag-ping-page",
     method: "GET",
-    path: "/__ping",
+    path: "/ping",
     expectedStatuses: [200],
   },
   {
