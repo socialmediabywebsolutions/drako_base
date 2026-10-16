@@ -78,63 +78,66 @@ let handlerCode = readFileSync(handlerPath, "utf-8");
 
 const THROW_MARKER = 'throw new Error(`Unexpected loadManifest(${';
 
+// ── Pass 1: parchar loadManifest() ────────────────────────────────────────────
+// Solo si el marker existe (OpenNext antiguo o versión con loadManifest explícito).
+// Si no existe, se salta Pass 1 pero SIEMPRE se continúa a Pass 2.
+let pass1Count = 0;
+
 if (!handlerCode.includes(THROW_MARKER)) {
-  console.log(`[patch-manifests] No se encontró el marker en handler.mjs.`);
-  console.log("[patch-manifests] ¿Quizás ya fue parchado o la versión de OpenNext cambió?");
-  process.exit(0);
-}
-
-// ── Extraer el nombre real del parámetro (esbuild puede minificarlo) ─────────
-const throwIdx = handlerCode.indexOf(THROW_MARKER);
-const afterMarker = handlerCode.slice(throwIdx + THROW_MARKER.length);
-const closingIdx = afterMarker.indexOf("}) call!`");
-if (closingIdx === -1) {
-  console.error("[patch-manifests] ERROR: no se pudo extraer el nombre del parámetro del throw.");
-  process.exit(1);
-}
-const varName = afterMarker.slice(0, closingIdx).trim();
-console.log(`[patch-manifests] Parámetro de loadManifest detectado: ${varName}`);
-
-// ── Construir snippet con TODOS los manifests no inlineados aún ──────────────
-const snippets = [];
-for (const { full, relative } of manifests) {
-  // El path que Next.js pasa a loadManifest es /.next/<relative>
-  // (con separadores Unix, independiente del OS)
-  const manifestKey = "/.next/" + relative.split(path.sep).join("/");
-  // Verificar si ya está inlineado
-  if (handlerCode.includes(JSON.stringify(manifestKey)) || handlerCode.includes(`"${manifestKey}"`)) {
-    console.log(`[patch-manifests] Ya inlineado: ${manifestKey}`);
-    continue;
+  console.log(`[patch-manifests] Pass 1: THROW_MARKER no encontrado — saltando (loadManifest ya inlineado o versión distinta de OpenNext).`);
+} else {
+  // ── Extraer el nombre real del parámetro (esbuild puede minificarlo) ─────────
+  const throwIdx = handlerCode.indexOf(THROW_MARKER);
+  const afterMarker = handlerCode.slice(throwIdx + THROW_MARKER.length);
+  const closingIdx = afterMarker.indexOf("}) call!`");
+  if (closingIdx === -1) {
+    console.error("[patch-manifests] ERROR: no se pudo extraer el nombre del parámetro del throw.");
+    process.exit(1);
   }
-  let content;
-  try {
-    content = readFileSync(full, "utf-8").trim();
-    JSON.parse(content); // validar JSON
-  } catch (e) {
-    console.warn(`[patch-manifests] WARN: no se pudo leer/parsear ${full}: ${e.message}`);
-    continue;
+  const varName = afterMarker.slice(0, closingIdx).trim();
+  console.log(`[patch-manifests] Pass 1: parámetro de loadManifest detectado: ${varName}`);
+
+  // ── Construir snippet con TODOS los manifests no inlineados aún ──────────────
+  const snippets = [];
+  for (const { full, relative } of manifests) {
+    // El path que Next.js pasa a loadManifest es /.next/<relative>
+    // (con separadores Unix, independiente del OS)
+    const manifestKey = "/.next/" + relative.split(path.sep).join("/");
+    // Verificar si ya está inlineado
+    if (handlerCode.includes(JSON.stringify(manifestKey)) || handlerCode.includes(`"${manifestKey}"`)) {
+      console.log(`[patch-manifests] Pass 1: ya inlineado: ${manifestKey}`);
+      continue;
+    }
+    let content;
+    try {
+      content = readFileSync(full, "utf-8").trim();
+      JSON.parse(content); // validar JSON
+    } catch (e) {
+      console.warn(`[patch-manifests] WARN: no se pudo leer/parsear ${full}: ${e.message}`);
+      continue;
+    }
+    snippets.push(`if (${varName}.endsWith(${JSON.stringify(manifestKey)})) { return ${content}; }`);
+    console.log(`[patch-manifests] Pass 1: inyectando: ${manifestKey}`);
   }
-  snippets.push(`if (${varName}.endsWith(${JSON.stringify(manifestKey)})) { return ${content}; }`);
-  console.log(`[patch-manifests] Inyectando: ${manifestKey}`);
+
+  if (snippets.length === 0) {
+    console.log("[patch-manifests] Pass 1: todos los manifests ya están inlineados.");
+  } else {
+    // ── Insertar antes del throw ────────────────────────────────────────────────
+    const insertionBlock = snippets.join("\n  ") + "\n  ";
+    const patched = handlerCode.replace(THROW_MARKER, insertionBlock + THROW_MARKER);
+
+    if (patched === handlerCode) {
+      console.error("[patch-manifests] ERROR: la sustitución de Pass 1 no tuvo efecto.");
+      process.exit(1);
+    }
+
+    writeFileSync(handlerPath, patched, "utf-8");
+    pass1Count = snippets.length;
+    console.log(`[patch-manifests] ✅ Pass 1: handler.mjs parchado con ${pass1Count} manifest(s).`);
+    console.log(`  handler: ${handlerPath}`);
+  }
 }
-
-if (snippets.length === 0) {
-  console.log("[patch-manifests] Todos los manifests ya están inlineados. Nada que hacer.");
-  process.exit(0);
-}
-
-// ── Insertar antes del throw ──────────────────────────────────────────────────
-const insertionBlock = snippets.join("\n  ") + "\n  ";
-const patched = handlerCode.replace(THROW_MARKER, insertionBlock + THROW_MARKER);
-
-if (patched === handlerCode) {
-  console.error("[patch-manifests] ERROR: la sustitución no tuvo efecto.");
-  process.exit(1);
-}
-
-writeFileSync(handlerPath, patched, "utf-8");
-console.log(`[patch-manifests] ✅ handler.mjs parchado con ${snippets.length} manifest(s).`);
-console.log(`  handler: ${handlerPath}`);
 
 // ── 2ª pasada: parchar dynamic require() de manifests que esbuild no puede resolver ─
 // Next.js llama a require("/.next/server/middleware-manifest.json") en getMiddlewareManifest.
