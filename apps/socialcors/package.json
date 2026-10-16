@@ -5,11 +5,11 @@
   "description": "App Next.js/OpenNext propia de SocialCors (P3). Etapa alias: usa node_modules y src/ de la raíz del monorepo.",
   "scripts": {
     "dev": "../../node_modules/.bin/next dev",
-    "build": "../../node_modules/.bin/next build && node -e 'const fs=require(\"fs\"); const path=require(\"path\"); const dest=\".next/standalone/.next\"; fs.mkdirSync(dest, {recursive: true}); [\"BUILD_ID\", \"required-server-files.json\"].forEach(f => { const src = path.join(\".next\", f); const dst = path.join(dest, f); if(fs.existsSync(src)) fs.copyFileSync(src, dst); }); const serverDest = path.join(dest, \"server\"); fs.mkdirSync(serverDest, {recursive: true}); if(fs.existsSync(\".next/server\")) { fs.cpSync(\".next/server\", serverDest, {recursive: true, force: true}); } const pm1 = path.join(serverDest, \"pages-manifest.json\"); if(!fs.existsSync(pm1)) fs.writeFileSync(pm1, \"{}\"); const pm2 = path.join(\".next\", \"server\", \"pages-manifest.json\"); if(!fs.existsSync(pm2)) { fs.mkdirSync(path.dirname(pm2), {recursive: true}); fs.writeFileSync(pm2, \"{}\"); }' && opennextjs-cloudflare build",
-    "build:cf": "opennextjs-cloudflare build",
+    "build": "../../node_modules/.bin/next build && node -e 'const fs=require(\"fs\"); const path=require(\"path\"); const dirs=[\".next/standalone/.next/server\", \".next/server\"]; dirs.forEach(d => fs.mkdirSync(d, {recursive: true})); [\"BUILD_ID\", \"required-server-files.json\"].forEach(f => { const src=path.join(\".next\", f); const dst=path.join(\".next/standalone/.next\", f); if(fs.existsSync(src)) fs.copyFileSync(src, dst); }); if(fs.existsSync(\".next/server\")) fs.cpSync(\".next/server\", \".next/standalone/.next/server\", {recursive: true, force: true}); [\"pages-manifest.json\", \"app-build-manifest.json\"].forEach(m => { dirs.forEach(d => { const p=path.join(d, m); if(!fs.existsSync(p)) fs.writeFileSync(p, \"{}\"); }); });'",
+    "build:cf": "npm run build && opennextjs-cloudflare build",
     "typecheck": "../../node_modules/.bin/tsc -p tsconfig.typecheck.json --noEmit",
     "deploy:dry-run": "../../node_modules/.bin/wrangler deploy --config wrangler.toml --dry-run --outdir .wrangler/dry-run",
-    "build:opennext": "opennextjs-cloudflare build"
+    "build:opennext": "npm run build && opennextjs-cloudflare build"
   },
   "devDependencies": {
     "wrangler": "^4.149.0"
