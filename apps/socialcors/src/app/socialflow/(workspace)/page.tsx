@@ -134,8 +134,23 @@ export default async function SocialFlowDashboardPage() {
     redirect("/socialflow/onboarding");
   }
 
-  const billingSnapshot = await getCanonicalBillingSnapshot({ tenantId: session.tenantId, saasSlug: "socialflow" });
-  const planCode = resolveSocialFlowPlanCode(billingSnapshot.subscription);
+  let billingSnapshot: Awaited<ReturnType<typeof getCanonicalBillingSnapshot>>;
+  try {
+    billingSnapshot = await getCanonicalBillingSnapshot({ tenantId: session.tenantId, saasSlug: "socialflow" });
+  } catch {
+    billingSnapshot = {
+      tenantId: session.tenantId,
+      saasSlug: "socialflow",
+      saasId: null,
+      isInternalAccount: false,
+      subscription: { status: "active", planCode: null, currentPeriodStart: null, currentPeriodEnd: null, trial: false, cancelAtPeriodEnd: null, stripeCustomerId: null, stripeSubscriptionId: null, stripePriceId: null, updatedAt: null },
+      entitlements: { limits: {}, features: [], usage: {} },
+    };
+  }
+  const planCode = resolveSocialFlowPlanCode(
+    billingSnapshot.subscription,
+    { isInternalAccount: billingSnapshot.isInternalAccount, accountType: session.accountType },
+  );
   const planDefinition = getSocialFlowPlanDefinition(planCode);
 
   const [weeklyPublishStatus, knowledgeDocs] = await Promise.all([

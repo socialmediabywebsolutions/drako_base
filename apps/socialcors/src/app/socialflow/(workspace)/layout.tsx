@@ -40,7 +40,34 @@ export default async function SocialFlowWorkspaceLayout({
   // Owners and admins bypass all trial restrictions
   const isPrivilegedRole = session.role === "owner" || session.role === "admin";
 
-  const snapshot = await getCanonicalBillingSnapshot({ tenantId: session.tenantId, saasSlug: "socialflow" });
+  // getCanonicalBillingSnapshot accede a varias tablas D1 (saas_subscriptions,
+  // saas_usage_quotas, internal_accounts…). Cualquier error de D1 tumbaría todo el
+  // workspace — en especial para cuentas internas sin fila en saas_subscriptions.
+  // Fallback: tratamos al usuario como "active" para que el layout siempre renderice.
+  let snapshot: Awaited<ReturnType<typeof getCanonicalBillingSnapshot>>;
+  try {
+    snapshot = await getCanonicalBillingSnapshot({ tenantId: session.tenantId, saasSlug: "socialflow" });
+  } catch {
+    snapshot = {
+      tenantId: session.tenantId,
+      saasSlug: "socialflow",
+      saasId: null,
+      isInternalAccount: false,
+      subscription: {
+        status: "active",
+        planCode: null,
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        trial: false,
+        cancelAtPeriodEnd: null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        stripePriceId: null,
+        updatedAt: null,
+      },
+      entitlements: { limits: {}, features: [], usage: {} },
+    };
+  }
   const sub = snapshot.subscription;
 
   const weeklyPublishStatus = await getWeeklyPublishStatus(session.tenantId, session.role).catch(() => null);

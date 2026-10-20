@@ -507,13 +507,21 @@ async function readCanonicalLimitsAndUsage(input: {
   tenantId: string;
   saasSlug: string;
 }): Promise<{ limits: Record<string, number>; usage: CanonicalBillingUsage }> {
-  const rows = await queryAll<{ quota_key: string; limit_value: number | string; current_value: number | string }>(
-    `SELECT quota_key, limit_value, current_value
-     FROM saas_usage_quotas
-     WHERE tenant_id = ? AND saas_slug = ?`,
-    input.tenantId,
-    input.saasSlug,
-  );
+  let rows: { quota_key: string; limit_value: number | string; current_value: number | string }[] = [];
+  try {
+    rows = await queryAll<{ quota_key: string; limit_value: number | string; current_value: number | string }>(
+      `SELECT quota_key, limit_value, current_value
+       FROM saas_usage_quotas
+       WHERE tenant_id = ? AND saas_slug = ?`,
+      input.tenantId,
+      input.saasSlug,
+    );
+  } catch (error) {
+    if (!isMissingTableError(error) && !isMissingColumnError(error)) {
+      throw error;
+    }
+    // Table / column not yet migrated — return empty quotas; billing still works.
+  }
 
   const limits: Record<string, number> = {};
   const usage: CanonicalBillingUsage = {};
@@ -569,7 +577,7 @@ export async function isInternalAccount(tenantId: string, saasSlug: string): Pro
     );
     return Boolean(row);
   } catch (error) {
-    if (isMissingTableError(error)) return false;
+    if (isMissingTableError(error) || isMissingColumnError(error)) return false;
     throw error;
   }
 }
