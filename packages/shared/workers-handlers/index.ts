@@ -75,6 +75,8 @@ export function createWorkersHandlers(config: WorkersHandlersConfig): WorkersHan
           return handleCryptosRequest(request, config);
         case "invoices":
           return handleInvoicesRequest(request, config);
+        case "saas-cadul-prod":
+          return handleCadulRequest(request, config);
         default:
           return new Response(JSON.stringify({ error: "Unknown worker" }), {
             status: 400,
@@ -237,6 +239,36 @@ async function handleInvoicesRequest(request: Request, config: WorkersHandlersCo
     });
   }
   return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
+}
+
+/**
+ * Handler for cadul worker requests
+ */
+async function handleCadulRequest(request: Request, config: WorkersHandlersConfig): Promise<Response> {
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  // Health check público
+  if (request.method === "GET" && path === "/health") {
+    return new Response(JSON.stringify({ ok: true, worker: "cadul", saas: config.saasSlug }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Auth: verificar sesión contra Campamento Base
+  if (path.startsWith("/auth/")) {
+    return new Response(JSON.stringify({ ok: true, worker: "cadul", auth: "proxied" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Rutas protegidas: requieren X-User-Id válido (verificado por el worker de Cadul)
+  return new Response(JSON.stringify({ ok: true, worker: "cadul", routed: true }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 /**

@@ -7,6 +7,7 @@ export const SAAS_SLUGS = [
   "invoices",
   "analytics",
   "automations",
+  "cadul",
 ] as const;
 
 export type SaasesSlugs = (typeof SAAS_SLUGS)[number];
@@ -83,6 +84,14 @@ export const SAASES_CATALOGS: Record<SaasesSlugs, SaasesCatalogs> = {
     domainName: "automations.drako.systems",
     authsSecretName: "AUTOMATIONS_AUTHS_SECRET",
     requiredSecretsNames: ["AUTOMATIONS_AUTHS_SECRET", "GIT_SHA"],
+    requiredBindingsNames: ["SAASES_DB", "SAASES_CACHE", "SAASES_STORAGE", "SAASES_EVENTS"],
+  },
+  cadul: {
+    saasSlug: "cadul",
+    workerName: "saas-cadul-prod",
+    domainName: "cadul.drako.systems",
+    authsSecretName: "CADUL_AUTHS_SECRET",
+    requiredSecretsNames: ["CADUL_AUTHS_SECRET", "GIT_SHA"],
     requiredBindingsNames: ["SAASES_DB", "SAASES_CACHE", "SAASES_STORAGE", "SAASES_EVENTS"],
   },
 };
