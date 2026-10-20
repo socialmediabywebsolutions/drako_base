@@ -14,10 +14,6 @@ binding = "AI"
 pattern = "drakos.drako.systems"
 custom_domain = true
 
-[[routes]]
-pattern = "drako.systems"
-custom_domain = true
-
 [[d1_databases]]
 binding = "DRACO_DB"
 database_name = "drako_db_prod"
@@ -61,7 +57,7 @@ binding = "SOCIALCORS_INTERNAL"
 service = "saas-socialflows-prod"
 
 [vars]
-NEXTAUTH_URL = "https://drako.systems"
+NEXTAUTH_URL = "https://drakos.drako.systems"
 AUTHS_ISOLATIONS_ENABLED = "true"
 AUTHS_LEGACY_COMPATS_ENABLED = "false"
 ROUTINGS_SUBDOMAINS_ENABLED = "true"
