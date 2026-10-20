@@ -24,6 +24,7 @@ import {
   type NextStep,
   type StatCardModel,
 } from "./_components/dashboard-sections";
+import { CerebroPlan } from "./_components/cerebro-plan";
 
 const DEFAULT_SAAS_ID = "socialflow";
 
@@ -209,6 +210,9 @@ export default async function SocialFlowDashboardPage() {
         <ViewsByPostChart posts={data.viewsByPost} />
       </div>
       <EngagementChart weeks={data.engagementByWeek} totals={data.engagement30d} />
+
+      {/* 3b · Cerebro — plan estratégico del mes */}
+      <CerebroPlan />
 
       {/* 4 · Tu siguiente paso */}
       <NextSteps steps={nextSteps} />
