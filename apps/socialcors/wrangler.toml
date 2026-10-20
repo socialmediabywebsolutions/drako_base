@@ -77,7 +77,7 @@ binding = "AI"
 
 [triggers]
 # Tabla cron → rutas en worker.ts (scheduled).
-crons = ["*/5 * * * *", "*/20 * * * *", "0 */4 * * *", "0 3 * * *", "0 3 * * 1", "0 4 * * 1"]
+crons = ["*/5 * * * *", "*/20 * * * *", "0 */4 * * *", "0 3 * * *", "0 3 * * 1", "0 4 * * 1", "0 9 * * *"]
 
 [vars]
 SAASES_SLUG = "socialflows"
