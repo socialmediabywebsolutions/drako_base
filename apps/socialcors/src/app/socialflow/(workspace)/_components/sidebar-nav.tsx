@@ -59,6 +59,13 @@ function IcoLocal() {
 function IcoTag() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.169.659 1.591l9.581 9.581c.699.699 1.831.699 2.53 0l4.318-4.318a1.79 1.79 0 0 0 0-2.53L10.507 3.659A2.25 2.25 0 0 0 9.568 3Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" /></svg>;
 }
+function IcoShield() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" /></svg>;
+}
+function IcoBolt() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" /></svg>;
+}
+}
 function IcoMagnet() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" /></svg>;
 }
@@ -69,6 +76,7 @@ const mainNavTop = [
   { href: "/socialflow/insights",      label: "Insights",            icon: <IcoChart /> },
   { href: "/socialflow/profile",       label: "Mi Perfil",           icon: <IcoUser /> },
   { href: "/socialflow/ai",            label: "¿Qué creo hoy?",      icon: <Sparkles className="h-[18px] w-[18px]" /> },
+  { href: "/socialflow/publicar",      label: "Publicar",            icon: <IcoPublish /> },
 ];
 
 const knowledgeNavItem = { href: "/socialflow/knowledge", label: "Base de conocimiento", icon: <IcoBook /> };
@@ -114,10 +122,13 @@ const serviciosNavItem = { href: "/socialflow/empresa/servicios", label: "Servic
 // cuenta, sin distinción influencer/empresa.
 const crmNavItem = { href: "/socialflow/crm", label: "CRM Social", icon: <IcoUsers /> };
 const prospectorNavItem = { href: "/socialflow/prospector", label: "Captación", icon: <IcoMagnet /> };
+const auditNavItem = { href: "/socialflow/audit", label: "Auditoría IA", icon: <IcoShield /> };
+const automatizacionesNavItem = { href: "/socialflow/automatizaciones", label: "Automatizaciones", icon: <IcoBolt /> };
 
 const settingsNav = [
   { href: "/socialflow/settings/billing", label: "Facturación" },
   { href: "/socialflow/settings/team",    label: "Equipo" },
+  { href: "/socialflow/sessions",         label: "Sesiones activas" },
 ];
 
 function renderMainNavItem(item: { href: string; label: string; icon: React.ReactNode }, active: boolean) {
@@ -239,6 +250,8 @@ export default function SidebarNav({
           )}
           {renderMainNavItem(crmNavItem, isActive(crmNavItem.href))}
           {renderMainNavItem(prospectorNavItem, isActive(prospectorNavItem.href))}
+          {renderMainNavItem(automatizacionesNavItem, isActive(automatizacionesNavItem.href))}
+          {renderMainNavItem(auditNavItem, isActive(auditNavItem.href))}
           {renderMainNavItem(knowledgeNavItem, isActive(knowledgeNavItem.href))}
           {renderMainNavItem(redesNavItem, isActive(redesNavItem.href))}
         </nav>
