@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sparkles } from "lucide-react";
 import type { SaasSocialProvider } from "@/lib/social-core/types";
 import { SOCIAL_PROVIDER_LABEL } from "@/lib/socialflow/social-providers";
@@ -65,6 +65,11 @@ function IcoShield() {
 function IcoBolt() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" /></svg>;
 }
+function IcoNewspaper() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6v-3Z" /></svg>;
+}
+function IcoBeaker() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.169.659 1.591L19.8 15M14.25 3.104c.251.023.501.05.75.082M19.8 15a2.25 2.25 0 0 1 .01 3.177L19.8 18l-3.75 3.75-3.75-3.75a2.25 2.25 0 0 1 3.18-3.18L16.5 15l1.05-1.05A2.25 2.25 0 0 1 19.8 15ZM4.2 15a2.25 2.25 0 0 0-.01 3.177L4.2 18l3.75 3.75 3.75-3.75a2.25 2.25 0 0 0-3.18-3.18L7.5 15l-1.05-1.05A2.25 2.25 0 0 0 4.2 15Z" /></svg>;
 }
 function IcoMagnet() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-[18px] w-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" /></svg>;
@@ -124,6 +129,8 @@ const crmNavItem = { href: "/socialflow/crm", label: "CRM Social", icon: <IcoUse
 const prospectorNavItem = { href: "/socialflow/prospector", label: "Captación", icon: <IcoMagnet /> };
 const auditNavItem = { href: "/socialflow/audit", label: "Auditoría IA", icon: <IcoShield /> };
 const automatizacionesNavItem = { href: "/socialflow/automatizaciones", label: "Automatizaciones", icon: <IcoBolt /> };
+const briefingNavItem = { href: "/socialflow/briefing", label: "Briefing semanal", icon: <IcoNewspaper /> };
+const analysisNavItem = { href: "/socialflow/analysis", label: "Análisis IA", icon: <IcoBeaker /> };
 
 const settingsNav = [
   { href: "/socialflow/settings/billing", label: "Facturación" },
@@ -131,7 +138,25 @@ const settingsNav = [
   { href: "/socialflow/sessions",         label: "Sesiones activas" },
 ];
 
-function renderMainNavItem(item: { href: string; label: string; icon: React.ReactNode }, active: boolean) {
+function useIntelligenceUnreadCount(): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/socialflow/intelligence-feed?limit=50");
+        if (!res.ok) return;
+        const data = (await res.json()) as { ok: boolean; items?: { status: string }[] };
+        if (!active || !data.ok || !data.items) return;
+        setCount(data.items.filter((i) => i.status === "new").length);
+      } catch { /* silent */ }
+    })();
+    return () => { active = false; };
+  }, []);
+  return count;
+}
+
+function renderMainNavItem(item: { href: string; label: string; icon: React.ReactNode }, active: boolean, badge?: number) {
   return (
     <Link
       key={item.href}
@@ -143,7 +168,12 @@ function renderMainNavItem(item: { href: string; label: string; icon: React.Reac
       }`}
     >
       <span className={active ? "text-blue-600" : "text-gray-400"}>{item.icon}</span>
-      {item.label}
+      <span className="flex-1">{item.label}</span>
+      {badge != null && badge > 0 && (
+        <span className="flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-[#3b82f6] px-1 text-[10px] font-black text-white leading-none">
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -157,6 +187,7 @@ export default function SidebarNav({
   connectedProviders: SaasSocialProvider[];
 }) {
   const pathname = usePathname();
+  const intelligenceUnread = useIntelligenceUnreadCount();
   const [settingsOpen, setSettingsOpen] = useState(
     settingsNav.some((item) => pathname.startsWith(item.href)),
   );
@@ -215,7 +246,7 @@ export default function SidebarNav({
 
         {/* Main nav */}
         <nav className="flex flex-col gap-0.5">
-          {mainNavTop.map((item) => renderMainNavItem(item, isActive(item.href)))}
+          {mainNavTop.map((item) => renderMainNavItem(item, isActive(item.href), item.href === "/socialflow/insights" ? intelligenceUnread : undefined))}
 
           {connectedNetworkBlocks.map((block) => {
             const open = openNetworks.has(block.provider);
@@ -252,6 +283,8 @@ export default function SidebarNav({
           {renderMainNavItem(prospectorNavItem, isActive(prospectorNavItem.href))}
           {renderMainNavItem(automatizacionesNavItem, isActive(automatizacionesNavItem.href))}
           {renderMainNavItem(auditNavItem, isActive(auditNavItem.href))}
+          {renderMainNavItem(briefingNavItem, isActive(briefingNavItem.href))}
+          {renderMainNavItem(analysisNavItem, isActive(analysisNavItem.href))}
           {renderMainNavItem(knowledgeNavItem, isActive(knowledgeNavItem.href))}
           {renderMainNavItem(redesNavItem, isActive(redesNavItem.href))}
         </nav>

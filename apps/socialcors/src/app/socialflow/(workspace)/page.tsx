@@ -25,6 +25,7 @@ import {
   type StatCardModel,
 } from "./_components/dashboard-sections";
 import { CerebroPlan } from "./_components/cerebro-plan";
+import IntelligenceFeedPanel from "./_components/IntelligenceFeedPanel";
 
 const DEFAULT_SAAS_ID = "socialflow";
 
@@ -213,6 +214,9 @@ export default async function SocialFlowDashboardPage() {
 
       {/* 3b · Cerebro — plan estratégico del mes */}
       <CerebroPlan />
+
+      {/* 3c · Intelligence Feed — oportunidades y alertas detectadas por IA */}
+      <IntelligenceFeedPanel />
 
       {/* 4 · Tu siguiente paso */}
       <NextSteps steps={nextSteps} />
