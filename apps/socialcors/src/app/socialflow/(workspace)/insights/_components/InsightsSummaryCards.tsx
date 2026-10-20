@@ -15,8 +15,8 @@ function formatSigned(value: number): string {
 export default function InsightsSummaryCards({ summary }: { summary: SocialInsightsSnapshot["summary"] }) {
   const cards: Card[] = [
     { label: "Alcance (30 días)", value: formatNumber(summary.reach30d), hint: "Cuentas únicas alcanzadas por tu contenido", accent: "from-[#3b82f6] to-[#06b6d4]" },
-    { label: "Guardados (30 días)", value: formatNumber(summary.saved30d), hint: "Veces que guardaron tus publicaciones", accent: "from-sky-500 to-indigo-600" },
-    { label: "Plays de Reels (30 días)", value: formatNumber(summary.plays30d), hint: "Reproducciones totales de tus Reels", accent: "from-blue-500 to-indigo-600" },
+    { label: "Guardados (30 días)", value: formatNumber(summary.saved30d), hint: "Veces que guardaron tus publicaciones", accent: "from-[#3b82f6] to-[#06b6d4]" },
+    { label: "Plays de Reels (30 días)", value: formatNumber(summary.plays30d), hint: "Reproducciones totales de tus Reels", accent: "from-[#06b6d4] to-[#3b82f6]" },
     { label: "Engagement rate", value: summary.reach30d > 0 ? `${(summary.engagementRate * 100).toFixed(1)}%` : "—", hint: "(likes + comentarios + guardados) / alcance", accent: "from-cyan-400 to-blue-500" },
     { label: "Seguidores actuales", value: summary.currentFollowers !== null ? formatNumber(summary.currentFollowers) : "—", hint: "Última lectura sincronizada de Instagram", accent: "from-emerald-400 to-teal-500" },
     { label: "Crecimiento este mes", value: summary.followerGrowthThisMonth !== null ? formatSigned(summary.followerGrowthThisMonth) : "—", hint: "Seguidores ganados en los últimos 30 días", accent: "from-amber-400 to-orange-500" },

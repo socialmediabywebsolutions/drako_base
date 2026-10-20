@@ -8,21 +8,17 @@ import { AuthField, PasswordInput } from "../../_components/auth-fields";
 
 type ApiError = { message?: string; error?: string };
 
-function Card({ children }: { children: React.ReactNode }) {
-  return (
-    <AuthShell>
-      <div className="sa-card sa-rise">{children}</div>
-    </AuthShell>
-  );
-}
-
 function BackToLogin({ button = false }: { button?: boolean }) {
   return button ? (
-    <Link href="/socialflow/planes" className="sa-btn" style={{ textDecoration: "none" }}>
+    <Link
+      href="/socialflow/planes"
+      className="inline-flex items-center justify-center w-full min-h-[3rem] px-6 py-3 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] hover:brightness-110 text-white text-sm font-bold shadow-lg transition"
+      style={{ textDecoration: "none" }}
+    >
       Ir al inicio de sesión
     </Link>
   ) : (
-    <Link href="/socialflow/planes" className="sa-link">
+    <Link href="/socialflow/planes" className="text-xs font-bold text-[#3b82f6] hover:underline underline-offset-3">
       ← Volver al inicio de sesión
     </Link>
   );
@@ -58,24 +54,26 @@ function RequestResetForm() {
 
   if (done) {
     return (
-      <>
-        <p className="sy-eyebrow-lite">Email enviado</p>
-        <h1 className="sa-title">Revisa tu bandeja</h1>
-        <p className="sa-sub" style={{ marginBottom: "1.5rem" }}>
+      <div className="space-y-4">
+        <p className="text-[10px] font-extrabold tracking-[0.2em] uppercase text-[#3b82f6]">Email enviado</p>
+        <h1 className="text-2xl font-extrabold text-slate-900 leading-tight">Revisa tu bandeja</h1>
+        <p className="text-sm text-slate-500 leading-relaxed">
           Si existe una cuenta con ese email, recibirás un enlace para restablecer tu contraseña. Caduca en 1 hora.
         </p>
         <BackToLogin />
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <p className="sy-eyebrow-lite">Recuperar acceso</p>
-      <h1 className="sa-title">Restablece tu contraseña</h1>
-      <p className="sa-sub" style={{ marginBottom: "1.5rem" }}>
-        Introduce tu email y te enviaremos un enlace para crear una nueva contraseña.
-      </p>
+    <div className="space-y-5">
+      <div className="space-y-1">
+        <p className="text-[10px] font-extrabold tracking-[0.2em] uppercase text-[#3b82f6]">Recuperar acceso</p>
+        <h1 className="text-2xl font-extrabold text-slate-900 leading-tight">Restablece tu contraseña</h1>
+        <p className="text-sm text-slate-500 leading-relaxed pt-1">
+          Introduce tu email y te enviaremos un enlace para crear una nueva contraseña.
+        </p>
+      </div>
       <form onSubmit={handleSubmit} className="space-y-4" aria-busy={submitting}>
         <AuthField id="sa-reset-email" label="Email">
           <input
@@ -86,24 +84,30 @@ function RequestResetForm() {
             inputMode="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="sa-input"
+            className="block w-full min-h-[2.75rem] px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm outline-none transition focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/20 placeholder:text-slate-400"
             placeholder="tu@empresa.com"
           />
         </AuthField>
         {error && (
-          <div role="alert" className="sa-error">
+          <div role="alert" className="px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-sm font-semibold text-red-600">
             {error}
           </div>
         )}
-        <button type="submit" disabled={submitting} className="sa-btn">
-          {submitting && <span className="sa-spin" aria-hidden="true" />}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="inline-flex items-center justify-center gap-2 w-full min-h-[3rem] px-6 py-3 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] hover:brightness-110 text-white text-sm font-extrabold shadow-lg shadow-[#3b82f6]/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitting && (
+            <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true" />
+          )}
           {submitting ? "Enviando..." : "Enviar enlace"}
         </button>
       </form>
-      <div style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid var(--sa-line)" }}>
+      <div className="pt-4 border-t border-slate-100">
         <BackToLogin />
       </div>
-    </>
+    </div>
   );
 }
 
@@ -142,22 +146,24 @@ function ConfirmResetForm({ token }: { token: string }) {
 
   if (done) {
     return (
-      <>
-        <p className="sy-eyebrow-lite">Contraseña actualizada</p>
-        <h1 className="sa-title">¡Listo!</h1>
-        <p className="sa-sub" style={{ marginBottom: "1.5rem" }}>
+      <div className="space-y-4">
+        <p className="text-[10px] font-extrabold tracking-[0.2em] uppercase text-[#3b82f6]">Contraseña actualizada</p>
+        <h1 className="text-2xl font-extrabold text-slate-900 leading-tight">¡Listo!</h1>
+        <p className="text-sm text-slate-500 leading-relaxed">
           Tu contraseña ha sido actualizada correctamente. Ya puedes iniciar sesión con tu nueva contraseña.
         </p>
         <BackToLogin button />
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <p className="sy-eyebrow-lite">Nueva contraseña</p>
-      <h1 className="sa-title">Crea una nueva contraseña</h1>
-      <p className="sa-sub" style={{ marginBottom: "1.5rem" }}>Mínimo 8 caracteres.</p>
+    <div className="space-y-5">
+      <div className="space-y-1">
+        <p className="text-[10px] font-extrabold tracking-[0.2em] uppercase text-[#3b82f6]">Nueva contraseña</p>
+        <h1 className="text-2xl font-extrabold text-slate-900 leading-tight">Crea una nueva contraseña</h1>
+        <p className="text-sm text-slate-500 leading-relaxed pt-1">Mínimo 8 caracteres.</p>
+      </div>
       <form onSubmit={handleSubmit} className="space-y-4" aria-busy={submitting}>
         <AuthField id="sa-new-password" label="Nueva contraseña">
           <PasswordInput
@@ -182,16 +188,22 @@ function ConfirmResetForm({ token }: { token: string }) {
           />
         </AuthField>
         {error && (
-          <div role="alert" className="sa-error">
+          <div role="alert" className="px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-sm font-semibold text-red-600">
             {error}
           </div>
         )}
-        <button type="submit" disabled={submitting} className="sa-btn">
-          {submitting && <span className="sa-spin" aria-hidden="true" />}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="inline-flex items-center justify-center gap-2 w-full min-h-[3rem] px-6 py-3 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#06b6d4] hover:brightness-110 text-white text-sm font-extrabold shadow-lg shadow-[#3b82f6]/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitting && (
+            <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true" />
+          )}
           {submitting ? "Actualizando..." : "Actualizar contraseña"}
         </button>
       </form>
-    </>
+    </div>
   );
 }
 
@@ -200,8 +212,10 @@ export default function ResetPasswordClient() {
   const token = searchParams.get("token");
 
   return (
-    <Card>
-      {token ? <ConfirmResetForm token={token} /> : <RequestResetForm />}
-    </Card>
+    <AuthShell>
+      <div className="animate-[fadeUp_0.45s_ease_both]">
+        {token ? <ConfirmResetForm token={token} /> : <RequestResetForm />}
+      </div>
+    </AuthShell>
   );
 }

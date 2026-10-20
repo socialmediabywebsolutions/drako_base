@@ -200,7 +200,7 @@ function renderLiteMarkdown(content: string): React.ReactNode {
 
 const PROGRESS_STEPS = [
   { at:  0, label: "Analizando tu Knowledge Base…",    dot: "bg-[#3b82f6]" },
-  { at: 17, label: "Creando estrategia de contenido…", dot: "bg-indigo-400" },
+  { at: 17, label: "Creando estrategia de contenido…", dot: "bg-[#06b6d4]" },
   { at: 34, label: "Generando posts…",                 dot: "bg-blue-400"   },
   { at: 52, label: "Optimizando hashtags y CTAs…",     dot: "bg-[#06b6d4]"},
   { at: 70, label: "Generando imágenes con IA…",       dot: "bg-pink-400"   },
@@ -923,7 +923,7 @@ function PostModal({
                         >
                           Pedir cambio
                         </button>
-                        <button type="button" disabled={isBusy} onClick={() => void handleRegen()} className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-50">
+                        <button type="button" disabled={isBusy} onClick={() => void handleRegen()} className="rounded-xl border border-[#3b82f6]/20 bg-[#3b82f6]/5 px-3 py-1.5 text-xs text-[#3b82f6] transition hover:bg-[#3b82f6]/10 disabled:opacity-50">
                           {regening ? "…" : "Regenerar"}
                         </button>
                       </>
@@ -1653,7 +1653,7 @@ export default function SocialFlowAIPage() {
                           type="button"
                           disabled={thinking || msg.publishState === "working"}
                           onClick={() => void handlePublishAction(msg.id, "schedule")}
-                          className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex items-center gap-1.5 rounded-xl border border-[#3b82f6]/20 bg-[#3b82f6]/5 px-3 py-2 text-xs font-semibold text-[#3b82f6] transition hover:bg-[#3b82f6]/10 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           📅 Programar en el mejor momento
                         </button>

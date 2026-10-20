@@ -134,12 +134,12 @@ export default function SocialFlowSetupPage() {
       </section>
 
       {/* Human review notice */}
-      <section className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
-        <h3 className="text-sm font-semibold text-indigo-700">Human review obligatorio</h3>
-        <p className="mt-1 text-xs text-indigo-700/80">
+      <section className="rounded-xl border border-[#3b82f6]/20 bg-[#3b82f6]/5 p-4">
+        <h3 className="text-sm font-semibold text-[#3b82f6]">Human review obligatorio</h3>
+        <p className="mt-1 text-xs text-slate-600">
           Publicar en vivo requiere aprobación humana explícita (`confirmPublish=true`) y rol admin.
         </p>
-        <p className="mt-1 text-xs text-indigo-700/80">
+        <p className="mt-1 text-xs text-slate-600">
           {status?.publishBlockedByPilotMode
             ? "Modo piloto privado activo: autopublish está bloqueado por política."
             : "El modo piloto privado no bloquea autopublish, pero la aprobación humana sigue siendo obligatoria."}
