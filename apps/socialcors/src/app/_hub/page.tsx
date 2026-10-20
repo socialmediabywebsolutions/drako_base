@@ -12,6 +12,7 @@
  */
 
 import Link from "next/link";
+import WaitlistSection from "./_waitlist-section";
 
 const PILLARS = [
   {
@@ -25,9 +26,9 @@ const PILLARS = [
     headline: "Apoyo educativo para cada alumno, no para la media.",
     body: "En España, el 28% de los alumnos suspende matemáticas. Los profesores particulares cuestan 30€/hora. Mentoría IA da a cada estudiante un tutor personalizado, disponible las 24 horas, que aprende de su nivel y adapta el ritmo.",
     product: "Mentoría IA",
-    status: "En desarrollo",
-    statusColor: "#3b82f6",
-    statusBg: "#eff6ff",
+    status: "En desarrollo activo",
+    statusColor: "#059669",
+    statusBg: "#ecfdf5",
     accentFrom: "#3b82f6",
     accentTo: "#06b6d4",
   },
@@ -59,9 +60,9 @@ const PILLARS = [
     headline: "Finanzas que entiende la gente normal.",
     body: "El 60% de los españoles no entiende su nómina, no ahorra de forma organizada y nunca ha hablado con un asesor financiero. Cazh es una wallet inteligente con IA que explica, planifica y actúa — sin jerga bancaria.",
     product: "Cazh",
-    status: "En desarrollo inicial",
-    statusColor: "#3b82f6",
-    statusBg: "#eff6ff",
+    status: "Próximamente",
+    statusColor: "#d97706",
+    statusBg: "#fffbeb",
     accentFrom: "#f59e0b",
     accentTo: "#06b6d4",
   },
@@ -76,9 +77,9 @@ const PILLARS = [
     headline: "Gestión de alquiler sin burocracia ni estrés.",
     body: "Más de 2,5 millones de viviendas en alquiler en España. Propietarios que dedican horas a gestionar incidencias, contratos y cobros. Rentia automatiza todo: desde el scoring del inquilino hasta el parte de reparaciones.",
     product: "Rentia",
-    status: "En desarrollo inicial",
-    statusColor: "#3b82f6",
-    statusBg: "#eff6ff",
+    status: "Próximamente",
+    statusColor: "#d97706",
+    statusBg: "#fffbeb",
     accentFrom: "#3b82f6",
     accentTo: "#8b5cf6",
   },
@@ -126,13 +127,13 @@ export default function SocialCorsHubPage() {
           </nav>
 
           {/* CTA */}
-          <Link
-            href="/socialflow/auth"
+          <a
+            href="#waitlist"
             className="px-5 py-2.5 text-sm font-bold rounded-xl transition-all text-white"
             style={{ background: "linear-gradient(135deg, #3b82f6, #06b6d4)" }}
           >
-            Acceder
-          </Link>
+            Acceso anticipado
+          </a>
         </div>
       </header>
 
@@ -183,16 +184,16 @@ export default function SocialCorsHubPage() {
 
         {/* CTA buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link
-            href="/socialflow/auth"
+          <a
+            href="#waitlist"
             className="inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-black rounded-2xl text-white transition-all hover:scale-105"
             style={{ background: "linear-gradient(135deg, #3b82f6, #06b6d4)", boxShadow: "0 8px 30px rgba(59,130,246,0.3)" }}
           >
-            Empieza gratis — 15 días
+            Quiero acceso anticipado
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
             </svg>
-          </Link>
+          </a>
           <a
             href="#mision"
             className="inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-bold rounded-2xl transition-all border"
@@ -354,8 +355,8 @@ export default function SocialCorsHubPage() {
               <div className="absolute inset-x-0 top-0 h-1 rounded-t-3xl" style={{ background: "linear-gradient(90deg, #3b82f6, #06b6d4)" }} />
               <div className="pt-3">
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full inline-block mb-4"
-                  style={{ backgroundColor: "#eff6ff", color: "#3b82f6" }}>
-                  En desarrollo
+                  style={{ backgroundColor: "#ecfdf5", color: "#059669" }}>
+                  🟢 En desarrollo activo
                 </span>
                 <h3 className="text-xl font-black mb-2" style={{ color: "#0f172a" }}>Mentoría IA</h3>
                 <p className="text-xs font-semibold mb-4" style={{ color: "#3b82f6" }}>Educación · mentoria.socialcors.com</p>
@@ -383,8 +384,8 @@ export default function SocialCorsHubPage() {
               <div className="absolute inset-x-0 top-0 h-1 rounded-t-3xl" style={{ background: "linear-gradient(90deg, #f59e0b, #06b6d4)" }} />
               <div className="pt-3">
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full inline-block mb-4"
-                  style={{ backgroundColor: "#eff6ff", color: "#3b82f6" }}>
-                  Desarrollo inicial
+                  style={{ backgroundColor: "#fffbeb", color: "#d97706" }}>
+                  🟡 Próximamente
                 </span>
                 <h3 className="text-xl font-black mb-2" style={{ color: "#0f172a" }}>Cazh</h3>
                 <p className="text-xs font-semibold mb-4" style={{ color: "#f59e0b" }}>Finanzas · cazh.socialcors.com</p>
@@ -411,8 +412,8 @@ export default function SocialCorsHubPage() {
               <div className="absolute inset-x-0 top-0 h-1 rounded-t-3xl" style={{ background: "linear-gradient(90deg, #3b82f6, #8b5cf6)" }} />
               <div className="pt-3">
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full inline-block mb-4"
-                  style={{ backgroundColor: "#eff6ff", color: "#3b82f6" }}>
-                  Desarrollo inicial
+                  style={{ backgroundColor: "#fffbeb", color: "#d97706" }}>
+                  🟡 Próximamente
                 </span>
                 <h3 className="text-xl font-black mb-2" style={{ color: "#0f172a" }}>Rentia</h3>
                 <p className="text-xs font-semibold mb-4" style={{ color: "#3b82f6" }}>Vivienda · rentia.socialcors.com</p>
@@ -494,36 +495,8 @@ export default function SocialCorsHubPage() {
         </div>
       </section>
 
-      {/* ─── CTA final ──────────────────────────────────────────────────── */}
-      <section className="py-24 px-6" style={{ backgroundColor: "#f8fafc" }}>
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-6" style={{ color: "#0f172a" }}>
-            ¿Quieres ser parte<br />de lo que viene?
-          </h2>
-          <p className="text-xl mb-10 leading-relaxed" style={{ color: "#64748b" }}>
-            Empieza con Socialcors hoy y sé de los primeros en acceder
-            a cada nuevo producto del ecosistema cuando esté listo.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/socialflow/auth"
-              className="inline-flex items-center justify-center gap-2 px-10 py-5 text-lg font-black rounded-2xl text-white transition-all hover:scale-105"
-              style={{
-                background: "linear-gradient(135deg, #3b82f6, #06b6d4)",
-                boxShadow: "0 10px 40px rgba(59,130,246,0.35)"
-              }}
-            >
-              Crear cuenta gratis
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
-            </Link>
-          </div>
-          <p className="text-sm mt-5" style={{ color: "#94a3b8" }}>
-            Sin tarjeta de crédito · 15 días gratis · Cancela cuando quieras
-          </p>
-        </div>
-      </section>
+      {/* ─── Waitlist ───────────────────────────────────────────────────── */}
+      <WaitlistSection />
 
       {/* ─── Footer ─────────────────────────────────────────────────────── */}
       <footer className="border-t px-6 py-12" style={{ backgroundColor: "#ffffff", borderColor: "#e2e8f0" }}>
