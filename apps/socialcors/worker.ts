@@ -91,6 +91,9 @@ const CRON_ROUTES: Record<string, string[]> = {
   // CompetitorDiscoveryAgent — lunes 04:00 UTC, una hora después del bloque de inteligencia
   // semanal de las 03:00 para no solapar con las corridas largas de niche-intelligence.
   "0 4 * * 1": ["/api/cron/social/competitor-discovery"],
+  // Trial reminders — avisos de expiración de prueba a 3 días y 1 día vista.
+  // Lock interno de 23h impide duplicados aunque el cron se dispare dos veces.
+  "0 9 * * *": ["/api/cron/social/trial-reminders"],
 };
 
 // "*/5 * * * *" y cualquier expresión no listada.
