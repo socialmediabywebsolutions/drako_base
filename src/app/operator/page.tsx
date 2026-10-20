@@ -101,19 +101,29 @@ type TaxPortfolioSummary = {
   }>;
 };
 
+// Forma real que devuelve /api/operator/revenue
 type RevenueBreakdown = {
-  dashboard: {
-    total_mrr_cents: number;
-    active_tenants: number;
-    past_due_count: number;
-    breakdown: Array<{
-      saas_slug: string;
-      mrr_cents: number;
+  ok: boolean;
+  data: {
+    global_mrr_cents: number;
+    global_active_tenants: number;
+    global_churn_rate: number;
+    breakdown: Record<string, {
+      total_tenants: number;
       active_tenants: number;
+      mrr_cents: number;
       past_due_count: number;
       churn_rate: number;
     }>;
   };
+  timestamp: string;
+};
+
+type InternalAccount = {
+  tenant_id: string;
+  saas_slug: string;
+  label: string | null;
+  added_at: string;
 };
 
 type GrantStatus = "IDENTIFIED" | "EVALUATING" | "APPLYING" | "SUBMITTED" | "APPROVED" | "DENIED" | "WITHDRAWN";
@@ -179,7 +189,7 @@ type FactoryItem = {
 
 // ─── Sección activa ───────────────────────────────────────────────────────────
 
-type Section = "dashboard" | "finanzas" | "fiscal" | "ayudas" | "socialcors" | "mentoria" | "infraestructura" | "configuracion";
+type Section = "dashboard" | "finanzas" | "fiscal" | "ayudas" | "socialcors" | "cuentas" | "mentoria" | "infraestructura" | "configuracion";
 
 const MENU: { id: Section; icon: string; label: string }[] = [
   { id: "dashboard",       icon: "🏠", label: "Dashboard" },
@@ -187,6 +197,7 @@ const MENU: { id: Section; icon: string; label: string }[] = [
   { id: "fiscal",          icon: "📊", label: "Fiscal & IVA" },
   { id: "ayudas",          icon: "🎯", label: "Ayudas & Subvenciones" },
   { id: "socialcors",      icon: "📱", label: "Socialcors" },
+  { id: "cuentas",         icon: "🔑", label: "Cuentas Internas" },
   { id: "mentoria",        icon: "🎓", label: "Mentoría" },
   { id: "infraestructura", icon: "🌐", label: "Infraestructura" },
   { id: "configuracion",   icon: "⚙️", label: "Configuración" },
@@ -300,6 +311,16 @@ export default function OwnerPage() {
   // revenue Stripe real
   const [revenue, setRevenue] = useState<RevenueBreakdown | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(true);
+
+  // cuentas internas
+  const [internalAccounts, setInternalAccounts] = useState<InternalAccount[]>([]);
+  const [internalAccountsLoading, setInternalAccountsLoading] = useState(true);
+  const [iaTenantId, setIaTenantId] = useState("");
+  const [iaSaasSlug, setIaSaasSlug] = useState("socialflow");
+  const [iaLabel, setIaLabel] = useState("");
+  const [iaSaving, setIaSaving] = useState(false);
+  const [iaDeleting, setIaDeleting] = useState<string | null>(null);
+  const [iaMsg, setIaMsg] = useState<string | null>(null);
 
   // ayudas y subvenciones
   const [grants, setGrants] = useState<OperatorGrant[]>([]);
@@ -456,9 +477,55 @@ export default function OwnerPage() {
     try {
       const res = await fetch("/api/operator/revenue", { cache: "no-store" });
       const data = await res.json() as RevenueBreakdown;
-      setRevenue(data?.dashboard ? data : null);
+      setRevenue(data?.ok && data?.data ? data : null);
     } catch { /* noop */ } finally { setRevenueLoading(false); }
   }, []);
+
+  const loadInternalAccounts = useCallback(async () => {
+    setInternalAccountsLoading(true);
+    try {
+      const res = await fetch("/api/operator/internal-accounts", { cache: "no-store" });
+      const data = await res.json() as { ok?: boolean; items?: InternalAccount[] };
+      setInternalAccounts(data?.items ?? []);
+    } catch { /* noop */ } finally { setInternalAccountsLoading(false); }
+  }, []);
+
+  const addInternalAccount = useCallback(async () => {
+    if (!iaTenantId.trim()) { setIaMsg("❌ El Tenant ID es obligatorio."); return; }
+    setIaSaving(true);
+    setIaMsg(null);
+    try {
+      const res = await fetch("/api/operator/internal-accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId: iaTenantId.trim(), saasSlug: iaSaasSlug, label: iaLabel.trim() || null }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!data.ok) throw new Error(data.error ?? "Error al añadir");
+      setIaMsg("✅ Cuenta añadida correctamente.");
+      setIaTenantId("");
+      setIaLabel("");
+      await loadInternalAccounts();
+    } catch (e) { setIaMsg(`❌ ${e instanceof Error ? e.message : "Error"}`); }
+    finally { setIaSaving(false); }
+  }, [iaTenantId, iaSaasSlug, iaLabel, loadInternalAccounts]);
+
+  const deleteInternalAccount = useCallback(async (tenantId: string, saasSlug: string) => {
+    setIaDeleting(`${tenantId}:${saasSlug}`);
+    setIaMsg(null);
+    try {
+      const res = await fetch("/api/operator/internal-accounts", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId, saasSlug }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!data.ok) throw new Error(data.error ?? "Error al eliminar");
+      setIaMsg("✅ Cuenta eliminada.");
+      await loadInternalAccounts();
+    } catch (e) { setIaMsg(`❌ ${e instanceof Error ? e.message : "Error"}`); }
+    finally { setIaDeleting(null); }
+  }, [loadInternalAccounts]);
 
   const loadGrants = useCallback(async () => {
     setGrantsLoading(true);
@@ -553,7 +620,8 @@ export default function OwnerPage() {
     void loadTaxPortfolio();
     void loadRevenue();
     void loadGrants();
-  }, [loadOwner, loadAccounting, loadTreasury, loadPortfolio, loadGrowth, loadActionQueue, loadEvents, loadDbHealth, loadDomains, loadFactory, loadMentoria, loadTaxPortfolio, loadRevenue, loadGrants]);
+    void loadInternalAccounts();
+  }, [loadOwner, loadAccounting, loadTreasury, loadPortfolio, loadGrowth, loadActionQueue, loadEvents, loadDbHealth, loadDomains, loadFactory, loadMentoria, loadTaxPortfolio, loadRevenue, loadGrants, loadInternalAccounts]);
 
   // ─── derived ───────────────────────────────────────────────────────────────
   const fq = fiscalQuarter();
@@ -1185,13 +1253,15 @@ export default function OwnerPage() {
             <p className="text-sm text-blue-600 mt-2">Clientes, ingresos, costes de IA, cuentas internas. Panel completo con todas las métricas del SaaS.</p>
             <p className="text-xs text-blue-500 mt-3 font-semibold">Abrir →</p>
           </Link>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
-            <p className="text-lg font-bold text-gray-800">🔑 Cuentas internas</p>
-            <p className="text-sm text-gray-600 mt-2">Gestiona las cuentas sin límites de Drako dentro del panel de Socialcors.</p>
-            <Link href="/operator/socialflow">
-              <Button variant="outline" size="sm" className="mt-3">Ir a Cuentas Internas</Button>
-            </Link>
-          </div>
+          <button
+            type="button"
+            onClick={() => setSection("cuentas")}
+            className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-6 text-left hover:border-emerald-400 transition-colors w-full"
+          >
+            <p className="text-lg font-bold text-emerald-800">🔑 Cuentas Internas</p>
+            <p className="text-sm text-emerald-600 mt-2">Gestiona las cuentas blindadas con plan Pro para cada SaaS del ecosistema.</p>
+            <p className="text-xs text-emerald-500 mt-3 font-semibold">Gestionar →</p>
+          </button>
         </div>
 
         {/* Portfolio SaaS snapshot */}
@@ -1412,6 +1482,166 @@ export default function OwnerPage() {
     );
   }
 
+  function CuentasSection() {
+    const SAAS_OPTIONS = [
+      { slug: "socialflow",  label: "Socialcors" },
+      { slug: "mentoria",    label: "Mentoría" },
+      { slug: "cryptoia",    label: "Crypto IA" },
+      { slug: "cazh",        label: "Cazh" },
+      { slug: "rentia",      label: "Rentia" },
+    ];
+
+    // Agrupar por SaaS para mejor legibilidad
+    const bySlug: Record<string, InternalAccount[]> = {};
+    for (const acc of internalAccounts) {
+      if (!bySlug[acc.saas_slug]) bySlug[acc.saas_slug] = [];
+      bySlug[acc.saas_slug].push(acc);
+    }
+
+    // MRR real desde revenue route
+    const revenueData = revenue?.data;
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Cuentas Internas</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Cuentas blindadas con acceso Pro ilimitado en cada SaaS. No pasan por Stripe ni tienen límites de cuota.
+            </p>
+          </div>
+          <span className="rounded-full bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1">
+            {internalAccounts.length} cuenta{internalAccounts.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {/* Revenue real de Socialcors */}
+        {!revenueLoading && revenueData && (
+          <Card tone="glass" title="Revenue Stripe real — Socialcors" subtitle="Solo suscripciones con stripe_customer_id + stripe_subscription_id">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <K label="MRR global (Stripe)" value={`${((revenueData.global_mrr_cents ?? 0) / 100).toLocaleString("es-ES", { minimumFractionDigits: 0 })} €`} accent />
+              <K label="Clientes activos" value={String(revenueData.global_active_tenants ?? 0)} />
+              <K label="Churn rate" value={`${((revenueData.global_churn_rate ?? 0) * 100).toFixed(1)}%`} />
+              <K label="SaaS con datos" value={String(Object.keys(revenueData.breakdown ?? {}).length)} />
+            </div>
+            {Object.entries(revenueData.breakdown ?? {}).length > 0 && (
+              <div className="mt-4 divide-y divide-gray-100">
+                {Object.entries(revenueData.breakdown).map(([slug, b]) => (
+                  <div key={slug} className="flex items-center justify-between py-2 text-sm">
+                    <span className="font-medium text-gray-700">{slug}</span>
+                    <div className="flex items-center gap-6 text-gray-500">
+                      <span>{b.active_tenants} activos</span>
+                      {b.past_due_count > 0 && <span className="text-amber-600">{b.past_due_count} past_due</span>}
+                      <span className="font-semibold text-gray-900">{((b.mrr_cents ?? 0) / 100).toLocaleString("es-ES")} €</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* Añadir cuenta */}
+        <Card tone="glass" title="Añadir cuenta interna" subtitle="La cuenta quedará blindada al plan Pro del SaaS elegido, sin límites de cuota">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Tenant ID *</label>
+              <input
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                placeholder="ej. drako|1234abcd"
+                value={iaTenantId}
+                onChange={(e) => setIaTenantId(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">SaaS</label>
+              <select
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none bg-white"
+                value={iaSaasSlug}
+                onChange={(e) => setIaSaasSlug(e.target.value)}
+              >
+                {SAAS_OPTIONS.map((o) => (
+                  <option key={o.slug} value={o.slug}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Etiqueta (opcional)</label>
+              <input
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+                placeholder="ej. Cristóbal · uso propio"
+                value={iaLabel}
+                onChange={(e) => setIaLabel(e.target.value)}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                variant="primary"
+                className="w-full"
+                onClick={() => { void addInternalAccount(); }}
+                disabled={iaSaving || !iaTenantId.trim()}
+              >
+                {iaSaving ? "Añadiendo…" : "Añadir cuenta"}
+              </Button>
+            </div>
+          </div>
+          {iaMsg && (
+            <p className={`mt-3 text-sm font-medium ${iaMsg.startsWith("✅") ? "text-green-700" : "text-red-600"}`}>{iaMsg}</p>
+          )}
+        </Card>
+
+        {/* Lista de cuentas */}
+        {internalAccountsLoading ? (
+          <p className="text-sm text-gray-500">Cargando cuentas internas…</p>
+        ) : internalAccounts.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center">
+            <p className="text-2xl mb-2">🔑</p>
+            <p className="text-gray-500 font-medium">Sin cuentas internas registradas</p>
+            <p className="text-sm text-gray-400 mt-1">Añade la primera cuenta usando el formulario de arriba.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {SAAS_OPTIONS.filter((o) => bySlug[o.slug]?.length).map((o) => (
+              <Card key={o.slug} tone="glass" title={o.label} subtitle={`${bySlug[o.slug].length} cuenta${bySlug[o.slug].length !== 1 ? "s" : ""} · Plan Pro siempre`}>
+                <div className="divide-y divide-gray-100">
+                  {bySlug[o.slug].map((acc) => {
+                    const key = `${acc.tenant_id}:${acc.saas_slug}`;
+                    return (
+                      <div key={key} className="flex items-center justify-between py-3 text-sm">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <code className="bg-gray-100 rounded px-2 py-0.5 text-xs font-mono text-gray-700 break-all">
+                              {acc.tenant_id}
+                            </code>
+                            {acc.label && (
+                              <span className="text-gray-500">{acc.label}</span>
+                            )}
+                            <Badge variant="ok" size="sm">Pro</Badge>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Añadida {acc.added_at ? new Date(acc.added_at).toLocaleDateString("es-ES") : "—"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { void deleteInternalAccount(acc.tenant_id, acc.saas_slug); }}
+                          disabled={iaDeleting === key}
+                          className="ml-4 text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {iaDeleting === key ? "Eliminando…" : "Eliminar"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function ConfiguracionSection() {
     return (
       <div className="space-y-6">
@@ -1502,6 +1732,7 @@ export default function OwnerPage() {
     fiscal:          FiscalSection(),
     ayudas:          AyudasSection(),
     socialcors:      SocialcorsSection(),
+    cuentas:         CuentasSection(),
     mentoria:        MentoriaSection(),
     infraestructura: InfraSection(),
     configuracion:   ConfiguracionSection(),
