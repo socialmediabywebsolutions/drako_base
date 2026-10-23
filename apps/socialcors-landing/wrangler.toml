@@ -1,0 +1,13 @@
+name = "saas-socialcors-landing-prod"
+main = "worker.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[routes]]
+pattern = "socialcors.com"
+custom_domain = true
