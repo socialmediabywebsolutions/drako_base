@@ -8,6 +8,11 @@ workers_dev = false
 directory = "./public"
 binding = "ASSETS"
 
+[[d1_databases]]
+binding      = "DB"
+database_name = "socialcors-landing-db"
+database_id  = "DATABASE_ID_PLACEHOLDER"
+
 [[routes]]
 pattern = "socialcors.com"
 custom_domain = true
