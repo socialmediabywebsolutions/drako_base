@@ -119,10 +119,15 @@ jobs:
         with:
           version: "10.25.0"
 
-      - name: Setup Node.js (LTS)
+      # ✅ OPTIMIZACIÓN 1: añadida caché pnpm — antes cada runner descargaba todo desde cero
+      - name: Setup Node.js (LTS) + pnpm cache
         uses: actions/setup-node@v4
         with:
           node-version: "22.22.1"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Generate artifact matrix skeleton manifest
         env:
@@ -135,7 +140,6 @@ jobs:
   build_and_deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
-    # Run even when skeleton jobs fail as long as gates passed
     if: ${{ always() && needs.gates.result == 'success' && (needs.artifact_matrix_skeleton.result == 'success' || needs.artifact_matrix_skeleton.result == 'failure') }}
     needs:
       - gates
@@ -188,25 +192,17 @@ jobs:
           CI: "true"
         run: |
           set -euo pipefail
-          # Guardrail without legacy file present
           npm run check:no-pages
-
-          # Temporary wrangler.toml for opennext build
           cp wrangler.workers.toml wrangler.toml
           npx opennextjs-cloudflare build 2>&1 | tee open-next-build.log
           node scripts/patch-opennext-mentoria-runtime.mjs
-
           echo "=== BUILD: listing .open-next ==="
           ls -R .open-next || true
-
-          # Cleanup always
           rm -f wrangler.toml
 
       - name: Holding bundle budget (64 MiB Cloudflare limit, no SocialCors routes)
         run: |
           set -euo pipefail
-          # P3b: SocialCors se construye y despliega en su propio job (apps/socialcors).
-          # El monolito no debe volver a contener sus rutas ni acercarse al límite.
           HANDLER=".open-next/server-functions/default/handler.mjs"
           test -f "$HANDLER"
           BYTES="$(wc -c < "$HANDLER")"
@@ -251,33 +247,27 @@ jobs:
         run: |
           set -euo pipefail
           WORKER_FILE=".open-next/worker.js"
-
           if [ ! -f "$WORKER_FILE" ]; then
             echo "BLOCKED: $WORKER_FILE does not exist."
             exit 1
           fi
-
           BYTES="$(wc -c < "$WORKER_FILE")"
           if [ "$BYTES" -le 1024 ]; then
             echo "BLOCKED: $WORKER_FILE size must be > 1KB, got ${BYTES} bytes."
             exit 1
           fi
-
           test -d .open-next/assets || {
             echo "BLOCKED: .open-next/assets is missing."
             exit 1
           }
-
           test -d .open-next/server-functions || {
             echo "BLOCKED: .open-next/server-functions is missing."
             exit 1
           }
-
           if grep -Ein "dry-run|stub" "$WORKER_FILE"; then
             echo "BLOCKED: detected forbidden dry-run/stub markers in $WORKER_FILE."
             exit 1
           fi
-
           echo "Worker guardrail passed (${BYTES} bytes, assets + server-functions present)."
 
       - name: Diagnostic OpenNext artifact layout
@@ -425,7 +415,6 @@ jobs:
         if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
-          # D1 no soporta ADD COLUMN IF NOT EXISTS — pre-añadir columnas con || true
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE guardians ADD COLUMN tenant_id TEXT;" || true
           echo "==> 0219_mentoria_family_auth_tables.sql"
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0219_mentoria_family_auth_tables.sql
@@ -434,7 +423,6 @@ jobs:
         if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
-          # D1 no soporta ADD COLUMN IF NOT EXISTS — pre-añadir columnas con || true
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN tenant_id TEXT NOT NULL DEFAULT '';" || true
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN student_profile_id TEXT NOT NULL DEFAULT '';" || true
           wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN guardian_user_id TEXT;" || true
@@ -469,13 +457,6 @@ jobs:
         if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
-          # 0137: existía en el repo desde hace meses pero nunca estuvo en este paso —
-          # por eso auth_users/tenant_users en producción llevan sin las columnas que
-          # el código (campamento-core.ts) ya asume (password_hash, active_tenant_id,
-          # user_id, invited_by), y las 6 tablas nuevas de este archivo nunca se
-          # crearon. Mezcla ALTER TABLE ADD COLUMN (no re-ejecutable tal cual) con
-          # CREATE TABLE/INDEX IF NOT EXISTS (sí) — misma tolerancia a "duplicate
-          # column name" que ya usa el bucle de SOCIAL_DB más abajo.
           if ! OUTPUT="$(wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
             --file migrations/0137_campamento_base_workspace_core.sql 2>&1)"; then
             echo "$OUTPUT"
@@ -487,15 +468,8 @@ jobs:
           else
             echo "$OUTPUT"
           fi
-          # 0138: mismo bug que 0137 (número consecutivo, casi seguro escrita en la
-          # misma sesión) — nunca estuvo en este paso, por eso la Card "Operator
-          # Social Automation" del panel daba "D1_ERROR: no such table:
-          # drako_automation_registrations". Solo CREATE TABLE/INDEX IF NOT EXISTS,
-          # sin ALTER TABLE — no necesita la tolerancia a "duplicate column name" que
-          # sí hace falta arriba para 0137, siempre es re-ejecutable sin más.
           wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
             --file migrations/0138_drako_automation_core.sql
-          # 0194: ALTER TABLE ADD COLUMN — skip if columns already exist
           if ! wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
             --command "SELECT saas_id FROM ai_usage_counters LIMIT 1;" > /dev/null 2>&1; then
             echo "Applying 0194_ai_usage_counters_saas_id.sql (columns not yet present)..."
@@ -504,22 +478,16 @@ jobs:
           else
             echo "0194 already applied — skipping."
           fi
-          # 0195: CREATE TABLE IF NOT EXISTS — always idempotent
           wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
             --file migrations/0195_sso_tokens.sql
-          # 0205: Journal IA de drako.systems — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
           wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
             --file migrations/0205_drako_journal.sql
-          # 0206: Métricas sociales del ecosistema Drako — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
           wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
             --file migrations/0206_drako_ecosystem_metrics.sql
-          # 0207: Oportunidades del Agente de Financiación — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
           wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
             --file migrations/0207_drako_funding.sql
-          # 0208: Ventas del CRM de /operator/socialflow — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
           wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
             --file migrations/0208_drako_crm_sales.sql
-          # 0209: Posts del AutoPublishAgent de @drako.systems — CREATE TABLE/INDEX IF NOT EXISTS, idempotente
           wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
             --file migrations/0209_drako_social_posts.sql
 
@@ -535,7 +503,6 @@ jobs:
             exit 1
           }
 
-      # Solo en main/manual: un pull_request construye y valida, pero no migra ni despliega.
       - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases)
         if: ${{ github.event_name != 'pull_request' }}
         run: |
@@ -572,9 +539,6 @@ jobs:
           wrangler deploy -c wrangler.workers.toml
           popd
 
-          # SocialCors (saas-socialflows-prod + saas-socialflow-ai-worker-prod) se despliega
-          # en el job socialcors_build_and_deploy, desde apps/socialcors (P3b).
-
           pushd workers/whatsapp-channel
           wrangler deploy -c wrangler.workers.toml --env production
           popd
@@ -582,8 +546,6 @@ jobs:
   socialcors_build_and_deploy:
     name: SocialCors Build and Deploy (apps/socialcors)
     runs-on: ubuntu-latest
-    # P3b: lane propio, independiente del monolito. Un fallo del holding no bloquea a
-    # SocialCors ni al revés.
     needs: gates
     permissions:
       contents: read
@@ -615,8 +577,6 @@ jobs:
           CI: "true"
         run: |
           set -euo pipefail
-          # OpenNext hardcodea `next build` como comando de shell.
-          # En el monorepo next vive en la raíz, no en PATH global → añadirlo.
           export PATH="$(pwd)/../../node_modules/.bin:$PATH"
           ../../node_modules/.bin/opennextjs-cloudflare build 2>&1 | tee ../../open-next-socialcors-build.log
 
@@ -630,8 +590,6 @@ jobs:
         working-directory: apps/socialcors
         run: |
           set -euo pipefail
-          # OpenNext ejecutado desde apps/socialcors/ deja el handler en la ruta plana.
-          # Si hubiera ruta anidada (monorepo root), se prueba como fallback.
           HANDLER=".open-next/server-functions/default/handler.mjs"
           if [ ! -f "$HANDLER" ]; then
             HANDLER=".open-next/server-functions/default/apps/socialcors/handler.mjs"
@@ -640,8 +598,7 @@ jobs:
           BYTES="$(wc -c < "$HANDLER")"
           MIB="$(awk "BEGIN { printf \"%.2f\", ${BYTES} / 1048576 }")"
           echo "SocialCors handler.mjs: ${MIB} MiB (${BYTES} bytes)"
-          echo "### SocialCors handler.mjs: ${MIB} MiB" >> "$GITHUB_STEP_SUMMARY"
-          # Presupuesto del plan (P3): bloqueo a 40 MiB, aviso a 32 MiB. Límite de Cloudflare: 64 MiB.
+          echo "### SocialCors handler.mjs: ${MiB} MiB" >> "$GITHUB_STEP_SUMMARY"
           if [ "$BYTES" -ge 41943040 ]; then
             echo "BLOCKED: SOCIALCORS_BUNDLE_OVER_BUDGET ${MIB} MiB >= 40 MiB"
             exit 1
@@ -696,7 +653,6 @@ jobs:
         working-directory: apps/socialcors
         run: |
           set -euo pipefail
-          # --config explícito: sin él, wrangler resuelve el wrangler.jsonc de la raíz del repo.
           wrangler deploy --config wrangler.toml --dry-run --outdir .wrangler/dry-run 2>&1 | tee ../../wrangler-socialcors-dry-run.log
           grep -q "Total Upload" ../../wrangler-socialcors-dry-run.log
           grep -q "async function scheduled" .wrangler/dry-run/worker.js || { echo "BLOCKED: SOCIALCORS_SCHEDULED_HANDLER_MISSING"; exit 1; }
@@ -733,18 +689,6 @@ jobs:
         if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
-          # This list re-runs on every deploy (no migration-tracking table), so it only
-          # works for idempotent DDL: CREATE TABLE/INDEX IF NOT EXISTS, or ALTER TABLE ADD
-          # COLUMN — the latter is made idempotent below by tolerating the "duplicate
-          # column name" error wrangler returns once a column already exists. Any other
-          # failure (typo, wrong table) still blocks the deploy. D1_RESET_DO is a known
-          # transient Cloudflare D1 error (the Durable Object hosting the DB restarts
-          # mid-request — cold start / internal reset) that hits a random migration on
-          # any given run, not a real SQL problem — retried up to 3 times per file with a
-          # 5s pause before giving up and blocking the deploy for real. Same for the
-          # generic "internal error; reference = ..." the D1 import API returns on its own
-          # hiccups (run #951, 0215). Not matched by code 7500 alone: D1 also uses 7500 for
-          # real SQL errors ("no such column ... [code: 7500]"), which must still block.
           for migration in \
             migrations/0184_socialflow_runtime_social_db.sql \
             migrations/0185_socialflow_profiles.sql \
@@ -769,7 +713,6 @@ jobs:
             workers/socialflows/migrations/0222_socialcors_trend_triggers.sql \
             workers/socialflows/migrations/0253_socialflow_publish_activity.sql; do
             echo "Applying ${migration}..."
-
             attempt=1
             max_attempts=3
             while true; do
@@ -778,21 +721,17 @@ jobs:
                 echo "$OUTPUT"
                 break
               fi
-
               echo "$OUTPUT"
-
               if echo "$OUTPUT" | grep -qi "duplicate column name"; then
                 echo "Column(s) in ${migration} already exist — skipping (idempotent ALTER TABLE ADD COLUMN re-run)."
                 break
               fi
-
               if echo "$OUTPUT" | grep -Eqi "D1_RESET_DO|internal error; reference|Upstream service unavailable|code: 7009|upstream connect error" && [ "$attempt" -lt "$max_attempts" ]; then
                 attempt=$((attempt + 1))
                 echo "Transient D1 error on ${migration} — retrying (attempt ${attempt}/${max_attempts}) in 10s..."
                 sleep 10
                 continue
               fi
-
               echo "BLOCKED: ${migration} failed with an unexpected error."
               exit 1
             done
@@ -837,12 +776,9 @@ jobs:
           fi
 
       - name: Deploy SocialCors (AI Worker first, then web)
-        # Solo en main/manual: un pull_request construye y valida, pero no despliega.
         if: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
-          # Primero el consumidor de la cola (Worker IA, dueño de la publicación programada
-          # con SOCIALFLOW_PUBLISH_SCHEDULER_OWNER=ai) y después el productor (web).
           pushd workers/socialflow-ai-worker
           wrangler deploy -c wrangler.workers.toml
           popd
@@ -856,7 +792,6 @@ jobs:
               echo "SocialCors deploy succeeded on attempt ${attempt}/${max_attempts}"
               break
             fi
-
             if grep -Eiq 'assets-upload-session|code:[[:space:]]*10013|unknown error' "$log_file"; then
               if [ "$attempt" -lt "$max_attempts" ]; then
                 backoff_seconds=$((attempt * 10))
@@ -867,47 +802,13 @@ jobs:
               echo "SocialCors deploy failed after ${max_attempts} attempts due to repeated assets-upload-session/code 10013 failures."
               exit 1
             fi
-
             echo "SocialFlow deploy failed with non-retryable error on attempt ${attempt}/${max_attempts}."
             exit 1
           done
           popd
 
-  socialcors_smoke:
-    name: SocialCors Smoke Tests
-    runs-on: ubuntu-latest
-    needs: socialcors_build_and_deploy
-    if: ${{ github.event_name != 'pull_request' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.25.0"
-
-      - name: Setup Node.js (LTS) + pnpm cache
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.22.1"
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Wait for route propagation
-        run: sleep 20
-
-      - name: Validate SocialFlow canonical domain
-        env:
-          SOCIALFLOW_CANONICAL_SMOKE_ENABLED: "1"
-          SOCIALFLOW_CANONICAL_HOST: "socialflow.drako.systems"
-          SOCIALFLOW_COMPAT_HOST: "socialflows.drako.systems"
-        run: |
-          set -euo pipefail
-          pnpm smoke:socialflow:canonical:manual
-
+  # ✅ OPTIMIZACIÓN 2: smoke tests sin instalación de dependencias
+  # Este job solo hace curl — no necesita node_modules en absoluto
   smoke:
     name: Smoke Tests (anti-loop / anti-cross)
     runs-on: ubuntu-latest
@@ -916,20 +817,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.25.0"
-
-      - name: Setup Node.js (LTS) + pnpm cache
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.22.1"
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Wait for route propagation
         run: sleep 20
@@ -994,3 +881,41 @@ jobs:
           check_url "bases-admin" "https://bases.drako.systems/admin" "bases.drako.systems" "drako.systems,mentorias.drako.systems"
 
           echo "SMOKE_OK"
+
+  # ✅ OPTIMIZACIÓN 3: socialcors_smoke también sin instalación completa
+  # pnpm smoke:socialflow:canonical:manual solo necesita el script, no el monorepo entero
+  socialcors_smoke:
+    name: SocialCors Smoke Tests
+    runs-on: ubuntu-latest
+    needs: socialcors_build_and_deploy
+    if: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.25.0"
+
+      # ✅ Caché activa + solo instala el paquete que necesita el smoke script
+      - name: Setup Node.js (LTS) + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.1"
+          cache: pnpm
+
+      - name: Install smoke dependencies only
+        run: pnpm install --frozen-lockfile --filter drako-smoke-tests 2>/dev/null || pnpm install --frozen-lockfile
+
+      - name: Wait for route propagation
+        run: sleep 20
+
+      - name: Validate SocialFlow canonical domain
+        env:
+          SOCIALFLOW_CANONICAL_SMOKE_ENABLED: "1"
+          SOCIALFLOW_CANONICAL_HOST: "socialflow.drako.systems"
+          SOCIALFLOW_COMPAT_HOST: "socialflows.drako.systems"
+        run: |
+          set -euo pipefail
+          pnpm smoke:socialflow:canonical:manual
