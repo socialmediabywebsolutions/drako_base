@@ -1,7 +1,8 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
-import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-// export const runtime = "edge"; // OpenNext Migration
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
 
 
 type Owner = {
@@ -31,7 +32,7 @@ function authErrorResponse(error: unknown) {
 
 export async function GET(req: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(req);
+    const { tenantId } = await requireOwnerAccess(req);
     const url = new URL(req.url);
     const id = url.searchParams.get("id");
     const items = id
@@ -48,7 +49,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(req);
+    const { tenantId } = await requireOwnerAccess(req);
     const body = (await req.json().catch(() => null)) as Partial<Owner> | null;
     if (!body || !body.name) {
       return errorResponse("name is required");
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const { tenantId } = await requireTenantAccess(req);
+    const { tenantId } = await requireOwnerAccess(req);
     const body = (await req.json().catch(() => null)) as Partial<Owner> | null;
     if (!body?.id) {
       return errorResponse("id is required");

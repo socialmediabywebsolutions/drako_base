@@ -1,0 +1,56 @@
+  private async resolveStudentForActor(
+    actor: MentoriaSessionActor,
+    options?: { studentProfileId?: string | null; fallbackToFirstAccessible?: boolean },
+  ): Promise<StudentProfile | null> {
+    const requestedStudentProfileId = options?.studentProfileId?.trim() || "";
+    const directStudent = await this.repository.getStudentProfileByUser(actor.tenantId, actor.userId);
+    if (directStudent) {
+      if (requestedStudentProfileId && directStudent.id !== requestedStudentProfileId) {
+        throw new Error("STUDENT_ACCESS_DENIED");
+      }
+      return directStudent;
+    }
+
+    const accessibleStudents = await this.repository.listGuardianAccessibleStudents(actor.tenantId, actor.userId).catch(() => []);
+    if (accessibleStudents.length === 0) {
+      return null;
+    }
+
+    if (requestedStudentProfileId) {
+      const explicitAccess = accessibleStudents.find((item) => item.studentProfileId === requestedStudentProfileId || item.studentId === requestedStudentProfileId) ?? null;
+      if (!explicitAccess) {
+        throw new Error("STUDENT_ACCESS_DENIED");
+      }
+      return this.repository.getStudentProfileById(actor.tenantId, explicitAccess.studentProfileId);
+    }
+
+    if (options?.fallbackToFirstAccessible === false) {
+      return null;
+    }
+
+    const prioritizedStudents = [...accessibleStudents].sort((left, right) => {
+      if (left.isPrimaryContact !== right.isPrimaryContact) {
+        return Number(right.isPrimaryContact) - Number(left.isPrimaryContact);
+      }
+
+      const leftCreatedAt = Date.parse(left.createdAt);
+      const rightCreatedAt = Date.parse(right.createdAt);
+      const leftTime = Number.isFinite(leftCreatedAt) ? leftCreatedAt : 0;
+      const rightTime = Number.isFinite(rightCreatedAt) ? rightCreatedAt : 0;
+      if (leftTime !== rightTime) {
+        return leftTime - rightTime;
+      }
+
+      return left.studentProfileId.localeCompare(right.studentProfileId);
+    });
+
+    for (const access of prioritizedStudents) {
+      const student = await this.repository.getStudentProfileById(actor.tenantId, access.studentProfileId);
+      if (student) {
+        return student;
+      }
+    }
+
+    return null;
+  }
+

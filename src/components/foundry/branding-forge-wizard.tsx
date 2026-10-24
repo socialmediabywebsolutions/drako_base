@@ -46,7 +46,7 @@ export function BrandingForgeWizard({ saasId, projectName, onComplete, onCancel 
                 await new Promise(r => setTimeout(r, 1200));
             }
 
-            const res = await fetch("/api/campamento-base/provisioning/branding", {
+            const res = await fetch("/api/factory/provisioning/branding", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-drako-tenant-id": "demo" },
                 body: JSON.stringify({

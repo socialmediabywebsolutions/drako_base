@@ -1,0 +1,53 @@
+name = "saas-bases-prod"
+main = "../../.open-next/bases/worker.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[assets]
+directory = "../../.open-next/bases/assets"
+
+[ai]
+binding = "AI"
+
+[[routes]]
+pattern = "base.drako.systems"
+custom_domain = true
+
+[[routes]]
+pattern = "bases.drako.systems"
+custom_domain = true
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+
+[[d1_databases]]
+binding = "BASES_AUTHS_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+
+[[queues.producers]]
+queue = "drako-billing-queue"
+binding = "BILLING_QUEUE"
+
+[[queues.producers]]
+queue = "drako-saas-factory-queue"
+binding = "SAAS_FACTORY_QUEUE"
+
+[[queues.producers]]
+queue = "drako-provisioning-queue"
+binding = "PROVISIONING_QUEUE"
+
+[[services]]
+binding = "SCHEDULER"
+service = "drako-scheduler"
+
+[vars]
+NEXTAUTH_URL = "https://bases.drako.systems"
+AUTHS_ISOLATIONS_ENABLED = "true"
+AUTHS_LEGACY_COMPATS_ENABLED = "false"
+ROUTINGS_SUBDOMAINS_ENABLED = "true"
+TELEMETRIES_HOLDING_ENABLED = "true"
+AUTHS_REQUIRE_CONTEXT_DB = "true"

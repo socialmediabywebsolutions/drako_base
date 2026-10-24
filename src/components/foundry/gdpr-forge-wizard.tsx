@@ -34,7 +34,7 @@ export function GDPRForgeWizard({ saasId, projectName, vertical, businessVision,
             await new Promise(r => setTimeout(r, 1000));
             addLog("GENERATING_GDPR_SHIELD...");
 
-            const res = await fetch("/api/campamento-base/provisioning/gdpr", {
+            const res = await fetch("/api/factory/provisioning/gdpr", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-drako-tenant-id": "demo" },
                 body: JSON.stringify({ saasId, projectName, vertical, businessVision })

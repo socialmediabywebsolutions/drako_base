@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Drako · Panel de Operador</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #080e18;
+      color: #d4dff0;
+      min-height: 100vh;
+      padding: 32px 24px 48px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 36px;
+    }
+    .logo { font-size: 1.3rem; font-weight: 700; color: #e8f0fc; letter-spacing: -0.02em; }
+    .logo span { color: #4f8ef7; }
+    .badge {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: #1a2840;
+      color: #6a8aad;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid #243550;
+    }
+    nav { margin-left: auto; display: flex; gap: 16px; }
+    nav a {
+      font-size: 0.85rem;
+      color: #6a8aad;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: background 0.15s, color 0.15s;
+    }
+    nav a:hover { background: #131f32; color: #d4dff0; }
+
+    h2 { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #4f6a8a; margin-bottom: 16px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+
+    .saas-card {
+      background: #0d1827;
+      border: 1px solid #1a2a40;
+      border-radius: 14px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .saas-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent, #4f8ef7) 0%, transparent 100%);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .card-name { font-size: 1rem; font-weight: 600; color: #e8f0fc; }
+    .card-domain { font-size: 0.75rem; color: #4f6a8a; margin-top: 2px; }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 8px rgba(34,197,94,0.5);
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .status-dot.loading { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.5); animation: pulse 1s infinite; }
+    .status-dot.error { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.5); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .metric { background: #0b1520; border-radius: 8px; padding: 12px 14px; }
+    .metric-value { font-size: 1.5rem; font-weight: 700; color: #e8f0fc; font-variant-numeric: tabular-nums; }
+    .metric-label { font-size: 0.7rem; color: #4f6a8a; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .metric.wide { grid-column: 1 / -1; }
+    .metric.accent .metric-value { color: var(--accent, #4f8ef7); }
+
+    .progress-bar {
+      height: 4px;
+      background: #0b1520;
+      border-radius: 2px;
+      margin-top: 12px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--accent, #4f8ef7), color-mix(in srgb, var(--accent, #4f8ef7) 60%, #4f8ef7));
+      transition: width 0.6s ease;
+    }
+
+    .card-footer {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid #1a2a40;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-footer a {
+      font-size: 0.75rem;
+      color: var(--accent, #4f8ef7);
+      text-decoration: none;
+      opacity: 0.8;
+    }
+    .card-footer a:hover { opacity: 1; }
+    .updated-at { font-size: 0.7rem; color: #2a3a52; }
+
+    .placeholder-msg { font-size: 0.8rem; color: #2a3a52; font-style: italic; padding: 8px 0; }
+
+    .error-msg { font-size: 0.78rem; color: #ef4444; opacity: 0.8; margin-top: 12px; }
+
+    .secret-form {
+      background: #0a1420;
+      border: 1px solid #1a2a40;
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .secret-form label { font-size: 0.8rem; color: #4f6a8a; white-space: nowrap; }
+    .secret-form input {
+      flex: 1;
+      min-width: 200px;
+      background: #0d1827;
+      border: 1px solid #1a2a40;
+      border-radius: 6px;
+      color: #d4dff0;
+      font-size: 0.85rem;
+      padding: 7px 12px;
+      outline: none;
+    }
+    .secret-form input:focus { border-color: #4f8ef7; }
+    .secret-form button {
+      background: #1a3a6a;
+      color: #7ab0f5;
+      border: 1px solid #2a4a80;
+      border-radius: 6px;
+      padding: 7px 16px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .secret-form button:hover { background: #1e4480; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="logo">drako<span>.</span>systems</div>
+    </div>
+    <span class="badge">Operador</span>
+    <nav>
+      <a href="/clients">Clientes</a>
+      <a href="/api/health">Health</a>
+    </nav>
+  </header>
+
+  <h2>Panel de operador</h2>
+
+  <div class="secret-form">
+    <label>DRAKO_SECRET</label>
+    <input id="secret-input" type="password" placeholder="Pega el secret compartido…" autocomplete="off" />
+    <button id="load-btn" onclick="loadAll()">Cargar métricas</button>
+  </div>
+
+  <div class="grid" id="cards-grid">
+    <!-- Carta: Causa -->
+    <div class="saas-card" style="--accent: #6366f1" id="card-causa">
+      <div class="card-header">
+        <div>
+          <div class="card-name">causa</div>
+          <div class="card-domain">causa-worker.drako.workers.dev</div>
+        </div>
+        <div class="status-dot loading" id="dot-causa"></div>
+      </div>
+      <div id="metrics-causa">
+        <div class="placeholder-msg">Introduce el secret y pulsa "Cargar métricas"</div>
+      </div>
+      <div class="card-footer">
+        <a href="https://causa-frontend.pages.dev" target="_blank">Abrir app →</a>
+        <span class="updated-at" id="ts-causa"></span>
+      </div>
+    </div>
+
+    <!-- Más cartas de SaaS aquí cuando estén disponibles -->
+  </div>
+
+  <script>
+    const CAUSA_WORKER = "https://causa.socialmediabywebsolutions.workers.dev";
+
+    function getSecret() {
+      return document.getElementById("secret-input").value.trim();
+    }
+
+    function setDot(id, state) {
+      const dot = document.getElementById("dot-" + id);
+      dot.className = "status-dot " + (state || "");
+    }
+
+    function renderCausaMetrics(data) {
+      const m = data.metrics;
+      const successPct = m.success_rate_pct ?? 0;
+      document.getElementById("metrics-causa").innerHTML = `
+        <div class="metrics-grid">
+          <div class="metric">
+            <div class="metric-value">${m.users_total.toLocaleString("es")}</div>
+            <div class="metric-label">Usuarios</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value">${m.cases_total.toLocaleString("es")}</div>
+            <div class="metric-label">Expedientes</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value">${m.cases_open.toLocaleString("es")}</div>
+            <div class="metric-label">Abiertos</div>
+          </div>
+          <div class="metric accent">
+            <div class="metric-value">${m.claims_sent.toLocaleString("es")}</div>
+            <div class="metric-label">Reclamaciones enviadas</div>
+          </div>
+          <div class="metric wide">
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <span class="metric-label">Tasa de éxito</span>
+              <span class="metric-value" style="font-size:1.2rem">${m.success_rate_pct !== null ? m.success_rate_pct + "%" : "—"}</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${successPct}%"></div></div>
+          </div>
+          <div class="metric wide accent">
+            <div class="metric-value">€${parseFloat(m.revenue_eur).toLocaleString("es", {minimumFractionDigits:2})}</div>
+            <div class="metric-label">Ingresos totales</div>
+          </div>
+        </div>
+      `;
+      document.getElementById("ts-causa").textContent = "actualizado " + new Date(data.generated_at).toLocaleTimeString("es");
+      setDot("causa", "");
+    }
+
+    async function loadCausa(secret) {
+      setDot("causa", "loading");
+      document.getElementById("metrics-causa").innerHTML = '<div class="placeholder-msg">Cargando…</div>';
+      try {
+        const res = await fetch(CAUSA_WORKER + "/internal/metrics", {
+          headers: { "X-Drako-Secret": secret },
+        });
+        if (res.status === 401) {
+          document.getElementById("metrics-causa").innerHTML = '<div class="error-msg">Secret incorrecto (401)</div>';
+          setDot("causa", "error");
+          return;
+        }
+        if (!res.ok) {
+          document.getElementById("metrics-causa").innerHTML = `<div class="error-msg">Error ${res.status}</div>`;
+          setDot("causa", "error");
+          return;
+        }
+        const data = await res.json();
+        renderCausaMetrics(data);
+      } catch (err) {
+        document.getElementById("metrics-causa").innerHTML = `<div class="error-msg">No se pudo conectar: ${err.message}</div>`;
+        setDot("causa", "error");
+      }
+    }
+
+    async function loadAll() {
+      const secret = getSecret();
+      if (!secret) { alert("Introduce el DRAKO_SECRET primero"); return; }
+      try { localStorage.setItem("drako_ops_secret", secret); } catch(_) {}
+      await loadCausa(secret);
+    }
+
+    // Auto-fill desde localStorage si existe
+    try {
+      const saved = localStorage.getItem("drako_ops_secret");
+      if (saved) document.getElementById("secret-input").value = saved;
+    } catch(_) {}
+  </script>
+</body>
+</html>

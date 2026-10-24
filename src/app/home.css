@@ -1,0 +1,446 @@
+/* ─── Drako Home — Premium B2B, Light, Celeste ─── */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+.drako-home {
+    --accent: #0ea5e9;
+    --accent-dark: #0284c7;
+    --accent-light: #f0f9ff;
+    --accent-muted: rgba(14, 165, 233, 0.08);
+    --bg: #ffffff;
+    --bg-alt: #f9fafb;
+    --text: #111827;
+    --text-secondary: #4b5563;
+    --text-muted: #9ca3af;
+    --border: #e5e7eb;
+    --border-light: #f3f4f6;
+    --radius: 12px;
+    --radius-sm: 8px;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Header ── */
+.dh-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-light);
+    padding: 0 32px;
+}
+
+.dh-header-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+}
+
+.dh-logo {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text);
+    text-decoration: none;
+    letter-spacing: -0.03em;
+}
+
+.dh-logo span {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.dh-nav {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+}
+
+.dh-nav a {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+.dh-nav a:hover {
+    color: var(--text);
+}
+
+.dh-nav-cta {
+    padding: 8px 18px !important;
+    background: var(--text) !important;
+    color: #fff !important;
+    border-radius: var(--radius-sm);
+    font-weight: 600 !important;
+    font-size: 0.8rem !important;
+    transition: all 0.15s;
+}
+
+.dh-nav-cta:hover {
+    background: var(--accent) !important;
+}
+
+/* ── Hero ── */
+.dh-hero {
+    text-align: center;
+    padding: 100px 32px 80px;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.dh-hero h1 {
+    font-size: clamp(2.25rem, 5vw, 3.25rem);
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.12;
+    margin: 0 0 20px;
+    letter-spacing: -0.03em;
+}
+
+.dh-hero p {
+    font-size: clamp(1rem, 2vw, 1.15rem);
+    color: var(--text-secondary);
+    max-width: 560px;
+    margin: 0 auto 36px;
+    line-height: 1.7;
+}
+
+.dh-hero-ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+}
+
+.dh-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+
+.dh-btn-primary:hover {
+    background: var(--accent-dark);
+    transform: translateY(-1px);
+}
+
+.dh-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+
+.dh-btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* ── Section base ── */
+.dh-section {
+    padding: 80px 32px;
+    max-width: 1080px;
+    margin: 0 auto;
+}
+
+.dh-section-alt {
+    background: var(--bg-alt);
+}
+
+.dh-section-full-alt {
+    background: var(--bg-alt);
+}
+
+.dh-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+}
+
+.dh-section-title {
+    font-size: clamp(1.5rem, 3.5vw, 2rem);
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 12px;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+}
+
+.dh-section-subtitle {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    max-width: 520px;
+    margin: 0 0 48px;
+    line-height: 1.6;
+}
+
+.dh-section-center {
+    text-align: center;
+}
+
+.dh-section-center .dh-section-subtitle {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ── Steps (How it works) ── */
+.dh-steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border-light);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.dh-step-card {
+    background: var(--bg);
+    padding: 40px 32px;
+}
+
+.dh-step-number {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+}
+
+.dh-step-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: var(--text);
+    letter-spacing: -0.01em;
+}
+
+.dh-step-card p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin: 0;
+}
+
+/* ── Department Cards ── */
+.dh-departments {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1px;
+    background: var(--border-light);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.dh-dept-card {
+    background: var(--bg);
+    padding: 28px 24px;
+}
+
+.dh-dept-card h3 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin: 0 0 6px;
+    color: var(--text);
+}
+
+.dh-dept-card p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.dh-departments-footer {
+    text-align: center;
+    margin-top: 40px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* ── Results Grid ── */
+.dh-results {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.dh-result-card {
+    background: var(--bg);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+}
+
+.dh-result-card h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 0 0 6px;
+    color: var(--text);
+}
+
+.dh-result-card p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* ── For Whom (Profiles) ── */
+.dh-profiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+.dh-profile-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+}
+
+.dh-profile-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: var(--text);
+}
+
+.dh-profile-card p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin: 0;
+}
+
+/* ── Final CTA ── */
+.dh-cta-section {
+    text-align: center;
+    padding: 80px 32px;
+    background: var(--bg-alt);
+    border-top: 1px solid var(--border-light);
+}
+
+.dh-cta-section h2 {
+    font-size: clamp(1.5rem, 3.5vw, 2rem);
+    font-weight: 700;
+    margin: 0 0 12px;
+    color: var(--text);
+    letter-spacing: -0.02em;
+}
+
+.dh-cta-section p {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin: 0 0 28px;
+}
+
+/* ── Footer ── */
+.dh-footer {
+    padding: 28px 32px;
+    text-align: center;
+    border-top: 1px solid var(--border-light);
+    background: var(--bg);
+}
+
+.dh-footer-copy {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.dh-footer-links {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
+
+.dh-footer-links a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.dh-footer-stamp {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    margin-top: 12px;
+    opacity: 0.5;
+    font-family: monospace;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .dh-nav a:not(.dh-nav-cta) {
+        display: none;
+    }
+
+    .dh-steps {
+        grid-template-columns: 1fr;
+    }
+
+    .dh-results {
+        grid-template-columns: 1fr;
+    }
+
+    .dh-profiles {
+        grid-template-columns: 1fr;
+    }
+
+    .dh-section {
+        padding: 56px 20px;
+    }
+
+    .dh-hero {
+        padding: 64px 20px 48px;
+    }
+}
+
+@media (max-width: 480px) {
+    .dh-departments {
+        grid-template-columns: 1fr;
+    }
+
+    .dh-hero-ctas {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .dh-btn-primary,
+    .dh-btn-secondary {
+        justify-content: center;
+    }
+}

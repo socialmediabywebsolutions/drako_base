@@ -24,11 +24,22 @@
       }
     ],
     "types": [
-      "@cloudflare/workers-types"
+      "@cloudflare/workers-types",
+      "react",
+      "node"
     ],
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@shared-neutral/*": [
+        "./packages/shared-neutral/src/*"
+      ],
+      "@shared-cloudflare/*": [
+        "./packages/shared-cloudflare/src/*"
+      ],
+      "@shared-ui-neutral/*": [
+        "./packages/shared-ui-neutral/src/*"
       ]
     }
   },
@@ -42,6 +53,15 @@
     "src/types/**/*.d.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "src/app/_saas_broken",
+    "tests",
+    "src/__tests__",
+    "_temp",
+    "_temp/**",
+    "_temp/socialflow-recovery/**",
+    "apps/socialcors",
+    ".next",
+    ".next/**"
   ]
 }

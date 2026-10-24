@@ -1,0 +1,361 @@
+# SQL Inventory
+
+Generated on: 2026-02-25T23:46:23Z
+
+Total SQL files: 218
+
+## Domain Summary
+
+| Suggested Domain | Files |
+|---|---:|
+| drako-ai-orchestrator-worker | 21 |
+| drako-billing-worker | 15 |
+| drako-core-worker | 11 |
+| drako-observability-worker | 9 |
+| drako-provisioner-worker | 12 |
+| saases-workers (legacy-autopilot) | 92 |
+| saases-workers | 58 |
+
+## Duplicate Basenames
+
+| Basename | Paths |
+|---|---|
+| 0001_init.sql | migrations/0001_init.sql<br>workers/autopilot-worker/migrations/0001_init.sql |
+| 0002_provisioning.sql | migrations/0002_provisioning.sql<br>workers/autopilot-worker/migrations/0002_provisioning.sql |
+| 0003_alerts_saas_id.sql | migrations/0003_alerts_saas_id.sql<br>workers/autopilot-worker/migrations/0003_alerts_saas_id.sql |
+| 0004_saas_agents.sql | migrations/0004_saas_agents.sql<br>workers/autopilot-worker/migrations/0004_saas_agents.sql |
+| 0005_core_departments.sql | migrations/0005_core_departments.sql<br>workers/autopilot-worker/migrations/0005_core_departments.sql |
+| 0006_orchestrator_messages.sql | migrations/0006_orchestrator_messages.sql<br>workers/autopilot-worker/migrations/0006_orchestrator_messages.sql |
+| 0007_core_campamento_base.sql | migrations/0007_core_campamento_base.sql<br>workers/autopilot-worker/migrations/0007_core_campamento_base.sql |
+| 0008_inbox_messages.sql | migrations/0008_inbox_messages.sql<br>workers/autopilot-worker/migrations/0008_inbox_messages.sql |
+| 0009_inbox_statuses.sql | migrations/0009_inbox_statuses.sql<br>workers/autopilot-worker/migrations/0009_inbox_statuses.sql |
+| 0010_admin_backbone.sql | migrations/0010_admin_backbone.sql<br>workers/autopilot-worker/migrations/0010_admin_backbone.sql |
+| 0011_billing_support_notes.sql | migrations/0011_billing_support_notes.sql<br>workers/autopilot-worker/migrations/0011_billing_support_notes.sql |
+| 0012_multitenant_core.sql | migrations/0012_multitenant_core.sql<br>workers/autopilot-worker/migrations/0012_multitenant_core.sql |
+| 0013_tenant_columns.sql | migrations/0013_tenant_columns.sql<br>workers/autopilot-worker/migrations/0013_tenant_columns.sql |
+| 0014_demo_tenant_seed.sql | migrations/0014_demo_tenant_seed.sql<br>workers/autopilot-worker/migrations/0014_demo_tenant_seed.sql |
+| 0015_devarchitect_tables.sql | migrations/0015_devarchitect_tables.sql<br>workers/autopilot-worker/migrations/0015_devarchitect_tables.sql |
+| 0016_devarchitect_alerts_metrics.sql | migrations/0016_devarchitect_alerts_metrics.sql<br>workers/autopilot-worker/migrations/0016_devarchitect_alerts_metrics.sql |
+| 0016_devarchitect_sessions_summary.sql | migrations/0016_devarchitect_sessions_summary.sql<br>workers/autopilot-worker/migrations/0016_devarchitect_sessions_summary.sql |
+| 0016_drako_subscriptions.sql | migrations/0016_drako_subscriptions.sql<br>workers/autopilot-worker/migrations/0016_drako_subscriptions.sql |
+| 0017_clinic_tables.sql | migrations/0017_clinic_tables.sql<br>workers/autopilot-worker/migrations/0017_clinic_tables.sql |
+| 0017_devarchitect_tasks.sql | migrations/0017_devarchitect_tasks.sql<br>workers/autopilot-worker/migrations/0017_devarchitect_tasks.sql |
+| 0017_saas_billing.sql | migrations/0017_saas_billing.sql<br>workers/autopilot-worker/migrations/0017_saas_billing.sql |
+| 0017_saas_domains.sql | migrations/0017_saas_domains.sql<br>workers/autopilot-worker/migrations/0017_saas_domains.sql |
+| 0018_clinic_plan.sql | migrations/0018_clinic_plan.sql<br>workers/autopilot-worker/migrations/0018_clinic_plan.sql |
+| 0018_employees.sql | migrations/0018_employees.sql<br>workers/autopilot-worker/migrations/0018_employees.sql |
+| 0019_employees_hr.sql | migrations/0019_employees_hr.sql<br>workers/autopilot-worker/migrations/0019_employees_hr.sql |
+| 0020_clinic_pricing_inventory.sql | migrations/0020_clinic_pricing_inventory.sql<br>workers/autopilot-worker/migrations/0020_clinic_pricing_inventory.sql |
+| 0020_economy_core.sql | migrations/0020_economy_core.sql<br>workers/autopilot-worker/migrations/0020_economy_core.sql |
+| 0021_saas_customers.sql | migrations/0021_saas_customers.sql<br>workers/autopilot-worker/migrations/0021_saas_customers.sql |
+| 0021_saas_customers_bookings.sql | migrations/0021_saas_customers_bookings.sql<br>workers/autopilot-worker/migrations/0021_saas_customers_bookings.sql |
+| 0022_customers_partner_profiles.sql | migrations/0022_customers_partner_profiles.sql<br>workers/autopilot-worker/migrations/0022_customers_partner_profiles.sql |
+| 0023_email_intake_core.sql | migrations/0023_email_intake_core.sql<br>workers/autopilot-worker/migrations/0023_email_intake_core.sql |
+| 0024_saas_appointments.sql | migrations/0024_saas_appointments.sql<br>workers/autopilot-worker/migrations/0024_saas_appointments.sql |
+| 0025_saas_appointments_customer_id.sql | migrations/0025_saas_appointments_customer_id.sql<br>workers/autopilot-worker/migrations/0025_saas_appointments_customer_id.sql |
+| 0026_social_core.sql | migrations/0026_social_core.sql<br>workers/autopilot-worker/migrations/0026_social_core.sql |
+| 0027_social_conversion_core.sql | migrations/0027_social_conversion_core.sql<br>workers/autopilot-worker/migrations/0027_social_conversion_core.sql |
+| 0028_saas_domains_core.sql | migrations/0028_saas_domains_core.sql<br>workers/autopilot-worker/migrations/0028_saas_domains_core.sql |
+| 0029_saas_blueprint_core.sql | migrations/0029_saas_blueprint_core.sql<br>workers/autopilot-worker/migrations/0029_saas_blueprint_core.sql |
+| 0030_hr_guardrails_enforcement.sql | migrations/0030_hr_guardrails_enforcement.sql<br>workers/autopilot-worker/migrations/0030_hr_guardrails_enforcement.sql |
+| 0031_saas_tasks_core.sql | migrations/0031_saas_tasks_core.sql<br>workers/autopilot-worker/migrations/0031_saas_tasks_core.sql |
+| 0032_saas_knowledge_core.sql | migrations/0032_saas_knowledge_core.sql<br>workers/autopilot-worker/migrations/0032_saas_knowledge_core.sql |
+| 0033_knowledge_documents_meta.sql | migrations/0033_knowledge_documents_meta.sql<br>workers/autopilot-worker/migrations/0033_knowledge_documents_meta.sql |
+| 0034_saas_features_core.sql | migrations/0034_saas_features_core.sql<br>workers/autopilot-worker/migrations/0034_saas_features_core.sql |
+| 0035_saas_plan_features_core.sql | migrations/0035_saas_plan_features_core.sql<br>workers/autopilot-worker/migrations/0035_saas_plan_features_core.sql |
+| 0036_conversations_core.sql | migrations/0036_conversations_core.sql<br>workers/autopilot-worker/migrations/0036_conversations_core.sql |
+| 0037_saas_branding_core.sql | migrations/0037_saas_branding_core.sql<br>workers/autopilot-worker/migrations/0037_saas_branding_core.sql |
+| 0038_whatsapp_gateway_core.sql | migrations/0038_whatsapp_gateway_core.sql<br>workers/autopilot-worker/migrations/0038_whatsapp_gateway_core.sql |
+| 0039_saas_tax_core.sql | migrations/0039_saas_tax_core.sql<br>workers/autopilot-worker/migrations/0039_saas_tax_core.sql |
+| 0040_drako_vendor_core.sql | migrations/0040_drako_vendor_core.sql<br>workers/autopilot-worker/migrations/0040_drako_vendor_core.sql |
+| 0041_drako_baseline_core.sql | migrations/0041_drako_baseline_core.sql<br>workers/autopilot-worker/migrations/0041_drako_baseline_core.sql |
+| 0042_drako_treasury_core.sql | migrations/0042_drako_treasury_core.sql<br>workers/autopilot-worker/migrations/0042_drako_treasury_core.sql |
+| 0043_saas_marketing_core.sql | migrations/0043_saas_marketing_core.sql<br>workers/autopilot-worker/migrations/0043_saas_marketing_core.sql |
+| 0044_drako_action_queue_core.sql | migrations/0044_drako_action_queue_core.sql<br>workers/autopilot-worker/migrations/0044_drako_action_queue_core.sql |
+| 0045_drako_empire_runtime_core.sql | migrations/0045_drako_empire_runtime_core.sql<br>workers/autopilot-worker/migrations/0045_drako_empire_runtime_core.sql |
+| 0046_drako_empire_runtime_constraints.sql | migrations/0046_drako_empire_runtime_constraints.sql<br>workers/autopilot-worker/migrations/0046_drako_empire_runtime_constraints.sql |
+| 0047_drako_domain_verification.sql | migrations/0047_drako_domain_verification.sql<br>workers/autopilot-worker/migrations/0047_drako_domain_verification.sql |
+| 0048_drako_domain_status_normalization.sql | migrations/0048_drako_domain_status_normalization.sql<br>workers/autopilot-worker/migrations/0048_drako_domain_status_normalization.sql |
+| 0049_drako_stripe_mapping.sql | migrations/0049_drako_stripe_mapping.sql<br>workers/autopilot-worker/migrations/0049_drako_stripe_mapping.sql |
+| 0050_drako_stripe_webhook_events.sql | migrations/0050_drako_stripe_webhook_events.sql<br>workers/autopilot-worker/migrations/0050_drako_stripe_webhook_events.sql |
+| 0051_drako_events_rollups.sql | migrations/0051_drako_events_rollups.sql<br>workers/autopilot-worker/migrations/0051_drako_events_rollups.sql |
+| 0052_drako_action_queue_operable.sql | migrations/0052_drako_action_queue_operable.sql<br>workers/autopilot-worker/migrations/0052_drako_action_queue_operable.sql |
+| 0053_drako_public_surface_security.sql | migrations/0053_drako_public_surface_security.sql<br>workers/autopilot-worker/migrations/0053_drako_public_surface_security.sql |
+| 0054_drako_ai_governance.sql | migrations/0054_drako_ai_governance.sql<br>workers/autopilot-worker/migrations/0054_drako_ai_governance.sql |
+| 0055_drako_migrations_state.sql | migrations/0055_drako_migrations_state.sql<br>workers/autopilot-worker/migrations/0055_drako_migrations_state.sql |
+| 0057_seed_demo_basics.sql | migrations/0057_seed_demo_basics.sql<br>workers/autopilot-worker/migrations/0057_seed_demo_basics.sql |
+| 0058_seed_demo_saas_project.sql | migrations/0058_seed_demo_saas_project.sql<br>workers/autopilot-worker/migrations/0058_seed_demo_saas_project.sql |
+| 0059_seed_drako_systems_projects.sql | migrations/0059_seed_drako_systems_projects.sql<br>workers/autopilot-worker/migrations/0059_seed_drako_systems_projects.sql |
+| 0060_factory_ready_core.sql | migrations/0060_factory_ready_core.sql<br>workers/autopilot-worker/migrations/0060_factory_ready_core.sql |
+| 0061_projects_factory_companies_compat.sql | migrations/0061_projects_factory_companies_compat.sql<br>workers/autopilot-worker/migrations/0061_projects_factory_companies_compat.sql |
+| 0062_projects_factory_core.sql | migrations/0062_projects_factory_core.sql<br>workers/autopilot-worker/migrations/0062_projects_factory_core.sql |
+| 0063_project_domains_verification.sql | migrations/0063_project_domains_verification.sql<br>workers/autopilot-worker/migrations/0063_project_domains_verification.sql |
+| 0064_project_entitlements_extended.sql | migrations/0064_project_entitlements_extended.sql<br>workers/autopilot-worker/migrations/0064_project_entitlements_extended.sql |
+| 0065_saas_health_metrics.sql | migrations/0065_saas_health_metrics.sql<br>workers/autopilot-worker/migrations/0065_saas_health_metrics.sql |
+| 0066_stripe_quick_setup.sql | migrations/0066_stripe_quick_setup.sql<br>workers/autopilot-worker/migrations/0066_stripe_quick_setup.sql |
+| 0067_saas_templates_marketplace.sql | migrations/0067_saas_templates_marketplace.sql<br>workers/autopilot-worker/migrations/0067_saas_templates_marketplace.sql |
+| 0068_seed_official_templates.sql | migrations/0068_seed_official_templates.sql<br>workers/autopilot-worker/migrations/0068_seed_official_templates.sql |
+| 0069_unified_analytics.sql | migrations/0069_unified_analytics.sql<br>workers/autopilot-worker/migrations/0069_unified_analytics.sql |
+| 0070_business_intelligence_kb.sql | migrations/0070_business_intelligence_kb.sql<br>workers/autopilot-worker/migrations/0070_business_intelligence_kb.sql |
+| 0071_project_contracts.sql | migrations/0071_project_contracts.sql<br>workers/autopilot-worker/migrations/0071_project_contracts.sql |
+| 0072_factory_core_agents.sql | migrations/0072_factory_core_agents.sql<br>workers/autopilot-worker/migrations/0072_factory_core_agents.sql |
+| 0073_saas_growth_intelligence.sql | migrations/0073_saas_growth_intelligence.sql<br>workers/autopilot-worker/migrations/0073_saas_growth_intelligence.sql |
+| 0074_campamento_phase2.sql | migrations/0074_campamento_phase2.sql<br>workers/autopilot-worker/migrations/0074_campamento_phase2.sql |
+| 0075_ticket_messages.sql | migrations/0075_ticket_messages.sql<br>workers/autopilot-worker/migrations/0075_ticket_messages.sql |
+| 0100_create_client_onboarding.sql | migrations/0100_create_client_onboarding.sql<br>workers/autopilot-worker/migrations/0100_create_client_onboarding.sql |
+| 0101_create_competitive_analysis.sql | migrations/0101_create_competitive_analysis.sql<br>workers/autopilot-worker/migrations/0101_create_competitive_analysis.sql |
+| 0102_steel_step4_audits.sql | migrations/0102_steel_step4_audits.sql<br>workers/autopilot-worker/migrations/0102_steel_step4_audits.sql |
+| 0103_steel_step4_idempotency.sql | migrations/0103_steel_step4_idempotency.sql<br>workers/autopilot-worker/migrations/0103_steel_step4_idempotency.sql |
+| 0104_create_auth_v2.sql | migrations/0104_create_auth_v2.sql<br>workers/autopilot-worker/migrations/0104_create_auth_v2.sql |
+| 0105_drako_ai_router_v1.1.sql | migrations/0105_drako_ai_router_v1.1.sql<br>workers/autopilot-worker/migrations/0105_drako_ai_router_v1.1.sql |
+| 0106_cost_optimizer_and_packs.sql | migrations/0106_cost_optimizer_and_packs.sql<br>workers/autopilot-worker/migrations/0106_cost_optimizer_and_packs.sql |
+| 0107_multi_provider_and_cron.sql | migrations/0107_multi_provider_and_cron.sql<br>workers/autopilot-worker/migrations/0107_multi_provider_and_cron.sql |
+| 0108_saas_monetization.sql | migrations/0108_saas_monetization.sql<br>workers/autopilot-worker/migrations/0108_saas_monetization.sql |
+| 0136_auths_isolations.sql | migrations/0136_auths_isolations.sql<br>workers/autopilot-worker/migrations/0136_auths_isolations.sql |
+
+## File Inventory
+
+| File Path | Created Objects | Dependencies | Suggested Domain |
+|---|---|---|---|
+| migrations/0001_init.sql | table:agents<br>table:agent_runs<br>table:alerts<br>table:departments<br>table:grants<br>table:metrics<br>table:owners<br>table:saas | agents<br>departments<br>saas | saases-workers |
+| migrations/0002_provisioning.sql | index:idx_provisioning_saas_created<br>table:provisioning | saas | drako-provisioner-worker |
+| migrations/0003_alerts_saas_id.sql | index:idx_alerts_saas_created | alerts | drako-observability-worker |
+| migrations/0004_saas_agents.sql | index:idx_saas_agents_saas<br>table:saas_agents | agents<br>saas | drako-ai-orchestrator-worker |
+| migrations/0005_core_departments.sql | - | agents<br>departments<br>SET | saases-workers |
+| migrations/0006_orchestrator_messages.sql | index:idx_orchestrator_messages_thread<br>table:orchestrator_messages | - | drako-ai-orchestrator-worker |
+| migrations/0007_core_campamento_base.sql | index:idx_saas_agents_core<br>index:idx_saas_agents_saas<br>table:core_agents<br>table:core_departments<br>table:saas_agents | core_agents<br>core_departments<br>saas<br>SET | saases-workers |
+| migrations/0008_inbox_messages.sql | index:idx_inbox_messages_channel<br>index:idx_inbox_messages_department<br>index:idx_inbox_messages_saas<br>index:idx_inbox_messages_status<br>table:inbox_messages | core_departments<br>saas | saases-workers |
+| migrations/0009_inbox_statuses.sql | index:idx_inbox_messages_channel<br>index:idx_inbox_messages_department<br>index:idx_inbox_messages_saas<br>index:idx_inbox_messages_status<br>table:inbox_messages_new | core_departments<br>inbox_messages_new<br>saas | drako-observability-worker |
+| migrations/0010_admin_backbone.sql | index:idx_clients_owner<br>index:idx_client_saas_client_saas<br>index:idx_invoices_client_saas_status<br>index:idx_tickets_saas_status<br>table:clients<br>table:client_saas<br>table:invoices<br>table:owners<br>table:social_accounts<br>table:tickets | clients<br>owners<br>saas | saases-workers |
+| migrations/0011_billing_support_notes.sql | - | invoices<br>tickets | drako-billing-worker |
+| migrations/0012_multitenant_core.sql | index:idx_tenant_accounting_entries_scope<br>index:idx_tenant_agents_tenant_dept<br>index:idx_tenant_automations_tenant_type<br>index:idx_tenant_departments_active<br>index:idx_tenant_departments_tenant_slug<br>index:idx_tenant_kb_tenant_source<br>index:idx_tenant_logs_recent<br>index:idx_tenant_pipelines_tenant_stage<br>index:idx_tenant_users_tenant_email<br>table:tenants<br>table:tenant_accounting_entries<br>table:tenant_agents<br>table:tenant_automations<br>table:tenant_departments<br>table:tenant_knowledge_bases<br>table:tenant_logs<br>table:tenant_pipelines<br>table:tenant_users | tenants<br>tenant_departments | drako-core-worker |
+| migrations/0013_tenant_columns.sql | index:idx_agents_tenant<br>index:idx_alerts_tenant<br>index:idx_clients_tenant<br>index:idx_client_saas_tenant<br>index:idx_departments_tenant<br>index:idx_grants_tenant<br>index:idx_inbox_messages_tenant<br>index:idx_invoices_tenant<br>index:idx_metrics_tenant<br>index:idx_orchestrator_messages_tenant<br>index:idx_owners_tenant<br>index:idx_provisioning_tenant<br>index:idx_saas_agents_tenant<br>index:idx_saas_tenant<br>index:idx_social_accounts_tenant<br>index:idx_tickets_tenant | agents<br>alerts<br>clients<br>client_saas<br>departments<br>grants<br>inbox_messages<br>invoices<br>metrics<br>orchestrator_messages<br>owners<br>provisioning<br>saas<br>saas_agents<br>social_accounts<br>tickets | drako-core-worker |
+| migrations/0014_demo_tenant_seed.sql | - | SET<br>tenants<br>tenant_agents<br>tenant_departments<br>tenant_users | drako-core-worker |
+| migrations/0015_devarchitect_tables.sql | index:idx_devarchitect_checklists_project<br>index:idx_devarchitect_projects_tenant<br>index:idx_devarchitect_sessions_tenant_project<br>table:devarchitect_checklists<br>table:devarchitect_projects<br>table:devarchitect_sessions | devarchitect_projects<br>tenants | saases-workers |
+| migrations/0016_devarchitect_alerts_metrics.sql | index:idx_alerts_devarchitect_project | alerts | drako-observability-worker |
+| migrations/0016_devarchitect_sessions_summary.sql | - | devarchitect_sessions | saases-workers |
+| migrations/0016_drako_subscriptions.sql | index:idx_drako_subscriptions_tenant<br>table:drako_subscriptions | clients<br>saas<br>tenants | drako-billing-worker |
+| migrations/0017_clinic_tables.sql | index:idx_clinic_appointments_tenant<br>index:idx_clinic_finance_entries_tenant<br>index:idx_clinic_leads_tenant<br>index:idx_clinic_profiles_saas<br>index:idx_clinic_profiles_tenant<br>index:idx_clinic_reviews_tenant<br>index:idx_clinic_services_tenant<br>table:clinic_appointments<br>table:clinic_finance_entries<br>table:clinic_leads<br>table:clinic_profiles<br>table:clinic_reviews<br>table:clinic_services | clients<br>saas<br>tenants | saases-workers |
+| migrations/0017_devarchitect_tasks.sql | index:idx_devarchitect_tasks_tenant_project<br>table:devarchitect_tasks | devarchitect_projects | saases-workers |
+| migrations/0017_saas_billing.sql | index:idx_client_saas_subscriptions_client<br>index:idx_client_saas_subscriptions_saas<br>index:idx_client_saas_subscriptions_tenant<br>index:idx_saas_plans_status<br>index:idx_saas_plans_tenant<br>table:client_saas_subscriptions<br>table:saas_plans | clients<br>saas<br>saas_plans<br>tenants | drako-billing-worker |
+| migrations/0017_saas_domains.sql | index:idx_saas_public_domain<br>index:idx_saas_public_subdomain | saas | drako-ai-orchestrator-worker |
+| migrations/0018_clinic_plan.sql | - | saas<br>saas_plans<br>SET | saases-workers |
+| migrations/0018_employees.sql | index:idx_employees_tenant_saas<br>index:idx_employee_schedules_employee<br>index:idx_employee_skills_employee<br>table:employees<br>table:employee_schedules<br>table:employee_skills | employees | saases-workers |
+| migrations/0019_employees_hr.sql | index:idx_employee_contracts_employee<br>index:idx_employee_contracts_tenant_saas<br>index:idx_employee_hr_events_employee<br>index:idx_employee_hr_events_tenant<br>index:idx_employee_hr_flags_employee<br>index:idx_employee_hr_flags_tenant_saas<br>index:idx_employee_payroll_runs_employee<br>index:idx_employee_payroll_runs_tenant<br>index:idx_employee_roles_tenant_saas<br>index:idx_employee_schedules_employee<br>index:idx_employee_schedules_tenant_saas<br>index:idx_employee_timesheets_employee<br>index:idx_employee_timesheets_tenant<br>table:employee_contracts<br>table:employee_hr_events<br>table:employee_hr_flags<br>table:employee_hr_settings<br>table:employee_payroll_runs<br>table:employee_roles<br>table:employee_schedules<br>table:employee_timesheets | - | saases-workers |
+| migrations/0020_clinic_pricing_inventory.sql | index:idx_clinic_cost_entries_category<br>index:idx_clinic_cost_entries_period<br>index:idx_clinic_cost_entries_tenant_saas<br>index:idx_clinic_inventory_movements_product<br>index:idx_clinic_inventory_movements_source<br>index:idx_clinic_inventory_movements_tenant_saas<br>index:idx_clinic_products_active<br>index:idx_clinic_products_tenant_saas<br>index:idx_clinic_service_products_product<br>index:idx_clinic_service_products_tenant_saas<br>table:clinic_cost_entries<br>table:clinic_inventory_movements<br>table:clinic_pricing_settings<br>table:clinic_products<br>table:clinic_service_products | - | drako-billing-worker |
+| migrations/0020_economy_core.sql | index:idx_saas_expenses_tenant_saas_type<br>index:idx_saas_inventory_items_sku<br>index:idx_saas_inventory_items_tenant_saas<br>index:idx_saas_inventory_movements_created<br>index:idx_saas_inventory_movements_item<br>index:idx_saas_services_slug<br>index:idx_saas_services_tenant_saas<br>index:idx_saas_service_products_service<br>table:saas_expenses<br>table:saas_inventory_items<br>table:saas_inventory_movements<br>table:saas_pricing_settings<br>table:saas_services<br>table:saas_service_products | saas_inventory_items<br>saas_services | saases-workers |
+| migrations/0021_saas_customers.sql | index:idx_saas_customers_email<br>index:idx_saas_customers_tenant<br>table:saas_customers | - | saases-workers |
+| migrations/0021_saas_customers_bookings.sql | index:idx_saas_customers_tenant_saas<br>index:idx_saas_customer_bookings_customer<br>index:idx_saas_customer_bookings_start_time<br>index:idx_saas_customer_metrics_customer<br>index:idx_saas_customer_profiles_tenant_saas_customer<br>table:saas_customers<br>table:saas_customer_bookings<br>table:saas_customer_metrics<br>table:saas_customer_profiles | saas_customers<br>TEXT | saases-workers |
+| migrations/0022_customers_partner_profiles.sql | index:idx_customer_style_notes_lookup<br>table:saas_customer_profiles<br>table:saas_customer_style_notes | saas_customers<br>saas_customer_profiles<br>TEXT | saases-workers |
+| migrations/0023_email_intake_core.sql | index:idx_email_labels_lookup<br>index:idx_email_messages_classification<br>index:idx_email_messages_received_at<br>index:idx_email_messages_status<br>index:idx_email_message_labels_lookup<br>table:saas_email_labels<br>table:saas_email_messages<br>table:saas_email_message_labels | - | drako-ai-orchestrator-worker |
+| migrations/0024_saas_appointments.sql | index:idx_saas_appointments_employee_start<br>index:idx_saas_appointments_start<br>table:saas_appointments | - | saases-workers |
+| migrations/0025_saas_appointments_customer_id.sql | index:idx_saas_appointments_customer | saas_appointments | saases-workers |
+| migrations/0026_social_core.sql | index:idx_saas_social_accounts_provider<br>index:idx_saas_social_accounts_tenant<br>index:idx_saas_social_campaigns_status<br>index:idx_saas_social_campaigns_tenant<br>index:idx_saas_social_metrics_captured<br>index:idx_saas_social_metrics_post<br>index:idx_saas_social_posts_campaign<br>index:idx_saas_social_posts_status<br>table:saas_social_accounts<br>table:saas_social_campaigns<br>table:saas_social_metrics<br>table:saas_social_posts | - | saases-workers |
+| migrations/0027_social_conversion_core.sql | index:idx_saas_appointments_social_campaign<br>index:idx_saas_appointments_social_post | saas_appointments | saases-workers |
+| migrations/0028_saas_domains_core.sql | index:idx_saas_domains_saas_primary<br>index:idx_saas_domains_tenant_saas<br>table:saas_domains | - | drako-ai-orchestrator-worker |
+| migrations/0029_saas_blueprint_core.sql | index:idx_saas_interview_answers_tenant_saas<br>index:idx_saas_modules_tenant_saas<br>table:saas_blueprints<br>table:saas_interview_answers<br>table:saas_modules | - | saases-workers |
+| migrations/0030_hr_guardrails_enforcement.sql | - | employee_hr_settings | drako-ai-orchestrator-worker |
+| migrations/0031_saas_tasks_core.sql | index:idx_saas_tasks_tenant_saas_assignee_status<br>index:idx_saas_tasks_tenant_saas_category<br>index:idx_saas_tasks_tenant_saas_status<br>index:idx_saas_task_events_task_created<br>table:saas_tasks<br>table:saas_task_events | - | saases-workers |
+| migrations/0032_saas_knowledge_core.sql | index:idx_knowledge_documents_creator<br>index:idx_knowledge_documents_space<br>index:idx_knowledge_documents_status<br>index:idx_knowledge_links_document<br>index:idx_knowledge_links_target<br>index:idx_knowledge_spaces_tenant_saas<br>table:saas_knowledge_documents<br>table:saas_knowledge_links<br>table:saas_knowledge_spaces | - | drako-ai-orchestrator-worker |
+| migrations/0033_knowledge_documents_meta.sql | - | saas_knowledge_documents | drako-ai-orchestrator-worker |
+| migrations/0034_saas_features_core.sql | index:idx_saas_features_category<br>index:idx_saas_features_status<br>table:saas_features | - | saases-workers |
+| migrations/0035_saas_plan_features_core.sql | index:idx_saas_plan_features_plan<br>table:saas_plan_features | saas_plans | saases-workers |
+| migrations/0036_conversations_core.sql | index:idx_saas_conversations_tenant_saas_channel<br>index:idx_saas_conversations_tenant_saas_customer<br>index:idx_saas_conversations_tenant_saas_status<br>index:idx_saas_conversation_messages_conversation<br>index:idx_saas_conversation_messages_customer<br>index:idx_saas_notifications_read<br>index:idx_saas_notifications_type<br>table:saas_conversations<br>table:saas_conversation_messages<br>table:saas_notifications | - | drako-ai-orchestrator-worker |
+| migrations/0037_saas_branding_core.sql | index:idx_saas_branding_settings_saas<br>index:idx_saas_user_ui_preferences_role<br>table:saas_branding_settings<br>table:saas_user_ui_preferences | - | saases-workers |
+| migrations/0038_whatsapp_gateway_core.sql | index:idx_saas_whatsapp_identities_actor<br>index:idx_saas_whatsapp_identities_phone<br>index:idx_saas_whatsapp_identities_tenant_saas<br>index:idx_saas_whatsapp_messages_conversation<br>index:idx_saas_whatsapp_messages_direction<br>index:idx_saas_whatsapp_messages_phone<br>table:saas_whatsapp_identities<br>table:saas_whatsapp_messages | - | drako-ai-orchestrator-worker |
+| migrations/0039_saas_tax_core.sql | index:idx_saas_tax_periods_status<br>index:idx_saas_tax_profiles_saas<br>table:saas_tax_periods<br>table:saas_tax_profiles | - | drako-billing-worker |
+| migrations/0040_drako_vendor_core.sql | index:idx_drako_vendor_expenses_period<br>index:idx_drako_vendor_expenses_vertical<br>table:drako_vendor_expenses | - | drako-billing-worker |
+| migrations/0041_drako_baseline_core.sql | index:idx_drako_owner_baseline_needs_tenant<br>table:drako_owner_baseline_needs | - | saases-workers |
+| migrations/0042_drako_treasury_core.sql | index:idx_drako_treasury_accounts_tenant<br>index:idx_drako_treasury_accounts_type<br>index:idx_drako_treasury_movements_account<br>index:idx_drako_treasury_movements_period<br>index:idx_drako_treasury_movements_tenant<br>table:drako_treasury_accounts<br>table:drako_treasury_config<br>table:drako_treasury_movements | drako_treasury_accounts | drako-billing-worker |
+| migrations/0043_saas_marketing_core.sql | index:idx_saas_marketing_plans_tenant_saas<br>index:idx_saas_marketing_usage_period<br>index:idx_saas_paid_ads_spend_period<br>table:saas_marketing_plans<br>table:saas_marketing_usage<br>table:saas_paid_ads_spend | - | saases-workers |
+| migrations/0044_drako_action_queue_core.sql | index:idx_campamento_actions_saas<br>index:idx_campamento_actions_status<br>table:campamento_actions | - | saases-workers |
+| migrations/0045_drako_empire_runtime_core.sql | index:idx_campamento_events_correlation<br>index:idx_campamento_events_saas_created<br>index:idx_campamento_events_tenant_created<br>index:idx_campamento_events_type<br>index:idx_saas_domains_tenant_domain<br>index:idx_saas_projects_status<br>index:idx_saas_projects_tenant_slug<br>table:campamento_events<br>table:saas_chats<br>table:saas_projects | saas_domains | saases-workers |
+| migrations/0046_drako_empire_runtime_constraints.sql | table:campamento_provisioning | saas_domains | drako-ai-orchestrator-worker |
+| migrations/0047_drako_domain_verification.sql | index:idx_saas_domains_tenant_status | saas_domains | drako-ai-orchestrator-worker |
+| migrations/0048_drako_domain_status_normalization.sql | - | saas_domains | drako-observability-worker |
+| migrations/0049_drako_stripe_mapping.sql | table:saas_stripe_mapping | - | drako-billing-worker |
+| migrations/0050_drako_stripe_webhook_events.sql | index:idx_stripe_webhook_events_status<br>index:idx_stripe_webhook_events_tenant<br>table:stripe_webhook_events | - | drako-billing-worker |
+| migrations/0051_drako_events_rollups.sql | index:idx_campamento_events_tenant_created<br>index:idx_campamento_events_tenant_saas_created<br>index:idx_campamento_events_tenant_severity_created<br>index:idx_campamento_events_tenant_type_created<br>table:campamento_event_rollups_daily | - | drako-observability-worker |
+| migrations/0052_drako_action_queue_operable.sql | index:idx_campamento_actions_open_priority | campamento_actions | saases-workers |
+| migrations/0053_drako_public_surface_security.sql | index:idx_rate_limit_updated_at<br>table:public_ingest_tokens<br>table:rate_limit_buckets | - | saases-workers |
+| migrations/0054_drako_ai_governance.sql | index:idx_ai_circuit_breakers_state<br>index:idx_ai_rate_limit_buckets_window<br>index:idx_ai_usage_counters_key<br>table:ai_circuit_breakers<br>table:ai_rate_limit_buckets<br>table:ai_usage_counters | - | drako-ai-orchestrator-worker |
+| migrations/0055_drako_migrations_state.sql | index:idx_drako_migrations_applied_at<br>table:drako_migrations | - | saases-workers |
+| migrations/0057_seed_demo_basics.sql | - | - | saases-workers |
+| migrations/0058_seed_demo_saas_project.sql | - | - | saases-workers |
+| migrations/0059_seed_drako_systems_projects.sql | - | saas<br>saas_domains<br>saas_projects<br>SET | saases-workers |
+| migrations/0060_factory_ready_core.sql | table:agent_assignments<br>table:agent_catalog<br>table:checkouts<br>table:department_catalog<br>table:knowledge_bases<br>table:onboarding_messages<br>table:onboarding_sessions<br>table:pack_catalog<br>table:reports<br>table:report_files<br>table:research_jobs | agent_catalog<br>department_catalog<br>onboarding_sessions<br>reports | drako-provisioner-worker |
+| migrations/0061_projects_factory_companies_compat.sql | view:companies<br>view:company_domains | - | drako-provisioner-worker |
+| migrations/0062_projects_factory_core.sql | index:idx_projects_tenant_company<br>index:idx_projects_tenant_status<br>index:idx_project_domains_project<br>index:idx_project_entitlements_project<br>table:projects<br>table:project_domains<br>table:project_entitlements | projects | drako-provisioner-worker |
+| migrations/0063_project_domains_verification.sql | - | project_domains | drako-provisioner-worker |
+| migrations/0064_project_entitlements_extended.sql | - | project_entitlements | saases-workers |
+| migrations/0065_saas_health_metrics.sql | index:idx_health_metrics_saas<br>index:idx_health_metrics_score<br>index:idx_health_metrics_status<br>index:idx_health_metrics_tenant<br>table:saas_health_metrics<br>view:v_latest_health_scores | saas_projects<br>tenants | drako-observability-worker |
+| migrations/0066_stripe_quick_setup.sql | index:idx_stripe_setup_log_saas<br>index:idx_stripe_setup_log_status<br>index:idx_stripe_setup_templates_vertical<br>table:stripe_setup_log<br>table:stripe_setup_templates | saas_projects<br>stripe_setup_templates<br>tenants | drako-billing-worker |
+| migrations/0067_saas_templates_marketplace.sql | index:idx_templates_featured<br>index:idx_templates_tier<br>index:idx_templates_vertical<br>index:idx_template_installations_saas<br>index:idx_template_reviews_template<br>table:saas_blueprint_templates<br>table:saas_template_installations<br>table:saas_template_reviews<br>view:v_template_stats | saas_blueprint_templates<br>saas_projects<br>tenants | saases-workers |
+| migrations/0068_seed_official_templates.sql | - | - | saases-workers |
+| migrations/0069_unified_analytics.sql | index:idx_holding_snapshots_tenant_date<br>index:idx_holding_snapshots_type<br>index:idx_saas_daily_metrics<br>index:idx_saas_daily_metrics_tenant<br>table:holding_metrics_snapshots<br>table:saas_daily_metrics<br>view:v_latest_holding_metrics<br>view:v_saas_performance | saas_projects<br>tenants | drako-observability-worker |
+| migrations/0070_business_intelligence_kb.sql | index:idx_bi_tenant<br>table:company_business_intelligence | - | saases-workers |
+| migrations/0071_project_contracts.sql | index:idx_project_contracts_status<br>index:idx_project_contracts_tenant_project<br>table:project_contracts | projects | drako-provisioner-worker |
+| migrations/0072_factory_core_agents.sql | index:idx_quotes_interview<br>index:idx_swarms_project<br>table:agents_catalog_versions<br>table:interviews_sessions<br>table:pricing_quotes<br>table:projects_swarms | catalog<br>projects | drako-provisioner-worker |
+| migrations/0073_saas_growth_intelligence.sql | index:idx_growth_events_geo<br>index:idx_growth_events_name<br>index:idx_growth_events_tenant_date<br>table:saas_growth_events | saas_projects<br>tenants | drako-ai-orchestrator-worker |
+| migrations/0074_campamento_phase2.sql | index:idx_tech_incidents_service<br>index:idx_tech_incidents_status<br>table:agent_runtime_states<br>table:tech_incidents | - | saases-workers |
+| migrations/0075_ticket_messages.sql | index:idx_ticket_messages_created_at<br>index:idx_ticket_messages_ticket_id<br>table:ticket_messages | tickets | saases-workers |
+| migrations/0100_create_client_onboarding.sql | index:idx_onboarding_email<br>table:client_onboarding<br>trigger:update_onboarding_timestamp | client_onboarding<br>ON<br>updated_at | saases-workers |
+| migrations/0101_create_competitive_analysis.sql | index:idx_competitive_analysis_email<br>index:idx_competitive_analysis_status<br>table:competitive_analysis | client_onboarding | saases-workers |
+| migrations/0102_steel_step4_audits.sql | index:idx_ai_breaker_logs_key<br>index:idx_rate_limit_audits_tenant<br>table:ai_breaker_logs<br>table:rate_limit_audits | - | saases-workers |
+| migrations/0103_steel_step4_idempotency.sql | index:idx_processed_jobs_correlation<br>table:processed_jobs | - | saases-workers |
+| migrations/0104_create_auth_v2.sql | index:idx_auth_credentials_user_id<br>index:idx_auth_users_email<br>table:auth_credentials<br>table:auth_users | auth_users | drako-core-worker |
+| migrations/0105_drako_ai_router_v1.1.sql | index:idx_ai_audits_correlation<br>index:idx_ai_audits_created<br>index:idx_ai_audits_tenant_saas<br>index:idx_ai_policies_lookup<br>table:ai_provider_policies<br>table:ai_request_audits | - | drako-ai-orchestrator-worker |
+| migrations/0106_cost_optimizer_and_packs.sql | index:idx_ai_cost_policies_tenant_saas<br>table:ai_cost_policies<br>table:saas_policy_packs | - | drako-ai-orchestrator-worker |
+| migrations/0107_multi_provider_and_cron.sql | - | ai_cost_policies<br>saas_policy_packs<br>the | saases-workers |
+| migrations/0108_saas_monetization.sql | index:idx_saas_subscriptions_stripe_sub<br>index:idx_saas_subscriptions_tenant<br>table:saas_subscriptions | saas_policy_packs<br>Seed<br>with | saases-workers |
+| migrations/0109_enable_orchestrator.sql | - | tenants | drako-ai-orchestrator-worker |
+| migrations/0110_orchestrator_dossier.sql | index:idx_dossiers_tenant<br>table:tenant_strategic_dossiers | tenants | drako-ai-orchestrator-worker |
+| migrations/0111_saas_materialization.sql | index:idx_saas_agents_instance<br>index:idx_saas_instances_slug<br>index:idx_saas_instances_tenant<br>table:saas_agents<br>table:saas_instances | saas_instances<br>tenants | drako-provisioner-worker |
+| migrations/0112_overseer_columns.sql | - | saas_instances | drako-observability-worker |
+| migrations/0113_holding_economics.sql | index:idx_economic_events_saas<br>index:idx_economic_events_tenant<br>index:idx_economic_events_type<br>table:economic_events<br>table:intervention_actions | saas_instances | drako-billing-worker |
+| migrations/0114_agent_work_logs.sql | index:idx_agent_work_logs_agent<br>index:idx_agent_work_logs_saas<br>index:idx_agent_work_logs_tenant<br>table:agent_work_logs | - | drako-ai-orchestrator-worker |
+| migrations/0114_domains_custom_binding.sql | index:idx_domain_events_saas_id<br>index:idx_saas_instances_domain_status<br>table:domain_events | saas_instances | drako-provisioner-worker |
+| migrations/0115_saas_registry_seed.sql | - | saas_instances<br>SET | drako-core-worker |
+| migrations/0115_seed_core_verticals.sql | - | saas_domains<br>saas_instances<br>tenants | saases-workers |
+| migrations/0116_unify_registry_instances.sql | index:idx_saas_instances_slug<br>index:idx_saas_instances_status<br>table:saas_instances | - | drako-core-worker |
+| migrations/0117_saas_lifecycle_economics.sql | index:idx_economics_saas_date<br>index:idx_eco_events_saas<br>table:saas_economics_snapshots<br>table:saas_economic_events | saas_instances | drako-billing-worker |
+| migrations/0118_add_tenant_id_saas_instances.sql | index:idx_saas_instances_tenant | saas_instances | drako-core-worker |
+| migrations/0119_mentoria_sessions.sql | index:idx_mentoria_sessions_client<br>index:idx_mentoria_sessions_mentor<br>index:idx_mentoria_sessions_status<br>index:idx_mentoria_sessions_tenant<br>table:mentoria_sessions | - | saases-workers |
+| migrations/0120_mentoria_pricing.sql | table:mentoria_pricing_plans | mentoria_pricing_plans<br>saas_economic_events<br>saas_instances | drako-billing-worker |
+| migrations/0121_mentoria_billing_cycles.sql | index:idx_mentoria_sessions_completed<br>index:idx_snapshots_saas_period | Economics<br>for<br>saas_economics_snapshots<br>saas_economic_events<br>saas_instances | drako-billing-worker |
+| migrations/0122_create_table.sql | table:stripe_invoice_runs | saas_instances | saases-workers |
+| migrations/0122_stripe_invoicing.sql | table:stripe_invoice_runs | directly<br>saas_economic_events<br>saas_instances | drako-billing-worker |
+| migrations/0125_saas_factory_monetization.sql | index:idx_saas_billing_audit_tenant<br>index:idx_saas_pricing_plans_slug<br>index:idx_saas_subscriptions_stripe<br>index:idx_saas_subscriptions_tenant_saas<br>index:idx_saas_usage_quotas_lookup<br>table:saas_billing_audit<br>table:saas_pricing_plans<br>table:saas_subscriptions<br>table:saas_usage_quotas | - | drako-provisioner-worker |
+| migrations/0126_holding_multi_saas_monetization.sql | index:idx_billing_logs_saas<br>index:idx_billing_logs_time<br>index:idx_saas_subscriptions_stripe<br>index:idx_saas_tenants_lookup<br>table:billing_audit_logs<br>table:holding_saas_registry<br>table:owner_events<br>table:saas_pricing_plans<br>table:saas_subscriptions<br>table:saas_tenants<br>table:saas_usage_quotas | holding_saas_registry<br>saas_pricing_plans<br>saas_tenants | saases-workers |
+| migrations/0127_monetization_canon_refinements.sql | - | billing_audit_logs<br>saas_pricing_plans<br>saas_subscriptions<br>saas_usage_quotas | saases-workers |
+| migrations/0128_canon_final_alignment.sql | index:idx_billing_audit_stripe_event<br>table:saas_usage_quotas_new | billing_audit_logs<br>saas_usage_quotas<br>saas_usage_quotas_new | saases-workers |
+| migrations/0132_reconciliation_engine.sql | index:idx_reconciliation_run<br>index:idx_reconciliation_status<br>table:reconciliation_logs<br>table:reconciliation_mismatches | reconciliation_logs | drako-observability-worker |
+| migrations/0133_phase3_1_hardening.sql | index:idx_jobs_lock_version<br>index:idx_jobs_state_lock<br>index:idx_reaper_stale_locks | provisioning_jobs | saases-workers |
+| migrations/0134_fix_missed_columns.sql | - | saas_instances | saases-workers |
+| migrations/0135_create_company_profiles.sql | index:idx_company_profiles_email<br>table:company_profiles<br>trigger:trg_company_profiles_updated | company_profiles<br>ON | saases-workers |
+| migrations/0136_auths_isolations.sql | index:idx_drakos_credentials_user_id<br>index:idx_drakos_sessions_tenant_id<br>index:idx_drakos_sessions_user_id<br>index:idx_mentorias_credentials_user_id<br>index:idx_mentorias_sessions_tenant_id<br>index:idx_mentorias_sessions_user_id<br>table:drakos_credentials<br>table:drakos_sessions<br>table:drakos_users<br>table:mentorias_credentials<br>table:mentorias_sessions<br>table:mentorias_users | drakos_users<br>mentorias_users | drako-core-worker |
+| migrations/repair_remote_economic_events.sql | index:idx_economic_events_created<br>index:idx_economic_events_saas<br>index:idx_economic_events_tenant<br>index:idx_economic_events_type<br>table:economic_events<br>table:saas_economics_snapshots | - | drako-ai-orchestrator-worker |
+| migrations/repair_remote_saas_instances.sql | index:idx_saas_instances_tenant<br>table:saas_instances | - | drako-ai-orchestrator-worker |
+| scripts/create_canon_tables.sql | table:billing_audit_logs<br>table:holding_saas_registry<br>table:owner_events<br>table:saas_pricing_plans<br>table:saas_subscriptions<br>table:saas_usage_quotas | - | saases-workers |
+| scripts/seed_canon.sql | - | holding_saas_registry<br>saas_pricing_plans<br>SET | saases-workers |
+| workers/autopilot-worker/migrations/0001_init.sql | table:agents<br>table:agent_runs<br>table:alerts<br>table:departments<br>table:grants<br>table:metrics<br>table:owners<br>table:saas | agents<br>departments<br>saas | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0002_provisioning.sql | index:idx_provisioning_saas_created<br>table:provisioning | saas | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0003_alerts_saas_id.sql | index:idx_alerts_saas_created | alerts | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0004_saas_agents.sql | index:idx_saas_agents_saas<br>table:saas_agents | agents<br>saas | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0005_core_departments.sql | - | agents<br>departments<br>SET | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0006_orchestrator_messages.sql | index:idx_orchestrator_messages_thread<br>table:orchestrator_messages | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0007_core_campamento_base.sql | index:idx_saas_agents_core<br>index:idx_saas_agents_saas<br>table:core_agents<br>table:core_departments<br>table:saas_agents | core_agents<br>core_departments<br>saas<br>SET | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0008_inbox_messages.sql | index:idx_inbox_messages_channel<br>index:idx_inbox_messages_department<br>index:idx_inbox_messages_saas<br>index:idx_inbox_messages_status<br>table:inbox_messages | core_departments<br>saas | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0009_inbox_statuses.sql | index:idx_inbox_messages_channel<br>index:idx_inbox_messages_department<br>index:idx_inbox_messages_saas<br>index:idx_inbox_messages_status<br>table:inbox_messages_new | core_departments<br>inbox_messages_new<br>saas | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0010_admin_backbone.sql | index:idx_clients_owner<br>index:idx_client_saas_client_saas<br>index:idx_invoices_client_saas_status<br>index:idx_tickets_saas_status<br>table:clients<br>table:client_saas<br>table:invoices<br>table:owners<br>table:social_accounts<br>table:tickets | clients<br>owners<br>saas | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0011_billing_support_notes.sql | - | invoices<br>tickets | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0012_multitenant_core.sql | index:idx_tenant_accounting_entries_scope<br>index:idx_tenant_agents_tenant_dept<br>index:idx_tenant_automations_tenant_type<br>index:idx_tenant_departments_active<br>index:idx_tenant_departments_tenant_slug<br>index:idx_tenant_kb_tenant_source<br>index:idx_tenant_logs_recent<br>index:idx_tenant_pipelines_tenant_stage<br>index:idx_tenant_users_tenant_email<br>table:tenants<br>table:tenant_accounting_entries<br>table:tenant_agents<br>table:tenant_automations<br>table:tenant_departments<br>table:tenant_knowledge_bases<br>table:tenant_logs<br>table:tenant_pipelines<br>table:tenant_users | tenants<br>tenant_departments | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0013_tenant_columns.sql | index:idx_agents_tenant<br>index:idx_alerts_tenant<br>index:idx_clients_tenant<br>index:idx_client_saas_tenant<br>index:idx_departments_tenant<br>index:idx_grants_tenant<br>index:idx_inbox_messages_tenant<br>index:idx_invoices_tenant<br>index:idx_metrics_tenant<br>index:idx_orchestrator_messages_tenant<br>index:idx_owners_tenant<br>index:idx_provisioning_tenant<br>index:idx_saas_agents_tenant<br>index:idx_saas_tenant<br>index:idx_social_accounts_tenant<br>index:idx_tickets_tenant | agents<br>alerts<br>clients<br>client_saas<br>departments<br>grants<br>inbox_messages<br>invoices<br>metrics<br>orchestrator_messages<br>owners<br>provisioning<br>saas<br>saas_agents<br>social_accounts<br>tickets | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0014_demo_tenant_seed.sql | - | SET<br>tenants<br>tenant_agents<br>tenant_departments<br>tenant_users | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0015_devarchitect_tables.sql | index:idx_devarchitect_checklists_project<br>index:idx_devarchitect_projects_tenant<br>index:idx_devarchitect_sessions_tenant_project<br>table:devarchitect_checklists<br>table:devarchitect_projects<br>table:devarchitect_sessions | devarchitect_projects<br>tenants | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0016_devarchitect_alerts_metrics.sql | index:idx_alerts_devarchitect_project | alerts | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0016_devarchitect_sessions_summary.sql | - | devarchitect_sessions | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0016_drako_subscriptions.sql | index:idx_drako_subscriptions_tenant<br>table:drako_subscriptions | clients<br>saas<br>tenants | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0017_clinic_tables.sql | index:idx_clinic_appointments_tenant<br>index:idx_clinic_finance_entries_tenant<br>index:idx_clinic_leads_tenant<br>index:idx_clinic_profiles_saas<br>index:idx_clinic_profiles_tenant<br>index:idx_clinic_reviews_tenant<br>index:idx_clinic_services_tenant<br>table:clinic_appointments<br>table:clinic_finance_entries<br>table:clinic_leads<br>table:clinic_profiles<br>table:clinic_reviews<br>table:clinic_services | clients<br>saas<br>tenants | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0017_devarchitect_tasks.sql | index:idx_devarchitect_tasks_tenant_project<br>table:devarchitect_tasks | devarchitect_projects | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0017_saas_billing.sql | index:idx_client_saas_subscriptions_client<br>index:idx_client_saas_subscriptions_saas<br>index:idx_client_saas_subscriptions_tenant<br>index:idx_saas_plans_status<br>index:idx_saas_plans_tenant<br>table:client_saas_subscriptions<br>table:saas_plans | clients<br>saas<br>saas_plans<br>tenants | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0017_saas_domains.sql | index:idx_saas_public_domain<br>index:idx_saas_public_subdomain | saas | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0018_clinic_plan.sql | - | saas<br>saas_plans<br>SET | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0018_employees.sql | index:idx_employees_tenant_saas<br>index:idx_employee_schedules_employee<br>index:idx_employee_skills_employee<br>table:employees<br>table:employee_schedules<br>table:employee_skills | employees | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0019_employees_hr.sql | index:idx_employee_contracts_employee<br>index:idx_employee_contracts_tenant_saas<br>index:idx_employee_hr_events_employee<br>index:idx_employee_hr_events_tenant<br>index:idx_employee_hr_flags_employee<br>index:idx_employee_hr_flags_tenant_saas<br>index:idx_employee_payroll_runs_employee<br>index:idx_employee_payroll_runs_tenant<br>index:idx_employee_roles_tenant_saas<br>index:idx_employee_schedules_employee<br>index:idx_employee_schedules_tenant_saas<br>index:idx_employee_timesheets_employee<br>index:idx_employee_timesheets_tenant<br>table:employee_contracts<br>table:employee_hr_events<br>table:employee_hr_flags<br>table:employee_hr_settings<br>table:employee_payroll_runs<br>table:employee_roles<br>table:employee_schedules<br>table:employee_timesheets | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0020_clinic_pricing_inventory.sql | index:idx_clinic_cost_entries_category<br>index:idx_clinic_cost_entries_period<br>index:idx_clinic_cost_entries_tenant_saas<br>index:idx_clinic_inventory_movements_product<br>index:idx_clinic_inventory_movements_source<br>index:idx_clinic_inventory_movements_tenant_saas<br>index:idx_clinic_products_active<br>index:idx_clinic_products_tenant_saas<br>index:idx_clinic_service_products_product<br>index:idx_clinic_service_products_tenant_saas<br>table:clinic_cost_entries<br>table:clinic_inventory_movements<br>table:clinic_pricing_settings<br>table:clinic_products<br>table:clinic_service_products | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0020_economy_core.sql | index:idx_saas_expenses_tenant_saas_type<br>index:idx_saas_inventory_items_sku<br>index:idx_saas_inventory_items_tenant_saas<br>index:idx_saas_inventory_movements_created<br>index:idx_saas_inventory_movements_item<br>index:idx_saas_services_slug<br>index:idx_saas_services_tenant_saas<br>index:idx_saas_service_products_service<br>table:saas_expenses<br>table:saas_inventory_items<br>table:saas_inventory_movements<br>table:saas_pricing_settings<br>table:saas_services<br>table:saas_service_products | saas_inventory_items<br>saas_services | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0021_saas_customers.sql | index:idx_saas_customers_email<br>index:idx_saas_customers_tenant<br>table:saas_customers | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0021_saas_customers_bookings.sql | index:idx_saas_customers_tenant_saas<br>index:idx_saas_customer_bookings_customer<br>index:idx_saas_customer_bookings_start_time<br>index:idx_saas_customer_metrics_customer<br>index:idx_saas_customer_profiles_tenant_saas_customer<br>table:saas_customers<br>table:saas_customer_bookings<br>table:saas_customer_metrics<br>table:saas_customer_profiles | saas_customers<br>TEXT | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0022_customers_partner_profiles.sql | index:idx_customer_style_notes_lookup<br>table:saas_customer_profiles<br>table:saas_customer_style_notes | saas_customers<br>saas_customer_profiles<br>TEXT | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0023_email_intake_core.sql | index:idx_email_labels_lookup<br>index:idx_email_messages_classification<br>index:idx_email_messages_received_at<br>index:idx_email_messages_status<br>index:idx_email_message_labels_lookup<br>table:saas_email_labels<br>table:saas_email_messages<br>table:saas_email_message_labels | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0024_saas_appointments.sql | index:idx_saas_appointments_employee_start<br>index:idx_saas_appointments_start<br>table:saas_appointments | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0025_saas_appointments_customer_id.sql | index:idx_saas_appointments_customer | saas_appointments | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0026_social_core.sql | index:idx_saas_social_accounts_provider<br>index:idx_saas_social_accounts_tenant<br>index:idx_saas_social_campaigns_status<br>index:idx_saas_social_campaigns_tenant<br>index:idx_saas_social_metrics_captured<br>index:idx_saas_social_metrics_post<br>index:idx_saas_social_posts_campaign<br>index:idx_saas_social_posts_status<br>table:saas_social_accounts<br>table:saas_social_campaigns<br>table:saas_social_metrics<br>table:saas_social_posts | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0027_social_conversion_core.sql | index:idx_saas_appointments_social_campaign<br>index:idx_saas_appointments_social_post | saas_appointments | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0028_saas_domains_core.sql | index:idx_saas_domains_saas_primary<br>index:idx_saas_domains_tenant_saas<br>table:saas_domains | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0029_saas_blueprint_core.sql | index:idx_saas_interview_answers_tenant_saas<br>index:idx_saas_modules_tenant_saas<br>table:saas_blueprints<br>table:saas_interview_answers<br>table:saas_modules | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0030_hr_guardrails_enforcement.sql | - | employee_hr_settings | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0031_saas_tasks_core.sql | index:idx_saas_tasks_tenant_saas_assignee_status<br>index:idx_saas_tasks_tenant_saas_category<br>index:idx_saas_tasks_tenant_saas_status<br>index:idx_saas_task_events_task_created<br>table:saas_tasks<br>table:saas_task_events | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0032_saas_knowledge_core.sql | index:idx_knowledge_documents_creator<br>index:idx_knowledge_documents_space<br>index:idx_knowledge_documents_status<br>index:idx_knowledge_links_document<br>index:idx_knowledge_links_target<br>index:idx_knowledge_spaces_tenant_saas<br>table:saas_knowledge_documents<br>table:saas_knowledge_links<br>table:saas_knowledge_spaces | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0033_knowledge_documents_meta.sql | - | saas_knowledge_documents | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0034_saas_features_core.sql | index:idx_saas_features_category<br>index:idx_saas_features_status<br>table:saas_features | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0035_saas_plan_features_core.sql | index:idx_saas_plan_features_plan<br>table:saas_plan_features | saas_plans | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0036_conversations_core.sql | index:idx_saas_conversations_tenant_saas_channel<br>index:idx_saas_conversations_tenant_saas_customer<br>index:idx_saas_conversations_tenant_saas_status<br>index:idx_saas_conversation_messages_conversation<br>index:idx_saas_conversation_messages_customer<br>index:idx_saas_notifications_read<br>index:idx_saas_notifications_type<br>table:saas_conversations<br>table:saas_conversation_messages<br>table:saas_notifications | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0037_saas_branding_core.sql | index:idx_saas_branding_settings_saas<br>index:idx_saas_user_ui_preferences_role<br>table:saas_branding_settings<br>table:saas_user_ui_preferences | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0038_whatsapp_gateway_core.sql | index:idx_saas_whatsapp_identities_actor<br>index:idx_saas_whatsapp_identities_phone<br>index:idx_saas_whatsapp_identities_tenant_saas<br>index:idx_saas_whatsapp_messages_conversation<br>index:idx_saas_whatsapp_messages_direction<br>index:idx_saas_whatsapp_messages_phone<br>table:saas_whatsapp_identities<br>table:saas_whatsapp_messages | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0039_saas_tax_core.sql | index:idx_saas_tax_periods_status<br>index:idx_saas_tax_profiles_saas<br>table:saas_tax_periods<br>table:saas_tax_profiles | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0040_drako_vendor_core.sql | index:idx_drako_vendor_expenses_period<br>index:idx_drako_vendor_expenses_vertical<br>table:drako_vendor_expenses | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0041_drako_baseline_core.sql | index:idx_drako_owner_baseline_needs_tenant<br>table:drako_owner_baseline_needs | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0042_drako_treasury_core.sql | index:idx_drako_treasury_accounts_tenant<br>index:idx_drako_treasury_accounts_type<br>index:idx_drako_treasury_movements_account<br>index:idx_drako_treasury_movements_period<br>index:idx_drako_treasury_movements_tenant<br>table:drako_treasury_accounts<br>table:drako_treasury_config<br>table:drako_treasury_movements | drako_treasury_accounts | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0043_saas_marketing_core.sql | index:idx_saas_marketing_plans_tenant_saas<br>index:idx_saas_marketing_usage_period<br>index:idx_saas_paid_ads_spend_period<br>table:saas_marketing_plans<br>table:saas_marketing_usage<br>table:saas_paid_ads_spend | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0044_drako_action_queue_core.sql | index:idx_campamento_actions_saas<br>index:idx_campamento_actions_status<br>table:campamento_actions | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0045_drako_empire_runtime_core.sql | index:idx_campamento_events_correlation<br>index:idx_campamento_events_saas_created<br>index:idx_campamento_events_tenant_created<br>index:idx_campamento_events_type<br>index:idx_saas_domains_tenant_domain<br>index:idx_saas_projects_status<br>index:idx_saas_projects_tenant_slug<br>table:campamento_events<br>table:saas_chats<br>table:saas_projects | saas_domains | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0046_drako_empire_runtime_constraints.sql | table:campamento_provisioning | saas_domains | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0047_drako_domain_verification.sql | index:idx_saas_domains_tenant_status | saas_domains | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0048_drako_domain_status_normalization.sql | - | saas_domains | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0049_drako_stripe_mapping.sql | table:saas_stripe_mapping | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0050_drako_stripe_webhook_events.sql | index:idx_stripe_webhook_events_status<br>index:idx_stripe_webhook_events_tenant<br>table:stripe_webhook_events | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0051_drako_events_rollups.sql | index:idx_campamento_events_tenant_created<br>index:idx_campamento_events_tenant_saas_created<br>index:idx_campamento_events_tenant_severity_created<br>index:idx_campamento_events_tenant_type_created<br>table:campamento_event_rollups_daily | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0052_drako_action_queue_operable.sql | index:idx_campamento_actions_open_priority | campamento_actions | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0053_drako_public_surface_security.sql | index:idx_rate_limit_updated_at<br>table:public_ingest_tokens<br>table:rate_limit_buckets | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0054_drako_ai_governance.sql | index:idx_ai_circuit_breakers_state<br>index:idx_ai_rate_limit_buckets_window<br>index:idx_ai_usage_counters_key<br>table:ai_circuit_breakers<br>table:ai_rate_limit_buckets<br>table:ai_usage_counters | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0055_drako_migrations_state.sql | index:idx_drako_migrations_applied_at<br>table:drako_migrations | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0057_seed_demo_basics.sql | - | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0058_seed_demo_saas_project.sql | - | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0059_seed_drako_systems_projects.sql | - | saas<br>saas_domains<br>saas_projects<br>SET | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0060_factory_ready_core.sql | table:agent_assignments<br>table:agent_catalog<br>table:checkouts<br>table:department_catalog<br>table:knowledge_bases<br>table:onboarding_messages<br>table:onboarding_sessions<br>table:pack_catalog<br>table:reports<br>table:report_files<br>table:research_jobs | agent_catalog<br>department_catalog<br>onboarding_sessions<br>reports | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0061_projects_factory_companies_compat.sql | view:companies<br>view:company_domains | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0062_projects_factory_core.sql | index:idx_projects_tenant_company<br>index:idx_projects_tenant_status<br>index:idx_project_domains_project<br>index:idx_project_entitlements_project<br>table:projects<br>table:project_domains<br>table:project_entitlements | projects | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0063_project_domains_verification.sql | - | project_domains | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0064_project_entitlements_extended.sql | - | project_entitlements | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0065_saas_health_metrics.sql | index:idx_health_metrics_saas<br>index:idx_health_metrics_score<br>index:idx_health_metrics_status<br>index:idx_health_metrics_tenant<br>table:saas_health_metrics<br>view:v_latest_health_scores | saas_projects<br>tenants | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0066_stripe_quick_setup.sql | index:idx_stripe_setup_log_saas<br>index:idx_stripe_setup_log_status<br>index:idx_stripe_setup_templates_vertical<br>table:stripe_setup_log<br>table:stripe_setup_templates | saas_projects<br>stripe_setup_templates<br>tenants | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0067_saas_templates_marketplace.sql | index:idx_templates_featured<br>index:idx_templates_tier<br>index:idx_templates_vertical<br>index:idx_template_installations_saas<br>index:idx_template_reviews_template<br>table:saas_blueprint_templates<br>table:saas_template_installations<br>table:saas_template_reviews<br>view:v_template_stats | saas_blueprint_templates<br>saas_projects<br>tenants | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0068_seed_official_templates.sql | - | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0069_unified_analytics.sql | index:idx_holding_snapshots_tenant_date<br>index:idx_holding_snapshots_type<br>index:idx_saas_daily_metrics<br>index:idx_saas_daily_metrics_tenant<br>table:holding_metrics_snapshots<br>table:saas_daily_metrics<br>view:v_latest_holding_metrics<br>view:v_saas_performance | saas_projects<br>tenants | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0070_business_intelligence_kb.sql | index:idx_bi_tenant<br>table:company_business_intelligence | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0071_project_contracts.sql | index:idx_project_contracts_status<br>index:idx_project_contracts_tenant_project<br>table:project_contracts | projects | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0072_factory_core_agents.sql | index:idx_quotes_interview<br>index:idx_swarms_project<br>table:agents_catalog_versions<br>table:interviews_sessions<br>table:pricing_quotes<br>table:projects_swarms | catalog<br>projects | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0073_saas_growth_intelligence.sql | index:idx_growth_events_geo<br>index:idx_growth_events_name<br>index:idx_growth_events_tenant_date<br>table:saas_growth_events | saas_projects<br>tenants | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0074_campamento_phase2.sql | index:idx_tech_incidents_service<br>index:idx_tech_incidents_status<br>table:agent_runtime_states<br>table:tech_incidents | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0075_ticket_messages.sql | index:idx_ticket_messages_created_at<br>index:idx_ticket_messages_ticket_id<br>table:ticket_messages | tickets | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0100_create_client_onboarding.sql | index:idx_onboarding_email<br>table:client_onboarding<br>trigger:update_onboarding_timestamp | client_onboarding<br>ON<br>updated_at | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0101_create_competitive_analysis.sql | index:idx_competitive_analysis_email<br>index:idx_competitive_analysis_status<br>table:competitive_analysis | client_onboarding | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0102_steel_step4_audits.sql | index:idx_ai_breaker_logs_key<br>index:idx_rate_limit_audits_tenant<br>table:ai_breaker_logs<br>table:rate_limit_audits | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0103_steel_step4_idempotency.sql | index:idx_processed_jobs_correlation<br>table:processed_jobs | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0104_create_auth_v2.sql | index:idx_auth_credentials_user_id<br>index:idx_auth_users_email<br>table:auth_credentials<br>table:auth_users | auth_users | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0105_drako_ai_router_v1.1.sql | index:idx_ai_audits_correlation<br>index:idx_ai_audits_created<br>index:idx_ai_audits_tenant_saas<br>index:idx_ai_policies_lookup<br>table:ai_provider_policies<br>table:ai_request_audits | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0106_cost_optimizer_and_packs.sql | index:idx_ai_cost_policies_tenant_saas<br>table:ai_cost_policies<br>table:saas_policy_packs | - | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0107_multi_provider_and_cron.sql | - | ai_cost_policies<br>saas_policy_packs<br>the | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0108_saas_monetization.sql | index:idx_saas_subscriptions_stripe_sub<br>index:idx_saas_subscriptions_tenant<br>table:saas_subscriptions | saas_policy_packs<br>Seed<br>with | saases-workers (legacy-autopilot) |
+| workers/autopilot-worker/migrations/0136_auths_isolations.sql | index:idx_drakos_credentials_user_id<br>index:idx_drakos_sessions_tenant_id<br>index:idx_drakos_sessions_user_id<br>index:idx_mentorias_credentials_user_id<br>index:idx_mentorias_sessions_tenant_id<br>index:idx_mentorias_sessions_user_id<br>table:drakos_credentials<br>table:drakos_sessions<br>table:drakos_users<br>table:mentorias_credentials<br>table:mentorias_sessions<br>table:mentorias_users | drakos_users<br>mentorias_users | saases-workers (legacy-autopilot) |
+| workers/drako-core-worker/migrations/0001_drako_core_foundations.sql | index:idx_agents_registry_saas_slug<br>index:idx_agents_registry_status_name<br>index:idx_aos_runs_phase_name<br>index:idx_aos_runs_saas_slug<br>index:idx_aos_runs_started_at<br>index:idx_aos_runs_status_name<br>index:idx_audit_logs_actor_id<br>index:idx_audit_logs_created_at<br>index:idx_audit_logs_saas_slug<br>index:idx_governance_events_created_at<br>index:idx_governance_events_event_type<br>index:idx_governance_events_saas_slug<br>index:idx_saases_registry_owner_tenant_id<br>index:idx_saases_registry_status_name<br>table:agents_registry<br>table:analyze_optimize_scale_runs<br>table:audit_logs<br>table:governance_events<br>table:saases_registry | agents_registry<br>saases_registry | drako-core-worker |
+| workers/drako-core-worker/migrations/0002_governance_event_contract_v1.sql | index:idx_governance_events_correlation_id<br>index:idx_governance_events_occurred_at<br>index:idx_governance_events_schema_version<br>index:idx_governance_events_trace_id | governance_events | drako-core-worker |
+| workers/drako-core-worker/migrations/0003_release_governance.sql | index:idx_release_events_env_created<br>table:saas_release_events | - | drako-core-worker |
+| workers/drako-provisioner-worker/migrations/0001_provisioning_jobs.sql | index:idx_provisioning_entity_id<br>index:idx_provisioning_jobs_idempotency<br>index:idx_provisioning_jobs_lock<br>index:idx_provisioning_jobs_type_state<br>table:provisioning_jobs | - | drako-provisioner-worker |
+| workers/drako-provisioner-worker/migrations/0002_multi_tenant_coherence.sql | index:idx_provisioning_tenant<br>index:idx_tenant_saas | provisioning_jobs<br>saas | drako-provisioner-worker |
+
+## Batch Delta 2026-02-26 (Billing + Observability)
+- No new SQL files created in this batch.
+- Canonical SQL files were rehomed with `git mv` only (no copies).
+- Root `migrations/` entries moved:
+  - Billing: `0011`, `0016`, `0017`, `0020`, `0039`, `0040`, `0042`, `0049`, `0050`, `0066`, `0113`, `0117`, `0120`, `0121`, `0122`.
+  - Observability: `0003`, `0009`, `0016`, `0048`, `0051`, `0065`, `0069`, `0112`, `0132`.
+- New canonical locations:
+  - `workers/drako-billing-worker/migrations/0001..0015`
+  - `workers/drako-observability-worker/migrations/0001..0009`
+- Remote migration apply remains deferred.
+
+## Batch Delta 2026-02-26 (AI Orchestrator)
+- No duplicate SQL files created.
+- Canonical SQL files were rehomed with `git mv` only.
+- Root `migrations/` entries moved:
+  - `0004`, `0006`, `0017`, `0023`, `0028`, `0030`, `0032`, `0033`, `0036`, `0038`, `0046`, `0047`, `0054`, `0073`, `0105`, `0106`, `0109`, `0110`, `0114`, `repair_remote_economic_events`, `repair_remote_saas_instances`.
+- New canonical location:
+  - `workers/drako-ai-orchestrator-worker/migrations/0001..0021`
+- Added bootstrap:
+  - `workers/drako-ai-orchestrator-worker/migrations/0000_bootstrap.sql`
+- Remote apply status:
+  - applied in dedicated `drako_ai_orchestrator_db`
+  - migrations table `drko_ai_migrations` populated from `0000` to `0021`

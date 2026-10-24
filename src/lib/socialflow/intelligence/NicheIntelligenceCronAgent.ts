@@ -1,0 +1,273 @@
+import { defaultLocalModel } from "../ai/models/localModel";
+import { safeParseObject, type Env, type NicheOptimalHour } from "./NicheIntelligenceService";
+import { extractEngagementPatterns } from "./CrossTenantIntelligenceAgent";
+import { extractTrendSignals } from "./TrendKeywordAgent";
+
+export const NICHE_INTELLIGENCE_NICHES = [
+  // Influencers
+  "fitness",
+  "lifestyle",
+  "educacion",
+  "moda",
+  "viajes",
+  "nutricion",
+  "maternidad",
+  "belleza",
+  "gaming",
+  "musica",
+  "humor",
+  "finanzas_personales",
+  "mindfulness",
+  "mascotas",
+  "running",
+  "yoga",
+  "crossfit",
+  "ciclismo",
+  "fotografia_creativa",
+  "arquitectura_interiores",
+  "tecnologia",
+  "emprendimiento",
+  "arte_digital",
+  "cocina_recetas",
+  "sostenibilidad",
+  "nutricion_deportiva",
+  "coach_vida",
+  "deportes_colectivos",
+  "videojuegos_streaming",
+  // Empresas
+  "restauracion",
+  "peluqueria",
+  "clinica_dental",
+  "inmobiliaria",
+  "marketing",
+  "gimnasio",
+  "farmacia",
+  "abogados",
+  "asesoria_contable",
+  "automocion",
+  "joyeria",
+  "optica",
+  "veterinaria",
+  "hotel",
+  "agencia_viajes",
+  "estetica_spa",
+  "academia_idiomas",
+  "psicologia",
+  "reformas_arquitectura",
+  "tienda_ropa",
+  "floristerias",
+  "fotografia_profesional",
+  "clinica_medica",
+  "clinica_fisioterapia",
+  "ecommerce_general",
+  "bar_copas",
+  "cafeteria",
+  "pasteleria",
+  "academia_infantil",
+  "centro_deportivo",
+  "tatuajes_piercing",
+  "fotografia_bodas",
+  "peluqueria_barberia",
+  "eventos_bodas",
+  "gastronomia_local",
+  "clinica_veterinaria",
+  "academia_oposiciones",
+] as const;
+
+export type NicheIntelligenceNiche = (typeof NICHE_INTELLIGENCE_NICHES)[number];
+
+export type NicheAccountType = "influencer" | "empresa";
+
+export type NicheIntelligenceCronResult = { niche: string; accountType: NicheAccountType; ok: boolean; error?: string };
+
+// Refreshed weekly — 7 days matches the cron cadence (Mondays 03:00 UTC), so a
+// cache row is always either fresh or in the process of being replaced by that
+// week's run, never silently stale for extended periods.
+const VALID_FOR_MS = 7 * 24 * 60 * 60 * 1000;
+
+type NicheAnalysisPayload = {
+  analysis: string;
+  hashtags: string[];
+  formats: string[];
+  hooks: string[];
+  optimalHours: NicheOptimalHour[];
+  fatigueSignals: string[];
+};
+
+// generateStructured() decorates its result with _meta.engine — "workers-ai" on a
+// real, successfully-parsed model response, "local-deterministic-stub" on ANY
+// failure (missing AI binding, empty response, malformed JSON — see
+// WorkersAiLocalModel.generateStructured, which never throws and always falls
+// back to the seed instead). Checking that flag here is what stands in for the
+// "parse with try/catch, skip on failure" requirement: we must never UPSERT the
+// stub's empty seed over last week's real data.
+type NicheAnalysisResult = NicheAnalysisPayload & { _meta?: { engine?: string } };
+
+const ACCOUNT_TYPE_INSTRUCTION: Record<NicheAccountType, string> = {
+  influencer: "El análisis debe orientarse a creadores de contenido individuales: hooks personales, storytelling, viralidad, engagement de comunidad.",
+  empresa: "El análisis debe orientarse a marcas y negocios locales: contenido de producto/servicio, reputación, captación de clientes, casos de éxito.",
+};
+
+function buildNicheAnalysisPrompt(niche: string, accountType: NicheAccountType): string {
+  return `Eres un analista de tendencias de redes sociales especializado en el nicho "${niche}" para el mercado hispanohablante (España y Latinoamérica). Analiza el estado actual de este nicho en Instagram esta semana.
+
+${ACCOUNT_TYPE_INSTRUCTION[accountType]}
+
+Responde SOLO con un objeto JSON válido, sin markdown, sin backticks, sin comentarios ni texto fuera del JSON, con esta forma exacta:
+
+{
+  "analysis": "resumen en 2-3 párrafos, en español, del momento actual del nicho ${niche}: qué tipo de contenido está funcionando, qué está cambiando, qué oportunidades hay esta semana",
+  "hashtags": ["15 a 20 hashtags en tendencia esta semana para ${niche}, en español, cada uno empezando por #"],
+  "formats": ["3 a 5 formatos de contenido que están funcionando mejor ahora mismo en este nicho, ej: 'Reels de 15s con texto grande', 'Carruseles educativos de 5 slides'"],
+  "hooks": ["5 a 8 frases de apertura (primera línea de un post) que están funcionando en este nicho ahora mismo"],
+  "optimalHours": [{"day": "lunes", "hour": 19, "score": 85}],
+  "fatigueSignals": ["señales de qué tipo de contenido está sobreexplotado o saturado en este nicho ahora mismo y conviene evitar"]
+}
+
+Para "optimalHours" incluye entre 3 y 7 entradas, "day" en español (lunes..domingo), "hour" en UTC de 0 a 23, "score" de 0 a 100 según qué tan bueno es ese momento para publicar.
+Responde en español. Solo el JSON, nada más.`;
+}
+
+async function upsertNicheIntelligence(niche: string, accountType: NicheAccountType, payload: NicheAnalysisPayload, db: D1Database): Promise<void> {
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const validUntil = new Date(now.getTime() + VALID_FOR_MS).toISOString();
+
+  // niche + account_type identifica la fila — sin account_type aquí, la pasada
+  // "empresa" encontraría (y sobrescribiría) la fila que la pasada "influencer" del
+  // mismo nicho acaba de crear/actualizar, en vez de crear una fila propia.
+  const existing = await db
+    .prepare(`SELECT id, analysis_json FROM socialcors_niche_intelligence WHERE niche = ? AND account_type = ? LIMIT 1`)
+    .bind(niche, accountType)
+    .first<{ id: string; analysis_json: string }>();
+
+  // Real hashtags (Sprint F) take priority over the LLM's opinion when available. What's
+  // read here is last week's analysis_json — CrossTenantIntelligenceAgent runs AFTER this
+  // cron step in the weekly chain, so "real this week" doesn't exist yet at this point;
+  // it re-merges fresh engagementPatterns onto this same row a few minutes later, same as
+  // it's done since Sprint D. One-week lag, not a bug — every niche-intelligence-derived
+  // signal already has it.
+  const realHashtags = existing
+    ? extractEngagementPatterns(safeParseObject(existing.analysis_json))?.hashtagsQueFuncionanRealmente
+    : undefined;
+  const hashtags = realHashtags?.length ? realHashtags.map((h) => h.hashtag) : payload.hashtags;
+
+  // Mismo criterio que los hashtags reales (Sprint F) — hooks reales de YouTube
+  // (Sprint G, TrendKeywordAgent) tienen prioridad sobre la opinión del LLM cuando
+  // existen. Igual desfase inherente que los hashtags: lo que se lee aquí es el
+  // trendSignals más reciente que TrendKeywordAgent ya haya escrito para este nicho —
+  // a */20 min con 55 nichos, como mucho ~18.3h de antigüedad, no una semana.
+  const existingTrendSignals = existing
+    ? extractTrendSignals(safeParseObject(existing.analysis_json))
+    : null;
+  const realHooks = existingTrendSignals?.youtubeHooks;
+  const hooks = realHooks?.length ? realHooks.slice(0, 8) : payload.hooks;
+
+  // Merge genérico, no reemplazo — antes esto reconstruía analysis_json desde cero
+  // con solo `summary` (+ trendSignals a mano), así que CUALQUIER otra clave que otro
+  // agente hubiera escrito ahí (ej. engagementPatterns de CrossTenantIntelligenceAgent,
+  // ver mismo patrón en ese archivo) se borraba cada corrida semanal — enmascarado la
+  // mayoría de las semanas solo porque CrossTenantIntelligenceAgent corre justo
+  // después en la cadena semanal y la vuelve a escribir minutos más tarde, pero
+  // cualquier otro campo o un reordenamiento futuro se perdía sin avisar. Fix: parte
+  // del analysis_json existente completo y solo pisa encima summary (lo que este
+  // agente sí genera) y trendSignals validado (mismo criterio "datos reales tienen
+  // prioridad" que ya aplica a hashtags/hooks arriba) — todo lo demás sobrevive tal
+  // cual. Sin fila previa, existingAnalysis es {} y el resultado es idéntico al
+  // comportamiento anterior para filas nuevas.
+  const existingAnalysis = existing ? safeParseObject(existing.analysis_json) ?? {} : {};
+  const analysisJson = JSON.stringify({
+    ...existingAnalysis,
+    summary: payload.analysis,
+    ...(existingTrendSignals ? { trendSignals: existingTrendSignals } : {}),
+  });
+  const hashtagsJson = JSON.stringify(hashtags);
+  const formatsJson = JSON.stringify(payload.formats);
+  const hooksJson = JSON.stringify(hooks);
+  const optimalHoursJson = JSON.stringify(payload.optimalHours);
+  const fatigueSignalsJson = JSON.stringify(payload.fatigueSignals);
+
+  if (existing) {
+    await db
+      .prepare(
+        `UPDATE socialcors_niche_intelligence
+         SET analysis_json = ?, hashtags_json = ?, formats_json = ?, hooks_json = ?,
+             optimal_hours_json = ?, fatigue_signals_json = ?, updated_at = ?, valid_until = ?
+         WHERE id = ?`,
+      )
+      .bind(analysisJson, hashtagsJson, formatsJson, hooksJson, optimalHoursJson, fatigueSignalsJson, nowIso, validUntil, existing.id)
+      .run();
+    return;
+  }
+
+  await db
+    .prepare(
+      `INSERT INTO socialcors_niche_intelligence
+         (id, niche, account_type, analysis_json, hashtags_json, formats_json, hooks_json, optimal_hours_json, fatigue_signals_json, created_at, updated_at, valid_until)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(crypto.randomUUID(), niche, accountType, analysisJson, hashtagsJson, formatsJson, hooksJson, optimalHoursJson, fatigueSignalsJson, nowIso, nowIso, validUntil)
+    .run();
+}
+
+// Regenerates the niche intelligence cache row for a single niche. Never throws
+// on a bad/missing model response — logs and returns, leaving whatever was
+// cached from the previous run in place (better a week-stale row than an empty
+// one). Callers that need failures surfaced (the cron loop, the admin endpoint)
+// should still wrap calls in their own try/catch for infra-level errors (DB
+// unavailable, etc.) — this function only swallows model-generation failures.
+export async function generateNicheAnalysis(niche: string, accountType: NicheAccountType, env: Env): Promise<void> {
+  const db = env?.SOCIAL_DB;
+  if (!db) {
+    console.error("[NicheIntelligenceCronAgent] SOCIAL_DB not configured, skipping", niche, accountType);
+    return;
+  }
+
+  const seed: NicheAnalysisPayload = {
+    analysis: "",
+    hashtags: [],
+    formats: [],
+    hooks: [],
+    optimalHours: [],
+    fatigueSignals: [],
+  };
+
+  const { data } = await defaultLocalModel.generateStructured<NicheAnalysisResult>(
+    { prompt: buildNicheAnalysisPrompt(niche, accountType) },
+    () => seed as NicheAnalysisResult,
+  );
+
+  if (data._meta?.engine !== "workers-ai") {
+    console.error("[NicheIntelligenceCronAgent] model generation failed or returned invalid JSON, skipping upsert", niche, accountType);
+    return;
+  }
+
+  await upsertNicheIntelligence(niche, accountType, data, db);
+  console.log("[NicheIntelligenceCronAgent] niche intelligence updated", niche, accountType);
+}
+
+const NICHE_ACCOUNT_TYPES: NicheAccountType[] = ["influencer", "empresa"];
+
+// Iterates all niches × both account types sequentially (not Promise.all) to respect
+// Workers AI rate limits — see generateNicheAnalysis for why a single (niche,
+// accountType) pair never throws for model-generation reasons; the try/catch here is
+// for infra-level failures (DB errors) so one bad pair never stops the rest of the run.
+export async function runNicheIntelligenceCron(env: Env): Promise<NicheIntelligenceCronResult[]> {
+  const results: NicheIntelligenceCronResult[] = [];
+
+  for (const niche of NICHE_INTELLIGENCE_NICHES) {
+    for (const accountType of NICHE_ACCOUNT_TYPES) {
+      console.log("[NicheIntelligenceCronAgent] starting niche", niche, accountType);
+      try {
+        await generateNicheAnalysis(niche, accountType, env);
+        results.push({ niche, accountType, ok: true });
+      } catch (err) {
+        console.error("[NicheIntelligenceCronAgent] niche failed", niche, accountType, err instanceof Error ? err.message : String(err));
+        results.push({ niche, accountType, ok: false, error: err instanceof Error ? err.message : String(err) });
+      }
+      console.log("[NicheIntelligenceCronAgent] finished niche", niche, accountType);
+    }
+  }
+
+  return results;
+}

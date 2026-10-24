@@ -1,10 +1,11 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { queryAll } from "@/lib/db";
 import { buildOwnerControlSnapshot } from "@/lib/owner/control-dashboard";
 import { resolveTasksContext, listTasks } from "@/lib/tasks/repository";
 import { listDemoClients, listDemoClientSaas, listDemoSaas } from "@/lib/admin/demo-data";
-// export const runtime = "edge"; // OpenNext: disabled for bundling
+
 
 
 type ClientRow = {

@@ -41,7 +41,7 @@ export function NeuralForgeWizard({ saasId, projectName, packs, onComplete, onCa
                 await new Promise(r => setTimeout(r, 1500));
             }
 
-            const res = await fetch("/api/campamento-base/provisioning/ai", {
+            const res = await fetch("/api/factory/provisioning/ai", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-drako-tenant-id": "demo" },
                 body: JSON.stringify({ saasId, strategy, packs })

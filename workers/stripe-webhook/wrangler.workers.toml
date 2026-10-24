@@ -1,0 +1,12 @@
+name = "stripe-webhook-worker"
+main = "src/index.ts"
+compatibility_date = "2024-04-05"
+
+# D1 Database Binding
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7" # Shared with Autopilot
+
+[vars]
+# STRIPE_WEBHOOK_FORWARD_URL = "https://drako.systems/api/stripe/webhook"

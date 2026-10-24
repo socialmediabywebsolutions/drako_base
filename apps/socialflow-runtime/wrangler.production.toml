@@ -1,0 +1,56 @@
+# SOCIALFLOW PRODUCTION TEMPLATE
+# NO DEPLOY WITHOUT HUMAN APPROVAL
+# This file is intentionally blocked for automatic execution.
+# Required flags that must remain true in planning:
+# - readyForExecution=false
+# - executionAllowed=false
+# - commandsArePlannedOnly=true
+# - requiresHumanApproval=true
+# - manualConfigurationRequired=true
+
+name = "saas-socialflows-runtime-production"
+main = ".open-next/worker.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[assets]
+directory = ".open-next/assets"
+
+# REQUIRED_MANUAL_CONFIGURATION:
+# Replace every placeholder with approved production values.
+# Do not deploy this template before manual review + approval pack.
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "REQUIRED_MANUAL_CONFIGURATION"
+database_id = "REQUIRED_MANUAL_CONFIGURATION"
+
+[[d1_databases]]
+binding = "SAASES_DB"
+database_name = "REQUIRED_MANUAL_CONFIGURATION"
+database_id = "REQUIRED_MANUAL_CONFIGURATION"
+
+[[d1_databases]]
+binding = "SOCIAL_DB"
+database_name = "REQUIRED_MANUAL_CONFIGURATION"
+database_id = "REQUIRED_MANUAL_CONFIGURATION"
+
+[[d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "REQUIRED_MANUAL_CONFIGURATION"
+database_id = "REQUIRED_MANUAL_CONFIGURATION"
+
+[vars]
+SOCIALFLOW_RUNTIME_TARGET = "production"
+SOCIALFLOW_RUNTIME_STATE = "inactive-production-template"
+SOCIALFLOW_RUNTIME_CONTRACT_VERSION = "p2-21"
+SOCIALFLOW_RUNTIME_COOKIE_NAMESPACE = "socialflow_production"
+AUTHS_SECRETS_NAME = "REQUIRED_MANUAL_CONFIGURATION"
+SOCIALFLOW_PRODUCTION_MANUAL_CONFIGURATION_REQUIRED = "true"
+SOCIALFLOW_PRODUCTION_EXECUTION_ALLOWED = "false"
+SOCIALFLOW_PRODUCTION_REQUIRES_HUMAN_APPROVAL = "true"
+
+# APPROVAL_REQUIRED route examples (keep disabled until approved):
+# routes = [{ pattern = "socialflow.drako.systems/*", zone_name = "drako.systems" }]
+# route = { pattern = "socialflow.drako.systems/*", zone_name = "drako.systems" }

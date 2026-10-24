@@ -26,6 +26,8 @@ export type HostnamePollPayload = {
   sslReason?: string;
   attempt?: number;
   correlationId?: string;
+  idempotencyKey?: string;
+  v?: 1;
 };
 
 export type HostnameCreatePayload = {
@@ -35,6 +37,8 @@ export type HostnameCreatePayload = {
   saasId: string;
   domain: string;
   correlationId?: string;
+  idempotencyKey?: string;
+  v?: 1;
 };
 
 export type HostnameDeletePayload = {
@@ -44,6 +48,8 @@ export type HostnameDeletePayload = {
   saasId: string;
   domain: string;
   correlationId?: string;
+  idempotencyKey?: string;
+  v?: 1;
 };
 
 export type HostnameQueueMessage = HostnamePollPayload | HostnameCreatePayload | HostnameDeletePayload;

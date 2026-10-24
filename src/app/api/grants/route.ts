@@ -1,7 +1,8 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 type Grant = {

@@ -1,0 +1,24 @@
+name = "drako-billing-worker"
+main = "src/workers.ts"
+compatibility_date = "2024-11-01"
+workers_dev = true
+
+# Dedicated D1 for billing domain.
+[[d1_databases]]
+binding = "DRKO_BILLING_DB"
+database_name = "drako_billing_db"
+database_id = "60e1c9bb-9799-41b7-9d20-f0f525f6434b"
+migrations_table = "drko_billing_migrations"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "DRKO_GLOBAL_CONFIG"
+id = "2a333512ad9c4c25a166496c1c121781"
+
+[[queues.producers]]
+binding = "DRKO_GLOBAL_EVENTS"
+queue = "drako-global-events"
+
+[vars]
+DRKO_BILLING_CONTEXT = "holding"
+WORKERS_ONLY_MODE = "true"

@@ -1,0 +1,921 @@
+name: Drako Factory Deploy
+run-name: "🚀 ${{ github.event.head_commit.message || github.event.pull_request.title || github.sha }}"
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "apps/**"
+      - "workers/**"
+      - "packages/**"
+      - "migrations/**"
+      - "tests/**"
+      - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig*.json"
+      - "next.config.*"
+      - "open-next.config.*"
+      - "wrangler*.toml"
+      - "wrangler*.jsonc"
+      - ".github/workflows/drako-factory-deploy.yml"
+      - "!docs/**"
+      - "!reports/**"
+      - "!**/*.md"
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "apps/**"
+      - "workers/**"
+      - "packages/**"
+      - "migrations/**"
+      - "tests/**"
+      - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig*.json"
+      - "next.config.*"
+      - "open-next.config.*"
+      - "wrangler*.toml"
+      - "wrangler*.jsonc"
+      - ".github/workflows/drako-factory-deploy.yml"
+      - "!docs/**"
+      - "!reports/**"
+      - "!**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drako-factory-deploy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  gates:
+    name: Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.25.0"
+
+      - name: Setup Node.js (LTS) + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.1"
+          cache: pnpm
+
+      - name: Verify pnpm lockfile
+        run: |
+          set -euo pipefail
+          if [ ! -f pnpm-lock.yaml ]; then
+            echo "BLOCKED: pnpm-lock.yaml is required for --frozen-lockfile."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run required gates
+        run: |
+          set -euo pipefail
+          pnpm verify:auth-ssot
+          npx vitest run tests/api/auth-cross-redirects.test.ts
+          pnpm typecheck
+          npx vitest run tests/lib/auth-db-selection-failclosed.test.ts
+          npx vitest run tests/lib/auth-origin-resolution.test.ts
+          npx vitest run tests/lib/auth-session-cookie-e2e.test.ts
+
+  artifact_matrix_skeleton:
+    name: Artifact Matrix Skeleton (${{ matrix.product }})
+    runs-on: ubuntu-latest
+    needs: gates
+    strategy:
+      fail-fast: false
+      matrix:
+        product:
+          - drakos
+          - bases
+          - mentorias
+          - socialflows
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.25.0"
+
+      # ✅ OPTIMIZACIÓN 1: añadida caché pnpm — antes cada runner descargaba todo desde cero
+      - name: Setup Node.js (LTS) + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.1"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate artifact matrix skeleton manifest
+        env:
+          ARTIFACT_MATRIX_PRODUCT: ${{ matrix.product }}
+          ARTIFACT_MATRIX_OUTPUT_DIR: build/open-next-artifact-matrix/${{ matrix.product }}
+        run: |
+          set -euo pipefail
+          pnpm build:artifacts:skeleton
+
+  build_and_deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    if: ${{ always() && needs.gates.result == 'success' && (needs.artifact_matrix_skeleton.result == 'success' || needs.artifact_matrix_skeleton.result == 'failure') }}
+    needs:
+      - gates
+      - artifact_matrix_skeleton
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.25.0"
+
+      - name: Setup Node.js (LTS) + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.1"
+          cache: pnpm
+
+      - name: Verify pnpm lockfile
+        run: |
+          set -euo pipefail
+          if [ ! -f pnpm-lock.yaml ]; then
+            echo "BLOCKED: pnpm-lock.yaml is required for --frozen-lockfile."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Ensure Solo-Worker config present (no legacy wrangler.toml)
+        run: |
+          set -euo pipefail
+          if [ -f wrangler.toml ]; then
+            echo "BLOCKED: legacy wrangler.toml must be removed or renamed to wrangler.toml.legacy" >&2
+            exit 1
+          fi
+          if [ ! -f wrangler.workers.toml ]; then
+            echo "BLOCKED: wrangler.workers.toml is required for Solo-Worker architecture" >&2
+            exit 1
+          fi
+
+      - name: Build OpenNext for Cloudflare (guardrail first, then temp wrangler)
+        env:
+          CI: "true"
+        run: |
+          set -euo pipefail
+          npm run check:no-pages
+          cp wrangler.workers.toml wrangler.toml
+          npx opennextjs-cloudflare build 2>&1 | tee open-next-build.log
+          node scripts/patch-opennext-mentoria-runtime.mjs
+          echo "=== BUILD: listing .open-next ==="
+          ls -R .open-next || true
+          rm -f wrangler.toml
+
+      - name: Holding bundle budget (64 MiB Cloudflare limit, no SocialCors routes)
+        run: |
+          set -euo pipefail
+          HANDLER=".open-next/server-functions/default/handler.mjs"
+          test -f "$HANDLER"
+          BYTES="$(wc -c < "$HANDLER")"
+          MIB="$(awk "BEGIN { printf \"%.2f\", ${BYTES} / 1048576 }")"
+          echo "Holding handler.mjs: ${MIB} MiB (${BYTES} bytes)"
+          echo "### Holding handler.mjs: ${MIB} MiB" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$BYTES" -ge 67108864 ]; then
+            echo "BLOCKED: HOLDING_BUNDLE_OVER_CLOUDFLARE_LIMIT ${MIB} MiB >= 64 MiB"
+            exit 1
+          fi
+          if [ "$BYTES" -ge 58720256 ]; then
+            echo "::warning::Holding handler.mjs at ${MIB} MiB (>= 56 MiB, close to the 64 MiB limit)"
+          fi
+          node <<'NODE'
+          const fs = require("node:fs");
+          const routes = Object.keys(JSON.parse(fs.readFileSync(".next/server/app-paths-manifest.json", "utf8")));
+          const leaked = routes.filter((route) =>
+            /^\/(socialflows?|api\/socialflow|api\/cron\/social|api\/internal\/socialflow|api\/social\/)/.test(route)
+            && route !== "/api/socialflow/sso-init/route");
+          if (leaked.length > 0) {
+            console.error(`BLOCKED: SOCIALCORS_ROUTES_IN_HOLDING ${leaked.join(",")}`);
+            process.exit(1);
+          }
+          console.log(`Holding routes: ${routes.length}, SocialCors routes: 0 (sso-init stays in the holding)`);
+          NODE
+
+      - name: Emit global artifact matrix skeleton index
+        env:
+          ARTIFACT_MATRIX_PRODUCT: all
+          ARTIFACT_MATRIX_OUTPUT_DIR: build/open-next-artifact-matrix/global
+          ARTIFACT_MATRIX_REQUIRE_GLOBAL_BUILD: "1"
+        run: |
+          set -euo pipefail
+          pnpm build:artifacts:skeleton
+
+      - name: Production readiness after generated artifacts
+        run: |
+          set -euo pipefail
+          FIXTURES_DIR=tests/fixtures/production-audits/pass pnpm check:production
+
+      - name: Guardrail (real worker only, no dry-run/stub)
+        run: |
+          set -euo pipefail
+          WORKER_FILE=".open-next/worker.js"
+          if [ ! -f "$WORKER_FILE" ]; then
+            echo "BLOCKED: $WORKER_FILE does not exist."
+            exit 1
+          fi
+          BYTES="$(wc -c < "$WORKER_FILE")"
+          if [ "$BYTES" -le 1024 ]; then
+            echo "BLOCKED: $WORKER_FILE size must be > 1KB, got ${BYTES} bytes."
+            exit 1
+          fi
+          test -d .open-next/assets || {
+            echo "BLOCKED: .open-next/assets is missing."
+            exit 1
+          }
+          test -d .open-next/server-functions || {
+            echo "BLOCKED: .open-next/server-functions is missing."
+            exit 1
+          }
+          if grep -Ein "dry-run|stub" "$WORKER_FILE"; then
+            echo "BLOCKED: detected forbidden dry-run/stub markers in $WORKER_FILE."
+            exit 1
+          fi
+          echo "Worker guardrail passed (${BYTES} bytes, assets + server-functions present)."
+
+      - name: Diagnostic OpenNext artifact layout
+        run: |
+          set -euo pipefail
+          echo "=== listing root ==="
+          ls -la
+          echo "=== listing .open-next ==="
+          ls -R .open-next || true
+
+      - name: Verify OpenNext build artifacts
+        run: |
+          set -euo pipefail
+          ls -la .open-next
+          test -f .open-next/worker.js
+          test -d .open-next/assets
+
+      - name: Verify Drakos dedicated artifact
+        run: |
+          set -euo pipefail
+          test -f .open-next/drakos/worker.js
+          test -d .open-next/drakos/assets
+          grep -q 'export { default } from "../worker.js";' .open-next/drakos/worker.js
+          grep -q 'export \* from "../worker.js";' .open-next/drakos/worker.js
+          test -f .open-next/drakos/artifact-manifest.json
+          grep -q '"productKey": "drakos"' .open-next/drakos/artifact-manifest.json
+          grep -q '"artifactMode": "dedicated-wrapper"' .open-next/drakos/artifact-manifest.json
+          grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/drakos/artifact-manifest.json
+          grep -q 'main = "../../.open-next/drakos/worker.js"' workers/drakos/wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/drakos/assets"' workers/drakos/wrangler.workers.toml
+          if grep -q 'main = "../../.open-next/worker.js"' workers/drakos/wrangler.workers.toml; then
+            echo "DRAKOS_DEDICATED_ARTIFACT_NOT_ACTIVATED"
+            exit 1
+          fi
+          if grep -Ein 'dry-run|stub|dummy|placeholder|success: true|text/html' .open-next/drakos/worker.js; then
+            echo "DRAKOS_DEDICATED_ARTIFACT_FAKE"
+            exit 1
+          fi
+
+      - name: Verify Bases dedicated artifact
+        run: |
+          set -euo pipefail
+          test -f .open-next/bases/worker.js
+          test -d .open-next/bases/assets
+          grep -q 'export { default } from "../worker.js";' .open-next/bases/worker.js
+          grep -q 'export \* from "../worker.js";' .open-next/bases/worker.js
+          test -f .open-next/bases/artifact-manifest.json
+          grep -q '"productKey": "bases"' .open-next/bases/artifact-manifest.json
+          grep -q '"artifactMode": "dedicated-wrapper"' .open-next/bases/artifact-manifest.json
+          grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/bases/artifact-manifest.json
+          grep -q 'main = "../../.open-next/bases/worker.js"' workers/bases/wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/bases/assets"' workers/bases/wrangler.workers.toml
+          if grep -q 'main = "../../.open-next/worker.js"' workers/bases/wrangler.workers.toml; then
+            echo "BASES_DEDICATED_ARTIFACT_NOT_ACTIVATED"
+            exit 1
+          fi
+          if grep -Ein 'dry-run|stub|dummy|placeholder|success: true|text/html' .open-next/bases/worker.js; then
+            echo "BASES_DEDICATED_ARTIFACT_FAKE"
+            exit 1
+          fi
+
+      - name: Verify Mentoria dedicated artifact
+        run: |
+          set -euo pipefail
+          test -f .open-next/mentorias/worker.js
+          test -d .open-next/mentorias/assets
+          grep -q 'export { default } from "../worker.js";' .open-next/mentorias/worker.js
+          grep -q 'export \* from "../worker.js";' .open-next/mentorias/worker.js
+          test -f .open-next/mentorias/artifact-manifest.json
+          grep -q '"productKey": "mentorias"' .open-next/mentorias/artifact-manifest.json
+          grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/mentorias/artifact-manifest.json
+          if grep -Ein 'dry-run|stub|dummy|placeholder|success: true|text/html' .open-next/mentorias/worker.js; then
+            echo "MENTORIA_DEDICATED_ARTIFACT_FAKE"
+            exit 1
+          fi
+
+      - name: Verify Cloudflare secrets
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo "BLOCKED: missing CLOUDFLARE_API_TOKEN secret."
+            exit 1
+          fi
+          if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "BLOCKED: missing CLOUDFLARE_ACCOUNT_ID secret."
+            exit 1
+          fi
+
+      - name: Validate Cloudflare account id format
+        run: |
+          set -euo pipefail
+          if [[ ! "${CLOUDFLARE_ACCOUNT_ID}" =~ ^[a-fA-F0-9]{32}$ ]]; then
+            echo "BLOCKED: CLOUDFLARE_ACCOUNT_ID must be a 32-character hex string."
+            exit 1
+          fi
+
+      - name: Validate Cloudflare token
+        run: |
+          set -euo pipefail
+          RESPONSE="$(curl -sS -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json")"
+          echo "$RESPONSE"
+          echo "$RESPONSE" | grep -q '"success":true' || {
+            echo "BLOCKED: invalid CLOUDFLARE_API_TOKEN (token verify failed)."
+            exit 1
+          }
+
+      - name: Install Wrangler 4.69.0
+        run: npm install -g wrangler@4.69.0
+
+      - name: Apply Mentoria auth schema on dedicated auth D1
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          wrangler d1 execute MENTORIAS_AUTHS_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0136_auths_isolations.sql
+
+      - name: Verify Mentoria auth tables exist on dedicated auth D1
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          OUTPUT="$(wrangler d1 execute MENTORIAS_AUTHS_DB --remote --config workers/mentorias/wrangler.workers.toml --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('mentorias_users', 'mentorias_credentials', 'mentorias_sessions');")"
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "mentorias_users" || {
+            echo "BLOCKED: mentorias_users missing in dedicated Mentoria auth D1 after auth migrations."
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "mentorias_credentials" || {
+            echo "BLOCKED: mentorias_credentials missing in dedicated Mentoria auth D1 after auth migrations."
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "mentorias_sessions" || {
+            echo "BLOCKED: mentorias_sessions missing in dedicated Mentoria auth D1 after auth migrations."
+            exit 1
+          }
+
+      - name: Apply Mentoria migrations (0160 session persistence)
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          echo "==> 0160_mentoria_session_persistence.sql"
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql
+
+      - name: Apply Mentoria migrations (0219 family auth tables)
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE guardians ADD COLUMN tenant_id TEXT;" || true
+          echo "==> 0219_mentoria_family_auth_tables.sql"
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0219_mentoria_family_auth_tables.sql
+
+      - name: Apply Mentoria migrations (0217 guardian student links)
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN tenant_id TEXT NOT NULL DEFAULT '';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN student_profile_id TEXT NOT NULL DEFAULT '';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN guardian_user_id TEXT;" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN guardian_email TEXT NOT NULL DEFAULT '';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN role TEXT NOT NULL DEFAULT 'tutor';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN system_role TEXT NOT NULL DEFAULT 'secondary_guardian';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN status TEXT NOT NULL DEFAULT 'pending';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN created_at TEXT NOT NULL DEFAULT '';" || true
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "ALTER TABLE mentoria_guardian_student_links ADD COLUMN updated_at TEXT NOT NULL DEFAULT '';" || true
+          echo "==> 0217_mentoria_guardian_student_links.sql"
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0217_mentoria_guardian_student_links.sql
+
+      - name: Apply Mentoria migrations (0218 family messages)
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          echo "==> 0218_mentoria_family_messages.sql"
+          wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --file migrations/0218_mentoria_family_messages.sql
+
+      - name: Verify mentoria_session_state exists in dedicated product D1
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          OUTPUT="$(wrangler d1 execute MENTORIA_DB --remote --config workers/mentorias/wrangler.workers.toml --command "SELECT name FROM sqlite_master WHERE type='table' AND name='mentoria_session_state';")"
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "mentoria_session_state" || {
+            echo "BLOCKED: mentoria_session_state missing in dedicated Mentoria product D1 after migrations."
+            exit 1
+          }
+
+      - name: Apply global schema additions on DRACO_DB (idempotent)
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          if ! OUTPUT="$(wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0137_campamento_base_workspace_core.sql 2>&1)"; then
+            echo "$OUTPUT"
+            echo "$OUTPUT" | grep -qi "duplicate column name" || {
+              echo "BLOCKED: 0137_campamento_base_workspace_core.sql failed with an unexpected error."
+              exit 1
+            }
+            echo "Column(s) in 0137 already exist — skipping (idempotent re-run)."
+          else
+            echo "$OUTPUT"
+          fi
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0138_drako_automation_core.sql
+          if ! wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --command "SELECT saas_id FROM ai_usage_counters LIMIT 1;" > /dev/null 2>&1; then
+            echo "Applying 0194_ai_usage_counters_saas_id.sql (columns not yet present)..."
+            wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+              --file migrations/0194_ai_usage_counters_saas_id.sql
+          else
+            echo "0194 already applied — skipping."
+          fi
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0195_sso_tokens.sql
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0205_drako_journal.sql
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0206_drako_ecosystem_metrics.sql
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0207_drako_funding.sql
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0208_drako_crm_sales.sql
+          wrangler d1 execute DRACO_DB --remote --config workers/drakos/wrangler.workers.toml \
+            --file migrations/0209_drako_social_posts.sql
+
+      - name: Validate Cloudflare account identifier
+        run: |
+          set -euo pipefail
+          RESPONSE="$(curl -sS -X GET "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json")"
+          echo "$RESPONSE"
+          echo "$RESPONSE" | grep -q '"success":true' || {
+            echo "BLOCKED: invalid CLOUDFLARE_ACCOUNT_ID/token mapping (Cloudflare API validation failed)."
+            exit 1
+          }
+
+      - name: Deploy in strict order (scheduler -> drakos -> mentorias -> bases)
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          command -v wrangler >/dev/null
+          wrangler --version
+          ls -la .open-next
+          test -f .open-next/worker.js
+          test -d .open-next/assets
+
+          pushd workers/drako-scheduler
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          pushd workers/drakos
+          test -f ../../.open-next/drakos/worker.js
+          test -d ../../.open-next/drakos/assets
+          grep -q 'main = "../../.open-next/drakos/worker.js"' wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/drakos/assets"' wrangler.workers.toml
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          pushd workers/mentorias
+          test -f ../../.open-next/mentorias/worker.js
+          test -d ../../.open-next/mentorias/assets
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          pushd workers/bases
+          test -f ../../.open-next/bases/worker.js
+          test -d ../../.open-next/bases/assets
+          grep -q 'main = "../../.open-next/bases/worker.js"' wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/bases/assets"' wrangler.workers.toml
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          pushd workers/whatsapp-channel
+          wrangler deploy -c wrangler.workers.toml --env production
+          popd
+
+  socialcors_build_and_deploy:
+    name: SocialCors Build and Deploy (apps/socialcors)
+    runs-on: ubuntu-latest
+    needs: gates
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SOCIALCORS_WRANGLER_CONFIG: apps/socialcors/wrangler.toml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.25.0"
+
+      - name: Setup Node.js (LTS) + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.1"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build SocialCors (OpenNext, apps/socialcors)
+        working-directory: apps/socialcors
+        env:
+          CI: "true"
+        run: |
+          set -euo pipefail
+          export PATH="$(pwd)/../../node_modules/.bin:$PATH"
+          ../../node_modules/.bin/opennextjs-cloudflare build 2>&1 | tee ../../open-next-socialcors-build.log
+
+      - name: Patch prerender-manifest into handler.mjs
+        working-directory: apps/socialcors
+        run: |
+          set -euo pipefail
+          node ../../scripts/patch-prerender-manifest.mjs
+
+      - name: SocialCors bundle budget and route scope
+        working-directory: apps/socialcors
+        run: |
+          set -euo pipefail
+          HANDLER=".open-next/server-functions/default/handler.mjs"
+          if [ ! -f "$HANDLER" ]; then
+            HANDLER=".open-next/server-functions/default/apps/socialcors/handler.mjs"
+          fi
+          test -f "$HANDLER" || { echo "BLOCKED: SOCIALCORS_HANDLER_MISSING (buscado en rutas plana y anidada)"; exit 1; }
+          BYTES="$(wc -c < "$HANDLER")"
+          MIB="$(awk "BEGIN { printf \"%.2f\", ${BYTES} / 1048576 }")"
+          echo "SocialCors handler.mjs: ${MIB} MiB (${BYTES} bytes)"
+          echo "### SocialCors handler.mjs: ${MiB} MiB" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$BYTES" -ge 41943040 ]; then
+            echo "BLOCKED: SOCIALCORS_BUNDLE_OVER_BUDGET ${MIB} MiB >= 40 MiB"
+            exit 1
+          fi
+          if [ "$BYTES" -ge 33554432 ]; then
+            echo "::warning::SocialCors handler.mjs at ${MIB} MiB (>= 32 MiB budget warning)"
+          fi
+          node <<'NODE'
+          const fs = require("node:fs");
+          const routes = Object.keys(JSON.parse(fs.readFileSync(".next/server/app-paths-manifest.json", "utf8")));
+          const foreign = routes.filter((route) =>
+            /^\/(operator|owner|admin|mentorias?|bases|campobase|campamento-base|site|drakos|factory|journal|analysis|api\/(operator|owner|mentorias?|bases|drakos|factory|stripe|campobase|campamento-base))(\/|$)/.test(route));
+          if (foreign.length > 0) {
+            console.error(`BLOCKED: FOREIGN_ROUTES_IN_SOCIALCORS ${foreign.join(",")}`);
+            process.exit(1);
+          }
+          for (const required of ["/socialflows/page", "/socialflow/(workspace)/page", "/socialflow/auth/page", "/api/socialflow/auths/logins/route", "/api/cron/social/route", "/api/internal/socialflow/health/route"]) {
+            if (!routes.includes(required)) {
+              console.error(`BLOCKED: SOCIALCORS_ROUTE_MISSING ${required}`);
+              process.exit(1);
+            }
+          }
+          console.log(`SocialCors routes: ${routes.length}, foreign routes: 0`);
+          NODE
+
+      - name: Guard SocialCors Worker config before deploy
+        run: |
+          set -euo pipefail
+          TOML="$SOCIALCORS_WRANGLER_CONFIG"
+          grep -q '^name = "saas-socialflows-prod"' "$TOML" || { echo "BLOCKED: $TOML must deploy saas-socialflows-prod"; exit 1; }
+          grep -q '^main = "worker.ts"' "$TOML" || { echo "BLOCKED: $TOML must use worker.ts (fetch + scheduled)"; exit 1; }
+          for domain in socialflows.drako.systems socialflow.drako.systems socialcors.com; do
+            grep -q "pattern = \"${domain}\"" "$TOML" || { echo "BLOCKED: $TOML missing custom domain ${domain}"; exit 1; }
+          done
+          for binding in SOCIAL_DB SOCIALFLOW_AUTHS_DB SOCIAL_MEDIA_BUCKET SOCIALFLOW_AI_QUEUE SELF WORKER_SELF_REFERENCE; do
+            grep -q "binding = \"${binding}\"" "$TOML" || { echo "BLOCKED: $TOML missing binding ${binding}"; exit 1; }
+          done
+          echo "SocialCors Worker config guard passed."
+
+      - name: Verify Cloudflare credentials
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "BLOCKED: missing CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID secrets."
+            exit 1
+          fi
+
+      - name: Install Wrangler 4.69.0
+        run: npm install -g wrangler@4.69.0
+
+      - name: Bundle SocialCors Worker (dry-run, verifies fetch + scheduled)
+        working-directory: apps/socialcors
+        run: |
+          set -euo pipefail
+          wrangler deploy --config wrangler.toml --dry-run --outdir .wrangler/dry-run 2>&1 | tee ../../wrangler-socialcors-dry-run.log
+          grep -q "Total Upload" ../../wrangler-socialcors-dry-run.log
+          grep -q "async function scheduled" .wrangler/dry-run/worker.js || { echo "BLOCKED: SOCIALCORS_SCHEDULED_HANDLER_MISSING"; exit 1; }
+          grep -q "/api/cron/social/strategic-plan" .wrangler/dry-run/worker.js || { echo "BLOCKED: SOCIALCORS_CRON_TABLE_MISSING"; exit 1; }
+
+      - name: Apply SocialFlow auth schema on dedicated auth D1
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config apps/socialcors/wrangler.toml \
+            --file migrations/0142_socialflow_auths.sql
+          wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config apps/socialcors/wrangler.toml \
+            --file migrations/0196_socialflow_password_reset_tokens.sql
+          wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config apps/socialcors/wrangler.toml \
+            --file migrations/0198_socialflow_users_account_type.sql
+
+      - name: Verify SocialFlow auth tables exist on dedicated auth D1
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          OUTPUT="$(wrangler d1 execute SOCIALFLOW_AUTHS_DB --remote --config apps/socialcors/wrangler.toml \
+            --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('socialflow_users','socialflow_credentials','socialflow_sessions','socialflow_password_reset_tokens');")"
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "socialflow_users" || {
+            echo "BLOCKED: socialflow_users missing in SocialFlow auth D1 after migrations."
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "socialflow_sessions" || {
+            echo "BLOCKED: socialflow_sessions missing in SocialFlow auth D1 after migrations."
+            exit 1
+          }
+
+      - name: Apply SocialFlow product schema on SOCIAL_DB
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          for migration in \
+            migrations/0184_socialflow_runtime_social_db.sql \
+            migrations/0185_socialflow_profiles.sql \
+            migrations/0187_socialflow_seed_metadata.sql \
+            migrations/0188_socialflow_export_read_models.sql \
+            migrations/0189_socialflow_oauth_connections.sql \
+            migrations/0190_socialflow_legacy_read_models.sql \
+            migrations/0191_socialflow_intelligence_core.sql \
+            migrations/0192_socialflow_social_metrics_snapshots.sql \
+            migrations/0193_socialflow_conversation_engine.sql \
+            migrations/0197_socialflow_knowledge_documents.sql \
+            migrations/0199_socialflow_profiles_persona_fields.sql \
+            workers/socialflows/migrations/0213_seasonality_cache.sql \
+            workers/socialflows/migrations/0214_ai_video_jobs.sql \
+            workers/socialflows/migrations/0215_ai_video_jobs_enriched.sql \
+            workers/socialflows/migrations/0216_socialflow_ai_usage_log.sql \
+            workers/socialflows/migrations/0217_saas_social_accounts_linkedin_cm_enabled.sql \
+            workers/socialflows/migrations/0218_socialflow_intelligence_feed_network.sql \
+            workers/socialflows/migrations/0219_socialflow_conversation_settings_active_hours.sql \
+            workers/socialflows/migrations/0220_empresa_services.sql \
+            workers/socialflows/migrations/0221_empresa_services_zona_tarifa_credencial.sql \
+            workers/socialflows/migrations/0222_socialcors_trend_triggers.sql \
+            workers/socialflows/migrations/0253_socialflow_publish_activity.sql; do
+            echo "Applying ${migration}..."
+            attempt=1
+            max_attempts=3
+            while true; do
+              if OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config apps/socialcors/wrangler.toml \
+                --file "${migration}" 2>&1)"; then
+                echo "$OUTPUT"
+                break
+              fi
+              echo "$OUTPUT"
+              if echo "$OUTPUT" | grep -qi "duplicate column name"; then
+                echo "Column(s) in ${migration} already exist — skipping (idempotent ALTER TABLE ADD COLUMN re-run)."
+                break
+              fi
+              if echo "$OUTPUT" | grep -Eqi "D1_RESET_DO|internal error; reference|Upstream service unavailable|code: 7009|upstream connect error" && [ "$attempt" -lt "$max_attempts" ]; then
+                attempt=$((attempt + 1))
+                echo "Transient D1 error on ${migration} — retrying (attempt ${attempt}/${max_attempts}) in 10s..."
+                sleep 10
+                continue
+              fi
+              echo "BLOCKED: ${migration} failed with an unexpected error."
+              exit 1
+            done
+          done
+
+      - name: Verify SocialFlow product tables exist in SOCIAL_DB
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          OUTPUT="$(wrangler d1 execute SOCIAL_DB --remote --config apps/socialcors/wrangler.toml \
+            --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('saas_social_accounts','saas_social_posts','saas_social_metrics','socialflow_conversation_threads','socialflow_knowledge_documents');")"
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "saas_social_accounts" || {
+            echo "BLOCKED: saas_social_accounts missing in SOCIAL_DB after migrations."
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "saas_social_posts" || {
+            echo "BLOCKED: saas_social_posts missing in SOCIAL_DB after migrations."
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "socialflow_conversation_threads" || {
+            echo "BLOCKED: socialflow_conversation_threads missing in SOCIAL_DB after migrations."
+            exit 1
+          }
+          echo "$OUTPUT" | grep -q "socialflow_knowledge_documents" || {
+            echo "BLOCKED: socialflow_knowledge_documents missing in SOCIAL_DB after migrations."
+            exit 1
+          }
+
+      - name: Ensure SocialFlow AI generation queue exists
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          if wrangler queues create saas-socialflow-ai-generation-queue 2>&1 | tee /tmp/socialflow-ai-queue-create.log; then
+            echo "Queue saas-socialflow-ai-generation-queue created."
+          elif grep -Eiq 'already exists|11009' /tmp/socialflow-ai-queue-create.log; then
+            echo "Queue saas-socialflow-ai-generation-queue already exists - continuing."
+          else
+            echo "BLOCKED: failed to create saas-socialflow-ai-generation-queue."
+            cat /tmp/socialflow-ai-queue-create.log
+            exit 1
+          fi
+
+      - name: Deploy SocialCors (AI Worker first, then web)
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          pushd workers/socialflow-ai-worker
+          wrangler deploy -c wrangler.workers.toml
+          popd
+
+          pushd apps/socialcors
+          max_attempts=3
+          for attempt in $(seq 1 "$max_attempts"); do
+            log_file="../../wrangler-socialflow-deploy-attempt-${attempt}.log"
+            echo "SocialCors deploy attempt ${attempt}/${max_attempts}"
+            if wrangler deploy --config wrangler.toml 2>&1 | tee "$log_file"; then
+              echo "SocialCors deploy succeeded on attempt ${attempt}/${max_attempts}"
+              break
+            fi
+            if grep -Eiq 'assets-upload-session|code:[[:space:]]*10013|unknown error' "$log_file"; then
+              if [ "$attempt" -lt "$max_attempts" ]; then
+                backoff_seconds=$((attempt * 10))
+                echo "TRANSIENT_SOCIALFLOW_ASSETS_UPLOAD_SESSION_FAILURE: retrying in ${backoff_seconds}s"
+                sleep "$backoff_seconds"
+                continue
+              fi
+              echo "SocialCors deploy failed after ${max_attempts} attempts due to repeated assets-upload-session/code 10013 failures."
+              exit 1
+            fi
+            echo "SocialFlow deploy failed with non-retryable error on attempt ${attempt}/${max_attempts}."
+            exit 1
+          done
+          popd
+
+  # ✅ OPTIMIZACIÓN 2: smoke tests sin instalación de dependencias
+  # Este job solo hace curl — no necesita node_modules en absoluto
+  smoke:
+    name: Smoke Tests (anti-loop / anti-cross)
+    runs-on: ubuntu-latest
+    needs: build_and_deploy
+    if: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for route propagation
+        run: sleep 20
+
+      - name: Validate redirects and domain isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          check_url() {
+            local label="$1"
+            local url="$2"
+            local allowed_host="$3"
+            local forbidden_csv="$4"
+
+            echo "=== ${label} ==="
+            echo "URL: ${url}"
+
+            local headers status location location_host
+            headers="$(curl -sS -I --max-redirs 0 "$url")"
+            status="$(printf '%s\n' "$headers" | awk 'index(toupper($1),"HTTP/")==1 {code=$2} END {print code}')"
+            location="$(printf '%s\n' "$headers" | awk 'BEGIN{IGNORECASE=1} /^Location:/ {sub(/\r$/,""); sub(/^Location:[[:space:]]*/,""); print; exit}')"
+
+            echo "status: ${status:-unknown}"
+            echo "location: ${location:-<none>}"
+
+            if [ -z "${status:-}" ]; then
+              echo "BLOCKED: could not read HTTP status for ${url}"
+              exit 1
+            fi
+
+            if [[ ! "$status" =~ ^(200|301|302|303|307|308)$ ]]; then
+              echo "BLOCKED: unexpected status ${status} for ${url}"
+              exit 1
+            fi
+
+            if ! curl -sS -L --max-redirs 10 -o /dev/null "$url"; then
+              echo "BLOCKED: redirect loop or unreachable redirect chain for ${url}"
+              exit 1
+            fi
+
+            if [ -n "${location:-}" ]; then
+              if [[ "$location" =~ ^https?:// ]]; then
+                location_host="$(printf '%s\n' "$location" | sed -E 's#^https?://([^/:]+).*$#\1#')"
+                if [ "$location_host" != "$allowed_host" ]; then
+                  echo "BLOCKED: ${url} redirected to foreign host ${location_host} (allowed: ${allowed_host})"
+                  exit 1
+                fi
+                IFS=',' read -r -a forbidden_hosts <<< "$forbidden_csv"
+                for forbidden in "${forbidden_hosts[@]}"; do
+                  if [ "$location_host" = "$forbidden" ]; then
+                    echo "BLOCKED: ${url} redirected to forbidden domain ${forbidden}"
+                    exit 1
+                  fi
+                done
+              fi
+            fi
+          }
+
+          check_url "drakos-client" "https://drako.systems/client" "drako.systems" "mentorias.drako.systems,bases.drako.systems"
+          check_url "mentorias-client" "https://mentorias.drako.systems/client" "mentorias.drako.systems" "drako.systems,bases.drako.systems"
+          check_url "bases-admin" "https://bases.drako.systems/admin" "bases.drako.systems" "drako.systems,mentorias.drako.systems"
+
+          echo "SMOKE_OK"
+
+  # ✅ OPTIMIZACIÓN 3: socialcors_smoke también sin instalación completa
+  # pnpm smoke:socialflow:canonical:manual solo necesita el script, no el monorepo entero
+  socialcors_smoke:
+    name: SocialCors Smoke Tests
+    runs-on: ubuntu-latest
+    needs: socialcors_build_and_deploy
+    if: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.25.0"
+
+      # ✅ Caché activa + solo instala el paquete que necesita el smoke script
+      - name: Setup Node.js (LTS) + pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.1"
+          cache: pnpm
+
+      - name: Install smoke dependencies only
+        run: pnpm install --frozen-lockfile --filter drako-smoke-tests 2>/dev/null || pnpm install --frozen-lockfile
+
+      - name: Wait for route propagation
+        run: sleep 20
+
+      - name: Validate SocialFlow canonical domain
+        env:
+          SOCIALFLOW_CANONICAL_SMOKE_ENABLED: "1"
+          SOCIALFLOW_CANONICAL_HOST: "socialflow.drako.systems"
+          SOCIALFLOW_COMPAT_HOST: "socialflows.drako.systems"
+        run: |
+          set -euo pipefail
+          pnpm smoke:socialflow:canonical:manual

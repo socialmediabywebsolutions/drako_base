@@ -1,8 +1,11 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { ensureDatabase, queryAll, queryOne, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
-// export const runtime = "edge"; // OpenNext Migration
+import { env as resolveEnv } from "@/lib/cf";
+import { isProductionEnvironment } from "@/lib/security/production-gate";
 
 
 type PackRow = { id: string; tier: string; departments: string };
@@ -10,6 +13,17 @@ type AgentRow = { id: string; department_id: string };
 
 export async function POST(req: Request) {
   try {
+    if (isProductionEnvironment(resolveEnv())) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "LEGACY_PROVISION_COMMIT_BLOCKED",
+          message: "Legacy provision commit endpoint is blocked in production. Use /api/owner/saas-factory/create-saas or /api/factory/provisioning/create-saas.",
+        },
+        { status: 410 },
+      );
+    }
+
     ensureDatabase();
     const body = (await req.json().catch(() => null)) as { sessionId?: string; name?: string; slug?: string; packTier?: string; domain?: string | null } | null;
     if (!body?.sessionId || !body.name || !body.slug) return NextResponse.json({ error: "sessionId, name y slug requeridos" }, { status: 400 });
@@ -28,6 +42,16 @@ export async function POST(req: Request) {
       domain,
       body.slug
     );
+    await run(
+      `INSERT INTO saas_instances (id, tenant_id, slug, name, status, plan_tier, created_at)
+       VALUES (?, ?, ?, ?, 'active', 'basic', ?)`,
+      saasId,
+      DEMO_TENANT_ID,
+      body.slug,
+      body.name,
+      now
+    );
+    // Legacy Mirror
     await run(
       `INSERT INTO saas_projects (id, tenant_id, slug, display_name, status, created_at, updated_at)
        VALUES (?, ?, ?, ?, 'active', ?, ?)`,

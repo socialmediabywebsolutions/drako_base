@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
 import { ensureCampamentoBase } from "@/lib/campamento-base";
@@ -8,7 +10,6 @@ import {
   enrichInboxItemsWithCompany,
   type InboxMessage,
 } from "@/lib/inbox/helpers";
-// export const runtime = "edge"; // OpenNext Migration
 
 function detectDepartment(subject: string | null, body: string): string | null {
   const haystack = `${subject ?? ""} ${body}`.toLowerCase();

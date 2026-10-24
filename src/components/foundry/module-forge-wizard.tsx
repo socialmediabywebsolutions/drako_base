@@ -53,7 +53,7 @@ export function ModuleForgeWizard({ saasId, projectName, onComplete, onCancel }:
 
             addLog("REGISTERING_PROJECT_ENTITLEMENTS...");
 
-            const res = await fetch("/api/campamento-base/provisioning/modules", {
+            const res = await fetch("/api/factory/provisioning/modules", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-drako-tenant-id": "demo" },
                 body: JSON.stringify({ saasId, modules: selectedModules })

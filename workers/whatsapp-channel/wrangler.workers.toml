@@ -1,0 +1,26 @@
+name = "drako-whatsapp-channel"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+workers_dev = false
+
+# ── Secrets (set via: wrangler secret put <NAME> --config wrangler.workers.toml) ──
+# WHATSAPP_VERIFY_TOKEN     — token for Meta webhook subscription verification
+# WHATSAPP_APP_SECRET       — Meta app secret for HMAC-SHA256 validation
+# WHATSAPP_API_TOKEN        — Bearer token for Meta Graph API (send messages)
+# WHATSAPP_PHONE_NUMBER_ID  — Meta Phone Number ID for the sending account
+# DRAKO_ROUTER_URL          — base URL of the Drako app (e.g. https://app.drako.io)
+# DRAKO_ROUTER_SECRET       — shared secret for /api/conversation-router Bearer auth
+# ALLOWED_PHONES            — optional comma-separated allowlist of E.164 phone numbers
+#
+# NOTE: Tenant resolution is now handled by the conversation router endpoint
+# which has access to the saas_whatsapp_identities table via getWhatsappIdentityByPhone()
+
+[vars]
+DRAKO_CONTEXT = "whatsapp-channel"
+
+[env.production]
+name = "drako-whatsapp-channel"
+workers_dev = true
+
+[env.production.vars]
+DRAKO_CONTEXT = "whatsapp-channel"

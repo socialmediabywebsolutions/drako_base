@@ -1,0 +1,77 @@
+{
+  "result": [
+    {
+      "created_on": "2026-02-04T19:17:23.676972Z",
+      "modified_on": "2026-02-05T12:59:01.820306Z",
+      "id": "autopilot-worker",
+      "tag": "e0a9433bde854015a026c457a610cc5a",
+      "tags": [],
+      "deployment_id": "",
+      "tail_consumers": null,
+      "logpush": true,
+      "has_assets": false,
+      "has_modules": true,
+      "etag": "448f3a999c3f27411e1a25dd2a19f2c8b0d4871b7313a579045ad2988d4f3fef",
+      "handlers": [
+        "queue",
+        "scheduled",
+        "fetch"
+      ],
+      "last_deployed_from": "wrangler",
+      "compatibility_date": "2025-01-01",
+      "compatibility_flags": [
+        "nodejs_compat"
+      ],
+      "usage_model": "standard",
+      "routes": null
+    },
+    {
+      "created_on": "2026-02-04T22:36:31.913246Z",
+      "modified_on": "2026-02-04T22:36:39.020709Z",
+      "id": "autopilot-worker-production",
+      "tag": "41cf7d46fe3042039a9882d612cdefae",
+      "tags": null,
+      "deployment_id": "",
+      "tail_consumers": null,
+      "logpush": true,
+      "has_assets": false,
+      "has_modules": true,
+      "etag": "66ec38e2a56c93bbc047b9a0dcabaeaf6517fa506a912332754c6d04ae107695",
+      "handlers": [
+        "queue",
+        "scheduled",
+        "fetch"
+      ],
+      "last_deployed_from": "wrangler",
+      "compatibility_date": "2025-01-01",
+      "compatibility_flags": [
+        "nodejs_compat"
+      ],
+      "usage_model": "standard",
+      "routes": null
+    },
+    {
+      "created_on": "2026-02-05T01:28:03.700207Z",
+      "modified_on": "2026-02-05T16:38:44.882404Z",
+      "id": "stripe-webhook-worker",
+      "tag": "b765674e733043e3a7676f9e5db2be01",
+      "tags": null,
+      "deployment_id": "",
+      "tail_consumers": null,
+      "logpush": false,
+      "has_assets": false,
+      "has_modules": true,
+      "etag": "0353e9e0d11ae14fe2fb4cb00d685fa0e047c6bedb39cf6fecdf6189c600b35a",
+      "handlers": [
+        "fetch"
+      ],
+      "last_deployed_from": "dash",
+      "compatibility_date": "2024-04-05",
+      "usage_model": "standard",
+      "routes": null
+    }
+  ],
+  "success": true,
+  "errors": [],
+  "messages": []
+}

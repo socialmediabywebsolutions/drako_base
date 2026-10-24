@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { handleFeaturesApiError } from "@/lib/features/api-helpers";
 import { resolveFeaturesContext, syncFeaturesFromBlueprint } from "@/lib/features/repository";
 import { listSaasModules, resolveBlueprintsContext } from "@/lib/blueprints/repository";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function POST(request: Request) {

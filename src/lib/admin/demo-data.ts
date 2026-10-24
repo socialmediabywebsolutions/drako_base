@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import { SAAS_PACK_DEFINITIONS } from "@/lib/packs/definitions";
 import type { SaasPackDefinition } from "@/lib/packs/types";
@@ -16,6 +18,27 @@ import type {
   NotificationSeverity,
   NotificationType,
 } from "@/lib/conversations/types";
+
+// Node-dev-only flags for SocialFlow demo persistence (avoid breaking Cloudflare Workers)
+// Node-dev-only flags for SocialFlow demo persistence (avoid breaking Cloudflare Workers)
+// NOTE: These are defined once here and reused by SocialFlow demo snapshot helpers later.
+const isNode =
+  typeof process !== "undefined" &&
+  typeof process.versions !== "undefined" &&
+  typeof process.versions.node === "string";
+const isNodeDev = isNode && process.env && process.env.NODE_ENV === "development";
+
+function getDevFs(): typeof import("fs") | null {
+  return isNodeDev ? fs : null;
+}
+
+function getSocialflowDemoStatePath(): string | null {
+  if (!isNodeDev) return null;
+  const cwd = typeof process !== "undefined" && process.cwd ? process.cwd() : null;
+  if (!cwd) return null;
+  // Store snapshot under .next to keep it local to Next dev builds
+  return `${cwd}/.next/socialflow-demo.json`;
+}
 
 export type DemoOwner = {
   id: string;
@@ -1020,7 +1043,82 @@ type DemoTenantState = {
   saasPaidAdsSpend: DemoSaasPaidAdsSpend[];
 };
 
-const tenantStore = new Map<string, DemoTenantState>();
+type SocialflowDemoSnapshot = {
+  tenants: {
+    [tenantId: string]: {
+      saasSocialAccounts?: DemoSaasSocialAccount[];
+      saasSocialCampaigns?: DemoSaasSocialCampaign[];
+      saasSocialPosts?: DemoSaasSocialPost[];
+      saasSocialMetrics?: DemoSaasSocialMetrics[];
+    };
+  };
+};
+
+export type DemoTenantStateSnapshot = DemoTenantState;
+
+export const tenantStore = new Map<string, DemoTenantState>();
+let externalDemoTenantStateCache: Map<string, DemoTenantStateSnapshot> | null | undefined;
+
+function loadSocialflowDemoSnapshot(): SocialflowDemoSnapshot | null {
+  if (!isNodeDev) return null;
+  const fs = getDevFs();
+  const snapshotPath = getSocialflowDemoStatePath();
+  if (!fs || !snapshotPath) return null;
+  try {
+    if (!fs.existsSync(snapshotPath)) return null;
+    const raw = fs.readFileSync(snapshotPath, "utf8");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SocialflowDemoSnapshot;
+    // Dev-only trace
+    // eslint-disable-next-line no-console
+    console.log("[SOCIALFLOW_DEMO] load snapshot", {
+      path: snapshotPath,
+      tenants: Object.keys(parsed.tenants ?? {}),
+    });
+    if (!parsed || typeof parsed !== "object" || !parsed.tenants) return null;
+    return parsed;
+  } catch {
+    // eslint-disable-next-line no-console
+    console.warn("[SOCIALFLOW_DEMO] failed to load snapshot", getSocialflowDemoStatePath());
+    return null;
+  }
+}
+
+function saveSocialflowDemoSnapshot(tenantId: string): void {
+  if (!isNodeDev) return;
+  const fs = getDevFs();
+  const snapshotPath = getSocialflowDemoStatePath();
+  if (!fs || !snapshotPath) return;
+  const state = tenantStore.get(tenantId);
+  if (!state) return;
+
+  const current: SocialflowDemoSnapshot = loadSocialflowDemoSnapshot() ?? { tenants: {} };
+  current.tenants[tenantId] = {
+    saasSocialAccounts: state.saasSocialAccounts,
+    saasSocialCampaigns: state.saasSocialCampaigns,
+    saasSocialPosts: state.saasSocialPosts,
+    saasSocialMetrics: state.saasSocialMetrics,
+  };
+
+  try {
+    const dir = path.dirname(snapshotPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(snapshotPath, JSON.stringify(current, null, 2), "utf8");
+    // eslint-disable-next-line no-console
+    console.log("[SOCIALFLOW_DEMO] save snapshot", {
+      path: snapshotPath,
+      tenantId,
+      accounts: state.saasSocialAccounts.length,
+      campaigns: state.saasSocialCampaigns.length,
+      posts: state.saasSocialPosts.length,
+      metrics: state.saasSocialMetrics.length,
+    });
+  } catch {
+    // Swallow errors in dev persistence to avoid breaking demo
+  }
+}
 
 const NOW = "2024-05-01T10:00:00.000Z";
 
@@ -4649,11 +4747,58 @@ function cloneState(state: DemoTenantState): DemoTenantState {
   };
 }
 
+function getExternalDemoTenantState(tenantId: string): DemoTenantStateSnapshot | null {
+  if (typeof externalDemoTenantStateCache === "undefined") {
+    externalDemoTenantStateCache = new Map();
+    const raw =
+      typeof process !== "undefined" && process.env
+        ? process.env.DRAKO_SOCIALFLOW_DEMO_STATE
+        : undefined;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { tenants?: Record<string, DemoTenantStateSnapshot> };
+        const tenants = parsed?.tenants ?? {};
+        for (const [id, state] of Object.entries(tenants)) {
+          if (!state) continue;
+          externalDemoTenantStateCache.set(id, cloneState(state));
+        }
+      } catch (error) {
+        console.warn("SOCIALFLOW_DEMO_STATE_PARSE_FAILED", error);
+      }
+    }
+  }
+
+  const record = externalDemoTenantStateCache?.get(tenantId);
+  return record ? cloneState(record) : null;
+}
+
 function ensureTenantState(tenantId: string): DemoTenantState {
   const existing = tenantStore.get(tenantId);
   if (existing) return existing;
+  const external = getExternalDemoTenantState(tenantId);
   const base = tenantId === DEMO_TENANT_ID ? DEFAULT_STATE : EMPTY_STATE;
-  const cloned = cloneState(base);
+  const cloned = external ? cloneState(external) : cloneState(base);
+
+  // In Node dev, merge any persisted SocialFlow demo snapshot for this tenant
+  if (isNodeDev) {
+    const snapshot = loadSocialflowDemoSnapshot();
+    const snapTenant = snapshot?.tenants?.[tenantId];
+    if (snapTenant) {
+      if (Array.isArray(snapTenant.saasSocialAccounts)) {
+        cloned.saasSocialAccounts = snapTenant.saasSocialAccounts;
+      }
+      if (Array.isArray(snapTenant.saasSocialCampaigns)) {
+        cloned.saasSocialCampaigns = snapTenant.saasSocialCampaigns;
+      }
+      if (Array.isArray(snapTenant.saasSocialPosts)) {
+        cloned.saasSocialPosts = snapTenant.saasSocialPosts;
+      }
+      if (Array.isArray(snapTenant.saasSocialMetrics)) {
+        cloned.saasSocialMetrics = snapTenant.saasSocialMetrics;
+      }
+    }
+  }
+
   tenantStore.set(tenantId, cloned);
   return cloned;
 }
@@ -4665,8 +4810,35 @@ function generateId(prefix: string): string {
 }
 
 export function getDemoOwner(tenantId: string): DemoOwner | null {
+  const runtimeDemoEnabled =
+    typeof process !== "undefined"
+    && process.env.NODE_ENV === "development"
+    && process.env.DRAKO_ENABLE_RUNTIME_DEMO === "1";
+  if (!runtimeDemoEnabled) {
+    return null;
+  }
   const owner = ensureTenantState(tenantId).owner;
   return owner ? { ...owner } : null;
+}
+
+export function __resetDemoTenantStateForDev(tenantId?: string): DemoTenantStateSnapshot {
+  if (!tenantId) {
+    tenantStore.clear();
+    return cloneState(EMPTY_STATE);
+  }
+  const cleared = ensureTenantState(tenantId);
+  tenantStore.delete(tenantId);
+  return cloneState(cleared);
+}
+
+export function exportDemoTenantState(tenantId: string): DemoTenantStateSnapshot {
+  return cloneState(ensureTenantState(tenantId));
+}
+
+export function replaceDemoTenantState(tenantId: string, state: DemoTenantStateSnapshot): DemoTenantStateSnapshot {
+  const cloned = cloneState(state);
+  tenantStore.set(tenantId, cloned);
+  return cloneState(cloned);
 }
 
 export function upsertDemoOwner(tenantId: string, payload: Partial<DemoOwner>): DemoOwner {
@@ -5909,6 +6081,9 @@ export function upsertDemoSaasSocialAccount(
   } else {
     state.saasSocialAccounts.push(record);
   }
+  if (isNodeDev) {
+    saveSocialflowDemoSnapshot(tenantId);
+  }
   return { ...record };
 }
 
@@ -5943,6 +6118,9 @@ export function upsertDemoSaasSocialCampaign(
     state.saasSocialCampaigns[index] = record;
   } else {
     state.saasSocialCampaigns.push(record);
+  }
+  if (isNodeDev) {
+    saveSocialflowDemoSnapshot(tenantId);
   }
   return { ...record };
 }
@@ -5999,6 +6177,9 @@ export function upsertDemoSaasSocialPost(
   } else {
     state.saasSocialPosts.push(record);
   }
+  if (isNodeDev) {
+    saveSocialflowDemoSnapshot(tenantId);
+  }
   return { ...record };
 }
 
@@ -6010,15 +6191,51 @@ export function updateDemoSaasSocialPostStatus(
   const record = state.saasSocialPosts.find((item) => item.id === payload.id);
   if (!record) return null;
   record.status = payload.status;
-  if (payload.status === "POSTED") {
+  if (payload.status === "POSTED" || payload.status === "PUBLISHED") {
     record.posted_at = payload.posted_at ?? record.posted_at ?? new Date().toISOString();
   }
   record.updated_at = new Date().toISOString();
+  if (isNodeDev) {
+    saveSocialflowDemoSnapshot(tenantId);
+  }
   return { ...record };
 }
 
 export function listDemoSaasSocialMetricsForPost(tenantId: string, postId: string): DemoSaasSocialMetrics[] {
   return ensureTenantState(tenantId).saasSocialMetrics.filter((item) => item.post_id === postId).map((item) => ({ ...item }));
+}
+
+export function upsertDemoSaasSocialMetric(
+  tenantId: string,
+  payload: Omit<DemoSaasSocialMetrics, "tenant_id"> & { id?: string },
+): DemoSaasSocialMetrics {
+  const state = ensureTenantState(tenantId);
+  const id = payload.id?.trim() ?? generateId("social_metric");
+  const index = state.saasSocialMetrics.findIndex((item) => item.id === id);
+  const record: DemoSaasSocialMetrics = {
+    id,
+    tenant_id: tenantId,
+    saas_id: payload.saas_id,
+    post_id: payload.post_id,
+    provider: payload.provider,
+    impressions: payload.impressions,
+    likes: payload.likes,
+    comments: payload.comments,
+    shares: payload.shares,
+    clicks: payload.clicks,
+    leads_generated: payload.leads_generated,
+    captured_at: payload.captured_at,
+    metadata: payload.metadata ?? null,
+  };
+  if (index >= 0) {
+    state.saasSocialMetrics[index] = record;
+  } else {
+    state.saasSocialMetrics.push(record);
+  }
+  if (isNodeDev) {
+    saveSocialflowDemoSnapshot(tenantId);
+  }
+  return { ...record };
 }
 
 export function listDemoSaasDomains(tenantId: string, saasId: string): DemoSaasDomain[] {

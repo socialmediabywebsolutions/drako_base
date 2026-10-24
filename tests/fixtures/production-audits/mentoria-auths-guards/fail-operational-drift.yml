@@ -1,0 +1,8 @@
+name: Drifted Mentoria CI
+
+jobs:
+  deploy:
+    steps:
+      - name: Drifted Mentoria auth migration
+        run: |
+          wrangler d1 execute DRACO_DB --remote --config wrangler.workers.toml --file migrations/0160_mentoria_session_persistence.sql

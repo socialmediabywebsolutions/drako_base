@@ -1,0 +1,1239 @@
+{
+  "generatedAt": "2026-06-26T20:46:57.518Z",
+  "wranglerConfigs": [
+    "apps/socialflow-runtime/wrangler.production.toml",
+    "apps/socialflow-runtime/wrangler.toml",
+    "workers/analytics/wrangler.workers.toml",
+    "workers/automations/wrangler.workers.toml",
+    "workers/autopilot-worker/wrangler.workers.toml",
+    "workers/bases/wrangler.workers.toml",
+    "workers/cryptos/wrangler.workers.toml",
+    "workers/drako-ai-orchestrator-worker/wrangler.workers.toml",
+    "workers/drako-base-3-shims/wrangler.workers.toml",
+    "workers/drako-billing-worker/wrangler.workers.toml",
+    "workers/drako-core-worker/wrangler.workers.toml",
+    "workers/drako-observability-worker/wrangler.workers.toml",
+    "workers/drako-provisioner-worker/wrangler.workers.toml",
+    "workers/drako-scheduler/wrangler.workers.toml",
+    "workers/drakos/wrangler.workers.toml",
+    "workers/invoices/wrangler.workers.toml",
+    "workers/mentorias/wrangler.workers.toml",
+    "workers/saas-factory-worker/wrangler.workers.toml",
+    "workers/socialflow-ai-worker/wrangler.workers.toml",
+    "workers/socialflows-runtime-canary/wrangler.workers.toml",
+    "workers/socialflows/wrangler.workers.toml",
+    "workers/stripe-webhook/wrangler.workers.toml",
+    "workers/whatsapp-channel/wrangler.workers.toml",
+    "wrangler.jsonc"
+  ],
+  "apps": [
+    {
+      "appKey": "analytics",
+      "sourcePath": "apps/analytics",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "appKey": "automations",
+      "sourcePath": "apps/automations",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "appKey": "base",
+      "sourcePath": "apps/base",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "appKey": "bases",
+      "sourcePath": "apps/bases",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "appKey": "cryptos",
+      "sourcePath": "apps/cryptos",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "appKey": "drako",
+      "sourcePath": "apps/drako",
+      "classification": "DRAKO_BRAND"
+    },
+    {
+      "appKey": "drakos",
+      "sourcePath": "apps/drakos",
+      "classification": "DRAKO_BRAND"
+    },
+    {
+      "appKey": "invoices",
+      "sourcePath": "apps/invoices",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "appKey": "mentorias",
+      "sourcePath": "apps/mentorias",
+      "classification": "MENTORIA_PRODUCT"
+    },
+    {
+      "appKey": "socialflow-runtime",
+      "sourcePath": "apps/socialflow-runtime",
+      "classification": "SOCIALFLOW_PRODUCT"
+    },
+    {
+      "appKey": "socialflows",
+      "sourcePath": "apps/socialflows",
+      "classification": "SOCIALFLOW_PRODUCT"
+    }
+  ],
+  "workers": [
+    {
+      "workerKey": "analytics",
+      "sourcePath": "workers/analytics",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "automations",
+      "sourcePath": "workers/automations",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "autopilot-worker",
+      "sourcePath": "workers/autopilot-worker",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "bases",
+      "sourcePath": "workers/bases",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "cryptos",
+      "sourcePath": "workers/cryptos",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "drako-ai-orchestrator-worker",
+      "sourcePath": "workers/drako-ai-orchestrator-worker",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "drako-base-3-shims",
+      "sourcePath": "workers/drako-base-3-shims",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "drako-billing-worker",
+      "sourcePath": "workers/drako-billing-worker",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "drako-core-worker",
+      "sourcePath": "workers/drako-core-worker",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "drako-observability-worker",
+      "sourcePath": "workers/drako-observability-worker",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "drako-provisioner-worker",
+      "sourcePath": "workers/drako-provisioner-worker",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "drako-scheduler",
+      "sourcePath": "workers/drako-scheduler",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "drakos",
+      "sourcePath": "workers/drakos",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "invoices",
+      "sourcePath": "workers/invoices",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "mentorias",
+      "sourcePath": "workers/mentorias",
+      "classification": "MENTORIA_PRODUCT"
+    },
+    {
+      "workerKey": "saas-factory-worker",
+      "sourcePath": "workers/saas-factory-worker",
+      "classification": "FACTORY"
+    },
+    {
+      "workerKey": "socialflow-ai-worker",
+      "sourcePath": "workers/socialflow-ai-worker",
+      "classification": "SOCIALFLOW_PRODUCT"
+    },
+    {
+      "workerKey": "socialflows",
+      "sourcePath": "workers/socialflows",
+      "classification": "SOCIALFLOW_PRODUCT"
+    },
+    {
+      "workerKey": "socialflows-runtime-canary",
+      "sourcePath": "workers/socialflows-runtime-canary",
+      "classification": "SOCIALFLOW_PRODUCT"
+    },
+    {
+      "workerKey": "stripe-webhook",
+      "sourcePath": "workers/stripe-webhook",
+      "classification": "UNKNOWN_REVIEW"
+    },
+    {
+      "workerKey": "whatsapp-channel",
+      "sourcePath": "workers/whatsapp-channel",
+      "classification": "UNKNOWN_REVIEW"
+    }
+  ],
+  "runtimes": [
+    {
+      "runtimeKey": "saas-socialflows-runtime-production",
+      "sourceConfigPath": "apps/socialflow-runtime/wrangler.production.toml",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "workerName": "saas-socialflows-runtime-production",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "SOCIALFLOW_RUNTIME_TARGET",
+        "SOCIALFLOW_RUNTIME_STATE",
+        "SOCIALFLOW_RUNTIME_CONTRACT_VERSION",
+        "SOCIALFLOW_RUNTIME_COOKIE_NAMESPACE",
+        "AUTHS_SECRETS_NAME",
+        "SOCIALFLOW_PRODUCTION_MANUAL_CONFIGURATION_REQUIRED",
+        "SOCIALFLOW_PRODUCTION_EXECUTION_ALLOWED",
+        "SOCIALFLOW_PRODUCTION_REQUIRES_HUMAN_APPROVAL"
+      ],
+      "authDbBindings": [
+        "SOCIALFLOW_AUTHS_DB"
+      ],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "REQUIRED_MANUAL_CONFIGURATION"
+          },
+          {
+            "binding": "SAASES_DB",
+            "databaseName": "REQUIRED_MANUAL_CONFIGURATION"
+          },
+          {
+            "binding": "SOCIAL_DB",
+            "databaseName": "REQUIRED_MANUAL_CONFIGURATION"
+          },
+          {
+            "binding": "SOCIALFLOW_AUTHS_DB",
+            "databaseName": "REQUIRED_MANUAL_CONFIGURATION"
+          }
+        ],
+        "kv": [],
+        "r2": [],
+        "queues": [],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "saas-socialflows-runtime-canary",
+      "sourceConfigPath": "apps/socialflow-runtime/wrangler.toml",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "workerName": "saas-socialflows-runtime-canary",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "SOCIALFLOW_RUNTIME_TARGET",
+        "SOCIALFLOW_RUNTIME_STATE",
+        "SOCIALFLOW_RUNTIME_CONTRACT_VERSION",
+        "SOCIALFLOW_RUNTIME_COOKIE_NAMESPACE",
+        "AUTHS_SECRETS_NAME",
+        "SOCIALFLOW_CANARY_GATED_HOSTS",
+        "SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE",
+        "SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1",
+        "SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE",
+        "SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH",
+        "SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH",
+        "SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH",
+        "SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH"
+      ],
+      "authDbBindings": [
+        "SOCIALFLOW_AUTHS_DB"
+      ],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "drako_db_socialflow_canary"
+          },
+          {
+            "binding": "SAASES_DB",
+            "databaseName": "saas_socialflows_registry_canary_db"
+          },
+          {
+            "binding": "SOCIAL_DB",
+            "databaseName": "saas_socialflows_canary_db"
+          },
+          {
+            "binding": "SOCIALFLOW_AUTHS_DB",
+            "databaseName": "saas_socialflow_auths_canary_db"
+          }
+        ],
+        "kv": [],
+        "r2": [],
+        "queues": [],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "saas-analytics-prod",
+      "sourceConfigPath": "workers/analytics/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "saas-analytics-prod",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [
+        "analytics.drako.systems"
+      ],
+      "envVarNames": [
+        "SAASES_SLUG",
+        "SAASES_DOMAIN",
+        "AUTHS_SECRETS_NAME",
+        "WORKERS_ONLY_MODE"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "SAASES_DB",
+            "databaseName": "saas_analytics_prod_db"
+          }
+        ],
+        "kv": [
+          {
+            "binding": "SAASES_CACHE",
+            "id": "0fb2cacf438a4da581d4c79cf71e6e34"
+          }
+        ],
+        "r2": [
+          {
+            "binding": "SAASES_STORAGE",
+            "bucketName": "saas-analytics-prod-storage"
+          }
+        ],
+        "queues": [
+          {
+            "binding": "SAASES_EVENTS",
+            "queue": "saas-analytics-prod-events"
+          }
+        ],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "saas-automations-prod",
+      "sourceConfigPath": "workers/automations/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "saas-automations-prod",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [
+        "automations.drako.systems"
+      ],
+      "envVarNames": [
+        "SAASES_SLUG",
+        "SAASES_DOMAIN",
+        "AUTHS_SECRETS_NAME",
+        "WORKERS_ONLY_MODE"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "SAASES_DB",
+            "databaseName": "saas_automations_prod_db"
+          }
+        ],
+        "kv": [
+          {
+            "binding": "SAASES_CACHE",
+            "id": "88b03f2f25354c2f9def76ea4572951f"
+          }
+        ],
+        "r2": [
+          {
+            "binding": "SAASES_STORAGE",
+            "bucketName": "saas-automations-prod-storage"
+          }
+        ],
+        "queues": [
+          {
+            "binding": "SAASES_EVENTS",
+            "queue": "saas-automations-prod-events"
+          }
+        ],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "autopilot-worker",
+      "sourceConfigPath": "workers/autopilot-worker/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "autopilot-worker",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "APP_URL"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "drako_db_prod"
+          }
+        ],
+        "kv": [],
+        "r2": [],
+        "queues": [],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "saas-bases-prod",
+      "sourceConfigPath": "workers/bases/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "saas-bases-prod",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [
+        "base.drako.systems",
+        "bases.drako.systems"
+      ],
+      "envVarNames": [
+        "NEXTAUTH_URL",
+        "AUTHS_ISOLATIONS_ENABLED",
+        "AUTHS_LEGACY_COMPATS_ENABLED",
+        "ROUTINGS_SUBDOMAINS_ENABLED",
+        "TELEMETRIES_HOLDING_ENABLED",
+        "AUTHS_REQUIRE_CONTEXT_DB"
+      ],
+      "authDbBindings": [
+        "BASES_AUTHS_DB"
+      ],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "drako_db_prod"
+          },
+          {
+            "binding": "BASES_AUTHS_DB",
+            "databaseName": "drako_db_prod"
+          }
+        ],
+        "kv": [],
+        "r2": [],
+        "queues": [
+          {
+            "binding": "BILLING_QUEUE",
+            "queue": "drako-billing-queue"
+          },
+          {
+            "binding": "SAAS_FACTORY_QUEUE",
+            "queue": "drako-saas-factory-queue"
+          },
+          {
+            "binding": "PROVISIONING_QUEUE",
+            "queue": "drako-provisioning-queue"
+          }
+        ],
+        "services": [
+          {
+            "binding": "SCHEDULER",
+            "service": "drako-scheduler"
+          }
+        ]
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "saas-cryptos-prod",
+      "sourceConfigPath": "workers/cryptos/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "saas-cryptos-prod",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [
+        "cryptos.drako.systems"
+      ],
+      "envVarNames": [
+        "SAASES_SLUG",
+        "SAASES_DOMAIN",
+        "AUTHS_SECRETS_NAME",
+        "WORKERS_ONLY_MODE"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "SAASES_DB",
+            "databaseName": "saas_cryptos_prod_db"
+          }
+        ],
+        "kv": [
+          {
+            "binding": "SAASES_CACHE",
+            "id": "2b8ca60c04804390b6419491dbe9c446"
+          }
+        ],
+        "r2": [
+          {
+            "binding": "SAASES_STORAGE",
+            "bucketName": "saas-cryptos-prod-storage"
+          }
+        ],
+        "queues": [
+          {
+            "binding": "SAASES_EVENTS",
+            "queue": "saas-cryptos-prod-events"
+          }
+        ],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "drako-ai-orchestrator-worker",
+      "sourceConfigPath": "workers/drako-ai-orchestrator-worker/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "drako-ai-orchestrator-worker",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "DRKO_AI_CONTEXT",
+        "WORKERS_ONLY_MODE"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRKO_AI_DB",
+            "databaseName": "drako_ai_orchestrator_db"
+          }
+        ],
+        "kv": [
+          {
+            "binding": "DRKO_GLOBAL_CONFIG",
+            "id": "2a333512ad9c4c25a166496c1c121781"
+          }
+        ],
+        "r2": [],
+        "queues": [
+          {
+            "binding": "DRKO_GLOBAL_EVENTS",
+            "queue": "drako-global-events"
+          }
+        ],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "drako-base-3",
+      "sourceConfigPath": "workers/drako-base-3-shims/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "drako-base-3",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "CORE_WORKER_URL",
+        "BILLING_WORKER_URL",
+        "OBSERVABILITY_WORKER_URL",
+        "AI_ORCHESTRATOR_WORKER_URL",
+        "LEGACY_ALLOWED_HOST_NAMES",
+        "WORKERS_ONLY_MODE",
+        "SUNSETS_MODE"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [],
+        "kv": [],
+        "r2": [],
+        "queues": [],
+        "services": [
+          {
+            "binding": "CORE_SERVICE",
+            "service": "drako-core-worker"
+          },
+          {
+            "binding": "BILLING_SERVICE",
+            "service": "drako-billing-worker"
+          },
+          {
+            "binding": "OBSERVABILITY_SERVICE",
+            "service": "drako-observability-worker"
+          },
+          {
+            "binding": "AI_ORCHESTRATOR_SERVICE",
+            "service": "drako-ai-orchestrator-worker"
+          }
+        ]
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "drako-billing-worker",
+      "sourceConfigPath": "workers/drako-billing-worker/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "drako-billing-worker",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "DRKO_BILLING_CONTEXT",
+        "WORKERS_ONLY_MODE"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRKO_BILLING_DB",
+            "databaseName": "drako_billing_db"
+          }
+        ],
+        "kv": [
+          {
+            "binding": "DRKO_GLOBAL_CONFIG",
+            "id": "2a333512ad9c4c25a166496c1c121781"
+          }
+        ],
+        "r2": [],
+        "queues": [
+          {
+            "binding": "DRKO_GLOBAL_EVENTS",
+            "queue": "drako-global-events"
+          }
+        ],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "drako-core-worker",
+      "sourceConfigPath": "workers/drako-core-worker/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "drako-core-worker",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "DRKO_CORE_CONTEXT",
+        "DRKO_LOOP_NAME",
+        "WORKERS_ONLY_MODE",
+        "GIT_SHA",
+        "BUILD_VERSION"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRKO_HOLDING_DB",
+            "databaseName": "drako_holding_db"
+          }
+        ],
+        "kv": [
+          {
+            "binding": "DRKO_GLOBAL_CONFIG",
+            "id": "2a333512ad9c4c25a166496c1c121781"
+          }
+        ],
+        "r2": [],
+        "queues": [
+          {
+            "binding": "DRKO_GLOBAL_EVENTS",
+            "queue": "drako-global-events"
+          }
+        ],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "drako-observability-worker",
+      "sourceConfigPath": "workers/drako-observability-worker/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "drako-observability-worker",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "DRKO_OBSERVABILITY_CONTEXT",
+        "WORKERS_ONLY_MODE"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRKO_OBSERVABILITY_DB",
+            "databaseName": "drako_observability_db"
+          }
+        ],
+        "kv": [
+          {
+            "binding": "DRKO_GLOBAL_CONFIG",
+            "id": "2a333512ad9c4c25a166496c1c121781"
+          }
+        ],
+        "r2": [],
+        "queues": [
+          {
+            "binding": "DRKO_GLOBAL_EVENTS",
+            "queue": "drako-global-events"
+          }
+        ],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "drako-provisioner-worker",
+      "sourceConfigPath": "workers/drako-provisioner-worker/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "drako-provisioner-worker",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "DRKO_PROVISIONER_CONTEXT",
+        "DRKO_CORE_WORKER_URL",
+        "WORKERS_ONLY_MODE"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRKO_HOLDING_DB",
+            "databaseName": "drako_holding_db"
+          }
+        ],
+        "kv": [
+          {
+            "binding": "DRKO_GLOBAL_CONFIG",
+            "id": "2a333512ad9c4c25a166496c1c121781"
+          }
+        ],
+        "r2": [],
+        "queues": [
+          {
+            "binding": "DRKO_GLOBAL_EVENTS",
+            "queue": "drako-global-events"
+          }
+        ],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "drako-scheduler",
+      "sourceConfigPath": "workers/drako-scheduler/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "drako-scheduler",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "STRICT_FAIL_CLOSED"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "drako_db_prod"
+          }
+        ],
+        "kv": [],
+        "r2": [],
+        "queues": [],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "saas-drakos-prod",
+      "sourceConfigPath": "workers/drakos/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "saas-drakos-prod",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [
+        "drako.systems",
+        "drakos.drako.systems"
+      ],
+      "envVarNames": [
+        "NEXTAUTH_URL",
+        "AUTHS_ISOLATIONS_ENABLED",
+        "AUTHS_LEGACY_COMPATS_ENABLED",
+        "ROUTINGS_SUBDOMAINS_ENABLED",
+        "TELEMETRIES_HOLDING_ENABLED",
+        "AUTHS_REQUIRE_CONTEXT_DB"
+      ],
+      "authDbBindings": [
+        "DRAKOS_AUTHS_DB"
+      ],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "drako_db_prod"
+          },
+          {
+            "binding": "DRAKOS_AUTHS_DB",
+            "databaseName": "drako_db_prod"
+          }
+        ],
+        "kv": [],
+        "r2": [],
+        "queues": [
+          {
+            "binding": "BILLING_QUEUE",
+            "queue": "drako-billing-queue"
+          },
+          {
+            "binding": "SAAS_FACTORY_QUEUE",
+            "queue": "drako-saas-factory-queue"
+          },
+          {
+            "binding": "PROVISIONING_QUEUE",
+            "queue": "drako-provisioning-queue"
+          }
+        ],
+        "services": [
+          {
+            "binding": "SCHEDULER",
+            "service": "drako-scheduler"
+          }
+        ]
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "saas-invoices-prod",
+      "sourceConfigPath": "workers/invoices/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "saas-invoices-prod",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [
+        "invoices.drako.systems"
+      ],
+      "envVarNames": [
+        "SAASES_SLUG",
+        "SAASES_DOMAIN",
+        "AUTHS_SECRETS_NAME",
+        "WORKERS_ONLY_MODE"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "SAASES_DB",
+            "databaseName": "saas_invoices_prod_db"
+          }
+        ],
+        "kv": [
+          {
+            "binding": "SAASES_CACHE",
+            "id": "3e3ee55e5c6e497b8b6f4ec27394173a"
+          }
+        ],
+        "r2": [
+          {
+            "binding": "SAASES_STORAGE",
+            "bucketName": "saas-invoices-prod-storage"
+          }
+        ],
+        "queues": [
+          {
+            "binding": "SAASES_EVENTS",
+            "queue": "saas-invoices-prod-events"
+          }
+        ],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "saas-mentorias-prod",
+      "sourceConfigPath": "workers/mentorias/wrangler.workers.toml",
+      "classification": "MENTORIA_PRODUCT",
+      "workerName": "saas-mentorias-prod",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": true,
+      "domains": [
+        "mentoria.drako.systems",
+        "mentorias.drako.systems"
+      ],
+      "envVarNames": [
+        "SAASES_SLUG",
+        "SAASES_DOMAIN",
+        "AUTHS_SECRETS_NAME",
+        "NEXTAUTH_URL",
+        "AUTHS_ISOLATIONS_ENABLED",
+        "AUTHS_LEGACY_COMPATS_ENABLED",
+        "ROUTINGS_SUBDOMAINS_ENABLED",
+        "TELEMETRIES_HOLDING_ENABLED",
+        "AUTHS_REQUIRE_CONTEXT_DB"
+      ],
+      "authDbBindings": [
+        "MENTORIAS_AUTHS_DB"
+      ],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "MENTORIAS_AUTHS_DB",
+            "databaseName": "mentorias_auths_prod_db"
+          },
+          {
+            "binding": "MENTORIA_DB",
+            "databaseName": "saas_mentorias_prod_db"
+          }
+        ],
+        "kv": [],
+        "r2": [],
+        "queues": [
+          {
+            "binding": "BILLING_QUEUE",
+            "queue": "drako-billing-queue"
+          },
+          {
+            "binding": "SAAS_FACTORY_QUEUE",
+            "queue": "drako-saas-factory-queue"
+          },
+          {
+            "binding": "PROVISIONING_QUEUE",
+            "queue": "drako-provisioning-queue"
+          }
+        ],
+        "services": [
+          {
+            "binding": "SCHEDULER",
+            "service": "drako-scheduler"
+          }
+        ]
+      },
+      "notes": [
+        "mentoria-still-using-drako-queues"
+      ]
+    },
+    {
+      "runtimeKey": "saas-factory-worker",
+      "sourceConfigPath": "workers/saas-factory-worker/wrangler.workers.toml",
+      "classification": "FACTORY",
+      "workerName": "saas-factory-worker",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "STRICT_FAIL_CLOSED"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "drako_db_prod"
+          }
+        ],
+        "kv": [],
+        "r2": [],
+        "queues": [],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "saas-socialflow-ai-worker-prod",
+      "sourceConfigPath": "workers/socialflow-ai-worker/wrangler.workers.toml",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "workerName": "saas-socialflow-ai-worker-prod",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "SOCIAL_DB",
+            "databaseName": "saas_socialflows_prod_db"
+          }
+        ],
+        "kv": [],
+        "r2": [
+          {
+            "binding": "SOCIAL_MEDIA_BUCKET",
+            "bucketName": "socialflow-media"
+          }
+        ],
+        "queues": [],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "saas-socialflows-runtime-scaffold",
+      "sourceConfigPath": "workers/socialflows-runtime-canary/wrangler.workers.toml",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "workerName": "saas-socialflows-runtime-scaffold",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "SOCIALFLOW_RUNTIME_TARGET",
+        "SOCIALFLOW_RUNTIME_STATE",
+        "SOCIALFLOW_RUNTIME_CONTRACT_VERSION",
+        "SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE",
+        "SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1",
+        "SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE",
+        "SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH",
+        "SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH",
+        "SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH",
+        "SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH"
+      ],
+      "authDbBindings": [
+        "SOCIALFLOW_AUTHS_DB"
+      ],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "drako_db_socialflow_canary"
+          },
+          {
+            "binding": "SAASES_DB",
+            "databaseName": "saas_socialflows_registry_canary_db"
+          },
+          {
+            "binding": "SOCIAL_DB",
+            "databaseName": "saas_socialflows_canary_db"
+          },
+          {
+            "binding": "SOCIALFLOW_AUTHS_DB",
+            "databaseName": "saas_socialflow_auths_canary_db"
+          }
+        ],
+        "kv": [],
+        "r2": [],
+        "queues": [],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "saas-socialflows-prod",
+      "sourceConfigPath": "workers/socialflows/wrangler.workers.toml",
+      "classification": "SOCIALFLOW_PRODUCT",
+      "workerName": "saas-socialflows-prod",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": true,
+      "domains": [
+        "socialflow.drako.systems",
+        "socialflows.drako.systems"
+      ],
+      "envVarNames": [
+        "SAASES_SLUG",
+        "SAASES_DOMAIN",
+        "AUTHS_SECRETS_NAME",
+        "WORKERS_ONLY_MODE",
+        "INSTAGRAM_APP_ID",
+        "APP_URL"
+      ],
+      "authDbBindings": [
+        "SOCIALFLOW_AUTHS_DB"
+      ],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "drako_db_prod"
+          },
+          {
+            "binding": "SAASES_DB",
+            "databaseName": "saas_socialflows_prod_db"
+          },
+          {
+            "binding": "SOCIAL_DB",
+            "databaseName": "saas_socialflows_prod_db"
+          },
+          {
+            "binding": "SOCIALFLOW_AUTHS_DB",
+            "databaseName": "saas_socialflow_auths_prod_db"
+          }
+        ],
+        "kv": [
+          {
+            "binding": "SAASES_CACHE",
+            "id": "2962b3ef53fe4433a253551c83a2df72"
+          }
+        ],
+        "r2": [
+          {
+            "binding": "SAASES_STORAGE",
+            "bucketName": "saas-socialflows-prod-storage"
+          },
+          {
+            "binding": "SOCIAL_MEDIA_BUCKET",
+            "bucketName": "socialflow-media"
+          }
+        ],
+        "queues": [
+          {
+            "binding": "SAASES_EVENTS",
+            "queue": "saas-socialflows-prod-events"
+          },
+          {
+            "binding": "SOCIALFLOW_AI_QUEUE",
+            "queue": "saas-socialflow-ai-generation-queue"
+          }
+        ],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "stripe-webhook-worker",
+      "sourceConfigPath": "workers/stripe-webhook/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "stripe-webhook-worker",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "drako_db_prod"
+          }
+        ],
+        "kv": [],
+        "r2": [],
+        "queues": [],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "drako-whatsapp-channel",
+      "sourceConfigPath": "workers/whatsapp-channel/wrangler.workers.toml",
+      "classification": "DRAKO_BRAND",
+      "workerName": "drako-whatsapp-channel",
+      "isRootHybridRuntime": false,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "DRAKO_CONTEXT"
+      ],
+      "authDbBindings": [],
+      "bindings": {
+        "d1": [],
+        "kv": [],
+        "r2": [],
+        "queues": [],
+        "services": []
+      },
+      "notes": []
+    },
+    {
+      "runtimeKey": "drakosystems",
+      "sourceConfigPath": "wrangler.jsonc",
+      "classification": "DRAKO_BRAND",
+      "workerName": "drakosystems",
+      "isRootHybridRuntime": true,
+      "canonicalForProductProduction": false,
+      "domains": [],
+      "envVarNames": [
+        "SOCIALFLOW_STRIPE_PRICE_CREATOR",
+        "SOCIALFLOW_STRIPE_PRICE_PRO"
+      ],
+      "authDbBindings": [
+        "BASES_AUTHS_DB",
+        "DRAKOS_AUTHS_DB",
+        "MENTORIAS_AUTHS_DB",
+        "SOCIALFLOW_AUTHS_DB"
+      ],
+      "bindings": {
+        "d1": [
+          {
+            "binding": "DRACO_DB",
+            "databaseName": "drako_db_local"
+          },
+          {
+            "binding": "MENTORIAS_AUTHS_DB",
+            "databaseName": "mentorias_auths_local"
+          },
+          {
+            "binding": "MENTORIA_DB",
+            "databaseName": "mentoria_db_local"
+          },
+          {
+            "binding": "DRAKOS_AUTHS_DB",
+            "databaseName": "drako_db_local"
+          },
+          {
+            "binding": "BASES_AUTHS_DB",
+            "databaseName": "drako_db_local"
+          },
+          {
+            "binding": "SOCIAL_DB",
+            "databaseName": "drako_db_local"
+          },
+          {
+            "binding": "SOCIALFLOW_AUTHS_DB",
+            "databaseName": "saas_socialflow_auths_prod_db"
+          }
+        ],
+        "kv": [],
+        "r2": [
+          {
+            "binding": "NEXT_INC_CACHE_R2_BUCKET",
+            "bucketName": "drakosystems-opennext-cache"
+          },
+          {
+            "binding": "SOCIAL_MEDIA_BUCKET",
+            "bucketName": "socialflow-media"
+          },
+          {
+            "binding": "socialflow_media",
+            "bucketName": "socialflow-media"
+          }
+        ],
+        "queues": [],
+        "services": [
+          {
+            "binding": "WORKER_SELF_REFERENCE",
+            "service": "drakosystems"
+          }
+        ]
+      },
+      "notes": [
+        "root-runtime-hybrid-shell",
+        "mixed-root-product-d1-bindings"
+      ]
+    }
+  ]
+}

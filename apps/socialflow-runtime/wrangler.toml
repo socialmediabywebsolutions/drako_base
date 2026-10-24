@@ -1,0 +1,45 @@
+name = "saas-socialflows-runtime-canary"
+main = ".open-next/worker.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[assets]
+directory = ".open-next/assets"
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_socialflow_canary"
+database_id = "ca873dbd-2c44-49ae-bf14-e1ce7f217fde"
+
+[[d1_databases]]
+binding = "SAASES_DB"
+database_name = "saas_socialflows_registry_canary_db"
+database_id = "6951995a-141f-4338-acc5-f65be3d8c91e"
+
+[[d1_databases]]
+binding = "SOCIAL_DB"
+database_name = "saas_socialflows_canary_db"
+database_id = "349fa685-044e-4292-b6e9-b1cafd35896e"
+
+[[d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "saas_socialflow_auths_canary_db"
+database_id = "213b115b-9363-4a21-82d6-8db58c98d6df"
+
+[ai]
+binding = "AI"
+
+[vars]
+SOCIALFLOW_RUNTIME_TARGET = "canary-nonprod"
+SOCIALFLOW_RUNTIME_STATE = "inactive-nonprod-placeholder"
+SOCIALFLOW_RUNTIME_CONTRACT_VERSION = "p2-21"
+SOCIALFLOW_RUNTIME_COOKIE_NAMESPACE = "socialflow_canary"
+SOCIALFLOW_CANARY_GATED_HOSTS = "socialflow-canary.drako.systems"
+SOCIALFLOW_NONPROD_CANARY_DEPLOYABLE = "true"
+SOCIALFLOW_NONPROD_CANARY_ALLOW_DEPLOY_WITH_REAL_D1 = "true"
+SOCIALFLOW_CANARY_ROLLBACK_SWITCH_STATE = "all-switches-off"
+SOCIALFLOW_RUNTIME_SEED_SOCIAL_DB_READ_SWITCH = "1"
+SOCIALFLOW_EXPORT_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"
+SOCIALFLOW_LINKEDIN_OAUTH_SOCIAL_DB_READ_SWITCH = "1"
+SOCIALFLOW_LEGACY_READ_MODELS_SOCIAL_DB_READ_SWITCH = "1"

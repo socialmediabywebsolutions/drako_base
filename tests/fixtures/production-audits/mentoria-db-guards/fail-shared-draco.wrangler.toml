@@ -1,0 +1,14 @@
+name = "test-mentoria-db-shared-draco"
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+
+[env.production]
+name = "test-mentoria-db-prod"
+
+[[env.production.d1_databases]]
+binding = "MENTORIA_DB"
+database_name = "mentoria_db_prod"
+database_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"

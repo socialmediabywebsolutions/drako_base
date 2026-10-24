@@ -1,25 +1,10 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { env } from "@/lib/cf";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { listDevArchitectChecklists, updateDevArchitectChecklistStatus } from "@/lib/dev-architects/store";
 import type { DevArchitectChecklistStatus } from "@/lib/dev-architects/types";
-// export const runtime = "edge"; // OpenNext Migration
-
-
-async function resolveTenantId(req: Request): Promise<string> {
-  const url = new URL(req.url);
-  const explicit = url.searchParams.get("tenantId") ?? req.headers.get("x-tenant-id") ?? undefined;
-  if (explicit) return explicit;
-  try {
-    const { tenantId } = await requireTenantAccess(req);
-    return tenantId;
-  } catch (error) {
-    if (error instanceof UnauthorizedError) {
-      return "demo-tenant";
-    }
-    throw error;
-  }
-}
 
 function authErrorResponse(error: unknown) {
   if (error instanceof UnauthorizedError) {
@@ -30,7 +15,7 @@ function authErrorResponse(error: unknown) {
 
 export async function GET(req: Request) {
   try {
-    const tenantId = await resolveTenantId(req);
+    const { tenantId } = await requireTenantAccess(req);
     const url = new URL(req.url);
     const projectId = url.searchParams.get("projectId");
     if (!projectId) {
@@ -49,7 +34,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const tenantId = await resolveTenantId(req);
+    const { tenantId } = await requireTenantAccess(req);
     const body = (await req.json().catch(() => null)) as { projectId?: string; key?: string; status?: DevArchitectChecklistStatus } | null;
     if (!body?.projectId || !body?.key || !body?.status) {
       return NextResponse.json({ ok: false, error: "projectId, key y status requeridos" }, { status: 400 });

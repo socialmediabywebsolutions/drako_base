@@ -1,8 +1,9 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
 import { ensureCampamentoBase } from "@/lib/campamento-base";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 type SaasAgentRow = {
@@ -33,7 +34,9 @@ function authErrorResponse(error: unknown) {
 export async function GET(req: Request) {
   try {
     const { tenantId } = await requireTenantAccess(req);
-    await ensureCampamentoBase();
+    if (process.env.NODE_ENV !== "production") {
+      await ensureCampamentoBase();
+    }
     const url = new URL(req.url);
     const saasId = url.searchParams.get("saas_id");
     if (!saasId) return NextResponse.json({ error: "saas_id requerido" }, { status: 400 });
@@ -61,7 +64,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const { tenantId } = await requireTenantAccess(req);
-    await ensureCampamentoBase();
+    if (process.env.NODE_ENV !== "production") {
+      await ensureCampamentoBase();
+    }
     const body = (await req.json().catch(() => null)) as {
       saas_id?: string;
       core_agent_id?: string;
@@ -97,7 +102,9 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const { tenantId } = await requireTenantAccess(req);
-    await ensureCampamentoBase();
+    if (process.env.NODE_ENV !== "production") {
+      await ensureCampamentoBase();
+    }
     const url = new URL(req.url);
     const saasId = url.searchParams.get("saas_id");
     const coreAgentId = url.searchParams.get("core_agent_id");

@@ -9,32 +9,39 @@ export class DatabaseUnavailableError extends Error {
   }
 }
 
-export function getRequestBindings(): DracoEnv {
+export function isDatabaseAvailable(): boolean {
   const bindings = env();
-  if (!bindings) {
-    throw new DatabaseUnavailableError(
-      "binding-missing",
-      "No request context found. DRACO_DB must be accessed inside a Workers/OpenNext request handler.",
-    );
-  }
-  return bindings;
+  return Boolean(bindings?.DRACO_DB);
 }
 
-export function getDracoDbFromRequestContext(): D1Database {
+export function getRequestBindings(): DracoEnv | null {
+  return env();
+}
+
+export function getDracoDbFromRequestContext(): D1Database | null {
   const bindings = getRequestBindings();
-  if (!bindings.DRACO_DB) {
-    throw new DatabaseUnavailableError("binding-missing", "DRACO_DB binding is missing");
-  }
-  return bindings.DRACO_DB;
+  return bindings?.DRACO_DB ?? null;
 }
 
 export function getDb(): D1Database {
-  return getDracoDbFromRequestContext();
+  const fromRequest = getDracoDbFromRequestContext();
+  if (fromRequest) {
+    return fromRequest;
+  }
+
+  const bindings = env();
+  if (!bindings?.DRACO_DB) {
+    throw new DatabaseUnavailableError(
+      "binding-missing",
+      "DRACO_DB binding is missing. Execute scripts with: wrangler dev or wrangler d1 execute"
+    );
+  }
+
+  return bindings.DRACO_DB;
 }
 
 export async function withDb<T>(fn: (db: D1Database) => Promise<T>): Promise<T> {
-  const db = getDb();
-  return fn(db);
+  return fn(getDb());
 }
 
 export function ensureDatabase(): D1Database {
@@ -68,8 +75,7 @@ export async function queryAll<T>(sql: string, ...params: unknown[]): Promise<T[
 
 export async function queryOne<T>(sql: string, ...params: unknown[]): Promise<T | null> {
   const rows = await queryAll<T>(sql, ...params);
-  if (!rows || rows.length === 0) return null;
-  return rows[0];
+  return rows[0] ?? null;
 }
 
 export async function run(sql: string, ...params: unknown[]): Promise<boolean> {

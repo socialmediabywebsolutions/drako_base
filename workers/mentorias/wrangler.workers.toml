@@ -1,0 +1,64 @@
+name = "saas-mentorias-prod"
+main = "../../.open-next/mentorias/worker.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[assets]
+directory = "../../.open-next/mentorias/assets"
+
+[ai]
+binding = "AI"
+
+[[routes]]
+pattern = "mentoria.drako.systems"
+custom_domain = true
+
+[[routes]]
+pattern = "mentorias.drako.systems"
+custom_domain = true
+
+[[d1_databases]]
+binding = "MENTORIAS_AUTHS_DB"
+database_name = "mentorias_auths_prod_db"
+database_id = "6a6e3b5c-4d5e-4905-850a-b1e205203462"
+migrations_dir = "../../migrations"
+
+[[d1_databases]]
+binding = "MENTORIA_DB"
+database_name = "saas_mentorias_prod_db"
+database_id = "67b013a3-dcd8-424b-adf9-558895817841"
+# Mentoria product runtime binds only its dedicated product D1. Migrations
+# still live in the repo root until the runtime split lands in a later commit.
+migrations_dir = "../../migrations"
+
+[[r2_buckets]]
+binding = "MENTORIA_BUCKET"
+bucket_name = "saas-mentorias-prod-storage"
+
+[[queues.producers]]
+queue = "drako-billing-queue"
+binding = "BILLING_QUEUE"
+
+[[queues.producers]]
+queue = "drako-saas-factory-queue"
+binding = "SAAS_FACTORY_QUEUE"
+
+[[queues.producers]]
+queue = "drako-provisioning-queue"
+binding = "PROVISIONING_QUEUE"
+
+[[services]]
+binding = "SCHEDULER"
+service = "drako-scheduler"
+
+[vars]
+SAASES_SLUG = "mentorias"
+SAASES_DOMAIN = "mentoria.drako.systems"
+AUTHS_SECRETS_NAME = "MENTORIAS_AUTHS_SECRET"
+NEXTAUTH_URL = "https://mentoria.drako.systems"
+AUTHS_ISOLATIONS_ENABLED = "true"
+AUTHS_LEGACY_COMPATS_ENABLED = "false"
+ROUTINGS_SUBDOMAINS_ENABLED = "true"
+TELEMETRIES_HOLDING_ENABLED = "true"
+AUTHS_REQUIRE_CONTEXT_DB = "true"

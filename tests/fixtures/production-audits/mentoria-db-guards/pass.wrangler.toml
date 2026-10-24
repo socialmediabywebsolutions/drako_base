@@ -1,0 +1,42 @@
+name = "test-mentoria-db-pass"
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "11111111-1111-1111-1111-111111111111"
+
+[[d1_databases]]
+binding = "SOCIAL_DB"
+database_name = "saas_socialflows_prod_db"
+database_id = "22222222-2222-2222-2222-222222222222"
+
+[[d1_databases]]
+binding = "MENTORIAS_AUTHS_DB"
+database_name = "mentorias_auths_prod_db"
+database_id = "33333333-3333-3333-3333-333333333333"
+
+[[d1_databases]]
+binding = "BASES_AUTHS_DB"
+database_name = "bases_auths_prod_db"
+database_id = "44444444-4444-4444-4444-444444444444"
+
+[[d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "socialflow_auths_prod_db"
+database_id = "55555555-5555-5555-5555-555555555555"
+
+[env.production]
+name = "test-mentoria-db-prod"
+
+[[env.production.d1_databases]]
+binding = "MENTORIA_DB"
+database_name = "mentoria_db_prod"
+database_id = "66666666-6666-6666-6666-666666666666"
+
+[env.preview]
+name = "test-mentoria-db-preview"
+
+[[env.preview.d1_databases]]
+binding = "MENTORIA_DB"
+database_name = "mentoria_db_preview"
+database_id = "77777777-7777-7777-7777-777777777777"

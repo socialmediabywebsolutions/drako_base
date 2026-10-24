@@ -1,0 +1,77 @@
+﻿
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90mC:/CAMPAMENTO BASE DRAKO/drako_base[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+ [32mÔ£ô[39m src/lib/security/__tests__/governor.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32mÔ£ô[39m src/lib/security/__tests__/rate-limit.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+node.exe : 
+[90mstderr[2m | src/
+__tests__/ui-isolation
+.test.tsx[2m > 
+[22m[2mUI Shell 
+Isolation (Steel 
+Anti-Leak)[2m > 
+[22m[2mshould 
+render PublicShell 
+for /site routes
+En línea: 1 Carácter: 
+1
++ & "C:\Program Files\
+nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: ([90mstder   
+ r[2m...or /site     
+routes:String) []    
+, RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+[22m[39mWarning: val
+idateDOMNesting(...): 
+<html> cannot appear 
+as a child of <div>.
+    at html
+
+ [32mÔ£ô[39m src/__tests__/ui-isolation.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 82[2mms[22m[39m
+ [32mÔ£ô[39m src/lib/__tests__/correlation.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+[90mstdout[2m | src/lib/__tests__/correlation-propagation.test.ts[2m > [22m[2mCorrelation ID Propagation[2m > [22m[2mshould attach X-Drako-Correlation-Id from headers to outgoing fetch
+[22m[39m[CORE] [corr-test-123] Fetching https://api.test.com/data
+
+[90mstdout[2m | src/lib/__tests__/correlation-propagation.test.ts[2m > [22m[2mCorrelation ID Propagation[2m > [22m[2mshould attach bearer token if CLOUDFLARE_WORKER_SECRET is set
+[22m[39m[CORE] [no-id] Fetching https://api.test.com/data
+
+ [32mÔ£ô[39m src/lib/__tests__/correlation-propagation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32mÔ£ô[39m workers/autopilot-worker/src/__tests__/idempotency.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m6 passed[39m[22m[90m (6)[39m
+[2m      Tests [22m [1m[32m26 passed[39m[22m[90m (26)[39m
+[2m   Start at [22m 19:05:50
+[2m   Duration [22m 8.60s[2m (transform 1.22s, setup 2.28s, import 1.97s, tests 147ms, environment 15.26s)[22m
+
+[34m % [39m[2mCoverage report from [22m[33mv8[39m
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   51.34 |       40 |   47.05 |   54.66 |                   
+ app               |     100 |    76.47 |     100 |     100 |                   
+  layout.tsx       |     100 |    76.47 |     100 |     100 | 32-36             
+ lib               |   80.95 |    77.41 |   83.33 |   86.11 |                   
+  api-client.ts    |   93.75 |     92.3 |     100 |   93.75 | 39                
+  correlation.ts   |   73.07 |    66.66 |      80 |      80 | 18-21             
+ lib/security      |   42.78 |    30.96 |   38.09 |   46.31 |                   
+  governor.ts      |   86.53 |    78.26 |     100 |   97.82 | 113               
+  ...s-policy.json |       0 |        0 |       0 |       0 |                   
+  ...-endpoints.ts |       0 |        0 |       0 |       0 | 8-95              
+  public-ingest.ts |       0 |        0 |       0 |       0 | 25-217            
+  rate-limit.ts    |   62.96 |    51.28 |   53.33 |      66 | ...,57-80,161-168 
+  ...rate-limit.ts |    62.5 |    41.66 |      50 |   66.66 | 53-65,85-88       
+-------------------|---------|----------|---------|---------|-------------------

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import {
     calculateHoldingMetrics,
@@ -6,7 +8,6 @@ import {
     getHoldingMetricsHistory,
 } from "@/lib/campamento-base/analytics/holding-metrics";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 /**
  * GET /api/analytics/holding

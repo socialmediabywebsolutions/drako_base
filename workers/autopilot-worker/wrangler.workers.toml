@@ -1,0 +1,25 @@
+name = "autopilot-worker"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+logpush = true
+
+[vars]
+APP_URL = "http://localhost:3000"
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+migrations_table = "drako_migrations"
+migrations_dir = "migrations"
+
+[ai]
+binding = "AI"
+
+[[queues.consumers]]
+queue = "autopilot-queue"
+dead_letter_queue = "autopilot-dlq"
+
+[triggers]
+crons = ["*/30 * * * *"]

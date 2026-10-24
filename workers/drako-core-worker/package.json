@@ -1,0 +1,13 @@
+{
+  "name": "drako-core-worker",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "deploys": "wrangler deploy --config wrangler.workers.toml",
+    "checks": "wrangler deploy --config wrangler.workers.toml --dry-run",
+    "tails": "wrangler tail drako-core-worker",
+    "migrations:local": "wrangler d1 migrations apply drako_holding_db --local --config wrangler.workers.toml",
+    "migrations:remote": "wrangler d1 migrations apply drako_holding_db --remote --config wrangler.workers.toml"
+  }
+}

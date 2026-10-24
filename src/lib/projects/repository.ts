@@ -1,4 +1,6 @@
 import { queryAll as queryAllDb, queryOne as queryOneDb, run as runDb } from "@/lib/db";
+import { upsertCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
+import { STRIPE_PRODUCT_MAP } from "@/lib/subscriptions";
 import {
   getProjectEntitlements as getEntitlements,
   upsertProjectEntitlements as persistEntitlements,
@@ -58,6 +60,7 @@ type CreateProjectInput = {
   name: string;
   slug?: string | null;
   domain?: string | null;
+  packName?: string; // Optional, defaults to Starter
 };
 
 type ListProjectsFilters = {
@@ -224,9 +227,124 @@ export async function createProject(input: CreateProjectInput, adapter?: Partial
 
   await persistEntitlements({ tenantId, projectId: id, entitlements: {} }, db);
 
+  // Hook: SaaS Policy Pack Cloning
+  // Projects act as "SaaS Instances" in this context.
+  // We clone the pack to the Tenant (if not exists) OR specific to the SaaS ID (project ID)?
+  // Decision: Clone to Tenant-level for simpler V1 management, or SaaS-level if we want per-project limits.
+  // Prompt says: "SaaS Policy Packs... Hook of onboarding: clona políticas al crear SaaS."
+  // "saas_id" in DB is optional. Let's bind it to the PROJECT ID to be granular.
+  try {
+    await clonePolicyPack(tenantId, id, input.packName || "Starter", db);
+  } catch (e) {
+    console.error("Failed to clone policy pack:", e);
+    // Non-blocking but logged
+  }
+
   const detail = await getProjectById({ tenantId, projectId: id }, db);
   if (!detail) throw new Error("Proyecto creado pero no encontrado");
   return detail;
+}
+
+// Helper: Clone Policy Pack
+async function clonePolicyPack(tenantId: string, saasId: string, packName: string, db: DbAdapter) {
+  // 1. Get Pack
+  const pack = await db.queryOne<{ id: string, policies_json: string, cost_policy_json: string }>(
+    "SELECT id, policies_json, cost_policy_json FROM saas_policy_packs WHERE pack_name = ? LIMIT 1",
+    packName
+  );
+
+  if (!pack) {
+    console.warn(`Policy Pack '${packName}' not found. Skipping.`);
+    return;
+  }
+
+  const policies = JSON.parse(pack.policies_json);
+  const costPolicy = JSON.parse(pack.cost_policy_json);
+  const now = new Date().toISOString();
+
+  // 2. Insert AI Provider Policies
+  for (const p of policies) {
+    const id = generateId("pol");
+    await db.run(
+      `INSERT OR IGNORE INTO ai_provider_policies 
+            (id, tenant_id, saas_id, plan, task_type, mode, provider, model, priority, is_active, created_at, updated_at)
+            VALUES (?, ?, ?, 'standard', ?, ?, ?, ?, ?, 1, ?, ?)`,
+      id, tenantId, saasId, p.task_type, p.mode, p.provider, p.model, p.priority, now, now
+    );
+  }
+
+  // 3. Insert AI Cost Policy
+  const cpId = generateId("cp");
+  await db.run(
+    `INSERT OR IGNORE INTO ai_cost_policies
+        (id, tenant_id, saas_id, soft_limit_usd, hard_limit_usd, latency_sla_ms, downgrade_provider, downgrade_model, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    cpId, tenantId, saasId,
+    costPolicy.soft_limit_usd,
+    costPolicy.hard_limit_usd,
+    costPolicy.latency_sla_ms,
+    costPolicy.downgrade_provider,
+    costPolicy.downgrade_model,
+    now, now
+
+  );
+}
+
+async function resolveProjectSubscriptionSlug(
+  tenantId: string,
+  projectId: string,
+  db: DbAdapter,
+): Promise<string | null> {
+  const project = await db.queryOne<{ slug: string }>(
+    `SELECT slug
+     FROM projects
+     WHERE tenant_id = ? AND id = ?
+     LIMIT 1`,
+    tenantId,
+    projectId,
+  );
+  const slug = project?.slug?.trim().toLowerCase();
+  return slug || null;
+}
+
+export async function provisionSubscription(
+  tenantId: string,
+  saasId: string | null,
+  stripeData: { customerId: string, subscriptionId: string, priceId: string, productId: string, status: string, periodEnd: string },
+  db: DbAdapter
+) {
+  const canonicalSaasSlug = saasId
+    ? await resolveProjectSubscriptionSlug(tenantId, saasId, db)
+    : null;
+
+  if (canonicalSaasSlug) {
+    await upsertCanonicalSubscriptionState({
+      tenantId,
+      saasSlug: canonicalSaasSlug,
+      stripeCustomerId: stripeData.customerId,
+      stripeSubscriptionId: stripeData.subscriptionId,
+      stripePriceId: stripeData.priceId,
+      status: stripeData.status,
+      currentPeriodEnd: stripeData.periodEnd,
+    });
+  }
+
+  // 2. Resolve Pack from Product ID
+  const packName = STRIPE_PRODUCT_MAP[stripeData.productId];
+
+  if (packName && (stripeData.status === 'active' || stripeData.status === 'trialing')) {
+    console.log(`[MONETIZATION] Provisioning '${packName}' for ${tenantId}/${saasId}`);
+    // 3. Enforce Limits (Clone Pack)
+    if (saasId) {
+      await clonePolicyPack(tenantId, saasId, packName, db);
+    }
+  } else {
+    console.log(`[MONETIZATION] Subscription status '${stripeData.status}'. Checking downgrade.`);
+    // Downgrade logic to Starter if canceled/unpaid
+    if (saasId && (stripeData.status === 'canceled' || stripeData.status === 'unpaid' || stripeData.status === 'past_due')) {
+      await clonePolicyPack(tenantId, saasId, "Starter", db);
+    }
+  }
 }
 
 export async function listProjects(filters: ListProjectsFilters, adapter?: Partial<DbAdapter>): Promise<ProjectRecord[]> {

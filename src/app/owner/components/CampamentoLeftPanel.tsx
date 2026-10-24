@@ -38,7 +38,7 @@ export default function CampamentoLeftPanel({ criticalEvents = [], pendingDecisi
         setChatInput("");
 
         try {
-            const res = await fetch("/api/owner/orchestrator", {
+            const res = await fetch("/api/operator/orchestrator", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ command: cmd }),
@@ -143,7 +143,7 @@ export default function CampamentoLeftPanel({ criticalEvents = [], pendingDecisi
                                             className="w-full"
                                             onClick={async () => {
                                                 try {
-                                                    await fetch(`/api/owner/actions/${decision.id}/decision`, {
+                                                    await fetch(`/api/operator/actions/${decision.id}/decision`, {
                                                         method: "POST",
                                                         headers: { "Content-Type": "application/json" },
                                                         body: JSON.stringify({ decision: "APPROVE" }),
@@ -162,7 +162,7 @@ export default function CampamentoLeftPanel({ criticalEvents = [], pendingDecisi
                                             className="w-full"
                                             onClick={async () => {
                                                 try {
-                                                    await fetch(`/api/owner/actions/${decision.id}/decision`, {
+                                                    await fetch(`/api/operator/actions/${decision.id}/decision`, {
                                                         method: "POST",
                                                         headers: { "Content-Type": "application/json" },
                                                         body: JSON.stringify({ decision: "REJECT" }),

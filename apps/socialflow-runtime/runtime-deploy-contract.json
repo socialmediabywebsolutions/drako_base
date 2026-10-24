@@ -1,0 +1,113 @@
+{
+  "contractVersion": "p2-21",
+  "activationState": "inactive-deployable",
+  "workerIdentities": {
+    "scaffold": {
+      "workerName": "saas-socialflows-runtime-scaffold",
+      "workerTomlPath": "workers/socialflows-runtime-canary/wrangler.workers.toml",
+      "main": "src/workers.ts",
+      "workersDev": false,
+      "routesAllowed": false,
+      "customDomainsAllowed": false
+    },
+    "deployable": {
+      "workerName": "saas-socialflows-runtime-canary",
+      "workerTomlPath": "apps/socialflow-runtime/wrangler.toml",
+      "main": ".open-next/worker.js",
+      "assetsDirectory": ".open-next/assets",
+      "workersDev": false,
+      "routesAllowed": false,
+      "customDomainsAllowed": false
+    }
+  },
+  "bindings": {
+    "d1": [
+      "DRACO_DB",
+      "SOCIAL_DB",
+      "SOCIALFLOW_AUTHS_DB"
+    ],
+    "kv": [],
+    "r2": [],
+    "queues": [],
+    "services": [],
+    "ai": [
+      "AI"
+    ]
+  },
+  "runtimeVars": {
+    "required": [
+      "SOCIALFLOW_RUNTIME_TARGET",
+      "SOCIALFLOW_RUNTIME_STATE",
+      "SOCIALFLOW_RUNTIME_CONTRACT_VERSION",
+      "SOCIALFLOW_RUNTIME_COOKIE_NAMESPACE",
+      "AUTHS_SECRETS_NAME",
+      "SOCIALFLOW_CANARY_GATED_HOSTS"
+    ],
+    "optional": [
+      "DEFAULT_TENANT_ID",
+      "APP_URL",
+      "NEXT_PUBLIC_APP_URL",
+      "BASE_URL",
+      "SITE_URL",
+      "NEXTAUTH_URL",
+      "CF_PAGES_URL",
+      "CF_PAGES_ENVIRONMENT"
+    ]
+  },
+  "runtimeSecrets": {
+    "required": [
+      "SOCIALFLOW_AUTHS_SECRET",
+      "LINKEDIN_CLIENT_ID",
+      "LINKEDIN_CLIENT_SECRET",
+      "SOCIALFLOW_CANARY_GATE_TOKEN"
+    ],
+    "optional": [
+      "SOCIALFLOW_TOKEN_ENCRYPTION_SECRET",
+      "SOCIALFLOW_TOKEN_ENCRYPTION_SECRET_NEXT"
+    ]
+  },
+  "aiProviders": {
+    "mode": "workers-ai-with-deterministic-fallback",
+    "requiredKeys": [],
+    "optionalKeys": [],
+    "bindingKey": "AI",
+    "model": "@cf/meta/llama-3-8b-instruct"
+  },
+  "auth": {
+    "cookieName": "__Host-socialflow_canary_session",
+    "localCookieName": "socialflow_canary_session",
+    "requiresDedicatedSecret": true,
+    "allowGenericSessionFallback": false
+  },
+  "observability": {
+    "healthEndpoint": "/api/socialflow/runtime/health",
+    "readinessEndpoint": "/api/socialflow/runtime/readiness",
+    "correlationHeader": "x-correlation-id",
+    "runtimeTargetHeader": "x-socialflow-runtime-target",
+    "runtimeStateHeader": "x-socialflow-runtime-state",
+    "contractVersionHeader": "x-socialflow-runtime-contract-version"
+  },
+  "buildEnvAllowlist": [
+    "APP_URL",
+    "NEXT_PUBLIC_APP_URL",
+    "BASE_URL",
+    "SITE_URL",
+    "NEXTAUTH_URL",
+    "CF_PAGES_URL",
+    "CF_PAGES_ENVIRONMENT",
+    "NEXT_PUBLIC_RUNTIME_TARGET",
+    "NEXT_PUBLIC_GIT_SHA",
+    "NEXT_PUBLIC_BUILD_TIME",
+    "SOCIALFLOW_RUNTIME_TARGET",
+    "SOCIALFLOW_RUNTIME_STATE",
+    "SOCIALFLOW_RUNTIME_CONTRACT_VERSION",
+    "SOCIALFLOW_RUNTIME_COOKIE_NAMESPACE",
+    "AUTHS_SECRETS_NAME",
+    "SOCIALFLOW_CANARY_GATED_HOSTS"
+  ],
+  "rollback": {
+    "mode": "route-attach-detach",
+    "requiresDistinctWorkerTarget": true,
+    "requiresArtifactIdentityVerification": true
+  }
+}

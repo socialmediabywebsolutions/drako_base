@@ -1,0 +1,10 @@
+{
+  "name": "drako-base-3-shims",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "checks": "wrangler deploy --config wrangler.workers.toml --dry-run",
+    "deploys": "wrangler deploy --config wrangler.workers.toml"
+  }
+}

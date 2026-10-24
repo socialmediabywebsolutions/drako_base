@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/client";
@@ -8,7 +10,6 @@ import { listDemoClients, listDemoSaas, listDemoClientSaas } from "@/lib/admin/d
 import { getRequestBaseUrl } from "@/lib/http/base-url";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { createTenant, createTenantUser } from "@/lib/tenants/services";
-// export const runtime = "edge"; // OpenNext Migration
 
 function getPriceId(plan?: string | null): string {
   if (plan === "mentoria_ia") {
@@ -118,10 +119,12 @@ export async function POST(request: Request) {
       saasId = entities.saasId;
     }
 
+    const correlationId = request.headers.get("x-correlation-id") ?? (globalThis.crypto?.randomUUID?.() ?? `checkout_${Date.now()}`);
     const metadata: Record<string, string> = {
       tenantId,
       plan,
       email: email || "",
+      correlationId,
     };
 
     if (clientId) metadata.clientId = clientId;
@@ -146,7 +149,13 @@ export async function POST(request: Request) {
       cancel_url: `${baseUrl}/billing/cancel`,
     });
 
-    return NextResponse.json({ url: sessionCheckout.url });
+    return NextResponse.json({
+      ok: true,
+      url: sessionCheckout.url,
+      sessionId: sessionCheckout.id,
+      tenantId,
+      correlationId,
+    });
   } catch (error) {
     const dbError = respondDatabaseError(error);
     if (dbError) return dbError;

@@ -42,7 +42,7 @@ export default async function CompanyDetailPage({ params, searchParams }: PagePr
   const resolvedSearch = searchParams ? await searchParams : undefined;
   const tenantId = resolvedSearch?.tenantId?.trim() || DEMO_TENANT_ID;
   const baseUrl = getServerBaseUrl(await headers());
-  const cookieHeader = cookies().toString();
+  const cookieHeader = (await cookies()).toString();
   const qs = `tenantId=${encodeURIComponent(tenantId)}`;
   const tenantHeaders = {
     "x-tenant-id": tenantId,

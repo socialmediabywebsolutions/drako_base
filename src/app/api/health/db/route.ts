@@ -1,7 +1,8 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { ensureDatabase, queryOne, DatabaseUnavailableError } from "@/lib/db";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 /**
  * Health Check para D1 Database
@@ -24,11 +25,11 @@ export async function GET() {
         // 3. Verificar tablas críticas
         const criticalTables = [
             "tenants",
-            "companies",
-            "saas_projects",
-            "project_entitlements",
+            "saas_instances",
+            "saas_subscriptions",
             "saas_domains",
-            "stripe_mapping",
+            "mentoria_sessions",
+            "stripe_webhook_events",
         ];
 
         const missingTables: string[] = [];
@@ -71,7 +72,7 @@ export async function GET() {
                         status: "incomplete",
                         missingTables,
                     },
-                    message: `Database connected but missing ${missingTables.length} critical tables. Run migrations.`,
+                    message: `Database connected but missing ${missingTables.length} Mentoría runtime-critical tables. Run migrations.`,
                 },
                 { status: 200 },
             );

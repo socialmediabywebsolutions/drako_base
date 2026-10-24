@@ -1,0 +1,11 @@
+name = "test-mentoria-auths-shared"
+
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "11111111-1111-1111-1111-111111111111"
+
+[[d1_databases]]
+binding = "MENTORIAS_AUTHS_DB"
+database_name = "drako_db_prod"
+database_id = "11111111-1111-1111-1111-111111111111"

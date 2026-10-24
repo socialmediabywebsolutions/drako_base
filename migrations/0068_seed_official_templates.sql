@@ -1,7 +1,7 @@
 -- Seed: Official SaaS Templates
 
 -- Template 1: SaaS B2B Starter
-INSERT INTO saas_blueprint_templates (
+INSERT OR IGNORE INTO saas_blueprint_templates (
   id, slug, name, description, vertical, tier,
   default_entitlements_json,
   default_branding_json,
@@ -38,7 +38,7 @@ INSERT INTO saas_blueprint_templates (
 );
 
 -- Template 2: E-commerce Essential
-INSERT INTO saas_blueprint_templates (
+INSERT OR IGNORE INTO saas_blueprint_templates (
   id, slug, name, description, vertical, tier,
   default_entitlements_json,
   default_branding_json,
@@ -75,7 +75,7 @@ INSERT INTO saas_blueprint_templates (
 );
 
 -- Template 3: Educational Platform
-INSERT INTO saas_blueprint_templates (
+INSERT OR IGNORE INTO saas_blueprint_templates (
   id, slug, name, description, vertical, tier,
   default_entitlements_json,
   default_branding_json,
@@ -112,7 +112,7 @@ INSERT INTO saas_blueprint_templates (
 );
 
 -- Template 4: Agency Portfolio
-INSERT INTO saas_blueprint_templates (
+INSERT OR IGNORE INTO saas_blueprint_templates (
   id, slug, name, description, vertical, tier,
   default_entitlements_json,
   default_branding_json,
@@ -149,7 +149,7 @@ INSERT INTO saas_blueprint_templates (
 );
 
 -- Template 5: Community Platform
-INSERT INTO saas_blueprint_templates (
+INSERT OR IGNORE INTO saas_blueprint_templates (
   id, slug, name, description, vertical, tier,
   default_entitlements_json,
   default_branding_json,

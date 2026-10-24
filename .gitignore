@@ -50,3 +50,21 @@ scripts/.dist/
 
 # Windsurf
 .windsurf/
+
+node_modules/
+**/node_modules/
+.next/
+dist/
+build/
+
+# scratch / local audit files
+tmp/
+audit-*.md
+auditoria-*.md
+datos-reales-*.md
+
+# Archivos temporales de diagnóstico/curl
+-H
+.tmp-*
+*.cookie
+cookies.txt

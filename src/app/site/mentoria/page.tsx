@@ -1,194 +1,191 @@
-"use client";
-
-import React from "react";
-import { motion } from "framer-motion";
 import Link from "next/link";
-import {
-    Zap,
-    ShieldCheck,
-    MessageSquare,
-    BrainCircuit,
-    LayoutDashboard,
-    ArrowRight,
-    Sparkles,
-    BarChart3
-} from "lucide-react";
+import { ArrowRight, BookOpen, MessageSquareMore, ShieldCheck, Sparkles, Users } from "lucide-react";
+
+const strengths = [
+  {
+    title: "Tutor IA que explica de verdad",
+    description: "No responde como un panel. Explica, guía y adapta el nivel según el alumno real.",
+    icon: Sparkles,
+  },
+  {
+    title: "Pizarra viva, no dashboard",
+    description: "La atención va a lo que se estudia ahora mismo: tema, ejercicio, examen o duda concreta.",
+    icon: BookOpen,
+  },
+  {
+    title: "Familia vinculada sin mezclas",
+    description: "Padres y alumnos entran a espacios distintos, pero comparten contexto, memoria y seguimiento.",
+    icon: Users,
+  },
+];
+
+const useCases = [
+  "Traer una tarea o examen por WhatsApp y convertirlo en explicación guiada",
+  "Preguntar una duda libre de clase y verla ordenada en la pizarra",
+  "Reforzar una materia concreta aunque no haya deberes ese día",
+  "Acompañar a varios alumnos de la misma familia sin mezclar perfiles",
+];
 
 export default function MentoriaLandingPage() {
-    return (
-        <div className="relative isolate">
-            {/* Background Decor - Scanline & Grid */}
-            <div className="cyber-scanline" />
-            <div className="fixed inset-0 -z-10 overflow-hidden bg-slate-950">
-                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-brand/10 blur-[120px] rounded-full opacity-50" />
-                <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-brand-strong/5 blur-[100px] rounded-full" />
+  return (
+    <div className="min-h-screen bg-white text-slate-950">
+      <section
+        className="relative min-h-[88vh] overflow-hidden"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(2,6,23,0.58), rgba(2,6,23,0.72)), url('https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1800&q=80')",
+          backgroundPosition: "center",
+          backgroundSize: "cover",
+        }}
+      >
+        <div className="mx-auto flex min-h-[88vh] max-w-7xl flex-col justify-between px-6 py-8 lg:px-8">
+          <header className="flex flex-wrap items-center justify-between gap-4 text-white">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200">Mentoria</div>
+              <div className="mt-2 text-sm text-white/80">Acompañamiento educativo con IA, familia y memoria real.</div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/mentorias/auths/logins?role=student&__drako_host=mentoria.drako.systems"
+                className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/16"
+              >
+                Entrar como alumno
+              </Link>
+              <Link
+                href="/mentorias/auths/logins?role=guardian&__drako_host=mentoria.drako.systems"
+                className="rounded-full border border-white/20 bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-100"
+              >
+                Entrar como padre o tutor
+              </Link>
+            </div>
+          </header>
+
+          <div className="grid gap-10 py-14 lg:grid-cols-[1.08fr_0.92fr] lg:items-end">
+            <div className="max-w-4xl text-white">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/18 bg-black/20 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100">
+                <MessageSquareMore className="h-4 w-4" />
+                IA educativa con uso real
+              </div>
+              <h1 className="mt-6 text-5xl font-black tracking-tight sm:text-6xl lg:text-7xl">
+                La clase guiada que acompaña al alumno
+                <span className="block text-emerald-300">y mantiene a la familia conectada.</span>
+              </h1>
+              <p className="mt-6 max-w-3xl text-lg leading-8 text-white/82 sm:text-xl">
+                Mentoría convierte dudas, tareas, exámenes y fotos de clase en una explicación guiada con memoria real.
+                El alumno entra a estudiar. La familia entra a acompañar. La IA une ambas cosas sin parecer un CRM.
+              </p>
+
+              <div className="mt-10 flex flex-wrap gap-4">
+                <Link
+                  href="/mentorias/auths/logins?role=student&__drako_host=mentoria.drako.systems"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-emerald-400 px-6 py-4 text-sm font-bold text-slate-950 transition hover:bg-emerald-300"
+                >
+                  Entrar como alumno
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/mentorias/auths/logins?role=guardian&__drako_host=mentoria.drako.systems"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-black/15 px-6 py-4 text-sm font-semibold text-white transition hover:bg-white/8"
+                >
+                  Entrar como padre o tutor
+                </Link>
+              </div>
             </div>
 
-            {/* Hero Section */}
-            <section className="relative px-6 pt-24 pb-32 sm:pt-32 lg:px-8 flex flex-col items-center overflow-hidden">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8 }}
-                    className="text-center max-w-4xl"
-                >
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-quiet border border-brand/20 mb-8 backdrop-blur-md">
-                        <Sparkles className="w-4 h-4 text-brand" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-strong">Nueva Era en Educación Digital</span>
-                    </div>
-
-                    <h1 className="text-6xl sm:text-8xl font-black tracking-tighter text-white uppercase italic leading-[0.8] mb-8">
-                        MentorIA <br />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand via-white to-brand-strong">Escolar</span>
-                    </h1>
-
-                    <p className="text-lg sm:text-xl text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed mb-12">
-                        La primera IA que no solo enseña, sino que entiende. 24/7 en WhatsApp, integrada con psicólogos IA y dashboards de control total para tu institución.
-                    </p>
-
-                    <div className="flex flex-wrap justify-center gap-6">
-                        <Link
-                            href="/site/mentoria/signup"
-                            className="px-10 py-5 bg-white text-slate-950 font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-brand transition-all hover:scale-105 shadow-[0_0_40px_rgba(255,255,255,0.15)] italic flex items-center gap-3"
-                        >
-                            Comenzar Ahora <ArrowRight className="w-4 h-4" />
-                        </Link>
-                        <button
-                            onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
-                            className="px-10 py-5 border-2 border-white/10 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-white/5 transition-all"
-                        >
-                            Ver Módulos
-                        </button>
-                    </div>
-                </motion.div>
-
-                {/* Floating Mockup Preview */}
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.9, y: 50 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ delay: 0.5, duration: 1 }}
-                    className="mt-20 relative w-full max-w-5xl aspect-video rounded-3xl border border-white/10 bg-slate-900/40 backdrop-blur-3xl overflow-hidden shadow-2xl"
-                >
-                    <div className="absolute inset-0 bg-gradient-to-tr from-brand/5 via-transparent to-brand-strong/5" />
-                    <div className="p-4 border-b border-white/5 flex items-center gap-2">
-                        <div className="flex gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full bg-rose-500/50" />
-                            <div className="w-2.5 h-2.5 rounded-full bg-amber-500/50" />
-                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/50" />
-                        </div>
-                        <div className="mx-auto text-[10px] font-black text-slate-500 tracking-widest uppercase italic">Neural Dashboard • mentor-ia.drako.systems</div>
-                    </div>
-                    <div className="flex h-full items-center justify-center">
-                        <div className="text-center space-y-4">
-                            <BrainCircuit className="w-16 h-16 text-brand/30 mx-auto animate-pulse" />
-                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Sincronizando Core Cognitivo...</p>
-                        </div>
-                    </div>
-                </motion.div>
-            </section>
-
-            {/* Features Grid */}
-            <section id="features" className="px-6 py-32 lg:px-8 max-w-7xl mx-auto">
-                <div className="mb-20">
-                    <span className="text-brand text-xs font-black uppercase tracking-[0.5em]">Módulos de Élite</span>
-                    <h2 className="text-4xl sm:text-6xl font-black text-white mt-4 italic tracking-tight">Capacidades del Sistema</h2>
+            <div className="grid gap-4">
+              <div className="rounded-[28px] border border-white/14 bg-white/92 p-6 text-slate-950 shadow-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                    <MessageSquareMore className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">WhatsApp integrado</div>
+                    <div className="mt-1 text-lg font-bold">Trae una foto, una tarea o un examen al instante</div>
+                  </div>
                 </div>
+                <p className="mt-4 text-sm leading-7 text-slate-700">
+                  Es el canal fuerte del producto: baja fricción, mantiene continuidad y deja que el tutor convierta material real en pizarra guiada.
+                </p>
+              </div>
 
-                <div className="grid md:grid-cols-3 gap-8">
-                    {[
-                        {
-                            icon: MessageSquare,
-                            title: "Tutoría WhatsApp 24/7",
-                            desc: "Atención inmediata para los alumnos. Adaptación del tono y nivel académico automáticamente.",
-                            color: "text-brand"
-                        },
-                        {
-                            icon: ShieldCheck,
-                            title: "Escalación Psicólogo IA",
-                            desc: "Detección de estados emocionales. Derivación automática y segura ante alertas de bienestar.",
-                            color: "text-rose-400"
-                        },
-                        {
-                            icon: BarChart3,
-                            title: "Action Dashboard",
-                            desc: "Análisis en tiempo real de dudas recurrentes y progreso por curso. Decisiones basadas en datos.",
-                            color: "text-amber-400"
-                        }
-                    ].map((feature, i) => (
-                        <motion.div
-                            key={i}
-                            whileHover={{ y: -10 }}
-                            className="p-10 card flex flex-col gap-6"
-                        >
-                            <div className={`p-4 rounded-2xl bg-white/5 w-fit ${feature.color}`}>
-                                <feature.icon className="w-8 h-8" />
-                            </div>
-                            <h3 className="text-2xl font-black text-white italic">{feature.title}</h3>
-                            <p className="text-slate-400 font-medium leading-relaxed">{feature.desc}</p>
-                        </motion.div>
-                    ))}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[24px] border border-white/14 bg-black/20 p-5 text-white backdrop-blur-sm">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">Alumno</div>
+                  <div className="mt-2 text-lg font-bold">Pregunta, estudia y entiende</div>
+                  <p className="mt-2 text-sm leading-6 text-white/78">
+                    Pizarra dominante, tutor flotante y ayuda sobre el tema que toca hoy.
+                  </p>
                 </div>
-            </section>
-
-            {/* Pricing Section */}
-            <section className="px-6 py-32 lg:px-8 bg-slate-900/50">
-                <div className="max-w-4xl mx-auto text-center space-y-12">
-                    <div className="space-y-4">
-                        <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter">Plan de Lanzamiento</h2>
-                        <p className="text-slate-400 font-medium italic uppercase tracking-widest text-[10px]">Materialización en 24 horas</p>
-                    </div>
-
-                    <div className="glass-panel-elite p-12 relative overflow-hidden">
-                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-brand/20 blur-[50px] rounded-full" />
-
-                        <div className="relative z-10 space-y-8">
-                            <div className="flex flex-col items-center gap-2">
-                                <span className="text-7xl font-black text-white italic leading-none">49€<span className="text-xl text-slate-500">/mes</span></span>
-                                <span className="text-xs font-bold text-brand uppercase tracking-[0.3em]">Todo Incluido</span>
-                            </div>
-
-                            <ul className="grid sm:grid-cols-2 gap-6 text-left max-w-lg mx-auto">
-                                {["SaaS Personalizado", "WhatsApp Unlimited", "Soporte 24/7", "Dominio .drako.systems", "Metrics Dashboard", "Growth Autopilot"].map((item, i) => (
-                                    <li key={i} className="flex items-center gap-3 text-slate-300 font-semibold text-sm">
-                                        <Zap className="w-4 h-4 text-brand fill-brand/20" />
-                                        {item}
-                                    </li>
-                                ))}
-                            </ul>
-
-                            <div className="pt-8">
-                                <Link
-                                    href="/site/mentoria/signup"
-                                    className="inline-block px-16 py-6 bg-brand text-slate-950 font-black text-sm uppercase tracking-[0.2em] rounded-2xl hover:scale-105 hover:bg-white transition-all shadow-[0_0_50px_var(--brand-glow)] italic"
-                                >
-                                    Contratar MentorIA Ahora
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
-                        Sin permanencia • Setup automático • Soporte Premium
-                    </p>
+                <div className="rounded-[24px] border border-white/14 bg-black/20 p-5 text-white backdrop-blur-sm">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">Familia</div>
+                  <div className="mt-2 text-lg font-bold">Acompaña sin invadir</div>
+                  <p className="mt-2 text-sm leading-6 text-white/78">
+                    Varios alumnos por familia, accesos separados y contexto compartido con permisos.
+                  </p>
                 </div>
-            </section>
-
-            {/* Footer CTA */}
-            <footer className="px-6 py-20 border-t border-white/5">
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center text-slate-950 font-black text-lg italic">M.</div>
-                        <span className="text-xl font-black text-white tracking-tighter uppercase italic">MentorIA Escolar</span>
-                    </div>
-
-                    <div className="flex gap-12 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                        <Link href="/site" className="hover:text-brand transition-colors">Drako Base</Link>
-                        <Link href="/site/legal" className="hover:text-brand transition-colors">Términos</Link>
-                        <Link href="/site/panel" className="hover:text-brand transition-colors">Acceso Cliente</Link>
-                    </div>
-                </div>
-            </footer>
+              </div>
+            </div>
+          </div>
         </div>
-    );
+      </section>
+
+      <section className="border-b border-slate-200 bg-white px-6 py-20 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="max-w-3xl">
+            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">Qué se siente distinto</div>
+            <h2 className="mt-4 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+              Mentoría entra como un aula guiada, no como un panel con IA encima.
+            </h2>
+          </div>
+
+          <div className="mt-12 grid gap-5 lg:grid-cols-3">
+            {strengths.map((item) => (
+              <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-6">
+                <item.icon className="h-7 w-7 text-emerald-700" />
+                <h3 className="mt-4 text-xl font-bold text-slate-950">{item.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-slate-50 px-6 py-20 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.95fr_1.05fr]">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-800">
+              <ShieldCheck className="h-4 w-4" />
+              Accesos separados
+            </div>
+            <h2 className="mt-5 text-4xl font-black tracking-tight text-slate-950">Un mismo ecosistema, dos entradas claras.</h2>
+            <p className="mt-4 text-base leading-8 text-slate-600">
+              El alumno entra a estudiar. El padre o tutor entra a acompañar y organizar. Los perfiles están vinculados, pero la experiencia no se mezcla.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <Link
+                href="/mentorias/auths/logins?role=student&__drako_host=mentoria.drako.systems"
+                className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-black"
+              >
+                Acceso alumno
+              </Link>
+              <Link
+                href="/mentorias/auths/logins?role=guardian&__drako_host=mentoria.drako.systems"
+                className="rounded-2xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-white"
+              >
+                Acceso padres y tutores
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            {useCases.map((item) => (
+              <div key={item} className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm leading-7 text-slate-700">
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
 }

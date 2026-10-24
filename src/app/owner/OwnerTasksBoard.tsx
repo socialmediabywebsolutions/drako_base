@@ -80,7 +80,7 @@ export default function OwnerTasksBoard() {
       if (statusFilter !== "ALL") params.set("status", statusFilter);
       if (categoryFilter !== "ALL") params.set("category", categoryFilter);
       if (saasFilter !== "ALL") params.set("saasId", saasFilter);
-      const res = await fetch(`/api/owner/tasks?${params.toString()}`, { cache: "no-store" });
+      const res = await fetch(`/api/operator/tasks?${params.toString()}`, { cache: "no-store" });
       const data = (await res.json().catch(() => null)) as { tasks?: OwnerTaskListItem[]; summary?: OwnerTasksSummary } | null;
       setTasks(data?.tasks ?? []);
       setSummary(data?.summary ?? null);

@@ -1,0 +1,25 @@
+name: Build & Deploy Worker
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Worker
+        run: npm run cf:build
+
+      - name: Upload Worker Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-build
+          path: .open-next/
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy with Wrangler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          command: deploy --config wrangler.workers.toml --env production

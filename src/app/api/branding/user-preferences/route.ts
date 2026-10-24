@@ -1,8 +1,9 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { resolveBrandingContext, getUserUiPreferences, upsertUserUiPreferences } from "@/lib/branding/repository";
 import type { BrandingLayoutDensity, BrandingRoleType } from "@/lib/branding/types";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 const VALID_DENSITIES: BrandingLayoutDensity[] = ["COMPACT", "COZY", "NORMAL"];

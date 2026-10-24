@@ -1,0 +1,18 @@
+name: Archived Deploy Multi SaaS Workers
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archived:
+    runs-on: ubuntu-latest
+    name: Archived Legacy Workflow Notice
+    steps:
+      - name: Explain canonical replacement
+        run: |
+          echo "BLOCKED: .github/workflows/deploy-multi-saas-workers.yml is archived."
+          echo "Use .github/workflows/drako-factory-deploy.yml as the single canonical build/deploy path."
+          exit 1

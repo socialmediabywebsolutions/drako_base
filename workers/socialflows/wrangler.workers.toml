@@ -1,0 +1,109 @@
+name = "saas-socialflows-prod"
+main = "../../.open-next/socialflows-standalone/worker.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+logpush = true
+
+[assets]
+directory = "../../.open-next/socialflows-standalone/assets"
+
+[[routes]]
+pattern = "socialflows.drako.systems"
+custom_domain = true
+
+[[routes]]
+pattern = "socialflow.drako.systems"
+custom_domain = true
+
+[[routes]]
+pattern = "socialcors.com"
+custom_domain = true
+
+[[routes]]
+pattern = "drako.systems"
+custom_domain = true
+
+# D1 DATABASES
+[[d1_databases]]
+binding = "DRACO_DB"
+database_name = "drako_db_prod"
+database_id = "5607a76a-97c7-45a9-a948-e545ba27eae7"
+
+[[d1_databases]]
+binding = "SAASES_DB"
+database_name = "saas_socialflows_prod_db"
+database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
+migrations_dir = "migrations"
+
+# 🔥 FIX: binding adicional para SocialFlow
+[[d1_databases]]
+binding = "SOCIAL_DB"
+database_name = "saas_socialflows_prod_db"
+database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
+migrations_dir = "migrations"
+
+[[d1_databases]]
+binding = "SOCIALFLOW_AUTHS_DB"
+database_name = "saas_socialflow_auths_prod_db"
+database_id = "f6f46e6a-487f-400a-a2d1-c6d23e88f9cf"
+
+[[kv_namespaces]]
+binding = "SAASES_CACHE"
+id = "2962b3ef53fe4433a253551c83a2df72"
+
+[[r2_buckets]]
+binding = "SAASES_STORAGE"
+bucket_name = "saas-socialflows-prod-storage"
+
+[[r2_buckets]]
+binding = "SOCIAL_MEDIA_BUCKET"
+bucket_name = "socialflow-media"
+
+[[queues.producers]]
+binding = "SAASES_EVENTS"
+queue = "saas-socialflows-prod-events"
+
+[[queues.producers]]
+binding = "SOCIALFLOW_AI_QUEUE"
+queue = "saas-socialflow-ai-generation-queue"
+
+# Nivel 3 — binding de servicio a sí mismo, usado por el scheduled() inyectado
+# (scripts/patch-socialflow-cron-handler.mjs) para llamar a sus propias rutas /api/cron/*
+# vía RPC interno de Cloudflare en vez de fetch() público. Diagnóstico: el cron */20
+# (TrendKeywordAgent) corría (outcome: ok en wrangler tail) pero casi nunca generaba
+# fila en agent_execution_log ni aparecía como petición entrante — el runbook
+# docs/runbooks/waf-rate-limits.md documenta Bot Fight Mode + rate-limit en /api/*
+# tratando tráfico automatizado como "Definitely Automated"; un fetch() del propio
+# Worker hacia su propio dominio público encaja exactamente con ese bloqueo
+# silencioso (sin excepción, sin log, 0 filas). TrendAutoApproveCron (worker
+# socialflow-ai-worker) nunca lo sufre porque llama a su función en proceso, sin
+# HTTP. El binding de servicio nunca toca la red pública/WAF.
+[[services]]
+binding = "SELF"
+service = "saas-socialflows-prod"
+
+[ai]
+binding = "AI"
+
+[triggers]
+# */5 * * * *  -> scheduled publishing + comment auto-reply
+# */20 * * * * -> TrendKeywordAgent run, one niche per invocation (see scripts/patch-socialflow-cron-handler.mjs)
+# 0 */4 * * *  -> Instagram metrics collection (processInstagramMetrics, see scripts/patch-socialflow-cron-handler.mjs)
+# 0 3 * * *    -> daily StyleLearningAgent run (see scripts/patch-socialflow-cron-handler.mjs)
+# 0 3 * * 1    -> weekly NicheIntelligenceCronAgent run, Mondays (see scripts/patch-socialflow-cron-handler.mjs)
+crons = ["*/5 * * * *", "*/20 * * * *", "0 */4 * * *", "0 3 * * *", "0 3 * * 1"]
+
+[vars]
+SAASES_SLUG = "socialflows"
+SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems,socialcors.com,drako.systems"
+WORKERS_ONLY_MODE = "true"
+INSTAGRAM_APP_ID = "1534853271675778"
+APP_URL = "https://socialflows.drako.systems"
+# P4: el Worker IA publica los posts programados; este Worker solo recoge los que lleven
+# >10 min vencidos (red de seguridad). Valores: ai | web | both (ver publish-scheduler-owner.ts).
+SOCIALFLOW_PUBLISH_SCHEDULER_OWNER = "ai"
+# SOCIALFLOW_STRIPE_PRICE_PRO and SOCIALFLOW_STRIPE_PRICE_CREATOR are NOT stored here.
+# Set them as Wrangler secrets so they never appear in source control:
+#   npx wrangler secret put SOCIALFLOW_STRIPE_PRICE_PRO -c workers/socialflows/wrangler.workers.toml
+#   npx wrangler secret put SOCIALFLOW_STRIPE_PRICE_CREATOR -c workers/socialflows/wrangler.workers.toml

@@ -47,7 +47,7 @@ export default function MentoriaLandingPageCO() {
 
                     <div className="flex flex-wrap justify-center gap-6">
                         <Link
-                            href="/site/mentoria-co/signup"
+                            href="/mentorias/auths/registrations?__drako_host=mentoria.drako.systems"
                             className="px-10 py-5 bg-white text-slate-950 font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-brand transition-all hover:scale-105 shadow-[0_0_40px_rgba(255,255,255,0.15)] italic flex items-center gap-3"
                         >
                             Comenzar Ahora <ArrowRight className="w-4 h-4" />
@@ -59,7 +59,8 @@ export default function MentoriaLandingPageCO() {
                     initial={{ opacity: 0, scale: 0.9, y: 50 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ delay: 0.5, duration: 1 }}
-                    className="mt-20 relative w-full max-w-5xl aspect-video rounded-3xl border border-white/10 bg-slate-900/40 backdrop-blur-3xl overflow-hidden shadow-2xl"
+                    aria-hidden="true"
+                    className="mt-20 relative w-full max-w-5xl aspect-video rounded-3xl border border-white/10 bg-slate-900/40 backdrop-blur-3xl overflow-hidden shadow-2xl pointer-events-none select-none"
                 >
                     <div className="absolute inset-0 bg-gradient-to-tr from-brand/5 via-transparent to-brand-strong/5" />
                     <div className="p-4 border-b border-white/5 flex items-center gap-2">
@@ -148,7 +149,7 @@ export default function MentoriaLandingPageCO() {
 
                             <div className="pt-8">
                                 <Link
-                                    href="/site/mentoria-co/signup"
+                                    href="/mentorias/auths/registrations?__drako_host=mentoria.drako.systems"
                                     className="inline-block px-16 py-6 bg-brand text-slate-950 font-black text-sm uppercase tracking-[0.2em] rounded-2xl hover:scale-105 hover:bg-white transition-all shadow-[0_0_50px_var(--brand-glow)] italic"
                                 >
                                     Contratar Plan CO
@@ -169,7 +170,7 @@ export default function MentoriaLandingPageCO() {
                     <div className="flex gap-12 text-[10px] font-black uppercase tracking-widest text-slate-500">
                         <Link href="/site" className="hover:text-brand transition-colors">Drako Base</Link>
                         <Link href="/site/legal" className="hover:text-brand transition-colors">Privacidad</Link>
-                        <Link href="/site/panel" className="hover:text-brand transition-colors">Acceso Cliente</Link>
+                        <Link href="/mentorias/auths/logins?__drako_host=mentoria.drako.systems" className="hover:text-brand transition-colors">Acceso Cliente</Link>
                     </div>
                 </div>
             </footer>

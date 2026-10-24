@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
 import { resolveHostToSaas } from "@/lib/empire/host-resolver";
@@ -7,11 +9,20 @@ import {
   DatabaseUnavailableError,
   getRequestBindings,
 } from "@/lib/db";
-import { DEMO_TENANT_ID } from "@/lib/tenants/services";
 import type { NextRequest } from "next/server";
 import { getPagesBuildStamp } from "@/lib/pages/build-stamp";
 
-// export const runtime = "edge"; // OpenNext handles the runtime
+function resolveTenantFallback(host: string): string | null {
+  const normalizedHost = host.split(":")[0]?.trim().toLowerCase() ?? "";
+  if (
+    normalizedHost === "localhost" ||
+    normalizedHost === "127.0.0.1" ||
+    normalizedHost.endsWith(".workers.dev")
+  ) {
+    return "demo-tenant";
+  }
+  return null;
+}
 
 export async function GET(request: Request) {
   const blocked = await enforcePublicEndpointPolicy({ request, route: "/api/health" });
@@ -19,6 +30,7 @@ export async function GET(request: Request) {
 
   const correlationId = globalThis.crypto?.randomUUID?.() ?? `health_${Date.now()}`;
   const noStoreHeaders = { headers: { "Cache-Control": "no-store" } };
+  const tenantFallback = resolveTenantFallback(request.headers.get("host") ?? "");
 
   let buildStamp: unknown;
   const dbPing = { ok: false, error: null as string | null };
@@ -27,24 +39,52 @@ export async function GET(request: Request) {
     const bindings = getRequestBindings();
     buildStamp = getPagesBuildStamp(request, correlationId, bindings);
 
-    // Strict dbPing
-    const db = ensureDatabase();
-    await db.prepare("SELECT 1").run();
-    dbPing.ok = true;
-  } catch (error) {
-    dbPing.error = error instanceof Error ? error.message : String(error);
+    try {
+      // Strict dbPing
+      const db = ensureDatabase();
+      if (!db) {
+        dbPing.error = "Database unavailable";
+      } else {
+        await db.prepare("SELECT 1").run();
+        dbPing.ok = true;
+      }
+    } catch (error) {
+      dbPing.error = error instanceof Error ? error.message : String(error);
+    }
 
-    const dbStatus = error instanceof DatabaseUnavailableError ? "missing_binding" : "unknown";
+    if (!dbPing.ok) {
+      const dbStatus = dbPing.error?.includes("DatabaseUnavailableError") ? "missing_binding" : "unknown";
+      return NextResponse.json(
+        {
+          ok: false,
+          name: "DRAKO",
+          reason: "database_unavailable",
+          hint: dbPing.error,
+          db: { status: dbStatus, reason: dbPing.error },
+          dbPing,
+          correlationId,
+          tenantFallback,
+          statusUrl: "/api/status.json",
+        },
+        { status: 503, ...noStoreHeaders },
+      );
+    }
+
+  } catch (error) {
+    // This catch block now primarily handles errors from getRequestBindings or getPagesBuildStamp
+    // If dbPing.ok is false here, it means the database check failed and was handled above.
+    // If an error occurs before the db check, it's a different kind of failure.
+    const _errorMessage = error instanceof Error ? error.message : String(error);
+    const dbStatus = error instanceof DatabaseUnavailableError ? "missing_binding" : "unknown"; // This might still be relevant if ensureDatabase itself throws before the null check
     return NextResponse.json(
       {
         ok: false,
         name: "DRAKO",
-        reason: "database_unavailable",
         hint: dbPing.error,
         db: { status: dbStatus, reason: dbPing.error },
         dbPing,
         correlationId,
-        tenantFallback: DEMO_TENANT_ID,
+        tenantFallback,
         statusUrl: "/api/status.json",
       },
       { status: 503, ...noStoreHeaders },
@@ -64,6 +104,18 @@ export async function GET(request: Request) {
 
   const resolution = await resolveHostToSaas(effectiveHost);
 
+  // Bindings status (FIX 4: expose infra prerequisites)
+  const cfBindings = getRequestBindings() as Record<string, unknown> | null;
+  const bindingsStatus = {
+    scheduler: cfBindings?.SCHEDULER ? "connected" : "missing",
+    db: dbPing.ok ? "ok" : "missing",
+    queues: {
+      billing: cfBindings?.BILLING_QUEUE ? "connected" : "missing",
+      saas_factory: cfBindings?.SAAS_FACTORY_QUEUE ? "connected" : "missing",
+      provisioning: cfBindings?.PROVISIONING_QUEUE ? "connected" : "missing",
+    },
+  };
+
   return NextResponse.json(
     {
       ok: true,
@@ -73,8 +125,9 @@ export async function GET(request: Request) {
       resolution,
       db: { status: "ok" },
       dbPing,
-      build: buildStamp,
-      tenantFallback: DEMO_TENANT_ID,
+      bindings: bindingsStatus,
+      build: buildStamp || { gitSha: process.env.NEXT_PUBLIC_GIT_SHA || "unknown" },
+      tenantFallback,
       correlationId,
       statusUrl: "/api/status.json",
     },

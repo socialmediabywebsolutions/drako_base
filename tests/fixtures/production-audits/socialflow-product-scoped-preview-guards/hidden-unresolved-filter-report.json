@@ -1,0 +1,18 @@
+{
+  "product": "socialflows",
+  "artifactMode": "product-scoped-preview",
+  "artifactState": "inactive-preview",
+  "derivedFrom": "socialflows-standalone",
+  "sourceArtifactPath": ".open-next/socialflows-standalone",
+  "previewArtifactPath": ".open-next/socialflows-product-scoped-preview",
+  "filterVersion": 1,
+  "filterGeneratedAt": "2026-05-12T00:00:00.000Z",
+  "removedRoutePrefixes": ["operator", "api/operator"],
+  "removedRoutes": ["operator", "api/operator/actions"],
+  "removedCount": 2,
+  "remainingRoutes": ["socialflow", "api/socialflow/profile"],
+  "remainingCount": 2,
+  "runtimeIntegrity": true,
+  "unresolvedDependencies": ["server-reference-manifest still references app/operator/page"],
+  "filteringWarnings": []
+}

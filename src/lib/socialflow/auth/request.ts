@@ -1,0 +1,74 @@
+import { getSocialFlowCookieCandidateNames } from "@/lib/socialflow/platform/auth/cookies";
+import { getSocialFlowAuthUserById } from "@/lib/socialflow/platform/auth/repository";
+import { verifySocialFlowSessionToken } from "@/lib/socialflow/platform/auth/tokens";
+import {
+  readTenantIdFromHeaderGetter,
+  validateSocialFlowTenantIsolation,
+} from "@/lib/socialflow/auth/tenant-isolation";
+import { getSocialFlowAccountType } from "@/lib/socialflow/auth/server";
+
+export type SocialFlowRequestSession = {
+  userId: string;
+  email: string;
+  tenantId: string;
+  role: "owner" | "admin" | "user";
+  accountType: "influencer" | "empresa" | null;
+};
+
+function readCookieValue(cookieHeader: string | null, name: string): string | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(/;\s*/)) {
+    const [cookieName, ...rest] = part.split("=");
+    if (cookieName === name) return rest.join("=");
+  }
+  return null;
+}
+
+export async function getCurrentSocialFlowSessionFromRequest(request: Request): Promise<SocialFlowRequestSession | null> {
+  const cookieHeader = request.headers.get("cookie");
+  const candidateNames = getSocialFlowCookieCandidateNames(request);
+  let token: string | null = null;
+  for (const name of candidateNames) {
+    token = readCookieValue(cookieHeader, name);
+    if (token) break;
+  }
+  if (!token) return null;
+
+  const claims = await verifySocialFlowSessionToken(token);
+  if (!claims) return null;
+
+  const user = await getSocialFlowAuthUserById(claims.sub);
+  const tenantIsolation = validateSocialFlowTenantIsolation({
+    sessionTenantId: claims.tenantId,
+    headerTenantId: readTenantIdFromHeaderGetter((name) => request.headers.get(name)),
+    authUserTenantId: user?.tenant_id ?? null,
+    requireAuthUser: true,
+  });
+
+  if (!tenantIsolation.ok) {
+    console.error("SOCIALFLOW_REQUEST_TENANT_ISOLATION_FAILED", {
+      userId: claims.sub,
+      reason: tenantIsolation.reason,
+      ...tenantIsolation.details,
+    });
+    return null;
+  }
+
+  const accountType = await getSocialFlowAccountType(claims.sub);
+
+  return {
+    userId: claims.sub,
+    email: claims.email,
+    tenantId: claims.tenantId,
+    role: claims.role,
+    accountType,
+  };
+}
+
+export async function requireCurrentSocialFlowSession(request: Request): Promise<SocialFlowRequestSession> {
+  const session = await getCurrentSocialFlowSessionFromRequest(request);
+  if (!session) {
+    throw new Error("SESSION_REQUIRED");
+  }
+  return session;
+}

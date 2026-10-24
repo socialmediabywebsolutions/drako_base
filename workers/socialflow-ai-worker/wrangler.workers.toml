@@ -1,0 +1,41 @@
+name = "saas-socialflow-ai-worker-prod"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+logpush = true
+
+# D1 Database (SocialFlow social data)
+[[d1_databases]]
+binding = "SOCIAL_DB"
+database_name = "saas_socialflows_prod_db"
+database_id = "6aa6dbaf-9e35-4715-b154-cda8aee0bd54"
+
+# Cloudflare Queues Consumer (SocialFlow AI campaign generation)
+[[queues.consumers]]
+queue = "saas-socialflow-ai-generation-queue"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 2
+
+[ai]
+binding = "AI"
+
+# Cron: publish scheduled posts every minute ("* * * * *") + Nivel 3 auto-approve
+# window for the internal tenant every 15min ("*/15 * * * *") — distinguished inside
+# scheduled() by event.cron, same handler, same worker.
+# Redeploy forzado 2026-08-23 ~20:15 UTC: los schedules quedaban registrados
+# (confirmado via API) pero sin invocarse ni una vez en 40+ min tras el fix de
+# sintaxis TOML — probando si un segundo deploy limpio destraba el registro real
+# del cron trigger en el lado de Cloudflare.
+[triggers]
+crons = ["* * * * *", "*/15 * * * *"]
+
+# R2: needed by publishSocialPostLive → uploadMediaToR2
+[[r2_buckets]]
+binding = "SOCIAL_MEDIA_BUCKET"
+bucket_name = "socialflow-media"
+
+[vars]
+# P4: este Worker es el responsable de publicar los posts programados (cron cada minuto,
+# lock social-publish-ai por minuto). Debe coincidir con el valor del Worker web.
+SOCIALFLOW_PUBLISH_SCHEDULER_OWNER = "ai"

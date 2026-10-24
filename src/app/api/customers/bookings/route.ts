@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import {
@@ -7,7 +9,6 @@ import {
 } from "@/lib/customers/repository";
 import { listSaasServices, resolveEconomyContext } from "@/lib/economy/repository";
 import type { SaasCustomerBooking } from "@/lib/customers/types";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {

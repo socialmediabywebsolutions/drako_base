@@ -1,0 +1,146 @@
+// Isolated product runtime — no direct DB access, no legacy shells.
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getCurrentSocialFlowSession } from "@/lib/socialflow/auth/server";
+import { getCanonicalBillingSnapshot } from "@/lib/billing/subscriptions";
+import { resolveSocialFlowPlanCode } from "@/lib/socialflow/billing/plans";
+import type { SaasSocialProvider } from "@/lib/social-core/types";
+import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
+import { getWeeklyPublishStatus } from "@/lib/socialflow/billing/enforce";
+import SidebarNav from "./_components/sidebar-nav";
+import TrialBanner from "./_components/trial-banner";
+import TrialPaywall from "./_components/trial-paywall";
+import QuotaBanner from "./_components/quota-banner";
+
+export const metadata: Metadata = {
+  title: "Socialcors",
+  description: "Sistema operativo de marketing con IA",
+  robots: {
+    index: false,
+    follow: false,
+  },
+  // Favicon/perfil — R2 como fuente de verdad única, mismo bucket que el logo de
+  // cabecera y el de los emails (WeeklyBriefingAgent.ts).
+  icons: {
+    icon: "https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-perfil.png",
+    apple: "https://pub-3e782268d66e465bbe7c7fa767074ee2.r2.dev/assets/logo-perfil.png",
+  },
+};
+
+export default async function SocialFlowWorkspaceLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await getCurrentSocialFlowSession();
+  if (!session) {
+    redirect("/socialflow/auth");
+  }
+
+  // Owners and admins bypass all trial restrictions
+  const isPrivilegedRole = session.role === "owner" || session.role === "admin";
+
+  // getCanonicalBillingSnapshot accede a varias tablas D1 (saas_subscriptions,
+  // saas_usage_quotas, internal_accounts…). Cualquier error de D1 tumbaría todo el
+  // workspace — en especial para cuentas internas sin fila en saas_subscriptions.
+  // Fallback: tratamos al usuario como "active" para que el layout siempre renderice.
+  let snapshot: Awaited<ReturnType<typeof getCanonicalBillingSnapshot>>;
+  try {
+    snapshot = await getCanonicalBillingSnapshot({ tenantId: session.tenantId, saasSlug: "socialflow" });
+  } catch {
+    snapshot = {
+      tenantId: session.tenantId,
+      saasSlug: "socialflow",
+      saasId: null,
+      isInternalAccount: false,
+      subscription: {
+        status: "active",
+        planCode: null,
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        trial: false,
+        cancelAtPeriodEnd: null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        stripePriceId: null,
+        updatedAt: null,
+      },
+      entitlements: { limits: {}, features: [], usage: {} },
+    };
+  }
+  const sub = snapshot.subscription;
+
+  const weeklyPublishStatus = await getWeeklyPublishStatus(session.tenantId, session.role).catch(() => null);
+
+  // resolveSocialContext throws SocialContextError for new tenants with no social record yet.
+  // Catch it here so the layout renders cleanly and the page's own redirect (→ onboarding) fires.
+  let connectedProviders: SaasSocialProvider[] = [];
+  try {
+    const socialCtx = await resolveSocialContext({ tenantId: session.tenantId, saasId: "socialflow" });
+    const socialAccounts = await listSaasSocialAccounts(socialCtx);
+    connectedProviders = socialAccounts
+      .filter((account) => account.status === "CONNECTED_REAL" || account.status === "PENDING_REAL")
+      .map((account) => account.provider);
+  } catch {
+    // New tenant or missing social context — sidebar shows no connected accounts.
+  }
+
+  // Real paid subscription (has actual Stripe customer ID, status active/trialing)
+  const hasPaidAccess =
+    isPrivilegedRole ||
+    ((sub.status === "active" || sub.status === "trialing") && Boolean(sub.stripeCustomerId));
+
+  // Trial window
+  const trialEndsAt = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
+  const isTrialActive = !isPrivilegedRole && sub.status === "trial" && trialEndsAt !== null && trialEndsAt > new Date();
+  const isTrialExpired = !isPrivilegedRole && sub.status === "trial" && trialEndsAt !== null && trialEndsAt <= new Date();
+
+  // Plan real ya asignado (distinto de free) — si el tenant ya eligió plan, el banner
+  // de "Elegir plan" deja de tener sentido aunque el status siga en "trial".
+  const assignedPlanCode = resolveSocialFlowPlanCode(
+    { status: sub.status, planCode: sub.planCode },
+    { isInternalAccount: snapshot.isInternalAccount, accountType: session.accountType },
+  );
+  const hasAssignedPlan = assignedPlanCode !== "free";
+
+  // Days left (shown in banner, max precision = 1 day)
+  const trialDaysLeft = isTrialActive && trialEndsAt && !hasAssignedPlan
+    ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : null;
+
+  // Paywall: only when trial has actually expired and no paid access
+  const showPaywall = !hasPaidAccess && isTrialExpired;
+
+  return (
+    <div className="min-h-screen bg-[#f8f9fc] text-gray-900">
+      <div className="relative flex min-h-screen">
+        {/* Sidebar — hidden on mobile, shown on lg */}
+        <div className="hidden lg:flex">
+          <SidebarNav
+            session={{ name: session.name ?? null, email: session.email, accountType: session.accountType }}
+            connectedProviders={connectedProviders}
+          />
+        </div>
+
+        {/* Main content */}
+        <main className="min-w-0 flex-1 px-5 py-7 lg:px-10 lg:py-8">
+          {trialDaysLeft !== null && !showPaywall && (
+            <TrialBanner daysLeft={trialDaysLeft} />
+          )}
+          {weeklyPublishStatus && (
+            <QuotaBanner
+              isAtDailyCap={weeklyPublishStatus.instagramDaily.isAtCap}
+              isOverWeeklyQuota={weeklyPublishStatus.instagram.isOverQuota}
+              weeklyUsed={weeklyPublishStatus.instagram.used}
+              weeklyLimit={weeklyPublishStatus.instagram.limit}
+            />
+          )}
+          <div className="mx-auto max-w-6xl">{children}</div>
+        </main>
+      </div>
+
+      {/* Paywall overlay — covers entire workspace when trial expires */}
+      {showPaywall && <TrialPaywall accountType={session.accountType} />}
+    </div>
+  );
+}

@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "result": {
+    "buckets": [
+      { "name": "saas-drakos-prod-storage" },
+      { "name": "saas-bases-prod-storage" },
+      { "name": "saas-mentorias-prod-storage" }
+    ]
+  }
+}

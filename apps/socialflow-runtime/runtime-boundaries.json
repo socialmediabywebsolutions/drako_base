@@ -1,0 +1,27 @@
+{
+  "SAFE_SHARED_PACKAGE": [
+    "@shared-neutral/hosts",
+    "@shared-neutral/marketing-locales",
+    "@shared-cloudflare/opennext-cloudflare-config",
+    "@shared-ui-neutral/app-providers",
+    "@/lib/auth/crypto",
+    "@/lib/cloudflare/runtime"
+  ],
+  "TEMP_SHARED": [],
+  "FORBIDDEN_SHARED": [
+    "@/components/layouts/control-plane-layout",
+    "@/components/sidebar",
+    "@/components/right-panel",
+    "@/app/nextauth-providers",
+    "@/lib/mentoria/*",
+    "@/lib/operator/*",
+    "@/lib/campobase/*",
+    "@/lib/campamento-base/*",
+    "@/lib/drako/*",
+    "@/lib/owner/*",
+    "@/lib/dashboard/*",
+    "@/app/(dashboard)/*",
+    "@/app/operator/*",
+    "@/app/admin/*"
+  ]
+}

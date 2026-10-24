@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
@@ -7,7 +8,7 @@ import {
   upsertProjectEntitlements,
 } from "@/lib/projects/entitlements";
 
-// export const runtime = "edge"; // OpenNext: disabled for bundling
+
 
 type RouteContext = {
   params: Promise<{ id: string }>;

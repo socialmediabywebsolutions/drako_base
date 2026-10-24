@@ -61,8 +61,8 @@ export async function executeProvisioningPlaybookForSaaS(
       details: "DNS + SSL en Cloudflare registrados desde el Chat Orquestador.",
     },
     {
-      step: "pages_project",
-      details: "Conexión al proyecto de Cloudflare Pages registrada desde el Chat Orquestador.",
+      step: "workers_runtime",
+      details: "Runtime y custom domains de Cloudflare Workers registrados desde el Chat Orquestador.",
     },
     {
       step: "connect",

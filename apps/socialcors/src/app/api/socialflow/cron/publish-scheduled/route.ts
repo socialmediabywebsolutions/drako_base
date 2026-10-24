@@ -1,0 +1,238 @@
+export const dynamic = "force-dynamic";
+
+/**
+ * POST /api/socialflow/cron/publish-scheduled
+ * x-cron-secret: <CRON_SECRET>
+ *
+ * Publishes a single post to Instagram (or other platforms in the future).
+ * Designed for direct invocation from Cloudflare Cron or manual curl tests.
+ *
+ * Body:
+ * {
+ *   "tenantId": "...",
+ *   "saasId": "...",
+ *   "accountId": "...",           // ID of the connected SaasSocialAccount
+ *   "platform": "instagram",
+ *   "postType": "feed" | "reel" | "story" | "carousel",
+ *   "caption": "...",
+ *   "imageHint": "https://...",   // public HTTPS media URL — required unless postType is "carousel"
+ *   "mediaUrls": ["https://...", "https://..."]  // required for postType "carousel" — 2-10 public HTTPS URLs, in slide order
+ * }
+ */
+
+import { NextResponse } from "next/server";
+import { env } from "@/lib/cf";
+import { resolveSocialContext, listSaasSocialAccounts, SocialContextError } from "@/lib/socialflow/repository";
+import {
+  CAROUSEL_MIN_ITEMS,
+  requireInstagramCredentials,
+  publishInstagramContent,
+  InstagramPublishingError,
+  type InstagramPostContentType,
+} from "@/lib/socialflow/meta/publishing";
+import { uploadMediaToR2 } from "@/lib/socialflow/live-publishing";
+import { publishPost as publishLinkedInPost } from "@/lib/socialflow/linkedin/publishing";
+import { LinkedInIntegrationError } from "@/lib/socialflow/linkedin/core";
+
+function verifyCronSecret(request: Request): boolean {
+  const cronSecret = env()?.CRON_SECRET;
+  if (!cronSecret) return false;
+  const fromHeader = (request.headers.get("x-cron-secret") ?? "").trim();
+  const fromAuth = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+  return fromHeader === cronSecret || fromAuth === cronSecret;
+}
+
+function mapPostType(postType: string): InstagramPostContentType {
+  switch (postType.toLowerCase()) {
+    case "reel": return "REEL";
+    case "story": return "STORY";
+    case "carousel": return "CAROUSEL";
+    default: return "FEED";
+  }
+}
+
+export async function POST(request: Request) {
+  if (!verifyCronSecret(request)) {
+    return NextResponse.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 });
+  }
+
+  const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+  const tenantId = typeof body.tenantId === "string" ? body.tenantId.trim() : "";
+  const saasId = typeof body.saasId === "string" ? body.saasId.trim() : "";
+  const accountId = typeof body.accountId === "string" ? body.accountId.trim() : "";
+  const platform = typeof body.platform === "string" ? body.platform.trim().toLowerCase() : "";
+  const postType = typeof body.postType === "string" ? body.postType.trim() : "feed";
+  const caption = typeof body.caption === "string" ? body.caption.trim() : "";
+  const imageHint = typeof body.imageHint === "string" ? body.imageHint.trim() : "";
+  const isCarousel = postType.toLowerCase() === "carousel";
+  const mediaUrls = Array.isArray(body.mediaUrls)
+    ? (body.mediaUrls as unknown[]).filter((u): u is string => typeof u === "string" && u.trim().startsWith("http")).map((u) => u.trim())
+    : [];
+
+  const missing: string[] = [];
+  if (!tenantId) missing.push("tenantId");
+  if (!saasId) missing.push("saasId");
+  if (!accountId) missing.push("accountId");
+  if (!platform) missing.push("platform");
+  if (platform === "instagram" && !isCarousel && !imageHint) missing.push("imageHint");
+  if (platform === "instagram" && isCarousel && mediaUrls.length < CAROUSEL_MIN_ITEMS) missing.push(`mediaUrls (at least ${CAROUSEL_MIN_ITEMS} public HTTPS URLs)`);
+  if (missing.length > 0) {
+    return NextResponse.json(
+      { ok: false, code: "INVALID_PARAMS", message: `Missing required fields: ${missing.join(", ")}` },
+      { status: 400 },
+    );
+  }
+
+  if (platform !== "instagram" && platform !== "linkedin") {
+    return NextResponse.json(
+      { ok: false, code: "UNSUPPORTED_PLATFORM", message: `Platform '${platform}' is not supported. Supported: instagram, linkedin.` },
+      { status: 400 },
+    );
+  }
+
+  let ctx;
+  try {
+    ctx = await resolveSocialContext({ tenantId, saasId });
+  } catch (err) {
+    return NextResponse.json(
+      { ok: false, code: "CONTEXT_ERROR", message: err instanceof Error ? err.message : String(err) },
+      { status: 400 },
+    );
+  }
+
+  const accounts = await listSaasSocialAccounts(ctx);
+  const account = accounts.find((a) => a.id === accountId) ?? null;
+
+  if (!account) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "ACCOUNT_NOT_FOUND",
+        message: `Account ${accountId} not found for tenantId=${tenantId} saasId=${saasId}.`,
+        availableIds: accounts.map((a) => ({ id: a.id, provider: a.provider, status: a.status })),
+      },
+      { status: 404 },
+    );
+  }
+
+  if (account.status !== "CONNECTED_REAL") {
+    return NextResponse.json(
+      { ok: false, code: "ACCOUNT_NOT_CONNECTED", message: `Account ${accountId} has status '${account.status}', expected CONNECTED_REAL.` },
+      { status: 422 },
+    );
+  }
+
+  // ── LinkedIn branch ───────────────────────────────────────────────────────
+  if (platform === "linkedin") {
+    if (account.provider !== "LINKEDIN") {
+      return NextResponse.json(
+        { ok: false, code: "ACCOUNT_PROVIDER_MISMATCH", message: `Account ${accountId} is not a LinkedIn account (provider=${account.provider}).` },
+        { status: 422 },
+      );
+    }
+
+    console.log("CRON_LINKEDIN_PUBLISH_START", { tenantId, saasId, accountId });
+
+    try {
+      const result = await publishLinkedInPost(account, caption);
+      console.log("CRON_LINKEDIN_PUBLISH_OK", { tenantId, saasId, accountId, externalPostId: result.externalPostId });
+
+      return NextResponse.json({
+        ok: true,
+        platform: "linkedin",
+        externalPostId: result.externalPostId,
+        account: { id: account.id, handle: account.handle, provider: account.provider },
+      });
+    } catch (err) {
+      const code = err instanceof LinkedInIntegrationError ? err.code : "LINKEDIN_PUBLISH_FAILED";
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("CRON_LINKEDIN_PUBLISH_ERROR", JSON.stringify({ code, message, tenantId, saasId, accountId }));
+      return NextResponse.json({ ok: false, code, message }, { status: 422 });
+    }
+  }
+  // ── End LinkedIn branch ───────────────────────────────────────────────────
+
+  let creds: Awaited<ReturnType<typeof requireInstagramCredentials>>;
+  try {
+    creds = await requireInstagramCredentials(account);
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: err instanceof InstagramPublishingError ? err.code : "CREDENTIAL_ERROR",
+        message: err instanceof Error ? err.message : String(err),
+      },
+      { status: 422 },
+    );
+  }
+
+  const contentType = mapPostType(postType);
+
+  console.log("CRON_PUBLISH_SCHEDULED_START", {
+    tenantId,
+    saasId,
+    accountId,
+    platform,
+    contentType,
+    igUserId: creds.igUserId,
+    authType: creds.authType,
+    apiBase: creds.apiBase,
+    imageHint,
+    ...(isCarousel ? { mediaUrlsCount: mediaUrls.length } : {}),
+  });
+
+  try {
+    const result = isCarousel
+      ? await publishInstagramContent({
+          accessToken: creds.accessToken,
+          igUserId: creds.igUserId,
+          apiBase: creds.apiBase,
+          caption,
+          contentType,
+          // Re-host every slide via R2, in the order they were submitted.
+          mediaUrls: await Promise.all(mediaUrls.map((url, i) => uploadMediaToR2(url, `${accountId}-slide${i}`))),
+        })
+      : await publishInstagramContent({
+          accessToken: creds.accessToken,
+          igUserId: creds.igUserId,
+          apiBase: creds.apiBase,
+          caption,
+          contentType,
+          // Re-host via R2 so Instagram can always fetch the media
+          mediaUrl: await uploadMediaToR2(imageHint, accountId),
+        });
+
+    console.log("CRON_PUBLISH_SCHEDULED_OK", {
+      tenantId,
+      saasId,
+      accountId,
+      externalPostId: result.externalPostId,
+      mediaType: result.mediaType,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      externalPostId: result.externalPostId,
+      containerId: result.containerId,
+      mediaType: result.mediaType,
+      account: {
+        id: account.id,
+        handle: account.handle,
+        igUserId: creds.igUserId,
+        authType: creds.authType,
+        apiBase: creds.apiBase,
+      },
+    });
+  } catch (err) {
+    const code = err instanceof InstagramPublishingError ? err.code : "INSTAGRAM_PUBLISH_FAILED";
+    const message = err instanceof Error ? err.message : String(err);
+    const details = err instanceof InstagramPublishingError ? err.details : null;
+
+    console.error("CRON_PUBLISH_SCHEDULED_ERROR", JSON.stringify({ code, message, details, tenantId, saasId, accountId }));
+
+    return NextResponse.json(
+      { ok: false, code, message, details },
+      { status: 422 },
+    );
+  }
+}

@@ -43,7 +43,6 @@ export default function BillingPage() {
   const [redirecting, setRedirecting] = useState(false);
   const [summary, setSummary] = useState<SubscriptionSummary | null>(null);
   const [saasCount, setSaasCount] = useState<number | null>(null);
-  const [saasSubscriptionsCount, setSaasSubscriptionsCount] = useState<number | null>(null);
 
   const loadSubscription = useCallback(async () => {
     setLoading(true);
@@ -75,26 +74,16 @@ export default function BillingPage() {
 
   const loadTenantStats = useCallback(async () => {
     try {
-      const [saasRes, subsRes] = await Promise.all([
-        fetch(`/api/saas?tenantId=${encodeURIComponent(tenantId)}`, { cache: "no-store" }),
-        fetch(`/api/saas/subscriptions?tenantId=${encodeURIComponent(tenantId)}`, { cache: "no-store" }),
-      ]);
+      const saasRes = await fetch(`/api/operator/saas?tenantId=${encodeURIComponent(tenantId)}`, { cache: "no-store" });
       if (saasRes.ok) {
         const saasData = (await saasRes.json()) as { items?: unknown[] };
         setSaasCount((saasData.items ?? []).length);
       } else {
         setSaasCount(null);
       }
-      if (subsRes.ok) {
-        const subsData = (await subsRes.json()) as { items?: unknown[] };
-        setSaasSubscriptionsCount((subsData.items ?? []).length);
-      } else {
-        setSaasSubscriptionsCount(null);
-      }
     } catch (error) {
       console.error(error);
       setSaasCount(null);
-      setSaasSubscriptionsCount(null);
     }
   }, [tenantId]);
 
@@ -169,9 +158,9 @@ export default function BillingPage() {
             <p className="text-sm text-[var(--muted)]">
               {summary.hasActiveDrakoBaseStarter ? "Subscription active." : "Pending confirmation after checkout."}
             </p>
-            {typeof saasCount === "number" && typeof saasSubscriptionsCount === "number" && (
+            {typeof saasCount === "number" && (
               <p className="text-sm text-[var(--muted)]">
-                {saasCount} SaaS activos · {saasSubscriptionsCount} suscripciones SaaS en Stripe
+                {saasCount} SaaS activos
               </p>
             )}
             {subscription?.updatedAt && (

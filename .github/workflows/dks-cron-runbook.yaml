@@ -1,66 +1,702 @@
 name: 🔁 DKS Cron Runbook
 
 on:
+  workflow_dispatch:
+  # Los crons de /api/cron/social/* los dispara el trigger nativo de Cloudflare
+  # (workers/socialflows/wrangler.workers.toml + scripts/patch-socialflow-cron-handler.mjs).
+  # Este runbook los llamaba además en los mismos horarios, duplicando cada ejecución
+  # (IA y filas repetidas). Ahora esos jobs son solo manuales (workflow_dispatch, con
+  # ?force=1 para saltar el bloqueo por turno de src/lib/security/cron-lock.ts); el único
+  # schedule que queda es para los jobs exclusivos de GitHub (alerts-check,
+  # purge-old-runs, cleanup-drafts, cerebro-health).
   schedule:
-    - cron: '*/10 * * * *'   # Cada 10 minutos: Verificador de Alertas
-    - cron: '0 * * * *'      # Cada 1 hora: Auditor de Salud Manual
-    - cron: '0 3 * * *'      # Cada noche a las 03:00: Snapshot Infra
-    - cron: '0 6 * * 1'      # Cada lunes a las 06:00: Limpieza de Drafts
-  workflow_dispatch:         # Permite ejecución manual
+    - cron: "*/15 * * * *"
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  alerts-agent:
-    name: 🚨 Verificador de Alertas (Worker)
+  socialflow-publish-cron:
+    name: 📅 SocialFlow — Auto-publish Scheduled Posts
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
     steps:
-      - name: 📦 Instalar Wrangler
-        run: npm install -g wrangler
-      - name: 🚀 Ejecutar Worker
-        run: npx wrangler deploy workers/alerts-agent.ts --name drako-alerts-agent
+      - name: 🔗 Llamar endpoint de publicación
+        run: |
+          STATUS=$(curl -s -o /tmp/publish_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/publish?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/publish_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Publish cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Publish cron completed successfully"
+
+  socialflow-process-comments:
+    name: 💬 SocialFlow — Procesar Comentarios Instagram
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: 🔗 Procesar comentarios con IA
+        run: |
+          STATUS=$(curl -s -o /tmp/comments_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/comments?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/comments_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Comments cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Comments cron completed successfully"
+
+  socialflow-trend-keywords:
+    name: 🌐 SocialFlow — TrendKeywordAgent (Cerebro)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: 🔗 Refrescar señales externas de un nicho
+        run: |
+          STATUS=$(curl -s -o /tmp/trend_keywords_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/trend-keywords?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/trend_keywords_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Trend-keywords cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Trend-keywords cron completed successfully"
+
+  social-metrics-cron:
+    name: 📊 Social Metrics — Instagram Insights Sync
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: 🔗 Llamar endpoint de métricas
+        run: |
+          STATUS=$(curl -s -o /tmp/metrics_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/metrics?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/metrics_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Metrics cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Metrics cron completed successfully"
+      # viral-moment corre en el mismo trigger de 4h que metrics (no depende de sus
+      # datos, solo comparte cadencia porque las tendencias cambian rápido) — mismo
+      # bloque que scripts/patch-socialflow-cron-handler.mjs para el trigger nativo de
+      # Cloudflare.
+      - name: 🔗 Detectar momentos virales emergentes (ViralMomentAgent)
+        run: |
+          STATUS=$(curl -s -o /tmp/viral_moment_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/viral-moment?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/viral_moment_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Viral-moment cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Viral-moment cron completed successfully"
+
+  socialflow-style-learning:
+    name: 🧠 SocialFlow — Style Learning (Cerebro)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: 🔗 Ejecutar StyleLearningAgent por tenant
+        run: |
+          STATUS=$(curl -s -o /tmp/style_learning_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/style-learning?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/style_learning_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Style-learning cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Style-learning cron completed successfully"
+      # seasonal-opportunity es independiente de style-learning (enumera tenants vía
+      # socialflow_profiles, no vía el conteo de posts publicados de style-learning) —
+      # comparte el mismo trigger de 03:00 UTC solo por conveniencia. Mismo bloque que
+      # scripts/patch-socialflow-cron-handler.mjs para el trigger nativo de Cloudflare.
+      - name: 🔗 Detectar oportunidades estacionales por tenant
+        run: |
+          STATUS=$(curl -s -o /tmp/seasonal_opportunity_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/seasonal-opportunity?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/seasonal_opportunity_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Seasonal-opportunity cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Seasonal-opportunity cron completed successfully"
+      # churn-prediction, igual que seasonal-opportunity, enumera vía socialflow_profiles
+      # (sin gate de posts publicados) — los tenants con poca actividad son justo a
+      # quienes hay que vigilar. Nunca escribe en el Intelligence Feed del cliente,
+      # solo en socialcors_churn_predictions (visible vía el endpoint de operador).
+      # Mismo bloque que scripts/patch-socialflow-cron-handler.mjs para el trigger
+      # nativo de Cloudflare.
+      - name: 🔗 Calcular riesgo de abandono por tenant (ChurnPredictionAgent)
+        run: |
+          STATUS=$(curl -s -o /tmp/churn_prediction_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/churn-prediction?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/churn_prediction_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Churn-prediction cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Churn-prediction cron completed successfully"
+
+  socialflow-niche-intelligence:
+    name: 📈 SocialFlow — Niche Intelligence (Cerebro)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: 🔗 Refrescar socialcors_niche_intelligence
+        run: |
+          STATUS=$(curl -s -o /tmp/niche_intelligence_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/niche-intelligence?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/niche_intelligence_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Niche-intelligence cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Niche-intelligence cron completed successfully"
+      # influencer-benchmark es independiente de cross-tenant-intelligence/viral-
+      # opportunity (escribe en su propia tabla, socialcors_influencer_benchmarks) —
+      # solo necesita correr después de niche-intelligence porque reusa la misma lista
+      # NICHE_INTELLIGENCE_NICHES, no un dato que esa cron escriba.
+      - name: 🔗 Refrescar benchmark de influencers por nicho (YouTube)
+        run: |
+          STATUS=$(curl -s -o /tmp/influencer_benchmark_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/influencer-benchmark?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/influencer_benchmark_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Influencer-benchmark cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Influencer-benchmark cron completed successfully"
+      # cross-tenant-intelligence corre DESPUÉS de niche-intelligence, en el mismo job
+      # (no en paralelo) — fusiona patrones reales de engagement en la misma fila de
+      # socialcors_niche_intelligence que niche-intelligence acaba de escribir; si
+      # corriera antes, su fusión aterrizaría en una fila que niche-intelligence
+      # sobrescribe entera un instante después. Mismo orden que
+      # scripts/patch-socialflow-cron-handler.mjs para el trigger nativo de Cloudflare.
+      - name: 🔗 Agregar inteligencia cross-tenant por nicho
+        run: |
+          STATUS=$(curl -s -o /tmp/cross_tenant_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/cross-tenant-intelligence?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/cross_tenant_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Cross-tenant-intelligence cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Cross-tenant-intelligence cron completed successfully"
+      # viral-opportunity corre DESPUÉS de cross-tenant-intelligence, en el mismo job
+      # (no en paralelo) — necesita el engagementPatterns recién fusionado de esta
+      # misma semana para encontrar hooks/formatos que el nicho usa pero el cliente no
+      # ha probado. Mismo orden que scripts/patch-socialflow-cron-handler.mjs para el
+      # trigger nativo de Cloudflare.
+      - name: 🔗 Detectar oportunidades virales por tenant
+        run: |
+          STATUS=$(curl -s -o /tmp/viral_opportunity_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/viral-opportunity?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/viral_opportunity_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Viral-opportunity cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Viral-opportunity cron completed successfully"
+      # weekly-briefing corre DESPUÉS de niche-intelligence, en el mismo job (no en
+      # paralelo) — usa los datos recién refrescados de esta misma semana, mismo
+      # orden que ya documentaba scripts/patch-socialflow-cron-handler.mjs para el
+      # trigger nativo de Cloudflare Workers.
+      - name: 🔗 Generar y enviar weekly briefing
+        run: |
+          STATUS=$(curl -s -o /tmp/weekly_briefing_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/weekly-briefing?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/weekly_briefing_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Weekly-briefing cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Weekly-briefing cron completed successfully"
+      # best-practices corre DESPUÉS de weekly-briefing y ANTES de strategic-plan, en el
+      # mismo job (no en paralelo) — lee snapshots ya persistidos por ContentPerformanceAgent
+      # de TODOS los tenants del mismo nicho+accountType (vía style-learning diario, no
+      # depende de ningún otro cron de esta cadena semanal), así que su orden respecto a
+      # niche-intelligence/cross-tenant-intelligence/viral-opportunity no importa — se
+      # coloca junto a strategic-plan porque ambos son agentes cross-tenant/de síntesis
+      # semanal. Mismo orden que scripts/patch-socialflow-cron-handler.mjs para el trigger
+      # nativo de Cloudflare.
+      - name: 🏆 Detectar mejores prácticas del nicho (BestPracticesAgent)
+        run: |
+          STATUS=$(curl -s -o /tmp/best_practices_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/best-practices?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/best_practices_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Best-practices cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Best-practices cron completed successfully"
+      # strategic-plan corre ÚLTIMO de toda la cadena semanal — sintetiza los snapshots
+      # de todos los demás agentes del Cerebro, así que necesita que esta semana ya haya
+      # terminado de refrescarlos. Mismo orden que scripts/patch-socialflow-cron-handler.mjs
+      # para el trigger nativo de Cloudflare.
+      - name: 🔗 Generar plan estratégico mensual (StrategicPlanningAgent)
+        run: |
+          STATUS=$(curl -s -o /tmp/strategic_plan_response.json -w "%{http_code}" \
+            -X GET "https://socialflows.drako.systems/api/cron/social/strategic-plan?force=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $STATUS"
+          cat /tmp/strategic_plan_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Strategic-plan cron failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Strategic-plan cron completed successfully"
 
   alerts-check:
     name: 🧪 Auditor Manual de Salud
     runs-on: ubuntu-latest
+    env:
+      STATUS_URL: https://socialflows.drako.systems/api/status.json
     steps:
       - name: ⬇️ Checkout
         uses: actions/checkout@v4
+
       - name: 🔧 Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
+
       - name: 📦 Instalar dependencias
-        run: npm install
+        run: npm ci
+
       - name: 🔍 Ejecutar Auditor Local
+        continue-on-error: true
         run: npx tsx scripts/alerts-check.ts
 
-  snapshot-status:
-    name: 📤 Snapshot de Infraestructura
+  purge-old-runs:
+    name: 🗑️ Purgar runs antiguos (mantener últimos 100)
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
-      - name: 📦 Descargar snapshot
-        run: curl -s https://drako.group/api/status.json -o snapshot-status.json
-      - name: 📁 Subir como artifact (opcional)
-        uses: actions/upload-artifact@v4
+      - name: Eliminar runs más allá del top 100
+        uses: actions/github-script@v7
         with:
-          name: snapshot-status
-          path: snapshot-status.json
+          script: |
+            let page = 1;
+            let allRuns = [];
+            while (true) {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'dks-cron-runbook.yaml',
+                per_page: 100,
+                page,
+              });
+              allRuns = allRuns.concat(data.workflow_runs);
+              if (data.workflow_runs.length < 100) break;
+              page++;
+            }
+            const toDelete = allRuns.slice(100);
+            console.log(`Total runs: ${allRuns.length} — eliminando ${toDelete.length}`);
+            for (const run of toDelete) {
+              await github.rest.actions.deleteWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id,
+              });
+            }
 
   cleanup-drafts:
-    name: 🧹 Limpieza de Drafts y Logs (opcional)
-    if: github.event.schedule == '0 6 * * 1'  # Solo semanal
+    name: 🧹 Limpieza de Drafts y Logs
     runs-on: ubuntu-latest
     steps:
       - name: ⬇️ Checkout
         uses: actions/checkout@v4
+
       - name: 🔧 Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
+
       - name: 📦 Instalar dependencias
-        run: npm install
-      - name: 🧼 Ejecutar limpieza (opcional)
+        run: npm ci
+
+      - name: 🧼 Ejecutar limpieza
         run: |
           if [ -f scripts/purge-drafts.ts ]; then
             npx tsx scripts/purge-drafts.ts
           else
             echo "No purge script found. Skipping."
+          fi
+
+  cerebro-health:
+    name: 🧠 Cerebro Socialcors — Health Check
+    runs-on: ubuntu-latest
+    # Corre después de los jobs de trabajo del runbook (needs + if: always() para que no
+    # se salte cuando alguno de ellos queda skipped por su propio gate de schedule — en
+    # cada disparo del workflow normalmente solo UNO de esos jobs corre de verdad).
+    needs:
+      - socialflow-publish-cron
+      - socialflow-process-comments
+      - socialflow-trend-keywords
+      - social-metrics-cron
+      - socialflow-style-learning
+      - socialflow-niche-intelligence
+      - alerts-check
+    if: always()
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 📦 Instalar Wrangler
+        run: npm install -g wrangler@4.69.0
+
+      - name: 🧠 Auditoría de salud del Cerebro (agentes, señales, plan, Nivel 3, tokens, posts, consumo IA)
+        run: |
+          set -uo pipefail
+
+          DB="SOCIAL_DB"
+          CFG="workers/socialflows/wrangler.workers.toml"
+          HAS_ERROR=0
+          HAS_WARN=0
+          NOW_EPOCH=$(date -u +%s)
+
+          # wrangler d1 execute --json normally returns an ARRAY (one element per
+          # statement, e.g. [{"results":[...],"success":true}]) — but on a SQL error it
+          # returns a bare OBJECT instead ({"error":{...}}), which broke every downstream
+          # `.[0]...` access with jq's "Cannot index object with number". Normalizing the
+          # shape here (instead of guarding every call site) means callers can always
+          # safely do `.[0].results`.
+          run_query() {
+            local raw
+            raw=$(wrangler d1 execute "$DB" --remote --config "$CFG" --command "$1" --json 2>/tmp/cerebro_stderr.log)
+            if echo "$raw" | jq -e 'type == "object" and has("error")' >/dev/null 2>&1; then
+              echo "⚠️ QUERY_FAILED: $(echo "$raw" | jq -r '.error.notes[0].text // .error.text // "error desconocido"')" >&2
+              echo '[{"results":[],"success":false}]'
+              return
+            fi
+            echo "$raw"
+          }
+
+          # ── 1. AGENTES — última ejecución vs ventana esperada ──────────────────────
+          SQL_AGENTS="SELECT agent_name, MAX(started_at) as ultima, COUNT(*) as total_runs, SUM(CASE WHEN status='error' THEN 1 ELSE 0 END) as errores FROM agent_execution_log GROUP BY agent_name ORDER BY ultima DESC"
+          AGENTS_JSON=$(run_query "$SQL_AGENTS" | jq -c '.[0].results // []' || echo '[]')
+          if [ -z "$AGENTS_JSON" ] || [ "$AGENTS_JSON" = "null" ]; then
+            echo "❌ ERROR: no se pudo leer agent_execution_log ($(cat /tmp/cerebro_stderr.log))"
+            AGENTS_JSON="[]"
+            HAS_ERROR=1
+          fi
+
+          # Ventanas en minutos. 25min (TrendKeywordAgent/TrendTriggerConnector, cron
+          # */20), 300min=5h (ViralMomentAgent, cron 0*/4h), 1500min=25h (agentes del
+          # cron diario 0 3 * * * — StyleLearningAgent + los que corren dentro de su
+          # pipeline por tenant, ver apps/socialcors/src/app/api/cron/social/style-learning/route.ts —
+          # más SeasonalityAgent/SeasonalOpportunityAgent/ChurnPredictionAgent, que
+          # comparten el mismo cron diario, ver scripts/patch-socialflow-cron-handler.mjs),
+          # 11520min=8d (NicheIntelligenceCronAgent, único agente semanal que sigue
+          # verificándose por agent_execution_log — los otros 7 semanales bajan a
+          # WEEKLY_TABLE_CHECKS más abajo, ver ese bloque).
+          declare -A AGENT_WINDOW_MIN=(
+            ["TrendKeywordAgent"]=25
+            ["TrendTriggerConnector"]=25
+            ["ViralMomentAgent"]=300
+            ["StyleLearningAgent"]=1500
+            ["SeasonalityAgent"]=1500
+            ["SeasonalOpportunityAgent"]=1500
+            ["ChurnPredictionAgent"]=1500
+            ["VoiceExtractionAgent"]=1500
+            ["ContentFatigueAgent"]=1500
+            ["ContentPerformanceAgent"]=1500
+            ["HashtagIntelligenceAgent"]=1500
+            ["AudienceGrowthAgent"]=1500
+            ["OptimalPostingScheduleAgent"]=1500
+            ["SentimentTrendAgent"]=1500
+            ["ContentSeriesAgent"]=1500
+            ["BrandConsistencyAgent"]=1500
+            ["ContentDiversityAgent"]=1500
+            ["RevenueOpportunityAgent"]=1500
+            ["NicheIntelligenceCronAgent"]=11520
+          )
+
+          # 7 agentes semanales que NO se pueden verificar de forma fiable en
+          # agent_execution_log (o al menos no como ERROR-si-ausente: son semanales, así
+          # que "ausente" en un chequeo que corre cada 5-20min es la norma, no una avería)
+          # — se verifican en su tabla propia de salida, WARN si no hay fila o si la más
+          # reciente tiene más de 8 días, nunca ERROR.
+          #
+          # StrategicPlanningAgent/InfluencerBenchmarkAgent/BestPracticesAgent escriben
+          # en su propia tabla con columna created_at (verificado contra el esquema real).
+          # CrossTenantIntelligenceAgent NO tiene tabla propia — fusiona
+          # analysis_json.engagementPatterns en la fila de socialcors_niche_intelligence
+          # que NicheIntelligenceCronAgent ya escribió esa semana (ver
+          # CrossTenantIntelligenceAgent.ts:152), así que se verifica ahí.
+          # ViralOpportunityAgent/AudienceInsightAgent tampoco tienen tabla propia —
+          # ambos escriben tarjetas en socialflow_intelligence_feed vía seedFeedItems(),
+          # etiquetadas con su `source` (ViralOpportunityAgent.ts:13-14,
+          # AudienceInsightAgent.ts:10) — se usa MAX(updated_at) porque seedFeedItems
+          # actualiza filas existentes en vez de solo insertar.
+          # WeeklyBriefingAgent usa `sent_at`, no `created_at` (única columna de fecha en
+          # socialcors_briefing_history).
+          declare -A WEEKLY_TABLE_CHECKS=(
+            ["StrategicPlanningAgent"]="SELECT MAX(created_at) as fecha FROM socialcors_strategic_plan"
+            ["InfluencerBenchmarkAgent"]="SELECT MAX(created_at) as fecha FROM socialcors_influencer_benchmarks"
+            ["BestPracticesAgent"]="SELECT MAX(created_at) as fecha FROM socialcors_best_practices"
+            ["CrossTenantIntelligenceAgent"]="SELECT MAX(updated_at) as fecha FROM socialcors_niche_intelligence WHERE json_extract(analysis_json, '\$.engagementPatterns') IS NOT NULL"
+            ["ViralOpportunityAgent"]="SELECT MAX(updated_at) as fecha FROM socialflow_intelligence_feed WHERE source LIKE 'viral_opportunity:%'"
+            ["WeeklyBriefingAgent"]="SELECT MAX(sent_at) as fecha FROM socialcors_briefing_history"
+            ["AudienceInsightAgent"]="SELECT MAX(updated_at) as fecha FROM socialflow_intelligence_feed WHERE source = 'audience-insight-agent'"
+          )
+
+          TOTAL_AGENTS=$(( ${#AGENT_WINDOW_MIN[@]} + ${#WEEKLY_TABLE_CHECKS[@]} ))
+          OK_AGENTS=0
+          AGENTS_SECTION_ERROR=0
+          AGENTS_SECTION_WARN=0
+
+          for agent in "${!AGENT_WINDOW_MIN[@]}"; do
+            window=${AGENT_WINDOW_MIN[$agent]}
+            row=$(echo "$AGENTS_JSON" | jq -c --arg a "$agent" '[.[] | select(.agent_name==$a)][0] // empty')
+            if [ -z "$row" ]; then
+              echo "❌ ERROR: $agent nunca ha corrido (sin filas en agent_execution_log)"
+              AGENTS_SECTION_ERROR=1
+              HAS_ERROR=1
+              continue
+            fi
+            ultima=$(echo "$row" | jq -r '.ultima')
+            errores=$(echo "$row" | jq -r '.errores // 0')
+            ultima_epoch=$(date -u -d "$ultima" +%s 2>/dev/null || echo "")
+            if [ -z "$ultima_epoch" ]; then
+              echo "❌ ERROR: $agent tiene started_at ilegible ($ultima)"
+              AGENTS_SECTION_ERROR=1
+              HAS_ERROR=1
+              continue
+            fi
+            age_min=$(( (NOW_EPOCH - ultima_epoch) / 60 ))
+            if [ "$age_min" -gt "$window" ]; then
+              echo "⚠️ WARN: $agent lleva ${age_min}min sin correr (ventana esperada: ${window}min, errores recientes: $errores)"
+              AGENTS_SECTION_WARN=1
+              HAS_WARN=1
+            else
+              OK_AGENTS=$((OK_AGENTS + 1))
+            fi
+          done
+
+          for agent in "${!WEEKLY_TABLE_CHECKS[@]}"; do
+            fecha=$(run_query "${WEEKLY_TABLE_CHECKS[$agent]}" | jq -r '.[0].results[0].fecha // empty')
+            if [ -z "$fecha" ] || [ "$fecha" = "null" ]; then
+              echo "⚠️ WARN: $agent sin registros en su tabla de salida todavía"
+              AGENTS_SECTION_WARN=1
+              HAS_WARN=1
+              continue
+            fi
+            fecha_epoch=$(date -u -d "$fecha" +%s 2>/dev/null || echo "")
+            if [ -z "$fecha_epoch" ]; then
+              echo "⚠️ WARN: $agent tiene fecha ilegible en su tabla de salida ($fecha)"
+              AGENTS_SECTION_WARN=1
+              HAS_WARN=1
+              continue
+            fi
+            age_days=$(( (NOW_EPOCH - fecha_epoch) / 86400 ))
+            if [ "$age_days" -gt 8 ]; then
+              echo "⚠️ WARN: $agent lleva ${age_days} días sin refrescar su tabla de salida (ventana esperada: 8 días)"
+              AGENTS_SECTION_WARN=1
+              HAS_WARN=1
+            else
+              OK_AGENTS=$((OK_AGENTS + 1))
+            fi
+          done
+
+          # TrendAutoApproveCron — mencionado en el runbook con ventana de 20min, pero
+          # todavía no instrumentado con withAgentExecutionLog (ver
+          # src/lib/socialflow/intelligence/TrendAutoApproveCron.ts), así que su ausencia
+          # no cuenta como ERROR ni entra en el denominador de /26 — solo se avisa si
+          # aparece y está atascado.
+          ta_row=$(echo "$AGENTS_JSON" | jq -c '[.[] | select(.agent_name=="TrendAutoApproveCron")][0] // empty')
+          if [ -n "$ta_row" ]; then
+            ta_ultima=$(echo "$ta_row" | jq -r '.ultima')
+            ta_epoch=$(date -u -d "$ta_ultima" +%s 2>/dev/null || echo "")
+            if [ -n "$ta_epoch" ]; then
+              ta_age_min=$(( (NOW_EPOCH - ta_epoch) / 60 ))
+              if [ "$ta_age_min" -gt 20 ]; then
+                echo "⚠️ WARN: TrendAutoApproveCron lleva ${ta_age_min}min sin correr (ventana esperada: 20min)"
+                HAS_WARN=1
+              fi
+            fi
+          else
+            echo "ℹ️ TrendAutoApproveCron no tiene filas en agent_execution_log todavía (no instrumentado)"
+          fi
+
+          if [ "$AGENTS_SECTION_ERROR" = "1" ]; then AGENTS_EMOJI="❌"; elif [ "$AGENTS_SECTION_WARN" = "1" ]; then AGENTS_EMOJI="⚠️"; else AGENTS_EMOJI="✅"; fi
+
+          # ── 2. CALIDAD DE DATOS — trendSignals ──────────────────────────────────────
+          SQL_TRENDSIGNALS="SELECT niche, account_type, CASE WHEN trend_last_fetched IS NULL THEN 'SIN_SENALES' WHEN json_extract(analysis_json, '\$.trendSignals') IS NULL THEN 'SENALES_BORRADAS' ELSE 'OK' END as estado FROM socialcors_niche_intelligence ORDER BY niche"
+          TRENDSIGNALS_JSON=$(run_query "$SQL_TRENDSIGNALS" | jq -c '.[0].results // []' || echo '[]')
+          TOTAL_NICHES=$(echo "$TRENDSIGNALS_JSON" | jq 'length')
+          OK_NICHES=$(echo "$TRENDSIGNALS_JSON" | jq '[.[] | select(.estado=="OK")] | length')
+          BAD_NICHES=$(echo "$TRENDSIGNALS_JSON" | jq -r '[.[] | select(.estado!="OK")] | .[] | "\(.niche) (\(.account_type)): \(.estado)"')
+          TRENDSIGNALS_EMOJI="✅"
+          if [ -n "$BAD_NICHES" ]; then
+            TRENDSIGNALS_EMOJI="⚠️"
+            HAS_WARN=1
+            echo "⚠️ WARN: nichos con trendSignals incompletos:"
+            echo "$BAD_NICHES" | sed 's/^/    - /'
+          fi
+
+          # ── 3. PLAN ESTRATÉGICO — vigencia ──────────────────────────────────────────
+          SQL_PLAN="SELECT tenant_id, created_at FROM socialcors_strategic_plan ORDER BY created_at DESC LIMIT 1"
+          PLAN_JSON=$(run_query "$SQL_PLAN" | jq -c '.[0].results // []' || echo '[]')
+          PLAN_ROW=$(echo "$PLAN_JSON" | jq -c '.[0] // empty')
+          PLAN_EMOJI="✅"
+          if [ -z "$PLAN_ROW" ]; then
+            PLAN_DAYS="sin_datos"
+            PLAN_EMOJI="⚠️"
+            HAS_WARN=1
+            echo "⚠️ WARN: no hay ningún plan estratégico registrado en socialcors_strategic_plan"
+          else
+            plan_created=$(echo "$PLAN_ROW" | jq -r '.created_at')
+            plan_epoch=$(date -u -d "$plan_created" +%s 2>/dev/null || echo "")
+            if [ -z "$plan_epoch" ]; then
+              PLAN_DAYS="fecha_ilegible"
+              PLAN_EMOJI="⚠️"
+              HAS_WARN=1
+            else
+              PLAN_DAYS=$(( (NOW_EPOCH - plan_epoch) / 86400 ))
+              if [ "$PLAN_DAYS" -gt 8 ]; then
+                PLAN_EMOJI="⚠️"
+                HAS_WARN=1
+                echo "⚠️ WARN: el plan estratégico más reciente tiene $PLAN_DAYS días (tenant $(echo "$PLAN_ROW" | jq -r '.tenant_id'))"
+              fi
+            fi
+          fi
+
+          # ── 4. NIVEL 3 — triggers atascados ─────────────────────────────────────────
+          SQL_STUCK="SELECT COUNT(*) as atascados FROM socialcors_trend_triggers WHERE status='TRIGGERED' AND created_at < datetime('now', '-2 hours')"
+          STUCK_TRIGGERS=$(run_query "$SQL_STUCK" | jq -r '.[0].results[0].atascados // 0' || echo 0)
+          NIVEL3_EMOJI="✅"
+          if [ "$STUCK_TRIGGERS" -gt 0 ]; then
+            NIVEL3_EMOJI="❌"
+            HAS_ERROR=1
+            echo "❌ ERROR: $STUCK_TRIGGERS triggers de Nivel 3 atascados en TRIGGERED hace más de 2 horas"
+          fi
+
+          # ── 5. TOKENS SOCIALES — próximos a expirar ─────────────────────────────────
+          # saas_social_accounts no tiene columnas `network` ni `token_expires_at` (eran
+          # las causantes de uno de los dos "Cannot index object with number" — la query
+          # fallaba con "no such column" y wrangler devolvía un objeto de error en vez del
+          # array esperado). La columna real es `provider`, y la fecha de expiración vive
+          # dentro del JSON de `auth_meta` como `expiresAt` (solo presente para cuentas
+          # tipo Instagram; LinkedIn guarda `expiresIn` relativo sin fecha absoluta, así
+          # que esas filas simplemente no matchean el filtro — no rompen la query).
+          SQL_TOKENS="SELECT tenant_id, provider, json_extract(auth_meta, '\$.expiresAt') as token_expires_at FROM saas_social_accounts WHERE json_extract(auth_meta, '\$.expiresAt') IS NOT NULL AND json_extract(auth_meta, '\$.expiresAt') < datetime('now', '+7 days') AND json_extract(auth_meta, '\$.expiresAt') > datetime('now')"
+          TOKENS_JSON=$(run_query "$SQL_TOKENS" | jq -c '.[0].results // []' || echo '[]')
+          EXPIRING_TOKENS=$(echo "$TOKENS_JSON" | jq 'length')
+          TOKENS_EMOJI="✅"
+          if [ "$EXPIRING_TOKENS" -gt 0 ]; then
+            TOKENS_EMOJI="⚠️"
+            HAS_WARN=1
+            echo "⚠️ WARN: $EXPIRING_TOKENS tokens sociales expiran en menos de 7 días:"
+            echo "$TOKENS_JSON" | jq -r '.[] | "    - tenant \(.tenant_id) / \(.provider): expira \(.token_expires_at)"'
+          fi
+
+          # ── 6. POSTS ATASCADOS ───────────────────────────────────────────────────────
+          SQL_POSTS="SELECT COUNT(*) as atascados FROM saas_social_posts WHERE status='DRAFT' AND created_at < datetime('now', '-24 hours') AND tenant_id NOT LIKE 'demo%' AND tenant_id NOT LIKE 'tenant_socialflow_canary%' AND tenant_id NOT LIKE 'smoke%' AND tenant_id NOT LIKE 'test%'"
+          STUCK_POSTS=$(run_query "$SQL_POSTS" | jq -r '.[0].results[0].atascados // 0' || echo 0)
+          POSTS_EMOJI="✅"
+          if [ "$STUCK_POSTS" -gt 0 ]; then
+            POSTS_EMOJI="⚠️"
+            HAS_WARN=1
+            echo "⚠️ WARN: $STUCK_POSTS posts en DRAFT desde hace más de 24 horas"
+          fi
+
+          # ── 7. CONSUMO IA — anomalía ─────────────────────────────────────────────────
+          # socialflow_ai_usage_log no tiene columna `tokens_used` (la otra causante del
+          # "Cannot index object with number" — mismo motivo que el check 5: "no such
+          # column" hacía que wrangler devolviera un objeto de error). Los tokens reales
+          # están separados en input_tokens/output_tokens.
+          SQL_USAGE="SELECT DATE(created_at) as dia, COUNT(*) as llamadas, SUM(COALESCE(input_tokens,0) + COALESCE(output_tokens,0)) as tokens FROM socialflow_ai_usage_log WHERE created_at > datetime('now', '-8 days') GROUP BY dia ORDER BY dia DESC"
+          USAGE_JSON=$(run_query "$SQL_USAGE" | jq -c '.[0].results // []' || echo '[]')
+          USAGE_DAYS=$(echo "$USAGE_JSON" | jq 'length')
+          USAGE_EMOJI="✅"
+          USAGE_STATUS_TEXT="normal"
+          if [ "$USAGE_DAYS" -ge 2 ]; then
+            LATEST_TOKENS=$(echo "$USAGE_JSON" | jq '.[0].tokens // 0')
+            PREV_AVG=$(echo "$USAGE_JSON" | jq '[.[1:][] | .tokens // 0] | if length>0 then (add/length) else 0 end')
+            ANOMALY=$(awk -v a="$LATEST_TOKENS" -v b="$PREV_AVG" 'BEGIN{ if (b>0 && a>2*b) print "1"; else print "0" }')
+            if [ "$ANOMALY" = "1" ]; then
+              USAGE_EMOJI="⚠️"
+              USAGE_STATUS_TEXT="anomalía detectada"
+              HAS_WARN=1
+              echo "⚠️ WARN: consumo IA del día más reciente ($LATEST_TOKENS tokens) supera 2x la media de los 7 días anteriores ($PREV_AVG)"
+            fi
+          else
+            USAGE_STATUS_TEXT="datos insuficientes"
+          fi
+
+          # ── Resumen final ────────────────────────────────────────────────────────────
+          echo ""
+          echo "=== CEREBRO SOCIALCORS HEALTH ==="
+          echo "$AGENTS_EMOJI Agentes: $OK_AGENTS/$TOTAL_AGENTS operativos"
+          echo "$TRENDSIGNALS_EMOJI TrendSignals: $OK_NICHES/$TOTAL_NICHES nichos con datos"
+          echo "$PLAN_EMOJI Plan estratégico: último hace $PLAN_DAYS días"
+          echo "$NIVEL3_EMOJI Nivel 3: $STUCK_TRIGGERS triggers atascados"
+          echo "$TOKENS_EMOJI Tokens sociales: $EXPIRING_TOKENS próximos a expirar"
+          echo "$POSTS_EMOJI Posts atascados: $STUCK_POSTS"
+          echo "$USAGE_EMOJI Consumo IA: $USAGE_STATUS_TEXT"
+
+          if [ "$HAS_ERROR" = "1" ]; then
+            echo ""
+            echo "❌ Health check FAILED — hay al menos un ERROR arriba."
+            exit 1
+          fi
+          if [ "$HAS_WARN" = "1" ]; then
+            echo ""
+            echo "⚠️ Health check OK con warnings — revisa el log arriba."
+          fi

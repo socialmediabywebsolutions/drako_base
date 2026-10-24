@@ -1,0 +1,174 @@
+import { run, queryOne, queryAll } from "@/lib/db";
+import { writeBillingAuditLog } from "@/lib/billing/billing-audit";
+import { upsertCanonicalSubscriptionState } from "@/lib/billing/subscriptions";
+import { createTenant, createTenantUser } from "@/lib/tenants/services";
+
+export type ProvisioningEvent = {
+    eventId: string;
+    type: "checkout.session.completed" | "invoice.payment_failed" | "invoice.payment_succeeded" | "customer.subscription.deleted" | "customer.subscription.updated" | "customer.subscription.created";
+    data: {
+        stripeCustomerId: string;
+        stripeSubscriptionId: string;
+        stripePriceId?: string;
+        customerEmail: string;
+        saasSlug: string;
+        tenantId?: string; // Standardized from metadata
+        planCode?: string; // Standardized from metadata
+        tenantName?: string;
+        currentPeriodStart?: string;
+        currentPeriodEnd?: string;
+        cancelAtPeriodEnd?: boolean;
+    };
+};
+
+export type ProvisioningResult = {
+    success: boolean;
+    tenantId?: string;
+    error?: string;
+};
+
+/**
+ * Idempotent provisioning workflow triggered by Cloudflare Queue (Stripe Events).
+ */
+export async function provisionTenantFromStripe(event: ProvisioningEvent): Promise<ProvisioningResult> {
+    const { stripeCustomerId, stripeSubscriptionId, stripePriceId, customerEmail, saasSlug, tenantName } = event.data;
+    const correlationId = event.eventId;
+
+    console.log(`[Provisioning] Starting for ${customerEmail} on ${saasSlug} (Price: ${stripePriceId})`);
+
+    try {
+        // 1. Identify Plan
+        // Primary lookup: match by stripe_price_id or stripe_product_id.
+        // Fallback: treat stripePriceId as a literal plan_code (useful for manual/test events).
+        type PlanRow = { plan_code: string; limits_json: string; departments_json: string };
+
+        const planByStripeId = await queryOne<PlanRow>(
+            `SELECT plan_code, limits_json, departments_json FROM saas_pricing_plans WHERE saas_slug = ? AND (stripe_price_id = ? OR stripe_product_id = ?)`,
+            saasSlug, stripePriceId, stripePriceId
+        );
+
+        const resolvedPlan: PlanRow | null = planByStripeId ?? await queryOne<PlanRow>(
+            `SELECT plan_code, limits_json, departments_json FROM saas_pricing_plans WHERE saas_slug = ? AND plan_code = ?`,
+            saasSlug, stripePriceId
+        );
+
+        if (!resolvedPlan) {
+            throw new Error(`Plan not found for price/code "${stripePriceId}" on saas "${saasSlug}"`);
+        }
+
+        const { plan_code, limits_json, departments_json } = resolvedPlan;
+        const limits = JSON.parse(limits_json);
+        const departments = JSON.parse(departments_json);
+
+        // 2. Create Tenant (Idempotent)
+        const existingSub = await queryOne<{ tenant_id: string }>(
+            `SELECT tenant_id FROM saas_subscriptions WHERE stripe_subscription_id = ?`,
+            stripeSubscriptionId
+        );
+
+        // Priority: 1. Existing Sub (Source of Truth) -> 2. Metadata (Trusted) -> 3. New (Auto-generated)
+        let tenantId = existingSub?.tenant_id || event.data.tenantId;
+
+        if (!tenantId) {
+            const slug = tenantName?.toLowerCase().replace(/\s+/g, '-') ??
+                customerEmail.split('@')[0] + '-' + Math.random().toString(36).substring(2, 7);
+
+            tenantId = await createTenant({
+                name: tenantName ?? customerEmail.split('@')[0],
+                slug: slug,
+                plan: plan_code
+            });
+
+            await createTenantUser({
+                tenantId,
+                email: customerEmail,
+                role: 'owner'
+            });
+            console.log(`[Provisioning] Created tenant ${tenantId}`);
+        }
+
+        // 3. Subscription (Source of Truth)
+        const periodStart = event.data.currentPeriodStart || new Date().toISOString();
+        const periodEnd = event.data.currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+        await upsertCanonicalSubscriptionState({
+            tenantId,
+            saasSlug,
+            stripeCustomerId,
+            stripeSubscriptionId,
+            stripePriceId: stripePriceId ?? null,
+            planCode: plan_code,
+            status: "active",
+            currentPeriodStart: periodStart,
+            currentPeriodEnd: periodEnd,
+            cancelAtPeriodEnd: Boolean(event.data.cancelAtPeriodEnd),
+        });
+
+        // 4. Initialize Quotas
+        for (const key of Object.keys(limits)) {
+            const nowIso = new Date().toISOString();
+            const periodEndIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            await run(
+                `INSERT INTO saas_usage_quotas (id, tenant_id, saas_slug, quota_key, current_value, limit_value, period_start, period_end, reset_at, updated_at)
+             VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)
+             ON CONFLICT(saas_slug, tenant_id, quota_key) DO UPDATE SET
+                limit_value = excluded.limit_value,
+                period_start = excluded.period_start,
+                period_end = excluded.period_end,
+                reset_at = excluded.reset_at,
+                updated_at = excluded.updated_at`,
+                `quota_${tenantId}_${key}`,
+                tenantId,
+                saasSlug,
+                key,
+                limits[key],
+                nowIso,
+                periodEndIso,
+                periodEndIso,
+                nowIso
+            );
+        }
+
+        // 5. Initialize Departments (Based on Plan)
+        // departments is an array of slugs or names
+        if (Array.isArray(departments)) {
+            for (const deptSlug of departments) {
+                if (deptSlug === '*') continue; // Handle all
+                const dId = `dept_${tenantId}_${deptSlug}`;
+                await run(
+                    `INSERT INTO tenant_departments (id, tenant_id, name, slug, is_active)
+                     VALUES (?, ?, ?, ?, 1) ON CONFLICT(id) DO NOTHING`,
+                    dId, tenantId, deptSlug.charAt(0).toUpperCase() + deptSlug.slice(1), deptSlug
+                );
+            }
+        }
+
+        // 6. Log Event
+        await writeBillingAuditLog({
+            id: `audit_provisioning_success_${correlationId}`,
+            saasSlug,
+            tenantId,
+            eventType: "provisioning_success",
+            severity: "info",
+            correlationId,
+            outcome: "processed",
+            metadata: { plan: plan_code, priceId: stripePriceId },
+        });
+
+        return { success: true, tenantId };
+
+    } catch (error) {
+        console.error(`[Provisioning] Failed:`, error);
+        await writeBillingAuditLog({
+            id: `audit_provisioning_failed_${correlationId}`,
+            saasSlug,
+            tenantId: "unknown",
+            eventType: "provisioning_failed",
+            severity: "error",
+            correlationId,
+            outcome: "failed",
+            metadata: { error: (error as Error).message },
+        });
+        return { success: false, error: (error as Error).message };
+    }
+}

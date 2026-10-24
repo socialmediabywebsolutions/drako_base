@@ -84,11 +84,11 @@ CREATE TABLE IF NOT EXISTS saas_template_reviews (
   FOREIGN KEY (template_id) REFERENCES saas_blueprint_templates(id)
 );
 
-CREATE INDEX idx_templates_vertical ON saas_blueprint_templates(vertical);
-CREATE INDEX idx_templates_tier ON saas_blueprint_templates(tier);
-CREATE INDEX idx_templates_featured ON saas_blueprint_templates(is_featured DESC, rating DESC);
-CREATE INDEX idx_template_installations_saas ON saas_template_installations(saas_id);
-CREATE INDEX idx_template_reviews_template ON saas_template_reviews(template_id);
+CREATE INDEX IF NOT EXISTS idx_templates_vertical ON saas_blueprint_templates(vertical);
+CREATE INDEX IF NOT EXISTS idx_templates_tier ON saas_blueprint_templates(tier);
+CREATE INDEX IF NOT EXISTS idx_templates_featured ON saas_blueprint_templates(is_featured DESC, rating DESC);
+CREATE INDEX IF NOT EXISTS idx_template_installations_saas ON saas_template_installations(saas_id);
+CREATE INDEX IF NOT EXISTS idx_template_reviews_template ON saas_template_reviews(template_id);
 
 -- View for template stats
 CREATE VIEW IF NOT EXISTS v_template_stats AS

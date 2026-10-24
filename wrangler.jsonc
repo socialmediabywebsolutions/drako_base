@@ -1,0 +1,104 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"main": ".open-next/worker.js",
+	"name": "drakosystems",
+	"compatibility_date": "2026-03-17",
+	"compatibility_flags": [
+		"nodejs_compat",
+		"global_fetch_strictly_public",
+		"experimental"
+	],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"ai": {
+		"binding": "AI"
+	},
+	"vars": {
+		// Test-mode Stripe price IDs — dead code, kept for reference; real IDs are in plans.ts
+		"SOCIALFLOW_STRIPE_PRICE_PRO": "price_1TiSu1BflYSFyTbP1gQOsicz",
+		"SOCIALFLOW_STRIPE_PRICE_CREATOR": "price_1TiSvUBflYSFyTbP0SnF7VAj",
+		// Email sender address for Resend — set RESEND_API_KEY as a Cloudflare secret
+		"RESEND_FROM_EMAIL": "Drako <noreply@drako.systems>"
+	},
+	"d1_databases": [
+		{
+			"binding": "DRACO_DB",
+			"database_name": "drako_db_local",
+			"database_id": "local-dev"
+		},
+		{
+			"binding": "MENTORIAS_AUTHS_DB",
+			"database_name": "mentorias_auths_local",
+			"database_id": "local-dev"
+		},
+		{
+			"binding": "MENTORIA_DB",
+			"database_name": "mentoria_db_local",
+			"database_id": "local-dev"
+		},
+		{
+			"binding": "DRAKOS_AUTHS_DB",
+			"database_name": "drako_db_local",
+			"database_id": "local-dev"
+		},
+		{
+			"binding": "BASES_AUTHS_DB",
+			"database_name": "drako_db_local",
+			"database_id": "local-dev"
+		},
+		{
+			"binding": "SOCIAL_DB",
+			"database_name": "drako_db_local",
+			"database_id": "local-dev"
+		},
+		{
+			"binding": "SOCIALFLOW_AUTHS_DB",
+			"database_name": "saas_socialflow_auths_prod_db",
+			"database_id": "f6f46e6a-487f-400a-a2d1-c6d23e88f9cf"
+		},
+		{
+			"binding": "social_db_prod",
+			"database_name": "social-db-prod",
+			"database_id": "1342acdf-04f5-40f5-9544-e0fa6a37f8b6",
+			"remote": true
+		}
+	],
+	"services": [
+		{
+			// Self-reference service binding, the service name must match the worker name
+			// see https://opennext.js.org/cloudflare/caching
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "drakosystems"
+		}
+	],
+	"r2_buckets": [
+		// Use R2 incremental cache
+		// See https://opennext.js.org/cloudflare/caching
+		{
+			"binding": "NEXT_INC_CACHE_R2_BUCKET",
+			// Create the bucket before deploying
+			// You can change the bucket name if you want
+			// See https://developers.cloudflare.com/workers/wrangler/commands/#r2-bucket-create
+			"bucket_name": "drakosystems-opennext-cache"
+		},
+		// SocialFlow media uploads (images for Instagram posts)
+		// Create with: wrangler r2 bucket create socialflow-media
+		// Enable public access in Cloudflare dashboard, then set SOCIAL_MEDIA_R2_PUBLIC_URL secret
+		{
+			"binding": "SOCIAL_MEDIA_BUCKET",
+			"bucket_name": "socialflow-media"
+		},
+		{
+			"bucket_name": "socialflow-media",
+			"binding": "socialflow_media",
+			"remote": true
+		}
+	],
+	"images": {
+		// Enable image optimization
+		// see https://opennext.js.org/cloudflare/howtos/image
+		"binding": "IMAGES"
+	}
+}

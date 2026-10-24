@@ -49,7 +49,7 @@ export default function OwnerPricingSection() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/owner/saas-pricing/recommendations", { cache: "no-store" });
+      const res = await fetch("/api/operator/saas-pricing/recommendations", { cache: "no-store" });
       const data = (await res.json().catch(() => null)) as { items?: SaasPricingRecommendation[] } | null;
       setItems(data?.items ?? []);
     } catch (err) {

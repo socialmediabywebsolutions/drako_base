@@ -1,0 +1,15 @@
+{
+  "product": "socialflows",
+  "runtimeMode": "open-next-runtime-copy",
+  "scopeMode": "product-scoped",
+  "scopeAuditVersion": 1,
+  "scopeAuditGeneratedAt": "2026-05-12T00:00:00.000Z",
+  "serverFunctionsPath": ".open-next/socialflows-standalone/server-functions",
+  "routeCount": 4,
+  "allowedRouteCount": 1,
+  "containsForeignRoutes": true,
+  "foreignRouteHits": ["operator"],
+  "foreignRouteCount": 1,
+  "foreignRouteExamples": ["operator"],
+  "scopedReady": false
+}

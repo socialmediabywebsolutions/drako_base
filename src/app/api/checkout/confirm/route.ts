@@ -1,11 +1,24 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { ensureDatabase, run } from "@/lib/db";
 import { respondDatabaseError } from "@/lib/http/errors";
-// export const runtime = "edge"; // OpenNext Migration
+import { env as resolveEnv } from "@/lib/cf";
+import { isProductionEnvironment } from "@/lib/security/production-gate";
 
 
 export async function POST(req: Request) {
   try {
+    if (isProductionEnvironment(resolveEnv())) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "LEGACY_CHECKOUT_CONFIRM_BLOCKED",
+          message: "Legacy checkout/confirm is blocked in production. Use Stripe webhook canonical flow.",
+        },
+        { status: 410 },
+      );
+    }
     ensureDatabase();
     const body = (await req.json().catch(() => null)) as { checkoutId?: string; sessionId?: string; provider?: string } | null;
     if (!body?.checkoutId || !body.sessionId) return NextResponse.json({ error: "checkoutId y sessionId requeridos" }, { status: 400 });

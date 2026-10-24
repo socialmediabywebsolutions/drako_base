@@ -1,20 +1,31 @@
+export const dynamic = "force-dynamic";
+
 
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/client";
 import { env } from "@/lib/cf";
-import { saveSubscriptionRecord } from "@/lib/billing/subscriptions";
+import { safeEnv } from "@/lib/env";
+import {
+  saveSubscriptionRecord,
+  syncSaasUsageQuotasFromPlan,
+  upsertCanonicalSubscriptionState,
+} from "@/lib/billing/subscriptions";
 import { saveClientSaasSubscription } from "@/lib/billing/client-saas-subscriptions";
 import { syncSaasFeaturesFromPlan } from "@/lib/billing/entitlements";
 import { recordCampamentoEvent } from "@/lib/empire/events";
-import { resolveTenantId } from "@/lib/tenants/services";
 import { resolveWebhookAttribution } from "@/lib/billing/stripe-webhook-attribution";
 import { deriveStripeWebhookAnomalies } from "@/lib/billing/stripe-webhook-anomalies";
 import { createOrMergeActionFromWebhook } from "@/lib/owner/action-queue-repository";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
 import { respondDatabaseError } from "@/lib/http/errors";
-import { createSaasFromBlueprint } from "@/lib/campamento-base/saas-factory-orchestrator";
-import { withCampamentoBaseProfile } from "@/lib/campamento-base/saas-factory-helpers";
+import { queryOne } from "@/lib/db";
+import { handleFactorySubscriptionActivation } from "@/lib/factory/contracts/stripe-subscription-activation";
+import {
+  extractWorkspaceBillingMetadata,
+  syncWorkspaceBillingFromCheckout,
+  syncWorkspaceBillingFromSubscription,
+} from "@/lib/billing/tenant-workspace";
 import {
   findStripeWebhookEvent,
   insertStripeWebhookReceived,
@@ -22,17 +33,11 @@ import {
   updateStripeWebhookFailed,
 } from "@/lib/billing/stripe-webhook-repository";
 import { ensureStripeWebhookDedupe } from "@/lib/billing/stripe-webhook-processor";
-// export const runtime = "edge"; // OpenNext Migration
+import { transitionToPastDue, resumeToActive } from "@/lib/os/lifecycle";
+import { constructVerifiedStripeEvent, StripeWebhookAuthError } from "@/lib/billing/stripe-webhook-security";
 
-function getWebhookSecret(): string | null {
-  if (typeof process !== "undefined" && process.env.STRIPE_WEBHOOK_SECRET) {
-    return process.env.STRIPE_WEBHOOK_SECRET;
-  }
-  const cfEnv = env();
-  if (cfEnv?.STRIPE_WEBHOOK_SECRET) {
-    return cfEnv.STRIPE_WEBHOOK_SECRET;
-  }
-  return null;
+function getWebhookSecret(): string {
+  return safeEnv.STRIPE_WEBHOOK_SECRET;
 }
 
 type SubscriptionMetadata = {
@@ -103,6 +108,11 @@ async function persistClientSaasSubscriptionFromStripe(
 }
 
 async function persistSubscriptionFromStripe(subscription: Stripe.Subscription) {
+  if (extractWorkspaceBillingMetadata(subscription.metadata)) {
+    await syncWorkspaceBillingFromSubscription(subscription);
+    return;
+  }
+
   const metadata = extractMetadata(subscription.metadata);
   if (!metadata) {
     console.warn("STRIPE_WEBHOOK_METADATA_MISSING", subscription.id);
@@ -113,6 +123,12 @@ async function persistSubscriptionFromStripe(subscription: Stripe.Subscription) 
     console.warn("STRIPE_WEBHOOK_CUSTOMER_MISSING", subscription.id);
     return;
   }
+  // Canonical SaaS products such as Mentoria sync through `saas_subscriptions`.
+  // Writing them into `drako_subscriptions` would require a legacy `clients.id`
+  // relationship that product-auth flows do not have.
+  if (metadata.saasSlug && !metadata.saasPlanId) {
+    return;
+  }
   if (metadata.saasPlanId) {
     await persistClientSaasSubscriptionFromStripe(metadata as SubscriptionMetadata & { saasPlanId: string }, subscription, customerId);
     return;
@@ -120,16 +136,122 @@ async function persistSubscriptionFromStripe(subscription: Stripe.Subscription) 
   await persistDrakoBaseSubscriptionFromStripe(metadata, subscription, customerId);
 }
 
-async function handleCheckoutSession(stripe: Stripe, session: Stripe.Checkout.Session) {
+function normalizeCanonicalPlanCode(rawPlan: string | null | undefined): string | null {
+  if (!rawPlan) return null;
+  const normalized = rawPlan.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized.startsWith("drako_base_")) {
+    return normalized.replace("drako_base_", "");
+  }
+  return normalized;
+}
+
+async function resolveSaasSlugForCanonicalState(params: {
+  tenantId: string;
+  preferredSaasSlug?: string | null;
+  saasId?: string | null;
+}): Promise<string> {
+  const preferred = params.preferredSaasSlug?.trim().toLowerCase();
+  if (preferred) return preferred;
+
+  if (params.saasId) {
+    const byTenant = await queryOne<{ slug: string }>(
+      "SELECT slug FROM saas WHERE tenant_id = ? AND id = ? LIMIT 1",
+      params.tenantId,
+      params.saasId,
+    );
+    if (byTenant?.slug) return byTenant.slug.trim().toLowerCase();
+
+    const byId = await queryOne<{ slug: string }>(
+      "SELECT slug FROM saas WHERE id = ? LIMIT 1",
+      params.saasId,
+    );
+    if (byId?.slug) return byId.slug.trim().toLowerCase();
+  }
+
+  return "drako";
+}
+
+async function persistCanonicalSubscriptionState(params: {
+  subscription: Stripe.Subscription;
+  attribution: {
+    tenantId?: string | null;
+    saasSlug?: string | null;
+    saasId?: string | null;
+  };
+  statusOverride?: string;
+  fallbackPlanCode?: string | null;
+}): Promise<void> {
+  const metadata = extractMetadata(params.subscription.metadata);
+  const tenantId = metadata?.tenantId ?? params.attribution.tenantId ?? null;
+  if (!tenantId) {
+    console.warn("CANONICAL_SUBSCRIPTION_TENANT_MISSING", params.subscription.id);
+    return;
+  }
+
+  const saasSlug = await resolveSaasSlugForCanonicalState({
+    tenantId,
+    preferredSaasSlug: metadata?.saasSlug ?? params.attribution.saasSlug ?? null,
+    saasId: metadata?.saasId ?? params.attribution.saasId ?? null,
+  });
+  const stripeCustomerId =
+    typeof params.subscription.customer === "string"
+      ? params.subscription.customer
+      : params.subscription.customer?.id ?? null;
+  if (!stripeCustomerId) {
+    console.warn("CANONICAL_SUBSCRIPTION_CUSTOMER_MISSING", params.subscription.id);
+    return;
+  }
+
+  const primaryPriceId = params.subscription.items.data[0]?.price?.id ?? null;
+  const planCode = normalizeCanonicalPlanCode(
+    metadata?.planCode ?? metadata?.plan ?? params.fallbackPlanCode ?? null,
+  );
+  const status = (params.statusOverride ?? params.subscription.status).trim().toLowerCase();
+
+  await upsertCanonicalSubscriptionState({
+    tenantId,
+    saasSlug,
+    stripeCustomerId,
+    stripeSubscriptionId: params.subscription.id,
+    stripePriceId: primaryPriceId,
+    planCode,
+    status,
+    currentPeriodEnd: getCurrentPeriodEnd(params.subscription),
+    cancelAtPeriodEnd: Boolean(params.subscription.cancel_at_period_end),
+  });
+
+  await syncSaasUsageQuotasFromPlan({
+    tenantId,
+    saasSlug,
+    planCode,
+    status,
+  });
+}
+
+async function handleCheckoutSession(
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+  correlationId?: string,
+): Promise<
+  | { scope: "workspace" }
+  | { scope: "product"; subscription: Stripe.Subscription; metadata: SubscriptionMetadata }
+  | null
+> {
+  if (extractWorkspaceBillingMetadata(session.metadata)) {
+    await syncWorkspaceBillingFromCheckout(session);
+    return { scope: "workspace" };
+  }
+
   const metadata = extractMetadata(session.metadata);
   if (!metadata) {
     console.warn("CHECKOUT_SESSION_METADATA_MISSING", session.id);
-    return;
+    return null;
   }
   const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
   if (!subscriptionId) {
     console.warn("CHECKOUT_SESSION_NO_SUBSCRIPTION", session.id);
-    return;
+    return null;
   }
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   subscription.metadata = subscription.metadata ?? {};
@@ -161,47 +283,30 @@ async function handleCheckoutSession(stripe: Stripe, session: Stripe.Checkout.Se
     }
   }
 
-  if (metadata.plan === "mentoria_ia") {
-    try {
-      console.log("[STRIPE_WEBHOOK] Triggering MentorIA SaaS Factory", { tenantId: metadata.tenantId });
-      const blueprint = withCampamentoBaseProfile({
-        ownerTenantId: metadata.tenantId,
-        saasName: "MentorIA Escolar",
-        proposedSlug: metadata.saasSlug ?? "mentor-ia-escolar",
-        proposedSubdomain: metadata.saasSlug ?? "mentor-ia-escolar",
-        verticalId: "OTHER",
-        summary: "IA para tutoría escolar",
-        targetAudience: "Instituciones educativas",
-        mainProblem: "Falta de apoyo personalizado",
-        mainGoal: "Brindar tutoría mediante IA",
-        packsByDepartment: {
-          accounting: "BASIC",
-          marketing: "BASIC",
-          support: "BASIC"
-        },
-        initialPricing: {
-          currentMonthlyPrice: 49,
-          estimatedVendorCostMonthly: 10,
-        },
-        aiProfile: {
-          tier: "BALANCED",
-        }
-      });
-
-      await createSaasFromBlueprint({
-        env: env(),
-        ownerTenantId: metadata.tenantId,
-        blueprint,
-      });
-
-      console.log("[STRIPE_WEBHOOK] MentorIA SaaS Factory completed", { tenantId: metadata.tenantId });
-    } catch (error) {
-      console.error("[STRIPE_WEBHOOK] MENTOR_IA_FACTORY_ERROR", {
+  try {
+    const factoryActivation = await handleFactorySubscriptionActivation({
+      plan: metadata.plan,
+      tenantId: metadata.tenantId,
+      saasSlug: metadata.saasSlug ?? null,
+      correlationId,
+    });
+    if (factoryActivation.handled) {
+      console.log("[STRIPE_WEBHOOK] Factory contract queued", {
         tenantId: metadata.tenantId,
-        error: error instanceof Error ? error.message : String(error),
+        contract: factoryActivation.contract,
+        jobId: factoryActivation.jobId ?? null,
+        queued: factoryActivation.queued ?? false,
       });
     }
+  } catch (error) {
+    console.error("[STRIPE_WEBHOOK] FACTORY_CONTRACT_ERROR", {
+      tenantId: metadata.tenantId,
+      error: error instanceof Error ? error.message : String(error),
+      contract: "billing_subscription_activation",
+    });
   }
+
+  return { scope: "product", subscription, metadata };
 }
 
 async function recordBillingEvent(params: {
@@ -253,7 +358,7 @@ async function createWebhookAction(params: {
 
 export async function POST(request: Request) {
   try {
-    const requestTenantId = resolveTenantId(request);
+    const requestTenantId = "public";
     const blocked = await enforcePublicEndpointPolicy({ request, route: "/api/stripe/webhook", tenantId: requestTenantId });
     if (blocked) return blocked;
     const signature = request.headers.get("stripe-signature");
@@ -278,15 +383,31 @@ export async function POST(request: Request) {
     const body = await request.text();
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = constructVerifiedStripeEvent({
+        stripe,
+        rawBody: body,
+        signature,
+        webhookSecret,
+      });
     } catch (error) {
+      if (error instanceof StripeWebhookAuthError) {
+        await recordBillingEvent({
+          tenantId: requestTenantId,
+          correlationId: `sig_${Date.now()}`,
+          type: "security.webhook.invalid_signature",
+          severity: "CRITICAL",
+          message: "Stripe webhook signature invalid.",
+          metadata: { hasSignature: Boolean(signature), reason: error.message },
+        });
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
       await recordBillingEvent({
         tenantId: requestTenantId,
         correlationId: `sig_${Date.now()}`,
         type: "security.webhook.invalid_signature",
         severity: "CRITICAL",
         message: "Stripe webhook signature invalid.",
-        metadata: { hasSignature: true },
+        metadata: { hasSignature: Boolean(signature) },
       });
       console.error("STRIPE_WEBHOOK_VERIFY_ERROR", error);
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
@@ -341,7 +462,16 @@ export async function POST(request: Request) {
     try {
       switch (event.type) {
         case "checkout.session.completed":
-          await handleCheckoutSession(stripe, event.data.object as Stripe.Checkout.Session);
+          {
+            const checkoutResult = await handleCheckoutSession(stripe, event.data.object as Stripe.Checkout.Session, correlationId);
+            if (checkoutResult?.scope === "product") {
+              await persistCanonicalSubscriptionState({
+                subscription: checkoutResult.subscription,
+                attribution,
+                fallbackPlanCode: checkoutResult.metadata.planCode ?? checkoutResult.metadata.plan,
+              });
+            }
+          }
           await recordBillingEvent({
             tenantId,
             saasId: attribution.saasId,
@@ -356,58 +486,115 @@ export async function POST(request: Request) {
         case "customer.subscription.created":
         case "customer.subscription.updated":
         case "customer.subscription.deleted":
-          await persistSubscriptionFromStripe(event.data.object as Stripe.Subscription);
-          await recordBillingEvent({
-            tenantId,
-            saasId: attribution.saasId,
-            saasSlug: attribution.saasSlug,
-            correlationId,
-            type: "billing.subscription.updated",
-            severity: "INFO",
-            message: "Subscription updated.",
-            metadata: { stripeEventId: event.id },
-          });
           {
-            const subscription = event.data.object as Stripe.Subscription;
-            const metadata = extractMetadata(subscription.metadata);
-            if (metadata?.saasPlanId) {
-              try {
-                console.log("[STRIPE_WEBHOOK] Syncing plan features", { tenantId: metadata.tenantId, saasId: metadata.saasId, eventType: event.type });
-                await syncSaasFeaturesFromPlan(env(), metadata.tenantId, metadata.saasId);
-              } catch (error) {
-                console.error("[STRIPE_WEBHOOK] PLAN_FEATURE_SYNC_ERROR", {
-                  tenantId: metadata.tenantId,
-                  saasId: metadata.saasId,
-                  eventType: event.type,
-                  error: error instanceof Error ? error.message : String(error),
-                });
+            const sub = event.data.object as Stripe.Subscription;
+            await persistSubscriptionFromStripe(sub);
+            if (!extractWorkspaceBillingMetadata(sub.metadata)) {
+              await persistCanonicalSubscriptionState({ subscription: sub, attribution });
+            }
+
+            // LIFECYCLE: Resume if active
+            if (sub.status === "active" && extractMetadata(sub.metadata)?.saasId) {
+              const meta = extractMetadata(sub.metadata);
+              if (meta?.saasId) await resumeToActive(meta.saasId, event.id);
+            }
+
+            await recordBillingEvent({
+              tenantId,
+              saasId: attribution.saasId,
+              saasSlug: attribution.saasSlug,
+              correlationId,
+              type: "billing.subscription.updated",
+              severity: "INFO",
+              message: "Subscription updated.",
+              metadata: { stripeEventId: event.id },
+            });
+            {
+              const metadata = extractMetadata(sub.metadata);
+              if (metadata?.saasPlanId) {
+                try {
+                  console.log("[STRIPE_WEBHOOK] Syncing plan features", { tenantId: metadata.tenantId, saasId: metadata.saasId, eventType: event.type });
+                  await syncSaasFeaturesFromPlan(env(), metadata.tenantId, metadata.saasId);
+                } catch (error) {
+                  console.error("[STRIPE_WEBHOOK] PLAN_FEATURE_SYNC_ERROR", {
+                    tenantId: metadata.tenantId,
+                    saasId: metadata.saasId,
+                    eventType: event.type,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                }
               }
             }
           }
           break;
         case "invoice.paid":
-          await recordBillingEvent({
-            tenantId,
-            saasId: attribution.saasId,
-            saasSlug: attribution.saasSlug,
-            correlationId,
-            type: "billing.invoice.paid",
-            severity: "INFO",
-            message: "Invoice paid.",
-            metadata: { stripeEventId: event.id },
-          });
+          {
+            const invoice = event.data.object as Stripe.Invoice;
+            const invoiceSubscription = (invoice as Stripe.Invoice & { subscription?: string | { id?: string } }).subscription;
+            const invoiceSubscriptionId =
+              typeof invoiceSubscription === "string" ? invoiceSubscription : invoiceSubscription?.id;
+            if (invoiceSubscriptionId) {
+              const subscription = await stripe.subscriptions.retrieve(invoiceSubscriptionId);
+              if (extractWorkspaceBillingMetadata(subscription.metadata)) {
+                await syncWorkspaceBillingFromSubscription(subscription, { statusOverride: "active" });
+              } else {
+                await persistCanonicalSubscriptionState({
+                  subscription,
+                  attribution,
+                  statusOverride: "active",
+                });
+              }
+            }
+            // LIFECYCLE: Payment success -> Active
+            if (attribution.saasId) {
+              await resumeToActive(attribution.saasId, event.id);
+            }
+            await recordBillingEvent({
+              tenantId,
+              saasId: attribution.saasId,
+              saasSlug: attribution.saasSlug,
+              correlationId,
+              type: "billing.invoice.paid",
+              severity: "INFO",
+              message: "Invoice paid.",
+              metadata: { stripeEventId: event.id },
+            });
+          }
           break;
         case "invoice.payment_failed":
-          await recordBillingEvent({
-            tenantId,
-            saasId: attribution.saasId,
-            saasSlug: attribution.saasSlug,
-            correlationId,
-            type: "billing.invoice.failed",
-            severity: "WARNING",
-            message: "Invoice payment failed.",
-            metadata: { stripeEventId: event.id },
-          });
+          {
+            const inv = event.data.object as Stripe.Invoice;
+            const invoiceSubscription = (inv as Stripe.Invoice & { subscription?: string | { id?: string } }).subscription;
+            const invoiceSubscriptionId =
+              typeof invoiceSubscription === "string" ? invoiceSubscription : invoiceSubscription?.id;
+            if (invoiceSubscriptionId) {
+              const subscription = await stripe.subscriptions.retrieve(invoiceSubscriptionId);
+              if (extractWorkspaceBillingMetadata(subscription.metadata)) {
+                await syncWorkspaceBillingFromSubscription(subscription, { statusOverride: "past_due" });
+              } else {
+                await persistCanonicalSubscriptionState({
+                  subscription,
+                  attribution,
+                  statusOverride: "past_due",
+                });
+              }
+            }
+            // LIFECYCLE: Payment failed -> Past Due
+            if (attribution.saasId) {
+              const reason = inv.billing_reason || "payment_failed";
+              await transitionToPastDue(attribution.saasId, reason, event.id);
+            }
+            await recordBillingEvent({
+              tenantId,
+              saasId: attribution.saasId,
+              saasSlug: attribution.saasSlug,
+              correlationId,
+              type: "billing.invoice.failed",
+              severity: "WARNING",
+              message: "Invoice payment failed.",
+              metadata: { stripeEventId: event.id },
+            });
+          }
           break;
         default:
           break;

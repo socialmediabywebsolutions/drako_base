@@ -1,0 +1,177 @@
+﻿
+> drako.systems@1.0.0 build:worker
+> npx open-next build --adapter @opennextjs/cloudflare
+
+node.exe : WARN 
+OpenNext is not fully 
+compatible with 
+Windows.
+En línea: 1 Carácter: 
+1
++ & "C:\Program Files\
+nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (WARN OpenN   
+ ext i...e with Wi    
+ndows.:String) []    
+, RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+WARN For optimal 
+performance, it is 
+recommended to use 
+Windows Subsystem for 
+Linux (WSL).
+WARN While OpenNext 
+may function on 
+Windows, it could 
+encounter 
+unpredictable 
+failures during 
+runtime.
+Next.js version : 15.5.9
+OpenNext v3.9.14
+
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé OpenNext ÔÇö Building Next.js app Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+
+> drako.systems@1.0.0 build
+> next build
+
+   Ôû▓ Next.js 15.5.9
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ Ô£ô Compiled successfully in 16.6s
+   Linting and checking validity of types ...
+Failed to compile.
+
+./src/components/found
+ry/foundry-workplace.t
+sx:322:33
+Type error: Type '{}' 
+is not assignable to 
+type 'string'.
+
+[0m [90m 320 |[39m 
+                      
+              (bluepri
+nt[33m.[39mdetectedK
+nowledge[33m.[39mide
+ntity[33m.[39mname 
+[36mas[39m string)[
+33m.[39mtoLowerCase()
+[33m.[39mreplace([3
+5m/\s+/g[39m[33m,[3
+9m [32m'-'[39m) 
+[33m:[39m
+ [90m 321 |[39m     
+                      
+          
+[32m'draft'[39m}
+[31m[1m>[22m[39m[
+90m 322 |[39m        
+                      
+   projectName[33m=[
+39m{(blueprint[33m.[
+39mdetectedKnowledge[
+33m?[39m[33m.[39mid
+entity [36mas[39m [
+33mRecord[39m[33m<[
+39m[33mstring[39m[3
+3m,[39m unknown[33m>
+[39m)[33m?[39m[33m
+.[39mname 
+[33m||[39m 
+[32m'New SaaS'[39m}
+ [90m     |[39m     
+                      
+      
+[31m[1m^[22m[39m
+ [90m 323 |[39m     
+                      
+      subdomain[33m=
+[39m{blueprint[33m.[
+39mdetectedKnowledge[
+33m?[39m[33m.[39mid
+entity[33m?[39m[33m
+.[39mname [33m?[39m
+ [90m 324 |[39m     
+                      
+          (blueprint[
+33m.[39mdetectedKnowl
+edge[33m.[39midentit
+y[33m.[39mname 
+[36mas[39m string)[
+33m.[39mtoLowerCase()
+[33m.[39mreplace([3
+5m/\s+/g[39m[33m,[3
+9m [32m'-'[39m) 
+[33m:[39m
+ [90m 325 |[39m     
+                      
+          
+[32m'draft'[39m}[0m
+Next.js build worker 
+exited with code: 1 
+and signal: null
+node:internal/errors:9
+83
+  const err = new 
+Error(message);
+              ^
+
+Error: Command 
+failed: npm run build
+    at 
+genericNodeError (node
+:internal/errors:983:1
+5)
+    at wrappedFn (node
+:internal/errors:537:1
+4)
+    at 
+checkExecSyncError (no
+de:child_process:915:1
+1)
+    at 
+Object.execSync (node:
+child_process:987:15)
+    at buildNextjsApp 
+(file:///C:/CAMPAMENTO
+%20BASE%20DRAKO/drako_
+base/node_modules/@ope
+nnextjs/aws/dist/build
+/buildNextApp.js:15:8)
+    at build (file:///
+C:/CAMPAMENTO%20BASE%2
+0DRAKO/drako_base/node
+_modules/@opennextjs/a
+ws/dist/build.js:36:5)
+    at async file:///C
+:/CAMPAMENTO%20BASE%20
+DRAKO/drako_base/node_
+modules/@opennextjs/aw
+s/dist/index.js:9:1 {
+  status: 1,
+  signal: null,
+  output: [ null, 
+null, null ],
+  pid: 12544,
+  stdout: null,
+  stderr: null
+}
+
+Node.js v22.19.0

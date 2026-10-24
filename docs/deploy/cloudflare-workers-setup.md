@@ -4,7 +4,7 @@
 
 **Cloudflare Pages is incompatible with `@opennextjs/cloudflare` output.**
 
-Pages expects `.vercel/output/static`, but OpenNext generates `.open-next/` for Workers.
+Pages expects `.open-next/dist`, but OpenNext generates `.open-next/` for Workers.
 
 ---
 
@@ -293,3 +293,5 @@ npm run build:worker
 ```bash
 npm run deploy
 ```
+
+

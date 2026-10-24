@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { handleEconomyApiError } from "@/lib/economy/api-helpers";
 import { resolveEconomyContext } from "@/lib/economy/repository";
 import { getPricingSuggestions } from "@/lib/economy/pricing";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {

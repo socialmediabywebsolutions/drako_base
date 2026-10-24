@@ -1,7 +1,8 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { getEmailIntakeSnapshot, resolveEmailIntakeContext, EmailIntakeContextError } from "@/lib/email-intake/repository";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {

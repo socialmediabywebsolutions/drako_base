@@ -1,9 +1,9 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { queryAll } from "@/lib/db";
 import { ensureCampamentoBase, getCampamentoCoreDepartmentsCatalog } from "@/lib/campamento-base";
-import { resolveTenantId } from "@/lib/tenants/services";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export type CoreDepartment = {
@@ -15,7 +15,7 @@ export type CoreDepartment = {
 };
 
 export async function GET(req: Request) {
-  const tenantId = resolveTenantId(req);
+  const tenantId = req.headers.get("x-drako-tenant-id")?.trim() || "public";
   const blocked = await enforcePublicEndpointPolicy({
     request: req,
     route: "/api/core-departments",

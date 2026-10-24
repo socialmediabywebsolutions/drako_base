@@ -1,0 +1,37 @@
+/**
+ * Campamento Base: Supervisor Critical Incidents API
+ * 
+ * GET /api/campamento-base/supervisor/critical - Obtener incidentes críticos abiertos
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { requireOwnerAccess, UnauthorizedError } from "@/lib/auth/session";
+import { IncidentService } from "@/lib/supervisor";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * GET: Obtener incidentes críticos abiertos
+ */
+export async function GET(request: NextRequest) {
+  try {
+    await requireOwnerAccess(request);
+    const incidentService = new IncidentService();
+    const incidents = await incidentService.getCriticalOpenIncidents();
+
+    return NextResponse.json({
+      incidents,
+      count: incidents.length,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[supervisor/critical GET]", error);
+    return NextResponse.json(
+      { error: "Failed to fetch critical incidents" },
+      { status: 500 }
+    );
+  }
+}

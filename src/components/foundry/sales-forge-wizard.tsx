@@ -41,7 +41,7 @@ export function SalesForgeWizard({ saasId, projectName, vertical, businessVision
             await new Promise(r => setTimeout(r, 1000));
             addLog("GENERATING_SALES_HOOKS...");
 
-            const res = await fetch("/api/campamento-base/provisioning/marketing", {
+            const res = await fetch("/api/factory/provisioning/marketing", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-drako-tenant-id": "demo" },
                 body: JSON.stringify({ saasId, projectName, vertical, businessVision })

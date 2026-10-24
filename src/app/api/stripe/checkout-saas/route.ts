@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/client";
@@ -5,7 +7,6 @@ import { requireTenantAccess } from "@/lib/auth/session";
 import { getRequestBaseUrl } from "@/lib/http/base-url";
 import { getSaasPlanByCode, getSaasPlanById } from "@/lib/billing/saas-plans";
 import { respondDatabaseError } from "@/lib/http/errors";
-// export const runtime = "edge"; // OpenNext Migration
 
 type CheckoutBody = {
   saasId?: string;
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
     }
     const { tenantId, session } = await requireTenantAccess(request);
     const saasId = body.saasId.trim();
+    const correlationId = request.headers.get("x-correlation-id") ?? (globalThis.crypto?.randomUUID?.() ?? `checkout_saas_${Date.now()}`);
     let plan = body.saasPlanId ? await getSaasPlanById(tenantId, body.saasPlanId) : null;
     if (!plan && body.planCode) {
       plan = await getSaasPlanByCode(tenantId, saasId, body.planCode);
@@ -55,6 +57,7 @@ export async function POST(request: Request) {
       plan: plan.planCode,
       scope: "saas_child",
       email: session.email,
+      correlationId,
     } satisfies Record<string, string>;
 
     const sessionCheckout = await stripe.checkout.sessions.create({
@@ -76,7 +79,15 @@ export async function POST(request: Request) {
       cancel_url: `${baseUrl}/billing/cancel?saasId=${encodeURIComponent(saasId)}&planCode=${encodeURIComponent(plan.planCode)}`,
     });
 
-    return NextResponse.json({ url: sessionCheckout.url });
+    return NextResponse.json({
+      ok: true,
+      url: sessionCheckout.url,
+      sessionId: sessionCheckout.id,
+      tenantId,
+      correlationId,
+      saasId,
+      planCode: plan.planCode,
+    });
   } catch (error) {
     const dbError = respondDatabaseError(error);
     if (dbError) return dbError;

@@ -1,0 +1,24 @@
+name = "drako-ai-orchestrator-worker"
+main = "src/workers.ts"
+compatibility_date = "2024-11-01"
+workers_dev = true
+
+# Dedicated D1 for AI orchestrator domain.
+[[d1_databases]]
+binding = "DRKO_AI_DB"
+database_name = "drako_ai_orchestrator_db"
+database_id = "1687ec14-17fc-456a-b740-03b6bd9213c2"
+migrations_table = "drko_ai_migrations"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "DRKO_GLOBAL_CONFIG"
+id = "2a333512ad9c4c25a166496c1c121781"
+
+[[queues.producers]]
+binding = "DRKO_GLOBAL_EVENTS"
+queue = "drako-global-events"
+
+[vars]
+DRKO_AI_CONTEXT = "holding"
+WORKERS_ONLY_MODE = "true"

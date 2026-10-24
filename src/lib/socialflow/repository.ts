@@ -1,0 +1,432 @@
+import { env as resolveEnv, type DracoEnv } from "@/lib/cf";
+import {
+  createSocialRepositoryContextWithCoreProjection,
+  type SocialRepositoryContext,
+} from "@/lib/socialflow/contracts/repository-core-context";
+import type { AnalyticsMeta, FollowerHistoryPoint, PostEngagementHourPoint, SaasSocialAccount, SaasSocialCampaign, SaasSocialChannel, SaasSocialChannelIdea, SaasSocialChannelKnowledge, SaasSocialChannelSignals, SaasSocialMetrics, SaasSocialPost, SaasSocialProvider, SocialActivitySummary, SocialAnalyticsActivity, SocialAnalyticsIncident, SocialAnalyticsSnapshot, SocialAnalyticsWindow, SocialCalendarDay, SocialCalendarSnapshot, SocialInsightsSnapshot, SocialInsightsTopPost, SocialInsightsWeeklyFormatPoint, SocialLiveAnalyticsSummary, SocialProductSummary } from "@/lib/social-core/types";
+
+export type SocialContextMode = SocialRepositoryContext["mode"];
+export type SocialContext = SocialRepositoryContext;
+export class SocialContextError extends Error { constructor(message: string) { super(message); this.name = "SocialContextError"; } }
+
+type SocialAccountRow = { id: string; tenant_id: string; saas_id: string; provider: string; handle: string | null; display_name: string | null; status: string; auth_meta: string | null; is_primary?: number; primary?: number; linkedin_cm_enabled?: number; created_at: string; updated_at: string };
+type SocialCampaignRow = { id: string; tenant_id: string; saas_id: string; name: string; objective: string | null; status: string; target_segment: string; start_date: string | null; end_date: string | null; budget_estimate: number | null; notes: string | null; post_count: number; reel_count: number; historia_count: number; carousel_count: number; created_at: string; updated_at: string };
+type SocialPostRow = { id: string; tenant_id: string; saas_id: string; channel_id: string | null; campaign_id: string | null; provider: string; content_type: string; title: string; body: string; image_hint: string | null; status: string; scheduled_at: string | null; posted_at: string | null; external_post_id: string | null; metadata: string | null; creation_mode?: string; created_at: string; updated_at: string };
+type SocialMetricsRow = { id: string; tenant_id: string; saas_id: string; post_id: string; provider: string; impressions: number; likes: number; comments: number; shares: number; clicks: number; leads_generated: number; captured_at: string; metadata: string | null };
+// Shape of the deduplicated-by-post_id analytics query (getSocialAnalyticsSnapshot) —
+// narrower than SocialMetricsRow on purpose: GROUP BY post_id can't produce a stable
+// per-row id/tenant_id/saas_id (they're constant across the whole result set anyway,
+// the WHERE clause already scopes to one tenant/saas), and buildAnalyticsWindow never
+// reads those fields.
+type DedupedMetricsRow = { post_id: string; captured_at: string; provider: string; impressions: number; likes: number; comments: number; shares: number; clicks: number; leads_generated: number; metadata: string | null };
+type DedupedMetric = { postId: string; provider: SaasSocialProvider; impressions: number; likes: number; comments: number; shares: number; clicks: number; leadsGenerated: number; capturedAt: string };
+type SocialChannelRow = { id: string; tenant_id: string; saas_id: string; name: string; provider: string; status: string; created_at: string; updated_at: string };
+type SocialChannelIdeaRow = { id: string; tenant_id: string; saas_id: string; channel_id: string; title: string; angle: string | null; summary: string | null; status: string; created_at: string; updated_at: string };
+type SocialChannelKnowledgeRow = { id: string; tenant_id: string; saas_id: string; channel_id: string; objective: string | null; audience: string | null; tone: string | null; keywords: string | null; competitors: string | null; sources: string | null; updated_at: string | null };
+type SocialChannelSignalsRow = { id: string; tenant_id: string; saas_id: string; channel_id: string; topics: string | null; active_keywords: string | null; trend_notes: string | null; watched_competitors: string | null; watched_sources: string | null; updated_at: string };
+const schemaInitCache = new WeakMap<D1Database, Promise<void>>();
+const nowIso = () => new Date().toISOString();
+function resolveEnvOverride(envOverride?: DracoEnv | null) { return envOverride ?? resolveEnv(); }
+function generateUuid() { try { return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`; } catch { return `${Date.now()}-${Math.random().toString(16).slice(2)}`; } }
+function parseJson<T>(raw: string | null): T | null { if (!raw) return null; try { return JSON.parse(raw) as T; } catch { return null; } }
+function serializeJson(input: unknown) { return input == null ? null : JSON.stringify(input); }
+function normalizeStringList(raw: string[] | null | undefined) { return Array.from(new Set((raw ?? []).map((value) => value.trim()).filter(Boolean))); }
+function normalizeStoredStringList(raw: string | null) { const parsed = parseJson<unknown>(raw); return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string" && value.trim().length > 0) : []; }
+function requireSaasId(ctx: SocialContext) { const saasId = ctx.saasId?.trim(); if (!saasId) throw new SocialContextError("saasId is required for social operations."); return saasId; }
+async function runStatement(db: D1Database, sql: string, ...params: unknown[]) { const stmt = db.prepare(sql); return (params.length ? stmt.bind(...params) : stmt).run(); }
+async function queryRows<T>(db: D1Database, sql: string, ...params: unknown[]): Promise<T[]> { const stmt = db.prepare(sql); const result = await (params.length ? stmt.bind(...params) : stmt).all<T>(); return result.results ?? []; }
+async function queryFirst<T>(db: D1Database, sql: string, ...params: unknown[]): Promise<T | null> { const rows = await queryRows<T>(db, sql, ...params); return rows[0] ?? null; }
+async function ensurePostsChannelColumn(db: D1Database) { const columns = await queryRows<{ name: string }>(db, "PRAGMA table_info('saas_social_posts')"); if (!columns.some((column) => column.name === "channel_id")) await runStatement(db, "ALTER TABLE saas_social_posts ADD COLUMN channel_id TEXT"); }
+// Same self-heal pattern as ensurePostsChannelColumn — covers any DB that bootstraps via
+// CREATE TABLE IF NOT EXISTS below instead of going through migrations/0211_*.sql (local/test DBs).
+async function ensurePostsCreationModeColumn(db: D1Database) { const columns = await queryRows<{ name: string }>(db, "PRAGMA table_info('saas_social_posts')"); if (!columns.some((column) => column.name === "creation_mode")) await runStatement(db, "ALTER TABLE saas_social_posts ADD COLUMN creation_mode TEXT NOT NULL DEFAULT 'AUTO'"); }
+async function ensureSocialSchema(db: D1Database): Promise<void> {
+  const existing = schemaInitCache.get(db); if (existing) return existing;
+  const promise = (async () => {
+    await runStatement(db, `CREATE TABLE IF NOT EXISTS saas_social_accounts (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, provider TEXT NOT NULL, handle TEXT, display_name TEXT, status TEXT NOT NULL, auth_meta TEXT, is_primary INTEGER NOT NULL DEFAULT 0, linkedin_cm_enabled INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+    await runStatement(db, `CREATE TABLE IF NOT EXISTS saas_social_campaigns (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, name TEXT NOT NULL, objective TEXT, status TEXT NOT NULL, target_segment TEXT NOT NULL, start_date TEXT, end_date TEXT, budget_estimate REAL, notes TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+    await runStatement(db, `CREATE TABLE IF NOT EXISTS saas_social_posts (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, channel_id TEXT, campaign_id TEXT, provider TEXT NOT NULL, content_type TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, image_hint TEXT, status TEXT NOT NULL, scheduled_at TEXT, posted_at TEXT, external_post_id TEXT, metadata TEXT, creation_mode TEXT NOT NULL DEFAULT 'AUTO', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+    await ensurePostsChannelColumn(db);
+    await ensurePostsCreationModeColumn(db);
+    await runStatement(db, `CREATE TABLE IF NOT EXISTS saas_social_metrics (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, post_id TEXT NOT NULL, provider TEXT NOT NULL, impressions INTEGER NOT NULL, likes INTEGER NOT NULL, comments INTEGER NOT NULL, shares INTEGER NOT NULL, clicks INTEGER NOT NULL, leads_generated INTEGER NOT NULL, captured_at TEXT NOT NULL, metadata TEXT)`);
+    await runStatement(db, `CREATE TABLE IF NOT EXISTS saas_social_channels (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, name TEXT NOT NULL, provider TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+    await runStatement(db, `CREATE TABLE IF NOT EXISTS saas_social_channel_ideas (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, channel_id TEXT NOT NULL, title TEXT NOT NULL, angle TEXT, summary TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+    await runStatement(db, `CREATE TABLE IF NOT EXISTS saas_social_channel_knowledge (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, channel_id TEXT NOT NULL, objective TEXT, audience TEXT, tone TEXT, keywords TEXT, competitors TEXT, sources TEXT, updated_at TEXT)`);
+    await runStatement(db, `CREATE TABLE IF NOT EXISTS saas_social_channel_signals (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, channel_id TEXT NOT NULL, topics TEXT, active_keywords TEXT, trend_notes TEXT, watched_competitors TEXT, watched_sources TEXT, updated_at TEXT NOT NULL)`);
+    await runStatement(db, `CREATE TABLE IF NOT EXISTS socialflow_oauth_state_nonces (nonce TEXT PRIMARY KEY, provider TEXT NOT NULL, tenant_id TEXT NOT NULL, saas_id TEXT NOT NULL, issued_at INTEGER NOT NULL, consumed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`);
+    await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_saas_social_accounts_tenant ON saas_social_accounts (tenant_id, saas_id)");
+    await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_saas_social_campaigns_tenant ON saas_social_campaigns (tenant_id, saas_id)");
+    await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_saas_social_posts_tenant ON saas_social_posts (tenant_id, saas_id, status)");
+    await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_saas_social_posts_campaign ON saas_social_posts (tenant_id, saas_id, campaign_id)");
+    await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_saas_social_metrics_post ON saas_social_metrics (tenant_id, saas_id, post_id)");
+    await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_saas_social_channels_tenant ON saas_social_channels (tenant_id, saas_id)");
+    await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_saas_social_channel_ideas_channel ON saas_social_channel_ideas (tenant_id, saas_id, channel_id)");
+    await runStatement(db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_saas_social_channel_knowledge_unique ON saas_social_channel_knowledge (tenant_id, saas_id, channel_id)");
+    await runStatement(db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_saas_social_channel_signals_unique ON saas_social_channel_signals (tenant_id, saas_id, channel_id)");
+    await runStatement(db, "CREATE INDEX IF NOT EXISTS idx_socialflow_oauth_state_nonces_issued_at ON socialflow_oauth_state_nonces (issued_at)");
+  })();
+  schemaInitCache.set(db, promise); try { await promise; } catch (error) { schemaInitCache.delete(db); throw error; }
+}
+function getAnalyticsMetaFromMetadata(metadata: Record<string, unknown> | null): AnalyticsMeta { const analytics = metadata?.analytics; if (!analytics || typeof analytics !== "object") return { source: "unavailable", impressions: 0, likes: 0, comments: 0, shares: 0, clicks: 0, reach: 0, saved: 0, engagement: 0, lastFetchedAt: null, lastRefreshStatus: null, lastRefreshErrorMessage: null, lastRefreshErrorCode: null }; const value = analytics as Record<string, unknown>; return { source: typeof value.source === "string" ? value.source : "unavailable", impressions: typeof value.impressions === "number" ? value.impressions : 0, likes: typeof value.likes === "number" ? value.likes : 0, comments: typeof value.comments === "number" ? value.comments : 0, shares: typeof value.shares === "number" ? value.shares : 0, clicks: typeof value.clicks === "number" ? value.clicks : 0, engagement: typeof value.engagement === "number" ? value.engagement : 0, reach: typeof value.reach === "number" ? value.reach : 0, saved: typeof value.saved === "number" ? value.saved : 0, lastFetchedAt: typeof value.lastFetchedAt === "string" ? value.lastFetchedAt : null, lastRefreshStatus: value.lastRefreshStatus === "success" || value.lastRefreshStatus === "error" ? value.lastRefreshStatus : null, lastRefreshErrorMessage: typeof value.lastRefreshErrorMessage === "string" ? value.lastRefreshErrorMessage : null, lastRefreshErrorCode: typeof value.lastRefreshErrorCode === "string" ? value.lastRefreshErrorCode : null }; }
+function mergeMetadata(base: Record<string, unknown> | null, patch: Record<string, unknown>) { return { ...(base ?? {}), ...patch }; }
+function mapAccountRow(row: SocialAccountRow): SaasSocialAccount { const primaryValue = typeof row.is_primary === "number" ? row.is_primary : (row.primary ?? 0); return { id: row.id, tenantId: row.tenant_id, saasId: row.saas_id, provider: row.provider as SaasSocialProvider, handle: row.handle, displayName: row.display_name, status: row.status as SaasSocialAccount["status"], authMeta: parseJson<Record<string, unknown>>(row.auth_meta), isPrimary: primaryValue === 1, linkedinCmEnabled: row.linkedin_cm_enabled === 1, createdAt: row.created_at, updatedAt: row.updated_at }; }
+function mapCampaignRow(row: SocialCampaignRow): SaasSocialCampaign { return { id: row.id, tenantId: row.tenant_id, saasId: row.saas_id, name: row.name, objective: row.objective as SaasSocialCampaign["objective"], status: row.status as SaasSocialCampaign["status"], targetSegment: row.target_segment, startDate: row.start_date, endDate: row.end_date, budgetEstimate: row.budget_estimate, notes: row.notes, postCount: row.post_count, reelCount: row.reel_count, historiaCount: row.historia_count, carouselCount: row.carousel_count, createdAt: row.created_at, updatedAt: row.updated_at }; }
+function mapPostRow(row: SocialPostRow): SaasSocialPost { const metadata = parseJson<Record<string, unknown>>(row.metadata); const post = { id: row.id, tenantId: row.tenant_id, saasId: row.saas_id, channelId: row.channel_id, campaignId: row.campaign_id, provider: row.provider as SaasSocialProvider, contentType: row.content_type as SaasSocialPost["contentType"], title: row.title, body: row.body, imageHint: row.image_hint, status: row.status as SaasSocialPost["status"], scheduledAt: row.scheduled_at, postedAt: row.posted_at, externalPostId: row.external_post_id, metadata, creationMode: (row.creation_mode as SaasSocialPost["creationMode"]) ?? "AUTO", createdAt: row.created_at, updatedAt: row.updated_at }; return Object.assign(post, { analyticsMeta: getAnalyticsMetaFromMetadata(metadata) }) as SaasSocialPost; }
+function mapMetricsRow(row: SocialMetricsRow): SaasSocialMetrics { return { id: row.id, tenantId: row.tenant_id, saasId: row.saas_id, postId: row.post_id, provider: row.provider as SaasSocialProvider, impressions: row.impressions, likes: row.likes, comments: row.comments, shares: row.shares, clicks: row.clicks, leadsGenerated: row.leads_generated, capturedAt: row.captured_at, metadata: parseJson<Record<string, unknown>>(row.metadata) }; }
+function mapDedupedMetricsRow(row: DedupedMetricsRow): DedupedMetric { return { postId: row.post_id, provider: row.provider as SaasSocialProvider, impressions: row.impressions, likes: row.likes, comments: row.comments, shares: row.shares, clicks: row.clicks, leadsGenerated: row.leads_generated, capturedAt: row.captured_at }; }
+function mapChannelRow(row: SocialChannelRow): SaasSocialChannel { return { id: row.id, tenantId: row.tenant_id, saasId: row.saas_id, name: row.name, provider: row.provider as SaasSocialProvider, status: row.status as SaasSocialChannel["status"], createdAt: row.created_at, updatedAt: row.updated_at }; }
+function mapChannelIdeaRow(row: SocialChannelIdeaRow): SaasSocialChannelIdea { return { id: row.id, tenantId: row.tenant_id, saasId: row.saas_id, channelId: row.channel_id, title: row.title, angle: row.angle, summary: row.summary, status: row.status as SaasSocialChannelIdea["status"], createdAt: row.created_at, updatedAt: row.updated_at }; }
+function mapKnowledgeRow(row: SocialChannelKnowledgeRow): SaasSocialChannelKnowledge { return { channelId: row.channel_id, objective: row.objective, audience: row.audience, tone: row.tone, keywords: normalizeStoredStringList(row.keywords), competitors: normalizeStoredStringList(row.competitors), sources: normalizeStoredStringList(row.sources), updatedAt: row.updated_at }; }
+function mapSignalsRow(row: SocialChannelSignalsRow): SaasSocialChannelSignals { return { channelId: row.channel_id, tenantId: row.tenant_id, saasId: row.saas_id, topics: normalizeStoredStringList(row.topics), activeKeywords: normalizeStoredStringList(row.active_keywords), trendNotes: row.trend_notes, watchedCompetitors: normalizeStoredStringList(row.watched_competitors), watchedSources: normalizeStoredStringList(row.watched_sources), updatedAt: row.updated_at }; }
+function buildChannelName(provider: SaasSocialProvider) { return provider === "LINKEDIN" ? "LinkedIn" : provider.replaceAll("_", " "); }
+async function ensureChannelForProvider(ctx: SocialContext, provider: SaasSocialProvider): Promise<SaasSocialChannel> { const saasId = requireSaasId(ctx); const existing = await queryFirst<SocialChannelRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, name, provider, status, created_at, updated_at FROM saas_social_channels WHERE tenant_id = ? AND saas_id = ? AND provider = ? ORDER BY datetime(updated_at) DESC LIMIT 1`, ctx.tenantId, saasId, provider); if (existing) return mapChannelRow(existing); const now = nowIso(); const id = generateUuid(); await runStatement(ctx.socialDb, `INSERT INTO saas_social_channels (id, tenant_id, saas_id, name, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, id, ctx.tenantId, saasId, buildChannelName(provider), provider, "ACTIVE", now, now); return { id, tenantId: ctx.tenantId, saasId, name: buildChannelName(provider), provider, status: "ACTIVE", createdAt: now, updatedAt: now }; }
+async function ensureKnowledgeRow(ctx: SocialContext, channelId: string): Promise<SocialChannelKnowledgeRow> { const saasId = requireSaasId(ctx); const existing = await queryFirst<SocialChannelKnowledgeRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, channel_id, objective, audience, tone, keywords, competitors, sources, updated_at FROM saas_social_channel_knowledge WHERE tenant_id = ? AND saas_id = ? AND channel_id = ? LIMIT 1`, ctx.tenantId, saasId, channelId); if (existing) return existing; const id = generateUuid(); await runStatement(ctx.socialDb, `INSERT INTO saas_social_channel_knowledge (id, tenant_id, saas_id, channel_id, objective, audience, tone, keywords, competitors, sources, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, ctx.tenantId, saasId, channelId, null, null, null, "[]", "[]", "[]", null); return { id, tenant_id: ctx.tenantId, saas_id: saasId, channel_id: channelId, objective: null, audience: null, tone: null, keywords: "[]", competitors: "[]", sources: "[]", updated_at: null }; }
+async function ensureSignalsRow(ctx: SocialContext, channelId: string): Promise<SocialChannelSignalsRow> { const saasId = requireSaasId(ctx); const existing = await queryFirst<SocialChannelSignalsRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, channel_id, topics, active_keywords, trend_notes, watched_competitors, watched_sources, updated_at FROM saas_social_channel_signals WHERE tenant_id = ? AND saas_id = ? AND channel_id = ? LIMIT 1`, ctx.tenantId, saasId, channelId); if (existing) return existing; const id = generateUuid(); const now = nowIso(); await runStatement(ctx.socialDb, `INSERT INTO saas_social_channel_signals (id, tenant_id, saas_id, channel_id, topics, active_keywords, trend_notes, watched_competitors, watched_sources, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, ctx.tenantId, saasId, channelId, "[]", "[]", null, "[]", "[]", now); return { id, tenant_id: ctx.tenantId, saas_id: saasId, channel_id: channelId, topics: "[]", active_keywords: "[]", trend_notes: null, watched_competitors: "[]", watched_sources: "[]", updated_at: now }; }
+export async function resolveSocialContext({ tenantId, saasId, env }: { tenantId: string; saasId?: string | null; env?: DracoEnv | null }): Promise<SocialContext> { const runtimeEnv = resolveEnvOverride(env); const socialDb = runtimeEnv?.SOCIAL_DB; if (!runtimeEnv || !socialDb) throw new SocialContextError("SOCIAL_DB not configured"); await ensureSocialSchema(socialDb); const runtimeEnvWithSocialDb = { ...runtimeEnv, SOCIAL_DB: socialDb }; return createSocialRepositoryContextWithCoreProjection({ tenantId, saasId: saasId?.trim() ?? null, runtimeEnv: runtimeEnvWithSocialDb }); }
+export async function approvePost(ctx: SocialContext, id: string) {
+  const post = await getSaasSocialPostById(ctx, id);
+  if (!post) return null;
+  if (!["IDEA", "DRAFT", "IN_REVIEW", "APPROVED"].includes(post.status)) return post;
+  const targetStatus: SaasSocialPost["status"] = post.scheduledAt ? "SCHEDULED" : "APPROVED";
+  // Correct provider if the orchestrator stored the intended one in metadata.
+  // This fixes posts that were persisted before the per-campaign provider fix landed.
+  // targetProvider in metadata was added when the per-campaign provider fix landed.
+  // Backward compat: old AI posts (campaignId starts with "ai_campaign_") were erroneously
+  // persisted with provider="LINKEDIN" and no targetProvider — correct them to INSTAGRAM on approval.
+  const explicitTarget = post.metadata?.targetProvider as SaasSocialProvider | undefined;
+  const intendedProvider: SaasSocialProvider | undefined =
+    explicitTarget ??
+    (post.campaignId?.startsWith("ai_campaign_") && post.provider === "LINKEDIN"
+      ? "INSTAGRAM"
+      : undefined);
+  if (intendedProvider && intendedProvider !== post.provider) {
+    await upsertSaasSocialPost(ctx, { id: post.id, saasId: post.saasId, channelId: post.channelId ?? null, campaignId: post.campaignId, creationMode: post.creationMode, provider: intendedProvider, contentType: post.contentType, title: post.title, body: post.body, imageHint: post.imageHint, status: targetStatus, scheduledAt: post.scheduledAt, postedAt: post.postedAt, externalPostId: post.externalPostId, metadata: post.metadata });
+    return getSaasSocialPostById(ctx, id);
+  }
+  return updateSaasSocialPostStatus(ctx, { id, status: targetStatus });
+}
+export async function rejectPost(ctx: SocialContext, id: string) { const post = await getSaasSocialPostById(ctx, id); if (!post) return null; return updateSaasSocialPostStatus(ctx, { id, status: "REJECTED" }); }
+export async function schedulePost(ctx: SocialContext, input: { id: string; scheduledAt: string | null }) { const post = await getSaasSocialPostById(ctx, input.id); if (!post) return null; const metadata = mergeMetadata(post.metadata, { publication: { ...(typeof post.metadata?.publication === "object" && post.metadata.publication ? (post.metadata.publication as Record<string, unknown>) : {}), state: "queued", lastAttemptAt: nowIso() } }); await upsertSaasSocialPost(ctx, { id: post.id, saasId: post.saasId, channelId: post.channelId ?? null, campaignId: post.campaignId, creationMode: post.creationMode, provider: post.provider, contentType: post.contentType, title: post.title, body: post.body, imageHint: post.imageHint, status: "SCHEDULED", scheduledAt: input.scheduledAt, postedAt: post.postedAt, externalPostId: post.externalPostId, metadata }); return getSaasSocialPostById(ctx, post.id); }
+export async function claimScheduledPostForPublishing(ctx: SocialContext, postId: string): Promise<boolean> { const saasId = requireSaasId(ctx); const result = await runStatement(ctx.socialDb, `UPDATE saas_social_posts SET status = 'PUBLISHING', updated_at = ? WHERE id = ? AND tenant_id = ? AND saas_id = ? AND status IN ('SCHEDULED', 'APPROVED')`, nowIso(), postId, ctx.tenantId, saasId); return ((result?.meta as { changes?: number })?.changes ?? 0) > 0; }
+export async function recoverStalePublishingPosts(socialDb: D1Database, staleMinutes?: number): Promise<number> { const threshold = staleMinutes ?? 15; const cutoff = new Date(Date.now() - threshold * 60 * 1000).toISOString(); const result = await runStatement(socialDb, `UPDATE saas_social_posts SET status = 'SCHEDULED', updated_at = ? WHERE status = 'PUBLISHING' AND datetime(updated_at) < datetime(?)`, new Date().toISOString(), cutoff); return (result?.meta as { changes?: number })?.changes ?? 0; }
+export async function markAsPosted(ctx: SocialContext, input: { id: string; externalPostId?: string | null; postedAt?: string | null }) { const post = await getSaasSocialPostById(ctx, input.id); if (!post) return null; const metadata = mergeMetadata(post.metadata, { publication: { ...(typeof post.metadata?.publication === "object" && post.metadata.publication ? (post.metadata.publication as Record<string, unknown>) : {}), state: "published", mode: "live", lastAttemptAt: nowIso(), externalPostId: input.externalPostId ?? post.externalPostId ?? null } }); await upsertSaasSocialPost(ctx, { id: post.id, saasId: post.saasId, channelId: post.channelId ?? null, campaignId: post.campaignId, creationMode: post.creationMode, provider: post.provider, contentType: post.contentType, title: post.title, body: post.body, imageHint: post.imageHint, status: "POSTED", scheduledAt: post.scheduledAt, postedAt: input.postedAt ?? nowIso(), externalPostId: input.externalPostId ?? post.externalPostId, metadata }); return getSaasSocialPostById(ctx, post.id); }
+export async function listSaasSocialChannels(ctx: SocialContext): Promise<SaasSocialChannel[]> { const saasId = requireSaasId(ctx); const rows = await queryRows<SocialChannelRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, name, provider, status, created_at, updated_at FROM saas_social_channels WHERE tenant_id = ? AND saas_id = ? ORDER BY datetime(created_at) ASC`, ctx.tenantId, saasId); if (rows.length > 0) return rows.map(mapChannelRow); return [await ensureChannelForProvider(ctx, "LINKEDIN")]; }
+export async function getSocialCalendarSnapshot(ctx: SocialContext): Promise<SocialCalendarSnapshot> { const posts = await listSaasSocialPosts(ctx); const groups = new Map<string, SaasSocialPost[]>(); for (const post of posts) { if (!post.scheduledAt) continue; const key = post.scheduledAt.slice(0, 10); const bucket = groups.get(key) ?? []; bucket.push(post); groups.set(key, bucket); } const days: SocialCalendarDay[] = Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, items]) => ({ date, posts: items.sort((a, b) => (a.scheduledAt ?? "").localeCompare(b.scheduledAt ?? "")) })); return { days, upcomingPosts: posts.filter((post) => post.status === "SCHEDULED") }; }
+// Operates on metrics already deduplicated to one row per post_id (the most recent
+// capture within the query's own window, see getSocialAnalyticsSnapshot) — a post
+// re-captured every 4h by processInstagramMetrics no longer counts its impressions
+// once per capture, only once at its latest known value.
+function buildAnalyticsWindow(metrics: DedupedMetric[], posts: SaasSocialPost[], sinceIso: string): SocialAnalyticsWindow { const since = new Date(sinceIso).getTime(); const filteredMetrics = metrics.filter((metric) => new Date(metric.capturedAt).getTime() >= since); const filteredPosts = posts.filter((post) => { const reference = post.postedAt ?? post.updatedAt; return new Date(reference).getTime() >= since && (post.status === "POSTED" || post.status === "PUBLISHED"); }); const providerScores = new Map<SaasSocialProvider, number>(); let impressions = 0, likes = 0, comments = 0, shares = 0, clicks = 0, leadsGenerated = 0; for (const metric of filteredMetrics) { impressions += metric.impressions; likes += metric.likes; comments += metric.comments; shares += metric.shares; clicks += metric.clicks; leadsGenerated += metric.leadsGenerated; providerScores.set(metric.provider, (providerScores.get(metric.provider) ?? 0) + metric.impressions + metric.likes + metric.comments + metric.shares + metric.clicks); } const engagement = likes + comments + shares + clicks; return { impressions, likes, comments, shares, clicks, engagement, leadsGenerated, publishedPosts: filteredPosts.length, topProvider: Array.from(providerScores.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null, averageEngagementPerPublishedPost: filteredPosts.length > 0 ? Number((engagement / filteredPosts.length).toFixed(2)) : 0 }; }
+// GROUP BY post_id keeps only the most recent capture per post within the 30-day
+// window — saas_social_metrics is append-only (processInstagramMetrics inserts a new
+// row every 4h for whichever posts are still in the account's 10 most recent media,
+// with no "already captured" gate), so without this dedup a post active for several
+// days would have its impressions summed once per capture instead of once total. A
+// single MAX(captured_at) per GROUP BY is enough for SQLite to guarantee the bare
+// columns (provider, impressions, ...) come from that same max row — no subquery
+// needed. The 7-day window is derived from this same 30-day-deduplicated result in
+// buildAnalyticsWindow, not a second query: a post whose latest capture is older than
+// 7 days (but within 30) is correctly excluded from the 7-day window by that filter.
+export async function getSocialAnalyticsSnapshot(ctx: SocialContext): Promise<SocialAnalyticsSnapshot> { const saasId = requireSaasId(ctx); const now = Date.now(); const thirtyDaysAgoIso = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(); const [metricsRows, posts] = await Promise.all([queryRows<DedupedMetricsRow>(ctx.socialDb, `SELECT post_id, MAX(captured_at) as captured_at, provider, impressions, likes, comments, shares, clicks, leads_generated, metadata FROM saas_social_metrics WHERE tenant_id = ? AND saas_id = ? AND captured_at >= ? GROUP BY post_id ORDER BY captured_at DESC`, ctx.tenantId, saasId, thirtyDaysAgoIso), listSaasSocialPosts(ctx)]); const metrics = metricsRows.map(mapDedupedMetricsRow); return { last7Days: buildAnalyticsWindow(metrics, posts, new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString()), last30Days: buildAnalyticsWindow(metrics, posts, thirtyDaysAgoIso) }; }
+// Real followers-over-time source — socialflow_social_metrics_snapshots can't be used
+// for this (UNIQUE(tenant_id, saas_id, provider) keeps only the latest row, no
+// history); saas_social_metrics already accumulates it for free via the account-level
+// rows processInstagramMetrics writes every 4h (post_id = "account:<id>", never
+// overwritten). One row skipped if its metadata predates the followersCount field.
+export async function getFollowerHistory(ctx: SocialContext, sinceDays = 30): Promise<FollowerHistoryPoint[]> { const saasId = requireSaasId(ctx); const accounts = await listSaasSocialAccounts(ctx); const account = accounts.find((a) => a.provider === "INSTAGRAM" && a.status === "CONNECTED_REAL"); if (!account) return []; const sinceIso = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString(); const rows = await queryRows<{ captured_at: string; metadata: string | null }>(ctx.socialDb, `SELECT captured_at, metadata FROM saas_social_metrics WHERE tenant_id = ? AND saas_id = ? AND post_id = ? AND captured_at >= ? ORDER BY datetime(captured_at) ASC`, ctx.tenantId, saasId, `account:${account.id}`, sinceIso); return rows.flatMap((row) => { const meta = parseJson<Record<string, unknown>>(row.metadata); const followersCount = typeof meta?.followersCount === "number" ? meta.followersCount : null; return followersCount === null ? [] : [{ capturedAt: row.captured_at, followersCount }]; }); }
+
+type InsightsMetricsRow = { post_id: string; captured_at: string; likes: number; comments: number; metadata: string | null };
+type InsightsMetric = { likes: number; comments: number; reach: number; saved: number; plays: number };
+
+function formatWeekLabel(startMs: number, endMs: number): string {
+  const fmt = (ms: number) => {
+    const d = new Date(ms);
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+  return `${fmt(startMs)}–${fmt(endMs - 24 * 60 * 60 * 1000)}`;
+}
+
+// Reach/saved/plays only live inside saas_social_metrics.metadata (JSON) — never
+// exposed by DedupedMetric/getSocialAnalyticsSnapshot, which only the dashboard cards
+// need. This runs its own deduplicated query (same MAX(captured_at)+GROUP BY post_id
+// trick, safe for bare columns per SQLite's documented behavior — already relied on by
+// getSocialAnalyticsSnapshot above) over a wider 35-day window so both the 30-day
+// summary and the 4-week format breakdown can share one dataset.
+export async function getSocialInsightsSnapshot(ctx: SocialContext): Promise<SocialInsightsSnapshot> {
+  const saasId = requireSaasId(ctx);
+  const now = Date.now();
+  const thirtyDaysAgoMs = now - 30 * 24 * 60 * 60 * 1000;
+  const thirtyFiveDaysAgoIso = new Date(now - 35 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [metricsRows, posts, followerHistory] = await Promise.all([
+    queryRows<InsightsMetricsRow>(
+      ctx.socialDb,
+      `SELECT post_id, MAX(captured_at) as captured_at, likes, comments, metadata
+       FROM saas_social_metrics
+       WHERE tenant_id = ? AND saas_id = ? AND captured_at >= ?
+       GROUP BY post_id ORDER BY captured_at DESC`,
+      ctx.tenantId, saasId, thirtyFiveDaysAgoIso,
+    ),
+    listSaasSocialPosts(ctx),
+    getFollowerHistory(ctx, 30),
+  ]);
+
+  // post_id = "account:<id>" snapshot rows never match a real post.id below, so they're
+  // excluded from every sum here purely by never being joined — no extra filter needed.
+  const metricByPostId = new Map<string, InsightsMetric>();
+  for (const row of metricsRows) {
+    const meta = parseJson<Record<string, unknown>>(row.metadata);
+    const reach = typeof meta?.reach === "number" ? meta.reach : 0;
+    const saved = typeof meta?.saved === "number" ? meta.saved : 0;
+    const plays = typeof meta?.plays === "number" ? meta.plays : typeof meta?.videoViews === "number" ? meta.videoViews : 0;
+    metricByPostId.set(row.post_id, { likes: row.likes, comments: row.comments, reach, saved, plays });
+  }
+
+  const publishedPosts = posts.filter((post) => (post.status === "POSTED" || post.status === "PUBLISHED") && post.postedAt);
+
+  let reach30d = 0, saved30d = 0, plays30d = 0, likes30d = 0, comments30d = 0;
+  for (const post of publishedPosts) {
+    if (new Date(post.postedAt!).getTime() < thirtyDaysAgoMs) continue;
+    const metric = metricByPostId.get(post.id);
+    if (!metric) continue;
+    reach30d += metric.reach;
+    saved30d += metric.saved;
+    likes30d += metric.likes;
+    comments30d += metric.comments;
+    if (post.contentType === "REEL") plays30d += metric.plays;
+  }
+  const engagementRate = reach30d > 0 ? Number(((likes30d + comments30d + saved30d) / reach30d).toFixed(4)) : 0;
+
+  // 4 rolling 7-day buckets ending now, bucketed by posted_at (when the post actually
+  // went live) — not by captured_at (when its metric was last snapshotted), which would
+  // wrongly dump most reach into "this week" since capture timestamps cluster near now.
+  const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  const weeklyFormatBreakdown: SocialInsightsWeeklyFormatPoint[] = [];
+  const engagementByFormatBreakdown: SocialInsightsWeeklyFormatPoint[] = [];
+  const playsByFormatBreakdown: SocialInsightsWeeklyFormatPoint[] = [];
+  for (let i = 3; i >= 0; i--) {
+    const weekStartMs = now - (i + 1) * WEEK_MS;
+    const weekEndMs = now - i * WEEK_MS;
+    const weekStart = new Date(weekStartMs).toISOString();
+    const weekLabel = formatWeekLabel(weekStartMs, weekEndMs);
+    const reachPoint: SocialInsightsWeeklyFormatPoint = { weekStart, weekLabel, FEED: 0, REEL: 0, STORY: 0, CAROUSEL: 0 };
+    const engagementPoint: SocialInsightsWeeklyFormatPoint = { weekStart, weekLabel, FEED: 0, REEL: 0, STORY: 0, CAROUSEL: 0 };
+    const playsPoint: SocialInsightsWeeklyFormatPoint = { weekStart, weekLabel, FEED: 0, REEL: 0, STORY: 0, CAROUSEL: 0 };
+    for (const post of publishedPosts) {
+      const postedMs = new Date(post.postedAt!).getTime();
+      if (postedMs < weekStartMs || postedMs >= weekEndMs) continue;
+      const metric = metricByPostId.get(post.id);
+      if (!metric) continue;
+      if (post.contentType === "FEED" || post.contentType === "REEL" || post.contentType === "STORY" || post.contentType === "CAROUSEL") {
+        reachPoint[post.contentType] += metric.reach;
+        engagementPoint[post.contentType] += metric.likes + metric.comments;
+        playsPoint[post.contentType] += metric.plays;
+      }
+    }
+    weeklyFormatBreakdown.push(reachPoint);
+    engagementByFormatBreakdown.push(engagementPoint);
+    playsByFormatBreakdown.push(playsPoint);
+  }
+
+  const topPosts: SocialInsightsTopPost[] = publishedPosts
+    .filter((post) => new Date(post.postedAt!).getTime() >= thirtyDaysAgoMs)
+    .map((post) => {
+      const metric = metricByPostId.get(post.id);
+      const likes = metric?.likes ?? 0;
+      const comments = metric?.comments ?? 0;
+      const saved = metric?.saved ?? 0;
+      return { id: post.id, title: post.title, body: post.body, imageHint: post.imageHint, contentType: post.contentType, likes, comments, saved, engagement: likes + comments + saved, postedAt: post.postedAt };
+    })
+    .sort((a, b) => b.engagement - a.engagement)
+    .slice(0, 5);
+
+  const currentFollowers = followerHistory.length > 0 ? followerHistory[followerHistory.length - 1].followersCount : null;
+  const followerGrowthThisMonth = followerHistory.length >= 2 ? currentFollowers! - followerHistory[0].followersCount : null;
+
+  return {
+    summary: { reach30d, saved30d, plays30d, engagementRate, currentFollowers, followerGrowthThisMonth },
+    weeklyFormatBreakdown,
+    engagementByFormatBreakdown,
+    playsByFormatBreakdown,
+    followerHistory,
+    topPosts,
+  };
+}
+
+type MonthlyMetricsRow = { post_id: string; captured_at: string; likes: number; comments: number };
+
+// Tarjetas adicionales del dashboard (Fix 5) — actividad real del mes calendario en
+// curso, aparte de SocialProductSummary (ventanas de 7/30 días). Misma deduplicación
+// MAX(captured_at)+GROUP BY post_id que getSocialInsightsSnapshot/getSocialAnalyticsSnapshot.
+export async function getSocialActivitySummary(ctx: SocialContext): Promise<SocialActivitySummary> {
+  const saasId = requireSaasId(ctx);
+  const now = new Date();
+  const monthStartMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+  const monthStartIso = new Date(monthStartMs).toISOString();
+
+  const [metricsRows, posts, followerHistory] = await Promise.all([
+    queryRows<MonthlyMetricsRow>(
+      ctx.socialDb,
+      `SELECT post_id, MAX(captured_at) as captured_at, likes, comments
+       FROM saas_social_metrics
+       WHERE tenant_id = ? AND saas_id = ? AND captured_at >= ?
+       GROUP BY post_id ORDER BY captured_at DESC`,
+      ctx.tenantId, saasId, monthStartIso,
+    ),
+    listSaasSocialPosts(ctx),
+    getFollowerHistory(ctx, 3),
+  ]);
+
+  const metricByPostId = new Map(metricsRows.map((row) => [row.post_id, { likes: row.likes, comments: row.comments }]));
+
+  const postsThisMonth = { FEED: 0, REEL: 0, STORY: 0, CAROUSEL: 0 };
+  let totalLikesThisMonth = 0;
+  let totalCommentsThisMonth = 0;
+
+  for (const post of posts) {
+    if (post.status !== "POSTED" && post.status !== "PUBLISHED") continue;
+    if (!post.postedAt || new Date(post.postedAt).getTime() < monthStartMs) continue;
+    if (post.contentType === "FEED" || post.contentType === "REEL" || post.contentType === "STORY" || post.contentType === "CAROUSEL") {
+      postsThisMonth[post.contentType]++;
+    }
+    const metric = metricByPostId.get(post.id);
+    if (metric) {
+      totalLikesThisMonth += metric.likes;
+      totalCommentsThisMonth += metric.comments;
+    }
+  }
+
+  const currentFollowers = followerHistory.length > 0 ? followerHistory[followerHistory.length - 1].followersCount : null;
+
+  return { postsThisMonth, totalLikesThisMonth, totalCommentsThisMonth, currentFollowers };
+}
+
+type HourEngagementMetricsRow = { post_id: string; captured_at: string; likes: number; comments: number; metadata: string | null };
+
+// Insumo crudo de BestTimeToPostAgent — un punto por post real (formato, hora UTC de
+// publicación, engagement) dentro de la ventana pedida. Mismo patrón de dos queries en
+// paralelo + dedup MAX(captured_at)+GROUP BY post_id que getSocialInsightsSnapshot/
+// getSocialActivitySummary. engagement = likes+comments+reach — distinto del
+// likes+comments+shares que ya usa EngagementLearningAgent, fórmula propia de este agente.
+export async function getRecentPostEngagementByHour(ctx: SocialContext, sinceDays: number): Promise<PostEngagementHourPoint[]> {
+  const saasId = requireSaasId(ctx);
+  const sinceMs = Date.now() - sinceDays * 24 * 60 * 60 * 1000;
+  const sinceIso = new Date(sinceMs).toISOString();
+
+  const [metricsRows, posts] = await Promise.all([
+    queryRows<HourEngagementMetricsRow>(
+      ctx.socialDb,
+      `SELECT post_id, MAX(captured_at) as captured_at, likes, comments, metadata
+       FROM saas_social_metrics
+       WHERE tenant_id = ? AND saas_id = ? AND captured_at >= ?
+       GROUP BY post_id ORDER BY captured_at DESC`,
+      ctx.tenantId, saasId, sinceIso,
+    ),
+    listSaasSocialPosts(ctx),
+  ]);
+
+  const engagementByPostId = new Map<string, number>();
+  for (const row of metricsRows) {
+    const meta = parseJson<Record<string, unknown>>(row.metadata);
+    const reach = typeof meta?.reach === "number" ? meta.reach : 0;
+    engagementByPostId.set(row.post_id, row.likes + row.comments + reach);
+  }
+
+  const points: PostEngagementHourPoint[] = [];
+  for (const post of posts) {
+    if (post.status !== "POSTED" && post.status !== "PUBLISHED") continue;
+    if (!post.postedAt || new Date(post.postedAt).getTime() < sinceMs) continue;
+    const engagement = engagementByPostId.get(post.id);
+    if (engagement === undefined) continue;
+    points.push({ contentType: post.contentType, hourUtc: new Date(post.postedAt).getUTCHours(), engagement });
+  }
+
+  return points;
+}
+
+function buildAnalyticsActivity(posts: SaasSocialPost[]): SocialAnalyticsActivity[] { return posts.flatMap((post) => { const analytics = getAnalyticsMetaFromMetadata(post.metadata); const review = typeof post.metadata?.analyticsReview === "object" && post.metadata.analyticsReview ? (post.metadata.analyticsReview as Record<string, unknown>) : null; if (!analytics.lastFetchedAt && !analytics.lastRefreshStatus) return []; const state = analytics.lastRefreshStatus === "error" ? "error" : analytics.source === "social_db" ? "success" : "success"; return [{ postId: post.id, postTitle: post.title, provider: post.provider, lastFetchedAt: analytics.lastFetchedAt ?? post.updatedAt, state, summary: state === "error" ? "Refresh failed" : "Metrics synced", reviewed: Boolean(review?.reviewed), manualReviewAt: typeof review?.manualReviewAt === "string" ? review.manualReviewAt : null, analyticsSource: analytics.source, lastRefreshStatus: analytics.lastRefreshStatus, lastRefreshErrorMessage: analytics.lastRefreshErrorMessage ?? null, lastRefreshErrorCode: analytics.lastRefreshErrorCode ?? null, lastRefreshAt: analytics.lastFetchedAt ?? null, lastFetchedAtDisplay: analytics.lastFetchedAt ?? null, manualReviewNote: typeof review?.note === "string" ? review.note : null, recommendation: state === "error" ? "Inspect the live post and retry the analytics refresh." : "Metrics are stored in SOCIAL_DB for this post.", externalPostId: post.externalPostId }]; }).sort((a, b) => b.lastFetchedAt.localeCompare(a.lastFetchedAt)).slice(0, 8); }
+function buildAnalyticsIncidents(posts: SaasSocialPost[]): SocialAnalyticsIncident[] { return posts.flatMap((post) => { const analytics = getAnalyticsMetaFromMetadata(post.metadata); if (analytics.lastRefreshStatus !== "error") return []; const review = typeof post.metadata?.analyticsReview === "object" && post.metadata.analyticsReview ? (post.metadata.analyticsReview as Record<string, unknown>) : null; return [{ id: `${post.id}:analytics`, postId: post.id, state: "error", summary: "Analytics refresh failed", createdAt: analytics.lastFetchedAt ?? post.updatedAt, lastFetchedAt: analytics.lastFetchedAt ?? post.updatedAt, postTitle: post.title, reviewed: Boolean(review?.reviewed), manualReviewAt: typeof review?.manualReviewAt === "string" ? review.manualReviewAt : null, lastRefreshErrorMessage: analytics.lastRefreshErrorMessage ?? null, lastRefreshErrorCode: analytics.lastRefreshErrorCode ?? null, recommendation: "Retry analytics refresh after confirming the live post reference remains valid.", manualReviewNote: typeof review?.note === "string" ? review.note : null }]; }).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8); }
+function buildAnalyticsHealth(posts: SaasSocialPost[]): SocialLiveAnalyticsSummary { const eligiblePosts = posts.filter((post) => post.status === "POSTED" || post.status === "PUBLISHED"); const activity = buildAnalyticsActivity(posts); const incidents = buildAnalyticsIncidents(posts); const healthyPosts = eligiblePosts.filter((post) => getAnalyticsMetaFromMetadata(post.metadata).source === "social_db").length; const failedPosts = incidents.length; const noLiveAnalyticsYetPosts = Math.max(0, eligiblePosts.length - healthyPosts - failedPosts); const lastHealthyLiveSyncAt = eligiblePosts.map((post) => getAnalyticsMetaFromMetadata(post.metadata).lastFetchedAt).filter((value): value is string => Boolean(value)).sort((a, b) => b.localeCompare(a))[0] ?? null; const lastResolvedAt = activity.filter((item) => item.state === "resolved").map((item) => item.lastFetchedAt).sort((a, b) => b.localeCompare(a))[0] ?? null; const freshnessMinutes = lastHealthyLiveSyncAt ? (Date.now() - new Date(lastHealthyLiveSyncAt).getTime()) / 60000 : null; return { totalEligibleLivePosts: eligiblePosts.length, healthyPosts, failedPosts, noLiveAnalyticsYetPosts, lastHealthyLiveSyncAt, healthySyncFreshnessStatus: freshnessMinutes == null ? "NOT_AVAILABLE" : freshnessMinutes <= 180 ? "FRESH" : "AGING", healthySyncNeedsRefresh: freshnessMinutes != null && freshnessMinutes > 180, resolvedRecently: Boolean(lastResolvedAt), resolvedRecentlyCount: activity.filter((item) => item.state === "resolved").length, lastResolvedAt, lastWorkspaceSyncAt: activity[0]?.lastFetchedAt ?? null, status: failedPosts > 0 ? "Needs attention" : healthyPosts > 0 ? "Healthy" : "No live analytics yet", recommendation: failedPosts > 0 ? "Review failed syncs and retry live analytics refresh." : healthyPosts > 0 ? "Live analytics are reading from SOCIAL_DB." : "Publish a live post and ingest metrics into SOCIAL_DB to unlock live analytics.", recentActivity: activity, recentIncidents: incidents }; }
+export async function getSocialProductSummary(ctx: SocialContext): Promise<SocialProductSummary> { const [accounts, campaigns, posts, analytics] = await Promise.all([listSaasSocialAccounts(ctx), listSaasSocialCampaigns(ctx), listSaasSocialPosts(ctx), getSocialAnalyticsSnapshot(ctx)]); const connectedAccounts = accounts.filter((account) => account.status !== "DISCONNECTED").length; const liveAccounts = accounts.filter((account) => account.status === "CONNECTED_REAL").length; const activeCampaigns = campaigns.filter((campaign) => campaign.status === "ACTIVE").length; const scheduledPostsThisWeek = posts.filter((post) => post.status === "SCHEDULED" && post.scheduledAt && new Date(post.scheduledAt).getTime() >= Date.now() && new Date(post.scheduledAt).getTime() <= Date.now() + 7 * 24 * 60 * 60 * 1000).length; const publishedPostsLast30Days = posts.filter((post) => (post.status === "POSTED" || post.status === "PUBLISHED") && new Date(post.postedAt ?? post.updatedAt).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000).length; const draftPosts = posts.filter((post) => post.status === "DRAFT" || post.status === "IDEA" || post.status === "IN_REVIEW").length; const archivedCampaigns = campaigns.filter((campaign) => campaign.status === "ARCHIVED").length; const analyticsHealth = buildAnalyticsHealth(posts); const readinessStage = liveAccounts > 0 && publishedPostsLast30Days > 0 ? "FIRST_PAYING_USER_READY" : connectedAccounts > 0 && activeCampaigns > 0 && scheduledPostsThisWeek > 0 ? "PILOT_READY" : "GUIDED_SETUP"; const onboardingSteps = [{ key: "connect_account", label: "Connect an account", hint: "Add at least one workspace channel.", completed: connectedAccounts > 0 }, { key: "create_campaign", label: "Create a campaign", hint: "Store one campaign in SOCIAL_DB.", completed: campaigns.length > 0 }, { key: "schedule_post", label: "Schedule a post", hint: "Queue at least one post.", completed: scheduledPostsThisWeek > 0 }, { key: "review_calendar_analytics", label: "Review analytics", hint: "Refresh metrics from SOCIAL_DB.", completed: analyticsHealth.totalEligibleLivePosts > 0 }]; const completedSteps = onboardingSteps.filter((step) => step.completed).length; const presentation = { stageLabel: "Live DB", confidenceNote: "All Socialcors reads and writes for this workspace use SOCIAL_DB." } as SocialProductSummary["presentation"]; return { presentation, readiness: { stage: readinessStage, label: readinessStage === "FIRST_PAYING_USER_READY" ? "First-paying-user-ready" : readinessStage === "PILOT_READY" ? "Pilot ready" : "Guided setup", readyNow: [connectedAccounts > 0 ? `${connectedAccounts} account${connectedAccounts === 1 ? "" : "s"} connected.` : "No connected accounts yet.", campaigns.length > 0 ? `${campaigns.length} campaign${campaigns.length === 1 ? "" : "s"} stored in SOCIAL_DB.` : "No campaigns stored yet.", posts.length > 0 ? `${posts.length} post${posts.length === 1 ? "" : "s"} stored in SOCIAL_DB.` : "No posts stored yet."], simulatedAreas: [], pilotNotes: [analyticsHealth.recommendation] }, onboarding: { completedSteps, totalSteps: onboardingSteps.length, progressPercent: onboardingSteps.length > 0 ? Math.round((completedSteps / onboardingSteps.length) * 100) : 0, nextAction: onboardingSteps.find((step) => !step.completed)?.key ?? "review_calendar_analytics", steps: onboardingSteps }, overview: { connectedAccounts, activeCampaigns, scheduledPostsThisWeek, publishedPostsLast30Days, engagementLast30Days: analytics.last30Days.engagement }, highlights: { draftPosts, upcomingPosts: scheduledPostsThisWeek, archivedCampaigns }, analytics, analyticsHealth, activeRules: [], operations: { status: analyticsHealth.failedPosts > 0 ? "NEEDS_ATTENTION" : "ON_TRACK", headline: analyticsHealth.recommendation, criticalActions: analyticsHealth.failedPosts > 0 ? ["Retry analytics refresh for failed posts."] : [], nextMilestones: onboardingSteps.filter((step) => !step.completed).map((step) => step.label ?? step.key ?? ""), counts: { connectedAccounts, campaigns: campaigns.length, posts: posts.length } }, transparency: [{ key: "storage", label: "Persistence", message: "Campaigns, posts, channels, knowledge, signals and analytics are served from SOCIAL_DB." }] }; }
+export async function runSocialSchedulerSimulation(_ctx: SocialContext): Promise<{ ok: boolean }> { return { ok: true }; }
+export async function createSaasSocialChannelIdea(ctx: SocialContext, input: Omit<SaasSocialChannelIdea, "id" | "tenantId" | "saasId" | "createdAt" | "updatedAt"> & { id?: string }): Promise<SaasSocialChannelIdea> { const now = nowIso(); const saasId = requireSaasId(ctx); const id = input.id?.trim() ?? generateUuid(); await runStatement(ctx.socialDb, `INSERT INTO saas_social_channel_ideas (id, tenant_id, saas_id, channel_id, title, angle, summary, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, angle = excluded.angle, summary = excluded.summary, status = excluded.status, updated_at = excluded.updated_at WHERE saas_social_channel_ideas.tenant_id = excluded.tenant_id AND saas_social_channel_ideas.saas_id = excluded.saas_id`, id, ctx.tenantId, saasId, input.channelId, input.title, input.angle ?? null, input.summary ?? null, input.status ?? "idea", now, now); const row = await queryFirst<SocialChannelIdeaRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, channel_id, title, angle, summary, status, created_at, updated_at FROM saas_social_channel_ideas WHERE tenant_id = ? AND saas_id = ? AND id = ? LIMIT 1`, ctx.tenantId, saasId, id); if (!row) throw new SocialContextError("Unable to persist social channel idea."); return mapChannelIdeaRow(row); }
+export async function listSaasSocialChannelIdeas(ctx: SocialContext, channelId: string): Promise<SaasSocialChannelIdea[]> { const saasId = requireSaasId(ctx); const rows = await queryRows<SocialChannelIdeaRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, channel_id, title, angle, summary, status, created_at, updated_at FROM saas_social_channel_ideas WHERE tenant_id = ? AND saas_id = ? AND channel_id = ? ORDER BY datetime(updated_at) DESC`, ctx.tenantId, saasId, channelId); return rows.map(mapChannelIdeaRow); }
+export async function updateSaasSocialChannelIdea(ctx: SocialContext, input: Partial<SaasSocialChannelIdea> & { id: string; channelId: string }): Promise<SaasSocialChannelIdea> { const saasId = requireSaasId(ctx); const current = await queryFirst<SocialChannelIdeaRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, channel_id, title, angle, summary, status, created_at, updated_at FROM saas_social_channel_ideas WHERE tenant_id = ? AND saas_id = ? AND id = ? LIMIT 1`, ctx.tenantId, saasId, input.id); if (!current) throw new SocialContextError("Social channel idea not found."); const now = nowIso(); await runStatement(ctx.socialDb, `UPDATE saas_social_channel_ideas SET channel_id = ?, title = ?, angle = ?, summary = ?, status = ?, updated_at = ? WHERE tenant_id = ? AND saas_id = ? AND id = ?`, input.channelId, input.title ?? current.title, typeof input.angle === "undefined" ? current.angle : input.angle, typeof input.summary === "undefined" ? current.summary : input.summary, input.status ?? current.status, now, ctx.tenantId, saasId, input.id); const row = await queryFirst<SocialChannelIdeaRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, channel_id, title, angle, summary, status, created_at, updated_at FROM saas_social_channel_ideas WHERE tenant_id = ? AND saas_id = ? AND id = ? LIMIT 1`, ctx.tenantId, saasId, input.id); if (!row) throw new SocialContextError("Unable to update social channel idea."); return mapChannelIdeaRow(row); }
+export async function getSaasSocialChannelKnowledge(ctx: SocialContext, channelId: string): Promise<SaasSocialChannelKnowledge | null> { return mapKnowledgeRow(await ensureKnowledgeRow(ctx, channelId)); }
+export async function upsertSaasSocialChannelKnowledge(ctx: SocialContext, input: Omit<SaasSocialChannelKnowledge, "tenantId" | "saasId">): Promise<SaasSocialChannelKnowledge> { const saasId = requireSaasId(ctx); const existing = await ensureKnowledgeRow(ctx, input.channelId); const updatedAt = input.updatedAt ?? nowIso(); await runStatement(ctx.socialDb, `UPDATE saas_social_channel_knowledge SET objective = ?, audience = ?, tone = ?, keywords = ?, competitors = ?, sources = ?, updated_at = ? WHERE id = ? AND tenant_id = ? AND saas_id = ?`, input.objective ?? null, input.audience ?? null, input.tone ?? null, serializeJson(normalizeStringList(input.keywords)), serializeJson(normalizeStringList(input.competitors)), serializeJson(normalizeStringList(input.sources)), updatedAt, existing.id, ctx.tenantId, saasId); const row = await queryFirst<SocialChannelKnowledgeRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, channel_id, objective, audience, tone, keywords, competitors, sources, updated_at FROM saas_social_channel_knowledge WHERE tenant_id = ? AND saas_id = ? AND channel_id = ? LIMIT 1`, ctx.tenantId, saasId, input.channelId); if (!row) throw new SocialContextError("Unable to persist channel knowledge."); return mapKnowledgeRow(row); }
+export async function getSaasSocialChannelSignals(ctx: SocialContext, channelId: string): Promise<SaasSocialChannelSignals> { return mapSignalsRow(await ensureSignalsRow(ctx, channelId)); }
+export async function upsertSaasSocialChannelSignals(ctx: SocialContext, input: Omit<SaasSocialChannelSignals, "tenantId" | "saasId" | "updatedAt"> & { updatedAt?: string }): Promise<SaasSocialChannelSignals> { const saasId = requireSaasId(ctx); const existing = await ensureSignalsRow(ctx, input.channelId); const updatedAt = input.updatedAt ?? nowIso(); await runStatement(ctx.socialDb, `UPDATE saas_social_channel_signals SET topics = ?, active_keywords = ?, trend_notes = ?, watched_competitors = ?, watched_sources = ?, updated_at = ? WHERE id = ? AND tenant_id = ? AND saas_id = ?`, serializeJson(normalizeStringList(input.topics)), serializeJson(normalizeStringList(input.activeKeywords)), input.trendNotes ?? null, serializeJson(normalizeStringList(input.watchedCompetitors)), serializeJson(normalizeStringList(input.watchedSources)), updatedAt, existing.id, ctx.tenantId, saasId); const row = await queryFirst<SocialChannelSignalsRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, channel_id, topics, active_keywords, trend_notes, watched_competitors, watched_sources, updated_at FROM saas_social_channel_signals WHERE tenant_id = ? AND saas_id = ? AND channel_id = ? LIMIT 1`, ctx.tenantId, saasId, input.channelId); if (!row) throw new SocialContextError("Unable to persist channel signals."); return mapSignalsRow(row); }
+export async function refreshSocialPostLiveAnalytics(ctx: SocialContext, postId: string, _input?: { force?: boolean }): Promise<{ ok: boolean; code: string; message: string; post: SaasSocialPost | null }> { const post = await getSaasSocialPostById(ctx, postId); if (!post) return { ok: false, code: "POST_NOT_FOUND", message: "Post not found", post: null }; const metrics = await listSaasSocialMetricsForPost(ctx, postId); const latest = metrics[0] ?? null; if (!latest) { const analytics = { source: "unavailable", impressions: 0, likes: 0, comments: 0, shares: 0, clicks: 0, engagement: 0, lastFetchedAt: nowIso(), lastRefreshStatus: "error" as const, lastRefreshErrorMessage: "No metrics stored for this post in SOCIAL_DB.", lastRefreshErrorCode: "SOCIAL_METRICS_MISSING" }; await upsertSaasSocialPost(ctx, { id: post.id, saasId: post.saasId, channelId: post.channelId ?? null, campaignId: post.campaignId, creationMode: post.creationMode, provider: post.provider, contentType: post.contentType, title: post.title, body: post.body, imageHint: post.imageHint, status: post.status, scheduledAt: post.scheduledAt, postedAt: post.postedAt, externalPostId: post.externalPostId, metadata: mergeMetadata(post.metadata, { analytics }) }); return { ok: false, code: "SOCIAL_METRICS_MISSING", message: "No metrics stored for this post in SOCIAL_DB.", post: await getSaasSocialPostById(ctx, post.id) }; } const analytics = { source: "social_db", impressions: latest.impressions, likes: latest.likes, comments: latest.comments, shares: latest.shares, clicks: latest.clicks, engagement: latest.likes + latest.comments + latest.shares + latest.clicks, reach: typeof latest.metadata?.reach === "number" ? latest.metadata.reach : 0, saved: typeof latest.metadata?.saved === "number" ? latest.metadata.saved : 0, lastFetchedAt: latest.capturedAt, lastRefreshStatus: "success" as const, lastRefreshErrorMessage: null, lastRefreshErrorCode: null }; await upsertSaasSocialPost(ctx, { id: post.id, saasId: post.saasId, channelId: post.channelId ?? null, campaignId: post.campaignId, creationMode: post.creationMode, provider: post.provider, contentType: post.contentType, title: post.title, body: post.body, imageHint: post.imageHint, status: post.status, scheduledAt: post.scheduledAt, postedAt: post.postedAt, externalPostId: post.externalPostId, metadata: mergeMetadata(post.metadata, { analytics }) }); return { ok: true, code: "SOCIAL_ANALYTICS_SYNCED", message: "Analytics refreshed from SOCIAL_DB.", post: await getSaasSocialPostById(ctx, post.id) }; }
+export async function markSocialPostAnalyticsReviewed(ctx: SocialContext, postId: string, manualReviewNote: string | null): Promise<SaasSocialPost | null> { const post = await getSaasSocialPostById(ctx, postId); if (!post) return null; await upsertSaasSocialPost(ctx, { id: post.id, saasId: post.saasId, channelId: post.channelId ?? null, campaignId: post.campaignId, creationMode: post.creationMode, provider: post.provider, contentType: post.contentType, title: post.title, body: post.body, imageHint: post.imageHint, status: post.status, scheduledAt: post.scheduledAt, postedAt: post.postedAt, externalPostId: post.externalPostId, metadata: mergeMetadata(post.metadata, { analyticsReview: { reviewed: true, manualReviewAt: nowIso(), note: manualReviewNote } }) }); return getSaasSocialPostById(ctx, post.id); }
+export async function listSaasSocialAccounts(ctx: SocialContext): Promise<SaasSocialAccount[]> { const saasId = requireSaasId(ctx); const rows = await queryRows<SocialAccountRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, provider, handle, display_name, status, auth_meta, is_primary, linkedin_cm_enabled, created_at, updated_at FROM saas_social_accounts WHERE tenant_id = ? AND saas_id = ? ORDER BY is_primary DESC, datetime(updated_at) DESC`, ctx.tenantId, saasId); return rows.map(mapAccountRow); }
+// linkedinCmEnabled: ausente en el input se escribe como false (0) — nadie activa esta
+// columna todavía (ver [[project_linkedin_integration_state]]), así que no hace falta
+// preservar un valor previo en cada upsert; cuando exista una acción real de activación,
+// esa acción tendrá que pasar linkedinCmEnabled: true explícitamente en CADA upsert
+// posterior de esa cuenta (incluida cada reconexión OAuth) o se perderá el flag.
+export async function upsertSaasSocialAccount(ctx: SocialContext, input: Omit<SaasSocialAccount, "id" | "tenantId" | "createdAt" | "updatedAt"> & { id?: string }): Promise<SaasSocialAccount> { const saasId = input.saasId?.trim() ?? requireSaasId(ctx); const id = input.id?.trim() ?? generateUuid(); const now = nowIso(); if (input.isPrimary) await runStatement(ctx.socialDb, `UPDATE saas_social_accounts SET is_primary = 0, updated_at = ? WHERE tenant_id = ? AND saas_id = ?`, now, ctx.tenantId, saasId); await runStatement(ctx.socialDb, `INSERT INTO saas_social_accounts (id, tenant_id, saas_id, provider, handle, display_name, status, auth_meta, is_primary, linkedin_cm_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET provider = excluded.provider, handle = excluded.handle, display_name = excluded.display_name, status = excluded.status, auth_meta = excluded.auth_meta, is_primary = excluded.is_primary, linkedin_cm_enabled = excluded.linkedin_cm_enabled, updated_at = excluded.updated_at WHERE saas_social_accounts.tenant_id = excluded.tenant_id AND saas_social_accounts.saas_id = excluded.saas_id`, id, ctx.tenantId, saasId, input.provider, input.handle ?? null, input.displayName ?? null, input.status, serializeJson(input.authMeta), input.isPrimary ? 1 : 0, input.linkedinCmEnabled ? 1 : 0, now, now); await ensureChannelForProvider({ ...ctx, saasId }, input.provider); const row = await queryFirst<SocialAccountRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, provider, handle, display_name, status, auth_meta, is_primary, linkedin_cm_enabled, created_at, updated_at FROM saas_social_accounts WHERE tenant_id = ? AND saas_id = ? AND id = ? LIMIT 1`, ctx.tenantId, saasId, id); if (!row) throw new SocialContextError("Unable to persist social account."); return mapAccountRow(row); }
+export async function listSaasSocialCampaigns(ctx: SocialContext): Promise<SaasSocialCampaign[]> { const saasId = requireSaasId(ctx); const rows = await queryRows<SocialCampaignRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, name, objective, status, target_segment, start_date, end_date, budget_estimate, notes, post_count, reel_count, historia_count, carousel_count, created_at, updated_at FROM saas_social_campaigns WHERE tenant_id = ? AND saas_id = ? ORDER BY datetime(created_at) DESC`, ctx.tenantId, saasId); return rows.map(mapCampaignRow); }
+export async function upsertSaasSocialCampaign(ctx: SocialContext, input: Omit<SaasSocialCampaign, "id" | "tenantId" | "createdAt" | "updatedAt"> & { id?: string }): Promise<SaasSocialCampaign> { const saasId = input.saasId?.trim() ?? requireSaasId(ctx); const id = input.id?.trim() ?? generateUuid(); const now = nowIso(); await runStatement(ctx.socialDb, `INSERT INTO saas_social_campaigns (id, tenant_id, saas_id, name, objective, status, target_segment, start_date, end_date, budget_estimate, notes, post_count, reel_count, historia_count, carousel_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, objective = excluded.objective, status = excluded.status, target_segment = excluded.target_segment, start_date = excluded.start_date, end_date = excluded.end_date, budget_estimate = excluded.budget_estimate, notes = excluded.notes, post_count = excluded.post_count, reel_count = excluded.reel_count, historia_count = excluded.historia_count, carousel_count = excluded.carousel_count, updated_at = excluded.updated_at WHERE saas_social_campaigns.tenant_id = excluded.tenant_id AND saas_social_campaigns.saas_id = excluded.saas_id`, id, ctx.tenantId, saasId, input.name, input.objective ?? null, input.status, input.targetSegment, input.startDate ?? null, input.endDate ?? null, input.budgetEstimate ?? null, input.notes ?? null, input.postCount ?? 0, input.reelCount ?? 0, input.historiaCount ?? 0, input.carouselCount ?? 0, now, now); const row = await queryFirst<SocialCampaignRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, name, objective, status, target_segment, start_date, end_date, budget_estimate, notes, post_count, reel_count, historia_count, carousel_count, created_at, updated_at FROM saas_social_campaigns WHERE id = ? AND tenant_id = ? AND saas_id = ? LIMIT 1`, id, ctx.tenantId, saasId); if (!row) throw new SocialContextError("Unable to persist social campaign."); return mapCampaignRow(row); }
+export async function getSaasSocialCampaignById(ctx: SocialContext, campaignId: string): Promise<SaasSocialCampaign | null> { const saasId = requireSaasId(ctx); const row = await queryFirst<SocialCampaignRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, name, objective, status, target_segment, start_date, end_date, budget_estimate, notes, post_count, reel_count, historia_count, carousel_count, created_at, updated_at FROM saas_social_campaigns WHERE id = ? AND tenant_id = ? AND saas_id = ? LIMIT 1`, campaignId, ctx.tenantId, saasId); return row ? mapCampaignRow(row) : null; }
+export async function deleteSaasSocialCampaign(ctx: SocialContext, campaignId: string): Promise<void> { const saasId = requireSaasId(ctx); await runStatement(ctx.socialDb, `DELETE FROM saas_social_posts WHERE campaign_id = ? AND tenant_id = ? AND saas_id = ? AND status = 'DRAFT'`, campaignId, ctx.tenantId, saasId); await runStatement(ctx.socialDb, `UPDATE saas_social_posts SET campaign_id = NULL, updated_at = ? WHERE campaign_id = ? AND tenant_id = ? AND saas_id = ?`, nowIso(), campaignId, ctx.tenantId, saasId); await runStatement(ctx.socialDb, `DELETE FROM saas_social_campaigns WHERE id = ? AND tenant_id = ? AND saas_id = ?`, campaignId, ctx.tenantId, saasId); }
+export async function listSaasSocialPosts(ctx: SocialContext, filters?: { campaignId?: string | null; status?: string | null; provider?: SaasSocialProvider | null }): Promise<SaasSocialPost[]> { const saasId = requireSaasId(ctx); const clauses = ["tenant_id = ?", "saas_id = ?"]; const params: unknown[] = [ctx.tenantId, saasId]; if (filters?.campaignId) { clauses.push("campaign_id = ?"); params.push(filters.campaignId); } if (filters?.status) { clauses.push("status = ?"); params.push(filters.status); } if (filters?.provider) { clauses.push("provider = ?"); params.push(filters.provider); } const rows = await queryRows<SocialPostRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, channel_id, campaign_id, provider, content_type, title, body, image_hint, status, scheduled_at, posted_at, external_post_id, metadata, creation_mode, created_at, updated_at FROM saas_social_posts WHERE ${clauses.join(" AND ")} ORDER BY datetime(created_at) DESC`, ...params); return rows.map(mapPostRow); }
+export async function getSaasSocialPostById(ctx: SocialContext, postId: string): Promise<SaasSocialPost | null> { const saasId = requireSaasId(ctx); const row = await queryFirst<SocialPostRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, channel_id, campaign_id, provider, content_type, title, body, image_hint, status, scheduled_at, posted_at, external_post_id, metadata, creation_mode, created_at, updated_at FROM saas_social_posts WHERE tenant_id = ? AND saas_id = ? AND id = ? LIMIT 1`, ctx.tenantId, saasId, postId); return row ? mapPostRow(row) : null; }
+// Cuenta posts cuya fecha efectiva (posted_at si ya se publicó, si no scheduled_at, si
+// no created_at) cae en [sinceIso, untilIso). Usado por billing/enforce.ts para medir
+// consumo de cuota diaria/semanal/mensual de publicación (getWeeklyPublishStatus).
+type PostRangeFilters = { provider?: SaasSocialProvider; contentType?: SaasSocialPost["contentType"]; excludeContentTypes?: SaasSocialPost["contentType"][] };
+
+export async function countSaasSocialPostsInRange(ctx: SocialContext, sinceIso: string, untilIso: string, statuses: string[], filters?: PostRangeFilters): Promise<number> {
+  const saasId = requireSaasId(ctx);
+  const placeholders = statuses.map(() => "?").join(", ");
+  const params: unknown[] = [ctx.tenantId, saasId, ...statuses, sinceIso, untilIso];
+  let sql = `SELECT COUNT(*) as n FROM saas_social_posts WHERE tenant_id = ? AND saas_id = ? AND status IN (${placeholders}) AND COALESCE(posted_at, scheduled_at, created_at) >= ? AND COALESCE(posted_at, scheduled_at, created_at) < ?`;
+  if (filters?.provider) { sql += ` AND provider = ?`; params.push(filters.provider); }
+  if (filters?.contentType) { sql += ` AND content_type = ?`; params.push(filters.contentType); }
+  if (filters?.excludeContentTypes?.length) { sql += ` AND content_type NOT IN (${filters.excludeContentTypes.map(() => "?").join(", ")})`; params.push(...filters.excludeContentTypes); }
+  const row = await queryFirst<{ n: number }>(ctx.socialDb, sql, ...params);
+  return row?.n ?? 0;
+}
+export async function updateSaasSocialPostStatus(ctx: SocialContext, input: { id: string; status: SaasSocialPost["status"]; postedAt?: string | null }): Promise<SaasSocialPost | null> { const post = await getSaasSocialPostById(ctx, input.id); if (!post) return null; const publication = typeof post.metadata?.publication === "object" && post.metadata.publication ? (post.metadata.publication as Record<string, unknown>) : {}; const metadata = mergeMetadata(post.metadata, { publication: { ...publication, state: input.status === "FAILED" ? "failed" : input.status === "PUBLISHED" || input.status === "POSTED" ? "published" : "queued", mode: input.status === "PUBLISHED" || input.status === "POSTED" ? "live" : publication.mode ?? null, lastAttemptAt: nowIso(), externalPostId: post.externalPostId } }); await upsertSaasSocialPost(ctx, { id: post.id, saasId: post.saasId, channelId: post.channelId ?? null, campaignId: post.campaignId, creationMode: post.creationMode, provider: post.provider, contentType: post.contentType, title: post.title, body: post.body, imageHint: post.imageHint, status: input.status, scheduledAt: post.scheduledAt, postedAt: input.status === "POSTED" || input.status === "PUBLISHED" ? input.postedAt ?? nowIso() : post.postedAt, externalPostId: post.externalPostId, metadata }); return getSaasSocialPostById(ctx, input.id); }
+export async function deleteSaasSocialPost(ctx: SocialContext, postId: string): Promise<void> { const saasId = requireSaasId(ctx); await runStatement(ctx.socialDb, `DELETE FROM saas_social_posts WHERE id = ? AND tenant_id = ? AND saas_id = ?`, postId, ctx.tenantId, saasId); }
+// Marca de agua de trial (texto+link, formato "a" y "b" del diseño) — texto fijo, no
+// depende de la marca del tenant cliente. Idempotente a propósito: upsertSaasSocialPost
+// es un UPSERT que se llama repetidas veces sobre el mismo post (edición, cambio de
+// estado, republicación) — sin este check, cada llamada con applyTrialCaptionLink:true
+// duplicaría la línea. Quien decide SI aplica (isActiveSocialFlowTrial, ya excluye
+// cuentas internas) vive fuera de este archivo — aquí solo se garantiza que aplicarlo
+// dos veces sobre el mismo body es un no-op.
+const TRIAL_CAPTION_LINK = "Creado con socialcors.com";
+function appendTrialCaptionLink(body: string): string {
+  return body.includes(TRIAL_CAPTION_LINK) ? body : `${body}\n\n${TRIAL_CAPTION_LINK}`;
+}
+export async function upsertSaasSocialPost(ctx: SocialContext, input: Omit<SaasSocialPost, "id" | "tenantId" | "createdAt" | "updatedAt"> & { id?: string }, options?: { applyTrialCaptionLink?: boolean }): Promise<SaasSocialPost> { const saasId = input.saasId?.trim() ?? requireSaasId(ctx); const id = input.id?.trim() ?? generateUuid(); const now = nowIso(); const body = options?.applyTrialCaptionLink ? appendTrialCaptionLink(input.body) : input.body; const channel = input.channelId ? await queryFirst<SocialChannelRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, name, provider, status, created_at, updated_at FROM saas_social_channels WHERE tenant_id = ? AND saas_id = ? AND id = ? LIMIT 1`, ctx.tenantId, saasId, input.channelId) : null; const channelId = channel?.id ?? (await ensureChannelForProvider({ ...ctx, saasId }, input.provider)).id; await runStatement(ctx.socialDb, `INSERT INTO saas_social_posts (id, tenant_id, saas_id, channel_id, campaign_id, provider, content_type, title, body, image_hint, status, scheduled_at, posted_at, external_post_id, metadata, creation_mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET channel_id = excluded.channel_id, campaign_id = excluded.campaign_id, provider = excluded.provider, content_type = excluded.content_type, title = excluded.title, body = excluded.body, image_hint = excluded.image_hint, status = excluded.status, scheduled_at = excluded.scheduled_at, posted_at = excluded.posted_at, external_post_id = excluded.external_post_id, metadata = excluded.metadata, creation_mode = excluded.creation_mode, updated_at = excluded.updated_at WHERE saas_social_posts.tenant_id = excluded.tenant_id AND saas_social_posts.saas_id = excluded.saas_id`, id, ctx.tenantId, saasId, channelId, input.campaignId ?? null, input.provider, input.contentType, input.title, body, input.imageHint ?? null, input.status, input.scheduledAt ?? null, input.postedAt ?? null, input.externalPostId ?? null, serializeJson(input.metadata), input.creationMode ?? "AUTO", now, now); const row = await queryFirst<SocialPostRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, channel_id, campaign_id, provider, content_type, title, body, image_hint, status, scheduled_at, posted_at, external_post_id, metadata, creation_mode, created_at, updated_at FROM saas_social_posts WHERE id = ? AND tenant_id = ? AND saas_id = ? LIMIT 1`, id, ctx.tenantId, saasId); if (!row) throw new SocialContextError("Unable to persist social post."); return mapPostRow(row); }
+export async function listSaasSocialMetricsForPost(ctx: SocialContext, postId: string): Promise<SaasSocialMetrics[]> { const post = await getSaasSocialPostById(ctx, postId); if (!post) throw new SocialContextError("Social post not found."); const rows = await queryRows<SocialMetricsRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, post_id, provider, impressions, likes, comments, shares, clicks, leads_generated, captured_at, metadata FROM saas_social_metrics WHERE tenant_id = ? AND saas_id = ? AND post_id = ? ORDER BY datetime(captured_at) DESC`, ctx.tenantId, post.saasId, postId); return rows.map(mapMetricsRow); }
+export async function upsertSaasSocialMetrics(ctx: SocialContext, input: { postId: string; provider: SaasSocialProvider; impressions: number; likes: number; comments: number; shares: number; clicks: number; leadsGenerated?: number; reach?: number; saved?: number; capturedAt?: string; metadata?: Record<string, unknown> | null }): Promise<SaasSocialMetrics> { const saasId = requireSaasId(ctx); const id = generateUuid(); const capturedAt = input.capturedAt ?? nowIso(); await runStatement(ctx.socialDb, `INSERT INTO saas_social_metrics (id, tenant_id, saas_id, post_id, provider, impressions, likes, comments, shares, clicks, leads_generated, reach, saved, captured_at, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, ctx.tenantId, saasId, input.postId, input.provider, input.impressions, input.likes, input.comments, input.shares, input.clicks, input.leadsGenerated ?? 0, input.reach ?? 0, input.saved ?? 0, capturedAt, serializeJson(input.metadata ?? null)); const row = await queryFirst<SocialMetricsRow>(ctx.socialDb, `SELECT id, tenant_id, saas_id, post_id, provider, impressions, likes, comments, shares, clicks, leads_generated, captured_at, metadata FROM saas_social_metrics WHERE id = ? LIMIT 1`, id); if (!row) throw new SocialContextError("Unable to persist social metrics."); return mapMetricsRow(row); }
+export async function getSocialOverview(ctx: SocialContext): Promise<{ connectedAccounts: number; activeCampaigns: number; scheduledThisWeek: number; engagementLast30Days: number }> { const [accounts, campaigns, posts, analytics] = await Promise.all([listSaasSocialAccounts(ctx), listSaasSocialCampaigns(ctx), listSaasSocialPosts(ctx), getSocialAnalyticsSnapshot(ctx)]); const now = Date.now(); return { connectedAccounts: accounts.filter((account) => account.status !== "DISCONNECTED").length, activeCampaigns: campaigns.filter((campaign) => campaign.status === "ACTIVE").length, scheduledThisWeek: posts.filter((post) => post.status === "SCHEDULED" && post.scheduledAt && new Date(post.scheduledAt).getTime() >= now && new Date(post.scheduledAt).getTime() <= now + 7 * 24 * 60 * 60 * 1000).length, engagementLast30Days: analytics.last30Days.engagement }; }
+export type SocialOwnerSummary = { accountsConnected: number; activeCampaigns: number; scheduledPostsThisWeek: number; recentEngagementScore: number };
+export async function getSocialOwnerSummary(ctx: SocialContext): Promise<SocialOwnerSummary> { const [accounts, campaigns, posts, analytics] = await Promise.all([listSaasSocialAccounts(ctx), listSaasSocialCampaigns(ctx), listSaasSocialPosts(ctx), getSocialAnalyticsSnapshot(ctx)]); const now = Date.now(); return { accountsConnected: accounts.filter((account) => account.status !== "DISCONNECTED").length, activeCampaigns: campaigns.filter((campaign) => campaign.status === "ACTIVE").length, scheduledPostsThisWeek: posts.filter((post) => post.status === "SCHEDULED" && post.scheduledAt && new Date(post.scheduledAt).getTime() >= now && new Date(post.scheduledAt).getTime() <= now + 7 * 24 * 60 * 60 * 1000).length, recentEngagementScore: analytics.last30Days.likes + analytics.last30Days.comments + analytics.last30Days.shares }; }
+
+export async function getLastScheduledPostDate(ctx: SocialContext): Promise<string | null> {
+  const saasId = requireSaasId(ctx);
+  const row = await queryFirst<{ last_date: string | null }>(
+    ctx.socialDb,
+    `SELECT DATE(MAX(scheduled_at)) as last_date FROM saas_social_posts WHERE tenant_id = ? AND saas_id = ? AND scheduled_at IS NOT NULL`,
+    ctx.tenantId,
+    saasId,
+  );
+  return row?.last_date ?? null;
+}
+
+export async function getFutureScheduledSlots(ctx: SocialContext): Promise<string[]> {
+  const saasId = requireSaasId(ctx);
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const rows = await queryRows<{ scheduled_at: string }>(
+    ctx.socialDb,
+    `SELECT scheduled_at FROM saas_social_posts WHERE tenant_id = ? AND saas_id = ? AND scheduled_at >= ? AND status IN ('SCHEDULED', 'APPROVED', 'POSTED', 'PUBLISHING') ORDER BY scheduled_at ASC`,
+    ctx.tenantId,
+    saasId,
+    todayUtc,
+  );
+  return rows.map((r) => r.scheduled_at);
+}

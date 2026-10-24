@@ -1,0 +1,17 @@
+name = "test-mentoria-auths-collision"
+
+[env.production]
+name = "test-mentoria-auths-prod"
+
+[[env.production.d1_databases]]
+binding = "MENTORIAS_AUTHS_DB"
+database_name = "mentorias_auths_prod_db"
+database_id = "33333333-3333-3333-3333-333333333333"
+
+[env.preview]
+name = "test-mentoria-auths-preview"
+
+[[env.preview.d1_databases]]
+binding = "MENTORIAS_AUTHS_DB"
+database_name = "mentorias_auths_preview_db"
+database_id = "33333333-3333-3333-3333-333333333333"

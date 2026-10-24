@@ -1,7 +1,10 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { queryAll, run } from "@/lib/db";
 import { executeProvisioningPlaybookForSaaS } from "@/lib/provisioning-playbook";
-import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
+import { authorizeSaasAccess, requireTenant } from "@/lib/authz/saas-access";
+import { extractSessionFromRequest } from "@/lib/edge-auth";
+import { UnauthorizedError } from "@/lib/auth/session";
 import { env, type DracoEnv } from "@/lib/cf";
 import { ensureCampamentoBase, getCampamentoCoreAgentsCatalog, getCampamentoCoreDepartmentsCatalog } from "@/lib/campamento-base";
 import { listDemoSaas, listDemoClients } from "@/lib/admin/demo-data";
@@ -9,6 +12,7 @@ import { DEV_ARCHITECT_AGENT } from "@/lib/dev-architects/agent";
 import { recordCampamentoEvent } from "@/lib/empire/events";
 import { createOrMergeActionFromWebhook } from "@/lib/owner/action-queue-repository";
 import { extractClientIp } from "@/lib/security/rate-limit";
+import { runAi } from "@/lib/ai/client";
 import {
   buildCircuitBreakerKey,
   buildMonthlyUsageKey,
@@ -47,7 +51,7 @@ import type {
   DevArchitectSession,
   DevArchitectTask,
 } from "@/lib/dev-architects/types";
-// export const runtime = "edge"; // OpenNext Migration
+
 
 
 function readProcessEnv(key: string): string | undefined {
@@ -61,7 +65,7 @@ function resolveOrchestratorModel(bindings: DracoEnv | null): string {
   const configuredModel = bindings?.ORCHESTRATOR_MODEL ?? processModel ?? "";
   return configuredModel && configuredModel.trim().length > 0
     ? configuredModel.trim()
-    : "accounts/fireworks/models/firefunction-v1";
+    : "@cf/meta/llama-3.1-70b-instruct";
 }
 
 
@@ -482,7 +486,7 @@ async function buildOrchestratorContext({
       }
       if (devErrors.length > 0) {
         base.contextError = true;
-        base.contextErrorMessage = devErrors.join("; " );
+        base.contextErrorMessage = devErrors.join("; ");
       }
     }
 
@@ -735,10 +739,10 @@ async function buildOrchestratorContext({
       ...panelContext,
       company: companyId
         ? {
-            id: companyId,
-            name: companyName,
-            slug: companySlug,
-          }
+          id: companyId,
+          name: companyName,
+          slug: companySlug,
+        }
         : panelContext.company ?? null,
     };
   }
@@ -820,8 +824,7 @@ function buildDevArchitectContextSummary(context?: OrchestratorDevArchitectConte
   const summaryParts: string[] = [];
   if (activeProject) {
     summaryParts.push(
-      `Proyecto activo: ${activeProject.name} (${activeProject.type}) • Estado ${activeProject.status}${
-        activeProject.branch_name ? ` • Rama ${activeProject.branch_name}` : ""
+      `Proyecto activo: ${activeProject.name} (${activeProject.type}) • Estado ${activeProject.status}${activeProject.branch_name ? ` • Rama ${activeProject.branch_name}` : ""
       }${activeProject.last_build_status ? ` • Build ${activeProject.last_build_status}` : ""}.`,
     );
   }
@@ -906,16 +909,13 @@ async function callOrchestratorModel({
   userMessage: string;
   agentId?: string | null;
 }): Promise<CallModelSuccess | CallModelError> {
-  const provider = "fireworks";
-  const processApiKey = readProcessEnv("FIREWORKS_API_KEY");
-  const apiKey = bindings?.FIREWORKS_API_KEY ?? processApiKey;
-  const hasApiKey = Boolean(apiKey);
-  if (!apiKey) {
-    console.warn("ORCHESTRATOR_LLM_NO_API_KEY", {
+  const provider = "workers-ai";
+  const hasAiBinding = Boolean(bindings?.AI?.run);
+  if (!hasAiBinding) {
+    console.warn("ORCHESTRATOR_LLM_NO_AI_BINDING", {
       hasBindings: Boolean(bindings),
-      hasProcessEnvKey: Boolean(processApiKey),
     });
-    return { ok: false, error: "FIREWORKS_API_KEY not configured", model: "", provider, reason: "missing_key" };
+    return { ok: false, error: "DRAKO_AI_NOT_AVAILABLE", model: "", provider, reason: "missing_key" };
   }
 
   const model = resolveOrchestratorModel(bindings);
@@ -930,61 +930,42 @@ async function callOrchestratorModel({
   });
 
   try {
-    const response = await fetch("https://api.fireworks.ai/inference/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.2,
-        max_tokens: 800,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "system", content: `Contexto JSON:\n${trimmedContext}` },
-          { role: "user", content: userMessage },
-        ],
-      }),
+    const response = await runAi({
+      tenantId: context.tenantId,
+      saasId: context.saas_id ?? context.companyResolvedSaasId ?? null,
+      agentId,
+      department: "orchestrator",
+      plan: null,
+      mode: "smart",
+      cache: false,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "system", content: `Contexto JSON:\n${trimmedContext}` },
+        { role: "user", content: userMessage },
+      ],
     });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      console.warn("ORCHESTRATOR_LLM_HTTP_ERROR", {
-        hasApiKey,
-        status: response.status,
-        bodySnippet: errorText.slice(0, 200),
+    if (!response.ok || !response.content?.trim()) {
+      console.warn("ORCHESTRATOR_LLM_EMPTY_RESPONSE", {
+        hasAiBinding,
       });
       return {
         ok: false,
-        error: `Fireworks request failed (${response.status}): ${errorText}`,
+        error: "Workers AI response sin contenido",
         model,
         provider,
         reason: "http_error",
       };
     }
-
-    const data = (await response.json()) as {
-      choices?: { message?: { content?: string } }[];
-      usage?: { total_tokens?: number };
-    };
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) {
-      console.warn("ORCHESTRATOR_LLM_EMPTY_RESPONSE", {
-        hasApiKey,
-        choices: data.choices?.length ?? 0,
-      });
-      return { ok: false, error: "Fireworks response sin contenido", model, provider, reason: "http_error" };
-    }
-    return { ok: true, reply: content, totalTokens: data.usage?.total_tokens, model, provider };
+    return { ok: true, reply: response.content.trim(), totalTokens: response.usage?.tokens, model: response.model, provider };
   } catch (error) {
     console.warn("ORCHESTRATOR_LLM_EXCEPTION", {
-      hasApiKey,
+      hasAiBinding,
       error: error instanceof Error ? error.message : String(error),
     });
     return {
       ok: false,
-      error: error instanceof Error ? error.message : "Fireworks request exception",
+      error: error instanceof Error ? error.message : "Workers AI request exception",
       model,
       provider,
       reason: "exception",
@@ -1115,8 +1096,8 @@ async function recordOrchestratorAlert({
 }
 
 function authErrorResponse(error: unknown) {
-  if (error instanceof UnauthorizedError) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+  if (error instanceof Error && error.message.includes("FORBIDDEN")) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 403 });
   }
   return null;
 }
@@ -1151,9 +1132,12 @@ function normalizePanelContext(
   return context;
 }
 
-export async function GET(req: Request) {
+export async function GET(req: Request | any) {
   try {
-    const { tenantId } = await requireTenantAccess(req);
+    const session = await extractSessionFromRequest(req);
+    const access = await authorizeSaasAccess(session, { headers: req.headers } as any);
+    requireTenant(access);
+    const tenantId = access.tenantId!;
     const url = new URL(req.url);
     const threadId = url.searchParams.get("thread_id");
     if (!threadId) {
@@ -1178,9 +1162,12 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: Request | any) {
   try {
-    const { tenantId } = await requireTenantAccess(req);
+    const session = await extractSessionFromRequest(req);
+    const access = await authorizeSaasAccess(session, { headers: req.headers } as any);
+    requireTenant(access);
+    const tenantId = access.tenantId!;
     const body = (await req.json().catch(() => null)) as {
       thread_id?: string;
       message?: string;
@@ -1211,7 +1198,7 @@ export async function POST(req: Request) {
       (panelContext?.scope === "saas" ? panelContext.saas?.slug : null) ||
       null;
     const config = getAiGovernanceConfig(bindings);
-    const provider = "fireworks";
+    const provider = "workers-ai";
     const orchestratorContext = await buildOrchestratorContext({
       tenantId,
       path,
@@ -1368,7 +1355,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const hasApiKey = Boolean(bindings?.FIREWORKS_API_KEY ?? readProcessEnv("FIREWORKS_API_KEY"));
+    const hasApiKey = Boolean(bindings?.AI?.run);
     const breakerKey = buildCircuitBreakerKey({ tenantId, saasSlug, provider });
     if (hasApiKey) {
       let breaker = await getCircuitBreaker({ key: breakerKey, envOverride: bindings ?? null });

@@ -1,0 +1,531 @@
+import type { CarouselSlideRole } from "@/lib/socialflow/ai/agents/CarouselComposerAgent";
+import type { ReelsTextRole } from "@/lib/socialflow/reels/ReelsEngine";
+import { sampleAverageBrightness } from "@/lib/socialflow/reels/CanvasRenderer";
+import { seededRandom } from "@/lib/socialflow/reels/seededRandom";
+import type { CarouselStyleVariant } from "@/lib/socialflow/carousel/CarouselStylePacks";
+
+// Compone un slide de carrusel ESTÁTICO (una foto + un bloque de texto quemado encima)
+// reusando la jerarquía visual y la lógica de brillo→color de CanvasRenderer.ts, pero sin
+// nada de animación/timing/vídeo — dibuja una vez y exporta una imagen, no un frame de
+// una secuencia. wrapText/drawImageCover/loadImageBitmap se duplican aquí (son piezas
+// pequeñas y puras) en vez de exportarlas desde CanvasRenderer.ts, para no ampliar la
+// superficie tocada en el renderer de Reels que ya está en producción.
+
+export class StaticSlideRenderError extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = "StaticSlideRenderError";
+    this.code = code;
+  }
+}
+
+function assertBrowserEnvironment(): void {
+  if (typeof document === "undefined") {
+    throw new StaticSlideRenderError(
+      "StaticSlideRenderer solo puede ejecutarse en el navegador (necesita document/Canvas).",
+      "STATIC_SLIDE_RENDERER_REQUIRES_BROWSER",
+    );
+  }
+}
+
+async function loadImageBitmap(imageUrl: string): Promise<ImageBitmap> {
+  const res = await fetch(imageUrl);
+  if (!res.ok) {
+    throw new StaticSlideRenderError(`No se pudo cargar la imagen origen (${res.status}).`, "STATIC_SLIDE_IMAGE_FETCH_FAILED");
+  }
+  const blob = await res.blob();
+  return createImageBitmap(blob);
+}
+
+// Cover simple, sin el margen del 12% que usa CanvasRenderer.ts — ese margen existe
+// solo para dar recorrido a zoom/pan/parallax, que aquí no existen.
+function drawImageCoverStatic(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  image: ImageBitmap,
+  canvasWidth: number,
+  canvasHeight: number,
+): void {
+  const coverScale = Math.max(canvasWidth / image.width, canvasHeight / image.height);
+  const drawWidth = image.width * coverScale;
+  const drawHeight = image.height * coverScale;
+  ctx.drawImage(image, (canvasWidth - drawWidth) / 2, (canvasHeight - drawHeight) / 2, drawWidth, drawHeight);
+}
+
+function clampByte(value: number): number {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean;
+  const n = parseInt(full, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b].map((v) => clampByte(v).toString(16).padStart(2, "0")).join("")}`;
+}
+
+// amount > 0 aclara hacia blanco, amount < 0 oscurece hacia negro — proporcional a la
+// distancia al extremo, para que el resultado siga leyéndose como "el mismo color".
+function shadeColor(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const target = amount >= 0 ? 255 : 0;
+  const t = Math.min(1, Math.abs(amount));
+  return rgbToHex(r + (target - r) * t, g + (target - g) * t, b + (target - b) * t);
+}
+
+// Variedad de fondos por slide — sin esto, todas las slides IA de un carrusel (100% IA
+// o los slots que rellena la IA en uno mixto) salían con el MISMO fondo del pack (ver
+// Sprint carrusel: variedad de fondos). Deriva un color distinto por rol/posición a
+// partir de los colores que el pack ya define (backgroundColors[0]="primario",
+// backgroundColors[1]/accentColor="secundario"/"accent" — con fallback vía shadeColor
+// cuando el pack no define esos dos, ej. los packs "solid" de 1 solo color), y añade un
+// jitter de brillo determinista por slideIndex (seededRandom, no Math.random()) para que
+// dos slides del mismo "bucket" de color no salgan pixel-idénticas — mismo criterio de
+// "consistente entre renders, distinto por posición" que ya usa ReelsAgent.ts.
+function resolveAiSlideBackgroundColors(
+  style: CarouselStyleVariant,
+  role: CarouselSlideRole,
+  slideIndex: number,
+): [string, string?] {
+  const [primary, secondary] = style.backgroundColors;
+  const effectiveSecondary = secondary ?? shadeColor(primary, 0.18);
+  const effectiveAccent = style.accentColor ?? shadeColor(primary, -0.18);
+  const jitter = (seededRandom(`carousel-bg-${slideIndex}`)() - 0.5) * 0.12; // ±6%, solo textura
+
+  if (role === "cierre_cta") {
+    return [shadeColor(shadeColor(primary, -0.32), jitter), effectiveAccent];
+  }
+  if (slideIndex === 0) {
+    return [shadeColor(primary, jitter), effectiveSecondary];
+  }
+  const base = slideIndex % 2 === 0 ? effectiveSecondary : effectiveAccent;
+  const other = slideIndex % 2 === 0 ? effectiveAccent : effectiveSecondary;
+  return [shadeColor(base, jitter), other];
+}
+
+// Fondo generado por Canvas cuando el slide no trae foto (modo "Crear con IA") — usa la
+// técnica declarada en el estilo del pack (solid/gradient/stripes). darkOverlay (Estilo C)
+// se aplica aparte, también sobre foto real, ver applyDarkOverlay. `slideIndex` es
+// opcional para no romper compatibilidad: sin él, se usa backgroundColors tal cual
+// (comportamiento de siempre, un único color para todo el carrusel).
+function drawStyleBackground(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  style: CarouselStyleVariant,
+  canvasWidth: number,
+  canvasHeight: number,
+  role: CarouselSlideRole,
+  slideIndex?: number,
+): void {
+  const [primary, secondary] =
+    slideIndex !== undefined ? resolveAiSlideBackgroundColors(style, role, slideIndex) : style.backgroundColors;
+
+  if (style.backgroundKind === "gradient" && secondary) {
+    const gradient = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
+    gradient.addColorStop(0, primary);
+    gradient.addColorStop(1, secondary);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    return;
+  }
+
+  if (style.backgroundKind === "stripes") {
+    ctx.fillStyle = primary;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = secondary ?? primary;
+    const stripeWidth = canvasWidth * 0.07;
+    for (let x = -canvasHeight; x < canvasWidth + canvasHeight; x += stripeWidth * 2) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + canvasHeight, canvasHeight);
+      ctx.lineTo(x + canvasHeight + stripeWidth, canvasHeight);
+      ctx.lineTo(x + stripeWidth, 0);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+    return;
+  }
+
+  // "solid"
+  ctx.fillStyle = primary;
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+}
+
+function applyDarkOverlay(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+): void {
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  ctx.restore();
+}
+
+// Handle del cliente — SIEMPRE se dibuja si se pasa, sin importar el estilo/rol del
+// slide (esquina inferior izquierda, pequeño, semitransparente con sombra para leerse
+// tanto sobre fondos claros como oscuros).
+function drawHandle(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  handle: string,
+  canvasWidth: number,
+  canvasHeight: number,
+): void {
+  const text = handle.startsWith("@") ? handle : `@${handle}`;
+  const fontSize = 28;
+  const padding = 28;
+
+  ctx.save();
+  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "bottom";
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = "#ffffff";
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = 6;
+  ctx.fillText(text, padding, canvasHeight - padding);
+  ctx.restore();
+}
+
+// Mismo patrón que drawHandle (arriba) — esquina INFERIOR DERECHA a propósito, para no
+// solaparse nunca con el handle del cliente (inferior izquierda) cuando ambos se dibujan
+// en el mismo slide (ej. carrusel de un cliente en trial).
+function drawWatermark(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  text: string,
+  canvasWidth: number,
+  canvasHeight: number,
+): void {
+  const fontSize = 24;
+  const padding = 28;
+
+  ctx.save();
+  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "bottom";
+  ctx.globalAlpha = 0.7;
+  ctx.fillStyle = "#ffffff";
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = 6;
+  ctx.fillText(text, canvasWidth - padding, canvasHeight - padding);
+  ctx.restore();
+}
+
+function wrapText(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (ctx.measureText(candidate).width > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+const CAROUSEL_TEXT_STYLE = { weight: 800, family: "system-ui, sans-serif" };
+
+// Tamaños propios del carrusel — TEXT_ROLE_STYLE de CanvasRenderer.ts (180/130/90px) está
+// pensado para el canvas vertical de Reels (1920px de alto); el carrusel usa 1350px (4:5,
+// ver StaticSlideInput.height), un 30% menos de alto, así que reutilizar esos tamaños
+// producía bloques de texto que se salían del canvas al envolver en varias líneas.
+const CAROUSEL_TEXT_ROLE_STYLE: Record<ReelsTextRole, { fontSize: number; position: "top" | "center" | "bottom" }> = {
+  title: { fontSize: 90, position: "top" },
+  subtitle: { fontSize: 72, position: "center" },
+  cta: { fontSize: 60, position: "bottom" },
+};
+
+// Altura máxima que puede ocupar el bloque de texto envuelto antes de forzar una fuente
+// más pequeña — evita que un texto largo se salga por arriba/abajo del canvas.
+const MAX_TEXT_BLOCK_HEIGHT_RATIO = 0.6;
+const FONT_SHRINK_FACTOR = 0.85;
+const MIN_FONT_SIZE = 36;
+const MAX_SHRINK_ITERATIONS = 5;
+
+// Auto-grow simétrico al shrink de arriba — cuando el texto es corto, el bloque envuelto
+// se queda muy por debajo del alto disponible y el slide sale con mucho espacio vacío.
+// MIN_TEXT_BLOCK_HEIGHT_RATIO acota "muy por debajo" a menos de un 30% del alto máximo; el
+// tope de 1.3x el fontSize inicial evita que un texto de una palabra salga desproporcionado.
+const MIN_TEXT_BLOCK_HEIGHT_RATIO = 0.3;
+const FONT_GROW_FACTOR = 1.08;
+const MAX_FONT_SCALE_UP = 1.3;
+const MAX_GROW_ITERATIONS = 5;
+
+function splitLastWord(text: string): { rest: string; lastWord: string } {
+  const trimmed = text.trim();
+  const idx = trimmed.lastIndexOf(" ");
+  if (idx === -1) return { rest: "", lastWord: trimmed };
+  return { rest: trimmed.slice(0, idx), lastWord: trimmed.slice(idx + 1) };
+}
+
+// Dibuja cada línea centrada; en la última línea, si highlightLastWord está activo,
+// solo recolorea la última palabra (accentColor) — la fuente ya es la misma cursiva
+// para toda la frase (fijada antes de llamar a esta función vía ctx.font).
+function drawTextLines(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  lines: string[],
+  startY: number,
+  lineHeight: number,
+  canvasWidth: number,
+  textColor: string,
+  highlightLastWord: boolean,
+  accentColor: string | undefined,
+  strokeColor: string | null,
+): void {
+  lines.forEach((line, i) => {
+    const y = startY + i * lineHeight;
+    const isLastLine = i === lines.length - 1;
+    if (isLastLine && highlightLastWord && accentColor) {
+      const { rest, lastWord } = splitLastWord(line);
+      if (!rest) {
+        ctx.textAlign = "center";
+        if (strokeColor) {
+          ctx.lineWidth = 8;
+          ctx.strokeStyle = strokeColor;
+          ctx.strokeText(lastWord, canvasWidth / 2, y);
+        }
+        ctx.fillStyle = accentColor;
+        ctx.fillText(lastWord, canvasWidth / 2, y);
+        return;
+      }
+      const restWithSpace = `${rest} `;
+      const restWidth = ctx.measureText(restWithSpace).width;
+      const lastWordWidth = ctx.measureText(lastWord).width;
+      const startX = canvasWidth / 2 - (restWidth + lastWordWidth) / 2;
+      ctx.textAlign = "left";
+      if (strokeColor) {
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = strokeColor;
+        ctx.strokeText(restWithSpace, startX, y);
+        ctx.strokeText(lastWord, startX + restWidth, y);
+      }
+      ctx.fillStyle = textColor;
+      ctx.fillText(restWithSpace, startX, y);
+      ctx.fillStyle = accentColor;
+      ctx.fillText(lastWord, startX + restWidth, y);
+    } else {
+      ctx.textAlign = "center";
+      if (strokeColor) {
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = strokeColor;
+        ctx.strokeText(line, canvasWidth / 2, y);
+      }
+      ctx.fillStyle = textColor;
+      ctx.fillText(line, canvasWidth / 2, y);
+    }
+  });
+}
+
+// drawTextOverlays de CanvasRenderer.ts, sin el bloque de animación de entrada por rol
+// (opacity/offsetY/scale calculados desde `t`) ni textForOverlayAtTime (word-by-word) —
+// aquí siempre se dibuja el texto completo, ya asentado, una sola vez.
+function drawStaticSlideText(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  text: string,
+  role: ReelsTextRole,
+  canvasWidth: number,
+  canvasHeight: number,
+  style?: CarouselStyleVariant,
+  hasClientImage?: boolean,
+): void {
+  const { fontSize: baseFontSize, position } = CAROUSEL_TEXT_ROLE_STYLE[role];
+  let fontSize = style?.fontScale ? Math.round(baseFontSize * style.fontScale) : baseFontSize;
+  const baseY = position === "top" ? canvasHeight * 0.18 : position === "bottom" ? canvasHeight * 0.82 : canvasHeight * 0.5;
+
+  let textColor: string;
+  let shadowColor: string;
+  let boxColor: string | null;
+  // Contorno oscuro detrás del relleno — solo fotos de cliente (Bug 1, ver auditoría):
+  // un solo blanco/negro adaptativo por brillo promedio falla en fotos con zonas claras
+  // y oscuras bajo el mismo bloque de texto. Blanco fijo + contorno + sombra es legible
+  // sin importar el contenido de la foto, a diferencia de la heurística de brillo.
+  let strokeColor: string | null = null;
+  let shadowBlurAmount = 28;
+
+  if (style?.darkOverlay) {
+    // Estilo C: applyDarkOverlay ya oscurece toda la imagen antes de llegar aquí —
+    // el contraste con blanco está garantizado, no hace falta samplear brillo.
+    textColor = "#ffffff";
+    shadowColor = "rgba(0,0,0,0.7)";
+    boxColor = null;
+  } else if (style && hasClientImage) {
+    // Foto real del cliente: blanco fijo + contorno oscuro, nunca se samplea brillo (ver
+    // comentario de strokeColor arriba).
+    textColor = "#ffffff";
+    shadowColor = "rgba(0,0,0,0.85)";
+    boxColor = null;
+    strokeColor = "rgba(0,0,0,0.85)";
+    shadowBlurAmount = 20;
+  } else if (style) {
+    // Fondo generado por Canvas (sin foto) — el color del pack ya está pensado para
+    // ese fondo, sin caja detrás del texto.
+    textColor = style.textColor;
+    shadowColor = "rgba(0,0,0,0.25)";
+    boxColor = null;
+  } else {
+    // Retrocompatible: comportamiento de siempre, color por brillo del fondo bajo el texto.
+    const brightness = sampleAverageBrightness(ctx, canvasWidth / 2, baseY, 200, 80);
+    const isLightBackground = brightness > 128;
+    textColor = isLightBackground ? "#000000" : "#ffffff";
+    shadowColor = isLightBackground ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)";
+    boxColor = isLightBackground ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.35)";
+  }
+
+  ctx.save();
+  ctx.font = `${style?.fontWeight ?? CAROUSEL_TEXT_STYLE.weight} ${fontSize}px ${style?.fontFamily ?? CAROUSEL_TEXT_STYLE.family}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = shadowColor;
+  ctx.shadowBlur = shadowBlurAmount;
+
+  let lines = wrapText(ctx, text, canvasWidth * 0.85);
+  if (lines.length === 0) {
+    ctx.restore();
+    return;
+  }
+  let lineHeight = fontSize * 1.15;
+
+  // Auto-shrink: si el bloque envuelto no cabe en el alto del canvas, reduce la fuente
+  // y vuelve a envolver hasta que quepa (o hasta MIN_FONT_SIZE / MAX_SHRINK_ITERATIONS).
+  const maxTextBlockHeight = canvasHeight * MAX_TEXT_BLOCK_HEIGHT_RATIO;
+  let shrinkIterations = 0;
+  while (lines.length * lineHeight > maxTextBlockHeight && fontSize > MIN_FONT_SIZE && shrinkIterations < MAX_SHRINK_ITERATIONS) {
+    fontSize = Math.max(MIN_FONT_SIZE, Math.round(fontSize * FONT_SHRINK_FACTOR));
+    ctx.font = `${style?.fontWeight ?? CAROUSEL_TEXT_STYLE.weight} ${fontSize}px ${style?.fontFamily ?? CAROUSEL_TEXT_STYLE.family}`;
+    lines = wrapText(ctx, text, canvasWidth * 0.85);
+    lineHeight = fontSize * 1.15;
+    shrinkIterations++;
+  }
+
+  // Auto-grow: si el texto es corto y el bloque queda muy por debajo del alto disponible,
+  // aumenta la fuente gradualmente para aprovechar el espacio — mismo mecanismo que el
+  // shrink de arriba, en la dirección contraria. wrapText ya garantiza que ninguna línea
+  // exceda canvasWidth*0.85 en cada intento. Revierte el último paso si en algún momento
+  // se pasa de maxTextBlockHeight (una subida de fuente puede saltar de "cabe de sobra" a
+  // "no cabe" en una sola iteración si el rewrap añade línea).
+  const minTextBlockHeight = maxTextBlockHeight * MIN_TEXT_BLOCK_HEIGHT_RATIO;
+  const maxGrowFontSize = fontSize * MAX_FONT_SCALE_UP;
+  let growIterations = 0;
+  while (
+    lines.length * lineHeight < minTextBlockHeight &&
+    fontSize < maxGrowFontSize &&
+    growIterations < MAX_GROW_ITERATIONS
+  ) {
+    const candidateFontSize = Math.min(maxGrowFontSize, Math.round(fontSize * FONT_GROW_FACTOR));
+    ctx.font = `${style?.fontWeight ?? CAROUSEL_TEXT_STYLE.weight} ${candidateFontSize}px ${style?.fontFamily ?? CAROUSEL_TEXT_STYLE.family}`;
+    const candidateLines = wrapText(ctx, text, canvasWidth * 0.85);
+    const candidateLineHeight = candidateFontSize * 1.15;
+    if (candidateLines.length * candidateLineHeight > maxTextBlockHeight) {
+      ctx.font = `${style?.fontWeight ?? CAROUSEL_TEXT_STYLE.weight} ${fontSize}px ${style?.fontFamily ?? CAROUSEL_TEXT_STYLE.family}`;
+      break;
+    }
+    fontSize = candidateFontSize;
+    lines = candidateLines;
+    lineHeight = candidateLineHeight;
+    growIterations++;
+  }
+
+  const startY = baseY - ((lines.length - 1) * lineHeight) / 2;
+
+  if (boxColor) {
+    // Fondo semitransparente real detrás del texto — solo en el modo sin estilo (retrocompatible).
+    const maxLineWidth = Math.max(...lines.map((line) => ctx.measureText(line).width));
+    const boxPaddingX = 32;
+    const boxPaddingY = 20;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = boxColor;
+    ctx.fillRect(
+      canvasWidth / 2 - maxLineWidth / 2 - boxPaddingX,
+      startY - lineHeight / 2 - boxPaddingY,
+      maxLineWidth + boxPaddingX * 2,
+      lines.length * lineHeight + boxPaddingY * 2,
+    );
+    ctx.shadowBlur = shadowBlurAmount;
+  }
+
+  drawTextLines(ctx, lines, startY, lineHeight, canvasWidth, textColor, !!style?.highlightLastWord, style?.accentColor, strokeColor);
+
+  ctx.restore();
+}
+
+const CAROUSEL_ROLE_TO_TEXT_ROLE: Record<CarouselSlideRole, ReelsTextRole> = {
+  intro: "title",
+  desarrollo: "subtitle",
+  cierre_cta: "cta",
+};
+
+export type StaticSlideInput = {
+  imageUrl?: string;          // URL pública HTTPS de la foto subida — opcional en modo "Crear con IA" (requiere `style` para el fondo generado)
+  text: string;               // ya clampeado por CarouselComposerAgent — este renderer no vuelve a recortar
+  role: CarouselSlideRole;
+  slideIndex?: number;         // 0-based posición del slide en el carrusel — determina el color de fondo cuando no hay foto (ver resolveAiSlideBackgroundColors). Opcional: sin él, un único color para todo el carrusel (retrocompatible).
+  width?: number;              // default 1080 — 4:5 es el ratio recomendado de Meta para carrusel/feed
+  height?: number;             // default 1350, a diferencia de 1920 (9:16) que usa Reels
+  style?: CarouselStyleVariant;  // opcional — sin él, estilo fijo de siempre (retrocompatible). Ver CarouselStylePacks.getStyleForCarousel.
+  handle?: string;                // "@usuario" — si se pasa, se dibuja SIEMPRE (esquina inferior izquierda)
+  watermark?: string;             // marca de agua de trial — si se pasa, se dibuja SIEMPRE (esquina inferior derecha, nunca choca con `handle`)
+};
+
+export class StaticSlideRenderer {
+  async render(input: StaticSlideInput): Promise<Blob> {
+    assertBrowserEnvironment();
+    const width = input.width ?? 1080;
+    const height = input.height ?? 1350;
+
+    const canvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(width, height) : document.createElement("canvas");
+    if (!(canvas instanceof OffscreenCanvas)) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    const ctx = canvas.getContext("2d") as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
+    if (!ctx) {
+      throw new StaticSlideRenderError("No se pudo obtener el contexto 2D del canvas.", "STATIC_SLIDE_CANVAS_CONTEXT_UNAVAILABLE");
+    }
+
+    if (input.imageUrl) {
+      if (!input.imageUrl.startsWith("http")) {
+        throw new StaticSlideRenderError("Se requiere una URL pública HTTPS de la imagen.", "STATIC_SLIDE_MEDIA_REQUIRED");
+      }
+      const image = await loadImageBitmap(input.imageUrl);
+      drawImageCoverStatic(ctx, image, width, height);
+      if (input.style?.darkOverlay) applyDarkOverlay(ctx, width, height);
+    } else if (input.style) {
+      drawStyleBackground(ctx, input.style, width, height, input.role, input.slideIndex);
+      if (input.style.darkOverlay) applyDarkOverlay(ctx, width, height);
+    } else {
+      throw new StaticSlideRenderError(
+        "Se requiere imageUrl (modo Subir imágenes) o style (modo Crear con IA, fondo generado).",
+        "STATIC_SLIDE_BACKGROUND_REQUIRED",
+      );
+    }
+
+    drawStaticSlideText(ctx, input.text, CAROUSEL_ROLE_TO_TEXT_ROLE[input.role], width, height, input.style, !!input.imageUrl);
+    if (input.handle) drawHandle(ctx, input.handle, width, height);
+    if (input.watermark) drawWatermark(ctx, input.watermark, width, height);
+
+    if (canvas instanceof OffscreenCanvas) {
+      return canvas.convertToBlob({ type: "image/jpeg", quality: 0.92 });
+    }
+    return new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new StaticSlideRenderError("No se pudo exportar el canvas a imagen.", "STATIC_SLIDE_EXPORT_FAILED"))),
+        "image/jpeg",
+        0.92,
+      );
+    });
+  }
+}

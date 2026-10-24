@@ -1,0 +1,398 @@
+{
+  "result": [
+    {
+      "id": "e443a3f9-5806-4f46-b3e6-4973dd8f1fbe",
+      "name": "drako-base-3",
+      "subdomain": "drako-base-3.pages.dev",
+      "domains": [
+        "drako-base-3.pages.dev",
+        "drako.systems"
+      ],
+      "source": {
+        "type": "github",
+        "config": {
+          "owner": "socialmediabywebsolutions",
+          "owner_id": "199165242",
+          "repo_name": "drako_base",
+          "repo_id": "1104979827",
+          "production_branch": "main",
+          "pr_comments_enabled": true,
+          "deployments_enabled": true,
+          "production_deployments_enabled": true,
+          "preview_deployment_setting": "none",
+          "preview_branch_includes": [
+            "*"
+          ],
+          "preview_branch_excludes": [],
+          "path_includes": [
+            "*"
+          ],
+          "path_excludes": []
+        }
+      },
+      "build_config": {
+        "build_command": "npm run build:worker",
+        "destination_dir": ".vercel/output/static",
+        "root_dir": "",
+        "web_analytics_tag": null,
+        "web_analytics_token": null
+      },
+      "deployment_configs": {
+        "preview": {
+          "env_vars": {
+            "GOOGLE_CLIENT_ID": {
+              "type": "secret_text",
+              "value": ""
+            },
+            "GOOGLE_CLIENT_SECRET": {
+              "type": "secret_text",
+              "value": ""
+            },
+            "GOOGLE_MAPS_API_KEY": {
+              "type": "secret_text",
+              "value": ""
+            },
+            "ID DECLIENTE": {
+              "type": "secret_text",
+              "value": ""
+            },
+            "NODE_VERSION": {
+              "type": "secret_text",
+              "value": ""
+            },
+            "SESSION_SECRET": {
+              "type": "secret_text",
+              "value": ""
+            },
+            "STRIPE_SECRET_KEY": {
+              "type": "secret_text",
+              "value": ""
+            },
+            "STRIPE_WEBHOOK_SECRET": {
+              "type": "secret_text",
+              "value": ""
+            }
+          },
+          "d1_databases": {
+            "DRACO_DB": {
+              "id": "10146888-ca79-41d6-b6c2-bf1025eb651b"
+            }
+          },
+          "ai_bindings": {
+            "AI": {}
+          },
+          "fail_open": true,
+          "always_use_latest_compatibility_date": false,
+          "compatibility_date": "2024-11-01",
+          "compatibility_flags": [
+            "nodejs_compat"
+          ],
+          "build_image_major_version": 3,
+          "usage_model": "standard",
+          "wrangler_config_hash": "c000c4876c2cde88a5302a6eed49d79f94dbaebe32675bece204d2f103c7b5d9"
+        },
+        "production": {
+          "env_vars": {
+            "GOOGLE_CLIENT_ID": {
+              "type": "secret_text",
+              "value": ""
+            },
+            "GOOGLE_CLIENT_SECRET": {
+              "type": "secret_text",
+              "value": ""
+            },
+            "NODE_VERSION": {
+              "type": "secret_text",
+              "value": ""
+            },
+            "SESSION_SECRET": {
+              "type": "secret_text",
+              "value": ""
+            },
+            "STRIPE_SECRET_KEY": {
+              "type": "secret_text",
+              "value": ""
+            },
+            "STRIPE_WEBHOOK_SECRET": {
+              "type": "secret_text",
+              "value": ""
+            }
+          },
+          "d1_databases": {
+            "DRACO_DB": {
+              "id": "5607a76a-97c7-45a9-a948-e545ba27eae7"
+            }
+          },
+          "ai_bindings": {
+            "AI": {}
+          },
+          "fail_open": true,
+          "always_use_latest_compatibility_date": false,
+          "compatibility_date": "2024-11-01",
+          "compatibility_flags": [
+            "nodejs_compat"
+          ],
+          "build_image_major_version": 3,
+          "usage_model": "standard",
+          "wrangler_config_hash": "c000c4876c2cde88a5302a6eed49d79f94dbaebe32675bece204d2f103c7b5d9"
+        }
+      },
+      "latest_deployment": {
+        "id": "07d5de38-f43c-4bc7-b980-c2192909a2d2",
+        "short_id": "07d5de38",
+        "project_id": "e443a3f9-5806-4f46-b3e6-4973dd8f1fbe",
+        "project_name": "drako-base-3",
+        "environment": "production",
+        "url": "https://07d5de38.drako-base-3.pages.dev",
+        "created_on": "2026-02-14T21:42:57.085465Z",
+        "modified_on": "2026-02-14T21:44:59.246206Z",
+        "latest_stage": {
+          "name": "build",
+          "started_on": "2026-02-14T21:43:01.038817Z",
+          "ended_on": "2026-02-14T21:44:59.246206Z",
+          "status": "failure"
+        },
+        "deployment_trigger": {
+          "type": "github:push",
+          "metadata": {
+            "branch": "main",
+            "commit_hash": "05a7dcf1fa500bd6fd40d9292e311abce69625b2",
+            "commit_message": "fix(pages): stabilize opennext output for cloudflare pages",
+            "commit_dirty": false
+          }
+        },
+        "stages": [
+          {
+            "name": "queued",
+            "started_on": "2026-02-14T21:42:57.189252Z",
+            "ended_on": "2026-02-14T21:42:57.261589Z",
+            "status": "success"
+          },
+          {
+            "name": "initialize",
+            "started_on": "2026-02-14T21:42:57.261589Z",
+            "ended_on": "2026-02-14T21:42:59.30646Z",
+            "status": "success"
+          },
+          {
+            "name": "clone_repo",
+            "started_on": "2026-02-14T21:42:59.30646Z",
+            "ended_on": "2026-02-14T21:43:01.038817Z",
+            "status": "success"
+          },
+          {
+            "name": "build",
+            "started_on": "2026-02-14T21:43:01.038817Z",
+            "ended_on": "2026-02-14T21:44:59.246206Z",
+            "status": "failure"
+          },
+          {
+            "name": "deploy",
+            "started_on": null,
+            "ended_on": null,
+            "status": "idle"
+          }
+        ],
+        "build_config": {
+          "build_command": "npm run build:worker",
+          "destination_dir": ".vercel/output/static",
+          "build_caching": null,
+          "root_dir": "",
+          "web_analytics_tag": null,
+          "web_analytics_token": null
+        },
+        "source": {
+          "type": "github",
+          "config": {
+            "owner": "socialmediabywebsolutions",
+            "repo_name": "drako_base",
+            "production_branch": "main",
+            "pr_comments_enabled": false
+          }
+        },
+        "env_vars": {
+          "GOOGLE_CLIENT_ID": {
+            "type": "secret_text",
+            "value": ""
+          },
+          "GOOGLE_CLIENT_SECRET": {
+            "type": "secret_text",
+            "value": ""
+          },
+          "NODE_VERSION": {
+            "type": "secret_text",
+            "value": ""
+          },
+          "SESSION_SECRET": {
+            "type": "secret_text",
+            "value": ""
+          },
+          "STRIPE_SECRET_KEY": {
+            "type": "secret_text",
+            "value": ""
+          },
+          "STRIPE_WEBHOOK_SECRET": {
+            "type": "secret_text",
+            "value": ""
+          }
+        },
+        "d1_databases": {
+          "DRACO_DB": {
+            "id": "5607a76a-97c7-45a9-a948-e545ba27eae7"
+          }
+        },
+        "ai_bindings": {
+          "AI": {}
+        },
+        "compatibility_date": "2024-11-01",
+        "compatibility_flags": [
+          "nodejs_compat"
+        ],
+        "build_image_major_version": 3,
+        "usage_model": null,
+        "aliases": null,
+        "is_skipped": false,
+        "production_branch": "main",
+        "uses_functions": null
+      },
+      "canonical_deployment": {
+        "id": "a3115d79-d7dd-4d46-a9d1-b31eee7d42a5",
+        "short_id": "a3115d79",
+        "project_id": "e443a3f9-5806-4f46-b3e6-4973dd8f1fbe",
+        "project_name": "drako-base-3",
+        "environment": "production",
+        "url": "https://a3115d79.drako-base-3.pages.dev",
+        "created_on": "2026-02-14T15:03:28.179382Z",
+        "modified_on": "2026-02-14T15:05:51.153901Z",
+        "latest_stage": {
+          "name": "deploy",
+          "started_on": "2026-02-14T15:05:38.687628Z",
+          "ended_on": "2026-02-14T15:05:51.153901Z",
+          "status": "success"
+        },
+        "deployment_trigger": {
+          "type": "github:push",
+          "metadata": {
+            "branch": "main",
+            "commit_hash": "7dd6975fb8cb8c7168471ff61ec53b22fa68fb35",
+            "commit_message": "fix(pages): robust OpenNext artifacts for Cloudflare Pages",
+            "commit_dirty": false
+          }
+        },
+        "stages": [
+          {
+            "name": "queued",
+            "started_on": "2026-02-14T15:03:28.271173Z",
+            "ended_on": "2026-02-14T15:03:28.370496Z",
+            "status": "success"
+          },
+          {
+            "name": "initialize",
+            "started_on": "2026-02-14T15:03:28.370496Z",
+            "ended_on": "2026-02-14T15:03:38.421263Z",
+            "status": "success"
+          },
+          {
+            "name": "clone_repo",
+            "started_on": "2026-02-14T15:03:38.421263Z",
+            "ended_on": "2026-02-14T15:03:40.450589Z",
+            "status": "success"
+          },
+          {
+            "name": "build",
+            "started_on": "2026-02-14T15:03:40.450589Z",
+            "ended_on": "2026-02-14T15:05:38.687628Z",
+            "status": "success"
+          },
+          {
+            "name": "deploy",
+            "started_on": "2026-02-14T15:05:38.687628Z",
+            "ended_on": "2026-02-14T15:05:51.153901Z",
+            "status": "success"
+          }
+        ],
+        "build_config": {
+          "build_command": "npm run build:worker",
+          "destination_dir": ".vercel/output/static",
+          "build_caching": null,
+          "root_dir": "",
+          "web_analytics_tag": null,
+          "web_analytics_token": null
+        },
+        "source": {
+          "type": "github",
+          "config": {
+            "owner": "socialmediabywebsolutions",
+            "repo_name": "drako_base",
+            "production_branch": "main",
+            "pr_comments_enabled": false
+          }
+        },
+        "env_vars": {
+          "GOOGLE_CLIENT_ID": {
+            "type": "secret_text",
+            "value": ""
+          },
+          "GOOGLE_CLIENT_SECRET": {
+            "type": "secret_text",
+            "value": ""
+          },
+          "NODE_VERSION": {
+            "type": "secret_text",
+            "value": ""
+          },
+          "SESSION_SECRET": {
+            "type": "secret_text",
+            "value": ""
+          },
+          "STRIPE_SECRET_KEY": {
+            "type": "secret_text",
+            "value": ""
+          },
+          "STRIPE_WEBHOOK_SECRET": {
+            "type": "secret_text",
+            "value": ""
+          }
+        },
+        "d1_databases": {
+          "DRACO_DB": {
+            "id": "5607a76a-97c7-45a9-a948-e545ba27eae7"
+          }
+        },
+        "ai_bindings": {
+          "AI": {}
+        },
+        "compatibility_date": "2024-11-01",
+        "compatibility_flags": [
+          "nodejs_compat"
+        ],
+        "build_image_major_version": 3,
+        "usage_model": null,
+        "aliases": [
+          "https://drako.systems"
+        ],
+        "is_skipped": false,
+        "production_branch": "main",
+        "uses_functions": false,
+        "framework": "next"
+      },
+      "created_on": "2025-11-27T03:05:00.604312Z",
+      "production_branch": "main",
+      "production_script_name": "pages-worker--9359249-production",
+      "preview_script_name": "pages-worker--9359249-preview",
+      "uses_functions": false,
+      "framework": "next",
+      "framework_version": "15.5.9"
+    }
+  ],
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result_info": {
+    "page": 1,
+    "per_page": 10,
+    "count": 1,
+    "total_count": 1,
+    "total_pages": 1
+  }
+}

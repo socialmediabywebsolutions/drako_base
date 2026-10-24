@@ -1,0 +1,33 @@
+# Dockerfile.build-worker
+# Run this to build the worker in a Linux environment locally.
+
+FROM node:20-bullseye
+
+WORKDIR /app
+
+# Copy dependency definitions
+COPY package.json package-lock.json ./
+
+# Install dependencies strictly
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Environment variables needed for build
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV OPENNEXT_FORCE_NON_STANDALONE=false
+
+# Build command
+# This will output to .worker/ (or .open-next/ depending on config)
+CMD ["npm", "run", "build:worker"]
+
+# Usage Instructions:
+# 1. Build the image:
+#    docker build -f Dockerfile.build-worker -t drako-worker-builder .
+#
+# 2. Run container and mount output directory to host:
+#    docker run --rm -v $(pwd)/.open-next:/app/.open-next drako-worker-builder
+#    
+#    (PowerShell syntax):
+#    docker run --rm -v ${PWD}/.open-next:/app/.open-next drako-worker-builder

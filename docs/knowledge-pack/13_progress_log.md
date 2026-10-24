@@ -1,0 +1,967 @@
+# 13_progress_log
+
+## Objetivo de este archivo
+Bitacora tecnica incremental para continuidad entre chats. Registrar hechos verificables, no intenciones.
+
+## Formato de entrada
+```md
+## [YYYY-MM-DD HH:mm UTC+TZ] TAG
+- Contexto:
+- Cambio realizado:
+- Archivos tocados:
+- Verificacion ejecutada:
+- Resultado:
+- Riesgo residual:
+- Siguiente accion:
+- Relacion con issues:
+```
+
+## [2026-05-16 00:53 UTC+02:00] SOCIALFLOW-P2-17-TEMP-SHARED-REDUCTION
+- Contexto:
+  - P2-16 dejo el runtime parcial de SocialFlow compilable con OpenNext propio, pero aun con acoplamiento `TEMP_SHARED` relevante hacia auth, DB, UI y logica de negocio del monolito.
+- Cambio realizado:
+  - Se redujo el contrato `TEMP_SHARED` de `13` entradas a `5` entradas efectivas y se movio ownership real de auth, DB y parte del business plane al app `apps/socialflow-runtime/*`.
+  - Se creo boundary local de DB en `apps/socialflow-runtime/src/lib/db/runtime-db.ts`.
+  - Se creo boundary local de auth en `apps/socialflow-runtime/src/lib/auth/*` para cookies, tokens, sesion, tenant isolation, repositorio auth y handlers de login/logout/register.
+  - Se porto implementacion local de exports y se reemplazaron reexports de rutas API por handlers propios del runtime nuevo.
+  - Se eliminaron imports runtime hacia `@/lib/auths/*`, `@/modules/socialflow-app/*`, `@/components/auth/*`, `@/components/ui/*`, `@/lib/db`, `@/lib/http/errors`, `@/lib/cf`, `@/lib/correlation`, `@/lib/tenants/services` y `@/app/api/socialflow/*`.
+  - La logica de campaigns/posts/profile/AI/LinkedIn queda temporalmente detras de adapters explicitos a `@/lib/socialflow/*`.
+- Archivos tocados:
+  - `apps/socialflow-runtime/runtime-boundaries.json`
+  - `apps/socialflow-runtime/src/middleware.ts`
+  - `apps/socialflow-runtime/src/lib/runtime-env.ts`
+  - `apps/socialflow-runtime/src/lib/db/runtime-db.ts`
+  - `apps/socialflow-runtime/src/lib/auth/*`
+  - `apps/socialflow-runtime/src/lib/socialflow/*`
+  - `apps/socialflow-runtime/src/app/socialflow/auth/_components/socialflow-auth-form.tsx`
+  - `apps/socialflow-runtime/src/app/socialflow/(workspace)/settings/account/_components/account-settings-client.tsx`
+  - `apps/socialflow-runtime/src/app/socialflow/(workspace)/settings/{account,team,ownership}/page.tsx`
+  - `apps/socialflow-runtime/src/app/api/socialflow/*`
+  - `scripts/build-socialflow-runtime.mjs`
+  - `tests/architecture/socialflow-runtime-split-scaffold.test.ts`
+  - `docs/audits/P2-17-TEMP-SHARED-REDUCTION.md`
+- Verificacion ejecutada:
+  - `pnpm socialflow-runtime:build`
+  - `pnpm exec vitest run tests/architecture/socialflow-runtime-split-scaffold.test.ts tests/architecture/canonical-product-map.test.ts`
+  - `pnpm typecheck`
+  - `pnpm build`
+  - `pnpm test`
+  - `git diff --check`
+- Resultado:
+  - El runtime nuevo queda mas aislado del monolito: `TEMP_SHARED=5`, `forbiddenHitsTotal=0`, `buildGraph.contaminatedFileCount=0` y `crossRuntimeReferenceCount=10` concentrado en adapters de negocio explicitados.
+- Riesgo residual:
+  - Siguen compartidos `@/lib/socialflow/repository`, `@/lib/socialflow/live-publishing`, `@/lib/socialflow/profile/repository`, `@/lib/socialflow/ai/*` y `@/lib/socialflow/linkedin/*`.
+  - El canary sigue inactivo y no existe cutover.
+- Siguiente accion:
+  - Mover adapters de negocio hacia ownership local progresivo, empezando por campaigns/posts/profile antes de tocar AI y LinkedIn.
+- Relacion con issues:
+  - `ISSUE-010`, `ISSUE-012`, `ISSUE-016`
+
+## [2026-05-16 01:25 UTC+02:00] SOCIALFLOW-P2-18-BUSINESS-PLANE-OWNERSHIP
+- Contexto:
+  - P2-17 dejo el runtime nuevo con boundaries locales de auth y DB, pero `campaigns`, `posts` y `profile` seguian delegando negocio/estado al monolito.
+- Cambio realizado:
+  - Se movio ownership real de `campaigns`, `posts` y `profile` a repositorios y servicios locales dentro de `apps/socialflow-runtime/src/lib/socialflow/*`.
+  - Se anadieron `contracts.ts`, `validators.ts`, `runtime-repository-core.ts`, `campaigns-repository.ts`, `posts-repository.ts`, `profile-repository.ts` y `live-publishing-service.ts`.
+  - `profile` dejo el store demo del monolito y ahora persiste en tablas runtime-local de `SOCIAL_DB`.
+  - `posts` dejo de depender de `@/lib/socialflow/repository` y `@/lib/socialflow/live-publishing`; mantiene solo ejecucion compartida de LinkedIn.
+  - `campaigns` dejo de depender de `@/lib/socialflow/repository`.
+  - `ai-service` dejo de depender del repositorio social del monolito; AI sigue compartida solo via `@/lib/socialflow/ai/*`.
+  - El contrato `TEMP_SHARED` se redujo de `5` entradas a `2`: `@/lib/socialflow/ai/*` y `@/lib/socialflow/linkedin/*`.
+- Archivos tocados:
+  - `apps/socialflow-runtime/runtime-boundaries.json`
+  - `apps/socialflow-runtime/src/lib/db/runtime-db.ts`
+  - `apps/socialflow-runtime/src/lib/socialflow/*`
+  - `apps/socialflow-runtime/src/app/api/socialflow/profile/route.ts`
+  - `tests/architecture/socialflow-runtime-split-scaffold.test.ts`
+  - `docs/audits/P2-18-SOCIALFLOW-BUSINESS-PLANE-OWNERSHIP.md`
+- Verificacion ejecutada:
+  - `pnpm socialflow-runtime:build`
+  - `pnpm typecheck`
+  - `pnpm build`
+  - `pnpm test`
+  - `git diff --check`
+- Resultado:
+  - El audit local del runtime nuevo pasa a `tempSharedHitsTotal=4`, `crossRuntimeReferenceCount=6`, `forbiddenHitsTotal=0` y `contaminatedFileCount=0`.
+- Riesgo residual:
+  - AI y LinkedIn siguen temporales compartidos.
+  - El canary sigue inactivo y no existe cutover.
+- Siguiente accion:
+  - Decidir si el siguiente paso es mover AI o preparar el canary para verificacion funcional controlada sin activarlo todavia.
+- Relacion con issues:
+  - `ISSUE-010`, `ISSUE-012`, `ISSUE-016`
+
+## [2026-05-16 00:31 UTC+02:00] SOCIALFLOW-P2-16-RUNTIME-PORT-INACTIVE-CANARY
+- Contexto:
+  - P2-15 dejo creado el scaffold fisico para el split parcial de SocialFlow, pero todavia sin runtime real portado dentro de `apps/socialflow-runtime/*`.
+- Cambio realizado:
+  - Se porto runtime real de SocialFlow al app inactivo `apps/socialflow-runtime/*` sin tocar el worker activo ni el trafico productivo.
+  - Se anadieron rutas UI reales para `socialflow/auth`, `socialflow/(workspace)`, `profile`, `ai`, `analysis`, `plan`, `sessions`, `setup` y `settings/*`.
+  - Se anadieron rutas API reales para `api/socialflow/auths/*`, `campaigns`, `exports/current`, `posts`, `profile`, `ai/*` y LinkedIn `connect/callback`.
+  - Se creo middleware propio fail-closed con resolucion de host SocialFlow, rechazo de host control-plane e inyeccion de headers aislados de tenant/runtime.
+  - `pnpm socialflow-runtime:build` ahora ejecuta preflight del scaffold + build OpenNext real del app nuevo + auditoria local de routes/manifests/chunks en `build/socialflow-runtime-scaffold/runtime-port-audit.json`.
+  - Se actualizo knowledge pack y se documento el estado real en `docs/audits/P2-16-SOCIALFLOW-RUNTIME-PORT.md`.
+- Archivos tocados:
+  - `apps/socialflow-runtime/package.json`
+  - `apps/socialflow-runtime/tsconfig.json`
+  - `apps/socialflow-runtime/next.config.ts`
+  - `apps/socialflow-runtime/wrangler.toml`
+  - `apps/socialflow-runtime/runtime-boundaries.json`
+  - `apps/socialflow-runtime/src/middleware.ts`
+  - `apps/socialflow-runtime/src/lib/runtime-session.ts`
+  - `apps/socialflow-runtime/src/app/socialflow/*`
+  - `apps/socialflow-runtime/src/app/api/socialflow/*`
+  - `scripts/build-socialflow-runtime.mjs`
+  - `tests/architecture/socialflow-runtime-split-scaffold.test.ts`
+  - `tests/architecture/canonical-product-map.test.ts`
+  - `docs/audits/P2-16-SOCIALFLOW-RUNTIME-PORT.md`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - `pnpm socialflow-runtime:build`
+  - `pnpm typecheck`
+  - `pnpm exec vitest run tests/architecture/socialflow-runtime-split-scaffold.test.ts tests/architecture/canonical-product-map.test.ts`
+  - `pnpm build`
+  - `pnpm test`
+  - `git diff --check`
+- Resultado:
+  - El runtime nuevo queda compilable y auditable localmente con `25` rutas (`11` API, `12` UI) y `contaminatedFileCount=0` contra tokens prohibidos del control-plane/monolito.
+  - El monolito mantiene `pnpm build` y `pnpm test` en PASS sin cambiar el worker activo ni el trafico real.
+- Riesgo residual:
+  - El runtime nuevo sigue `TEMP_SHARED` con `@/lib/db`, `@/lib/auths/*`, `@/lib/socialflow/*` y `@/modules/socialflow-app/*`.
+  - El canary sigue inactivo y no existe cutover ni deploy.
+- Siguiente accion:
+  - Reducir `TEMP_SHARED` y preparar la siguiente fase de desacople de auth/db/business logic sin activar el runtime canary.
+- Relacion con issues:
+  - `ISSUE-010`, `ISSUE-012`, `ISSUE-016`
+
+## [2026-05-06 12:40 UTC+02:00] SOCIALFLOW-P10-17-HOST-FENCING-CANONICAL-DOMAIN
+- Contexto:
+  - Cloudflare ya enruta `socialflow.drako.systems` a `saas-socialflows-prod`, pero el Worker lo rechazaba por host fencing.
+- Cambio realizado:
+  - Se ajusto el host fencing para aceptar `SAASES_DOMAIN` como lista explicita con dominio plural compat y dominio singular canonico.
+  - Se agrego normalizacion segura (trim/lowercase, sin protocolo, sin slash final) y rechazo fail-closed de wildcards.
+- Archivos tocados:
+  - `packages/shared/workers-handlers/index.ts`
+  - `workers/socialflows/src/workers.ts`
+  - `workers/socialflows/wrangler.workers.toml`
+  - `tests/workers-socialflow-host-fencing.test.ts`
+  - `docs/runbooks/socialflow-canonical-domain-cloudflare-checklist.md`
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: grep de `HOSTS_FENCING_REJECTED`/`allowedHostNames`/`SAASES_DOMAIN` y revision de worker SocialFlow + helper compartido.
+  - Focalizados: `pnpm exec vitest run tests/workers-socialflow-host-fencing.test.ts`.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- Resultado:
+  - `socialflow.drako.systems` queda permitido por configuracion explicita, sin wildcard.
+- Riesgo residual:
+  - Falta smoke real post-deploy en Cloudflare.
+- Siguiente accion:
+  - Commit/push, esperar workflow PASS y ejecutar smoke manual contra `socialflow.drako.systems`.
+- Relacion con issues:
+  - `ISSUE-015`
+
+## [2026-05-04 22:16 UTC+02:00] SOCIALFLOW-P10-16-CLOUDFLARE-DOMAIN-RUNBOOK
+- Contexto:
+  - P10.15 dejo preparado el smoke manual para `socialflow.drako.systems`.
+- Cambio realizado:
+  - Se creo runbook operativo Cloudflare para anadir y validar el custom domain sin ejecutar cambios.
+  - Se documento checklist manual, validacion HTTP, smoke, advertencias OAuth, rollback y criterios de exito/no avance.
+- Archivos tocados:
+  - `docs/runbooks/socialflow-canonical-domain-cloudflare-checklist.md`
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: grep de dominios, worker esperado, smoke manual y phase gate; revision de ADR, P10.13, smoke runbook, expected-state, script, worker config y workflows.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- Resultado:
+  - Checklist manual lista para fase operativa.
+- Riesgo residual:
+  - Custom domain aun no creado; phase gate sigue inactivo.
+- Siguiente accion:
+  - Ejecutar manualmente la checklist en Cloudflare cuando se apruebe la fase operativa.
+- Relacion con issues:
+  - `ISSUE-015`
+
+## [2026-05-04 21:40 UTC+02:00] SOCIALFLOW-P10-15-CANONICAL-SMOKE-PREP
+- Contexto:
+  - P10.14 anadio readiness phase-gated para `socialflow.drako.systems`.
+- Cambio realizado:
+  - Se preparo smoke canonico manual y seguro para SocialFlow con script no-op por defecto y runbook operativo.
+  - Se anadio script `scripts/smoke/socialflow-canonical-domain-smoke.mjs` con activacion explicita por variable y host obligatorio.
+  - Se actualizo expected-state para que la evidencia de smoke canonico apunte al script/runbook, sin activar fase.
+- Archivos tocados:
+  - `scripts/smoke/socialflow-canonical-domain-smoke.mjs`
+  - `docs/runbooks/socialflow-canonical-domain-smoke.md`
+  - `docs/config/production-audits-expected-state.json`
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `package.json`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: grep de smokes/dominios/rutas y revision de workflows/scripts/readiness.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Smoke no-op: `node scripts/smoke/socialflow-canonical-domain-smoke.mjs`.
+- Resultado:
+  - Smoke preparado sin tocar Cloudflare ni activar produccion.
+- Riesgo residual:
+  - El dominio singular aun no existe; la ejecucion real del smoke queda pendiente para fase futura.
+- Siguiente accion:
+  - Preparar checklist operativo de Cloudflare custom domain antes de activar `phaseGates.socialflowCanonicalDomain.active`.
+- Relacion con issues:
+  - `ISSUE-015`
+
+## [2026-05-04 22:05 UTC+02:00] SOCIALFLOW-P10-14-DOMAIN-READINESS-GUARDRAILS
+- Contexto:
+  - P10.13 documento el plan tecnico para `socialflow.drako.systems`.
+- Cambio realizado:
+  - Se anadieron checks de readiness expected-state phase-gated para dominio canonico SocialFlow (hostname missing, worker ownership, plural primary warning y canonical smoke evidence).
+  - Se documento el phase gate en `docs/config/production-audits-expected-state.json` con `active: false` por defecto.
+  - Se ampliaron tests y fixtures de `production-readiness` para escenarios inactive/active, worker correcto/incorrecto y warning plural.
+- Archivos tocados:
+  - `scripts/check-production-readiness.ts`
+  - `docs/config/production-audits-expected-state.json`
+  - `tests/production-readiness.test.ts`
+  - `tests/fixtures/production-audits/socialflow-domain-guards/*`
+  - `docs/policies/production-readiness-audits.md`
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: `grep` de dominios/expected/readiness + revision de script/policies/tests/ADR/P10.13.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build` + tests focalizados readiness/domain guards/canonical map/mentoria boundaries.
+- Resultado:
+  - El sistema ahora puede advertir hoy y bloquear en fase activa si el dominio singular falta, apunta mal o no existe evidencia de smoke canonico.
+- Riesgo residual:
+  - Cloudflare todavia no se modifica; la activacion de fase depende de una implementacion futura.
+- Siguiente accion:
+  - Preparar workflow/smoke canonico SocialFlow para activar la fase sin riesgo.
+- Relacion con issues:
+  - `ISSUE-015`
+
+## [2026-05-04 20:28 UTC+02:00] SOCIALFLOW-P10-13-DOMAIN-IMPLEMENTATION-PLAN
+- Contexto:
+  - P10.12 decidio `socialflow.drako.systems` como dominio canonico futuro.
+- Cambio realizado:
+  - Se documento plan tecnico de implementacion de dominio, Cloudflare, OAuth, smokes y compat.
+- Archivos tocados:
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: ADR P10.12, P10.11, `workers/socialflows/wrangler.workers.toml`, configs root, workflows, readiness, tests y rutas OAuth LinkedIn.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- Resultado:
+  - Plan listo sin tocar Cloudflare ni runtime.
+- Riesgo residual:
+  - Falta ejecucion futura de dominio y smokes.
+- Siguiente accion:
+  - Anadir readiness expected-state para `socialflow.drako.systems`.
+- Relacion con issues:
+  - `ISSUE-015`
+
+## [2026-05-04 20:00 UTC+02:00] SOCIALFLOW-P10-12-CANONICAL-DOMAIN-DECISION
+- Contexto:
+  - P10.11 detecto que SocialFlow usa dominio plural actual y no tiene dominio singular canonico confirmado.
+- Cambio realizado:
+  - Se documento decision formal: `socialflow.drako.systems` sera dominio canonico; `socialflows.drako.systems` queda compat/legacy.
+- Archivos tocados:
+  - `docs/decisions/adr-socialflow-canonical-domain.md`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: lectura de P10.11, matriz de rutas/entrypoints, issues abiertos, progress log y evidencia local de `workers/socialflows`.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- Resultado:
+  - Decision lista sin tocar Cloudflare ni runtime.
+- Riesgo residual:
+  - Falta implementacion futura de dominio, workflow y smoke canonico.
+- Siguiente accion:
+  - Preparar plan de implementacion de dominio sin aplicarlo todavia.
+- Relacion con issues:
+  - `ISSUE-012`, `ISSUE-015`
+
+## [2026-05-04 19:26 UTC+02:00] PLATFORM-P10-11-DOMAIN-DEPLOY-AUDIT
+- Contexto:
+  - Tras cerrar separacion de imports/contratos y guardrails DB, falta auditar dominios y deploy por producto.
+- Cambio realizado:
+  - Auditoria documental de dominios, workers, workflows y rutas canonicas.
+- Archivos tocados:
+  - `docs/audits/p10-11-domain-deploy-canonical-audit.md`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: grep de dominios/rutas/workers, inspeccion de `wrangler*.toml`, workflows, expected-state, hostnames drift, package scripts y knowledge pack.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- Resultado:
+  - Queda documentado el mapa real dominio -> worker y producto -> rutas; SocialFlow y Mentoria no quedan declarados vendibles bajo dominio propio todavia.
+- Riesgo residual:
+  - SocialFlow no esta en el workflow canonico de deploy/smoke; Mentoria sigue sin independencia fisica DB y el workflow canonico aun aplica un hotfix sobre `DRACO_DB`.
+- Siguiente accion:
+  - Preparar fase de correccion documental/estado actual y decidir dominio canonico SocialFlow singular/plural antes de tocar Cloudflare.
+- Relacion con issues:
+  - `ISSUE-011`, `ISSUE-012`
+
+## [2026-05-04 18:43 UTC+02:00] MENTORIA-P10-10-DB-GUARDRAILS
+- Contexto:
+  - P10.9 documento el plan futuro para `MENTORIA_DB`.
+- Cambio realizado:
+  - Se agregaron guardrails de readiness para `MENTORIA_DB`: no compartir identidad fisica con `DRACO_DB`/`SOCIAL_DB`/`MENTORIAS_AUTHS_DB`/`BASES_AUTHS_DB`/`SOCIALFLOW_AUTHS_DB`, deteccion de colision preview->prod y warning no bloqueante cuando `MENTORIA_DB` aun no existe.
+  - Se agrego warning de deuda transicional para el fallback actual a `DRACO_DB` en `get-mentoria-db.ts`, sin cambiar runtime.
+  - Se ampliaron tests de `production-readiness` y fixtures de `mentoria-db-guards`.
+- Archivos tocados:
+  - `scripts/check-production-readiness.ts`
+  - `tests/production-readiness.test.ts`
+  - `tests/fixtures/production-audits/mentoria-db-guards/*`
+  - `docs/policies/production-readiness-audits.md`
+  - `docs/audits/p10-9-mentoria-db-plan.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - `git status --short`
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+  - focalizados: `tests/production-readiness.test.ts`, `tests/lib/mentoria-family-db-binding.test.ts`, `tests/architecture/canonical-product-map.test.ts`, `tests/architecture/mentoria-vertical-boundaries.test.ts`
+- Resultado:
+  - La separacion futura de Mentoria queda protegida sin crear DB remota ni migrar datos.
+- Riesgo residual:
+  - Mentoria sigue usando fallback transicional hasta ejecutar fases futuras de split/cutover.
+- Siguiente accion:
+  - Auditar dominios/deploy canonicos por producto antes de activar fases de split fisico.
+
+## [2026-05-03 15:18 UTC+02:00] SOCIALFLOW-P8-OPERATOR-SAFE-ACTIONS
+- Contexto:
+  - P7 dejo visible la salud de SocialFlow en `/operator/socialflow`; P8 agrega acciones operator controladas sin importar motores internos ni reabrir rutas legacy.
+- Cambio realizado:
+  - Se crea `src/lib/socialflow/contracts/operator-actions.ts` como contrato publico para recuperar posts atascados en `PUBLISHING` y reintentar posts `FAILED` elegibles, reprogramandolos sin publicar directamente.
+  - `src/lib/campobase/socialflow-service.ts` expone la accion operator mediante contrato publico.
+  - `/api/operator/socialflow` acepta `recover_stale_publishing`, `retry_failed_posts`, `linkedin_health_check` y `refresh_observability`, devolviendo `observability` actualizada.
+  - `/operator/socialflow` muestra botones seguros para refrescar salud, ejecutar health check LinkedIn, recuperar `PUBLISHING` y reintentar fallidos.
+  - Se agregan tests de contrato, API, UI y frontera arquitectonica.
+- Archivos tocados:
+  - `src/lib/socialflow/contracts/operator-actions.ts`
+  - `src/lib/campobase/socialflow-service.ts`
+  - `src/app/api/operator/socialflow/route.ts`
+  - `src/components/campobase/CampoBaseSocialAutomationControl.tsx`
+  - `tests/lib/socialflow-operator-actions.test.ts`
+  - `tests/api/campobase-socialflow-route.test.ts`
+  - `tests/components/operator-socialflow-health-panel.test.tsx`
+  - `tests/architecture/socialflow-vertical-boundaries.test.ts`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm exec vitest run tests/lib/socialflow-operator-actions.test.ts tests/api/campobase-socialflow-route.test.ts tests/components/operator-socialflow-health-panel.test.tsx tests/architecture/socialflow-vertical-boundaries.test.ts`
+  - `pnpm test`
+  - `pnpm build`
+- Resultado:
+  - Acciones operator disponibles por contrato con validacion verde; no se tocaron Mentoria, `apps/*`, `workers/*`, middleware ni rutas legacy peligrosas.
+- Riesgo residual:
+  - `pause-scheduler` y `resume-scheduler` no se implementan porque no existe soporte real confirmado.
+- Siguiente accion:
+  - Validar visualmente `/operator/socialflow` en runtime local si se quiere ajustar ergonomia operator antes de P9.
+
+## [2026-05-03 14:40 UTC+02:00] SOCIALFLOW-P7-OPERATOR-HEALTH-PANEL
+- Contexto:
+  - P6 dejo disponible el contrato `src/lib/socialflow/contracts/observability.ts` para que Campamento Base observe SocialFlow sin importar motores internos.
+- Cambio realizado:
+  - `/operator/socialflow` ahora muestra salud operativa real consumiendo `GET /api/operator/socialflow?tenantId=...&saasId=...`.
+  - El panel muestra health general, scheduler, LinkedIn, publishing 30 dias, posts atascados en `PUBLISHING`, ultimos fallos, ultimos publicados, eventos e incidentes.
+  - Se agrego test de UI para asegurar que el panel consulta el contrato operator y pinta el `observability` recibido.
+- Archivos tocados:
+  - `src/components/campobase/CampoBaseSocialAutomationControl.tsx`
+  - `tests/components/operator-socialflow-health-panel.test.tsx`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - `pnpm typecheck`
+  - `pnpm exec vitest run tests/components/operator-socialflow-health-panel.test.tsx tests/lib/socialflow-operator-observability.test.ts tests/api/campobase-socialflow-route.test.ts tests/architecture/socialflow-vertical-boundaries.test.ts`
+- Resultado:
+  - Campamento Base visualiza la observabilidad de SocialFlow por contrato publico, sin tocar Mentoria, `apps/*`, workers, middleware ni motores internos de publishing/scheduler.
+- Riesgo residual:
+  - Queda pendiente validacion visual en navegador real si se quiere ajustar densidad/jerarquia del panel operator.
+- Siguiente accion:
+  - Ejecutar validacion completa final y, si producto lo requiere, abrir `/operator/socialflow` en runtime local.
+
+## [2026-05-03 09:55 UTC+02:00] SOCIALFLOW-P5-1-PUBLISHING-RELIABILITY-NATIVE
+- Contexto:
+  - P5 habia endurecido la fiabilidad de publicacion, pero la implementacion real seguia en `src/lib/social/*`, una capa ya marcada como legacy.
+- Cambio realizado:
+  - Se movio la implementacion real de `repository`, `live-publishing` y `scheduler` a `src/lib/socialflow/*`.
+  - Se creo `src/lib/socialflow/linkedin/publishing.ts` como primitiva nativa de publicacion LinkedIn.
+  - `src/lib/social/repository.ts`, `src/lib/social/live-publishing.ts`, `src/lib/social/scheduler.ts` y `src/lib/social/linkedin-service.ts` quedaron como facades deprecated.
+  - Los tests de publishing y scheduler apuntan ahora a los modulos canonicos SocialFlow.
+  - Se extendio `tests/architecture/socialflow-vertical-boundaries.test.ts` para impedir que la reliability canonica vuelva a legacy.
+- Verificacion ejecutada:
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm exec vitest run tests/architecture/socialflow-vertical-boundaries.test.ts tests/lib/social-live-publishing-integration.test.ts tests/lib/social-scheduler.test.ts tests/api/social-cron-publish-route.test.ts tests/api/social-posts-route.test.ts tests/api/linkedin-publish-route.test.ts`
+- Resultado:
+  - Publishing reliability queda nativo en SocialFlow sin tocar Mentoria.
+- Riesgo residual:
+  - Algunos consumidores legacy pueden seguir importando `@/lib/social/*`, pero reciben facades hacia SocialFlow; se deben migrar gradualmente a imports canonicos.
+- Siguiente accion:
+  - Reducir los modulos legacy restantes bajo `src/lib/social/*`, especialmente AI/profile/content-engine, sin cambiar comportamiento productivo.
+
+## [2026-05-03 16:55 UTC+02:00] PLATFORM-P6-5-CANONICAL-PRODUCT-MAP
+- Contexto:
+  - La auditoria de `apps/*` confirmo que esas carpetas no contienen runtime activo: no tienen `package.json`, wrangler config, UI real ni APIs.
+  - El runtime vendible vive en `src/app/*`, `src/app/api/*`, `src/lib/*` y `workers/*`.
+- Cambio realizado:
+  - Se documento el mapa canonico de producto en `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`.
+  - Se marco `apps/*` como starter/manifest legacy, no runtime canonico.
+  - Se agrego `tests/architecture/canonical-product-map.test.ts` para impedir que `apps/*` crezca con package, wrangler config, `src/*` o APIs sin decision explicita.
+  - Se agrego `ISSUE-010` para cerrar a futuro la ubicacion definitiva de `apps/*` como templates/archivo controlado.
+- Archivos tocados:
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+  - `tests/architecture/canonical-product-map.test.ts`
+- Verificacion ejecutada:
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+- Resultado:
+  - Queda fijado que `apps/*` no es fuente canonica de runtime y que los productos activos se desarrollan en sus superficies reales.
+- Riesgo residual:
+  - `apps/*` sigue fisicamente en el repo hasta decidir si se mueve a templates o archivo controlado.
+- Siguiente accion:
+  - Resolver `ISSUE-010` cuando se prepare la plantilla formal de futuros SaaS.
+  - No renombrar workers plurales productivos sin plan de deploy.
+
+## [2026-05-15 23:25 UTC+02:00] SOCIALFLOW-P2-15-RUNTIME-SPLIT-SCAFFOLD
+- Contexto:
+  - P2-14 aprobo un split parcial real para SocialFlow, pero sin activar todavia el runtime nuevo.
+  - Hacia falta preparar una base fisica reversible sin tocar workers activos ni trafico productivo.
+- Cambio realizado:
+  - Se creo `apps/socialflow-runtime/*` como scaffold inactivo del futuro runtime aislado.
+  - Se agregaron packages neutrales (`shared-neutral`, `shared-cloudflare`, `shared-ui-neutral`) y un canary worker sin routes en `workers/socialflows-runtime-canary/*`.
+  - Se documento la excepcion explicita en el mapa canonico: `apps/socialflow-runtime/*` no es runtime vendible ni activo; solo scaffold controlado.
+  - Se agrego `tests/architecture/socialflow-runtime-split-scaffold.test.ts` y se ajusto `tests/architecture/canonical-product-map.test.ts` para permitir solo esta excepcion inactiva.
+- Archivos tocados:
+  - `apps/socialflow-runtime/*`
+  - `packages/shared-neutral/*`
+  - `packages/shared-cloudflare/*`
+  - `packages/shared-ui-neutral/*`
+  - `workers/socialflows-runtime-canary/*`
+  - `tests/architecture/socialflow-runtime-split-scaffold.test.ts`
+  - `tests/architecture/canonical-product-map.test.ts`
+  - `docs/audits/P2-15-RUNTIME-SPLIT-SCAFFOLD.md`
+- Resultado:
+  - El scaffold del split parcial existe en el repo sin activar runtime nuevo y sin relajar el guardrail de `apps/*` mas alla de una excepcion concreta y no desplegable.
+
+## [2026-05-02 12:20 UTC+02:00] SOCIALFLOW-P1-VERTICAL-BOUNDARY
+- Contexto:
+  - P1 de separacion vertical: SocialFlow debe funcionar como SaaS independiente y Campamento Base solo como capa operator/contrato.
+- Cambio realizado:
+  - Se creo `src/lib/social-core/types.ts` como capa neutral de contratos sociales.
+  - Se creo el namespace producto `src/lib/socialflow/*` para engine AI, repositorio, scheduler, publishing, profile y contrato de automatizacion.
+  - Campamento Base dejo de importar `@/lib/social/ai/socialflow-engine` y ahora llama `@/lib/socialflow/contracts/automation`.
+  - Las rutas canonicas `/api/socialflow/*` consumen fronteras `socialflow/*`.
+  - Se agrego `tests/architecture/socialflow-vertical-boundaries.test.ts` para proteger `social-core`, Campamento Base y rutas legacy `410`.
+- Verificacion ejecutada:
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm exec vitest run tests/architecture/socialflow-vertical-boundaries.test.ts tests/api/social-posts-route.test.ts tests/api/linkedin-publish-route.test.ts tests/api/social-cron-publish-route.test.ts tests/lib/campobase-socialflow-service.test.ts`
+- Resultado:
+  - Frontera P1 aplicada sin tocar Mentoria aula/chat/pizarra/learning-loop.
+- Riesgo residual:
+  - `src/lib/social/*` sigue existiendo como compatibilidad legacy; debe reducirse en fases posteriores sin romper rutas canonicas.
+- Siguiente accion:
+  - Migrar gradualmente repositorio/publishing/LinkedIn desde legacy hacia implementaciones nativas `src/lib/socialflow/*`.
+
+## [2026-05-02 23:18 UTC+02:00] SOCIALFLOW-LINKEDIN-OAUTH-CANONICALIZED
+- Contexto:
+  - Migracion del OAuth de LinkedIn desde rutas legacy `/api/social/linkedin/*` y callback operativo `/auth/linkedin/callback` hacia la frontera canonica de SocialFlow.
+- Cambio realizado:
+  - Se extendio `src/lib/social/linkedin.ts` para resolver callback configurable y se repusieron helpers core de parseo/normalizacion usados por token exchange, profile fetch y publish.
+  - Se creo la frontera `src/lib/socialflow/linkedin/*` con tipos, cliente OAuth, repositorio y orquestacion canonica del callback.
+  - Se habilitaron `/api/socialflow/linkedin/connect` y `/api/socialflow/linkedin/callback` como entrypoints canonicos.
+  - `/api/social/linkedin/connect`, `/api/social/linkedin/callback` y `/auth/linkedin/callback` quedaron como bridges `308` sin ejecutar logica OAuth.
+  - `src/components/saas/socialflow/SocialFlowWorkspaceClient.tsx` ya apunta al connect canonico.
+  - Se actualizaron tests de rutas, boundaries, middleware y logica OAuth para verificar arquitectura canonica + redirects legacy.
+- Archivos tocados:
+  - `src/lib/social/linkedin.ts`
+  - `src/lib/socialflow/linkedin/types.ts`
+  - `src/lib/socialflow/linkedin/client.ts`
+  - `src/lib/socialflow/linkedin/repository.ts`
+  - `src/lib/socialflow/linkedin/oauth.ts`
+  - `src/app/api/socialflow/linkedin/connect/route.ts`
+  - `src/app/api/socialflow/linkedin/callback/route.ts`
+  - `src/app/api/social/linkedin/connect/route.ts`
+  - `src/app/api/social/linkedin/callback/route.ts`
+  - `src/app/auth/linkedin/callback/route.ts`
+  - `src/components/saas/socialflow/SocialFlowWorkspaceClient.tsx`
+  - `tests/api/linkedin-connect-route.test.ts`
+  - `tests/api/linkedin-callback-route.test.ts`
+  - `tests/lib/socialflow-linkedin-oauth.test.ts`
+  - `tests/architecture/socialflow-vertical-boundaries.test.ts`
+  - `docs/knowledge-pack/08_socialflow_saas_automatizacion_social.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - `pnpm test -- --run tests/lib/social-linkedin.test.ts tests/lib/linkedin-publish.test.ts tests/lib/socialflow-linkedin-oauth.test.ts tests/api/linkedin-connect-route.test.ts tests/api/linkedin-callback-route.test.ts tests/api/social-posts-route.test.ts tests/api/linkedin-publish-route.test.ts tests/architecture/socialflow-vertical-boundaries.test.ts tests/middleware-linkedin-rate-limit.test.ts`
+- Resultado:
+  - Flujo OAuth canonico de LinkedIn en SocialFlow validado; rutas legacy y callback operativo quedaron controlados por redirect `308`.
+- Riesgo residual:
+  - Sigue existiendo dependencia del core legacy `src/lib/social/linkedin.ts` mientras la verticalizacion no extraiga completamente todas las primitivas de LinkedIn a `src/lib/socialflow/*`.
+- Siguiente accion:
+  - Ejecutar `typecheck/lint/build` del workspace completo cuando se aborde el paquete de lints globales ya existentes fuera de este cambio.
+- Relacion con issues:
+  - `ISSUE-006`
+
+## [2026-04-08 16:49 UTC+02:00] BASELINE-KNOWLEDGE-PACK
+- Contexto:
+  - Se consolida un paquete documental tecnico para continuidad del ecosistema.
+- Cambio realizado:
+  - Creacion del knowledge pack base y del playbook de continuidad.
+- Archivos tocados:
+  - `docs/knowledge-pack/01_mapa_global_del_sistema.md`
+  - `docs/knowledge-pack/02_separacion_de_sistemas_y_fronteras.md`
+  - `docs/knowledge-pack/03_modelo_local_next3000_vs_wrangler8787.md`
+  - `docs/knowledge-pack/04_reglas_de_middleware_y_enrutamiento.md`
+  - `docs/knowledge-pack/05_drako_marca_central_y_governance.md`
+  - `docs/knowledge-pack/06_campamento_base_operador_interno.md`
+  - `docs/knowledge-pack/07_mentoria_saas_flujo_completo.md`
+  - `docs/knowledge-pack/08_socialflow_saas_automatizacion_social.md`
+  - `docs/knowledge-pack/09_fabrica_saas_estado_futuro.md`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/11_current_state.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+  - `docs/knowledge-pack/14_debug_playbook.md`
+- Verificacion ejecutada:
+  - Revision de rutas, middleware y focos activos de Mentoria.
+- Resultado:
+  - Base documental lista para continuidad entre chats.
+- Riesgo residual:
+  - Drift entre runtime local, middleware y DB si no se valida en `:8787`.
+- Siguiente accion:
+  - Registrar evidencia real al cerrar cada bloque de trabajo.
+- Relacion con issues:
+  - `ISSUE-006`, `ISSUE-007`
+
+## [2026-04-11 09:21 UTC+02:00] MENTORIA-LOCAL-E2E-CANONICALIZED
+- Contexto:
+  - Cierre del hito de Mentoria local tras resolver sesion, onboarding y workspace en runtime real OpenNext/Wrangler.
+- Cambio realizado:
+  - Se fija como canon local el runtime raiz (`wrangler.jsonc` -> `drako_db_local`).
+  - Se consolidan los fixes ya aplicados: cookie local por host real, alta de tenant hermana en `createFamily()`, y esquema local complementario para `drako_events`, `mentoria_feedback_jobs` y `mentoria_system_events`.
+  - Se documenta el riesgo de doble estado D1 local entre root y `workers/mentorias`.
+- Archivos tocados:
+  - `src/lib/mentoria/family-repository.ts`
+  - `workers/mentorias/migrations/0001_local_mentoria_schema_bootstrap.sql`
+  - `workers/mentorias/migrations/0002_local_runtime_metrics.sql`
+  - `workers/mentorias/migrations/0003_local_resilience_feedback.sql`
+  - `docs/knowledge-pack/11_current_state.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Runtime local en `:8787` con signup, login, onboarding GET/POST, workspace y `/mentoria/app`.
+  - `PRAGMA foreign_key_list(student_trials);`
+  - `PRAGMA table_info(drako_events);`
+  - Confirmacion de dos estados locales separados en `.wrangler/state/v3/d1/...` y `workers/mentorias/.wrangler/state/v3/d1/...`.
+- Resultado:
+  - Hito local consolidado y documentado con canon de reproduccion y riesgo residual explicito.
+- Riesgo residual:
+  - Persistencia de doble bootstrap local root vs worker hasta automatizar o encapsular el procedimiento.
+- Siguiente accion:
+  - Auditar el modulo de verificacion/QA operativa para convertir el procedimiento manual en un runbook o script unico.
+- Relacion con issues:
+  - `ISSUE-001`, `ISSUE-002`, `ISSUE-003`, `ISSUE-007`, `ISSUE-009`
+
+## [2026-04-11 09:34 UTC+02:00] MENTORIA-LOCAL-BOOTSTRAP-QA-CANON
+- Contexto:
+  - Consolidacion del procedimiento operativo para evitar drift entre la D1 local root y la D1 local de `workers/mentorias`.
+- Cambio realizado:
+  - Se crean scripts root para bootstrap canonico, smoke QA y QA end-to-end de Mentoria.
+  - Se fija como procedimiento oficial hidratar primero `drako_db_local` via `wrangler.jsonc` y alinear la D1 del worker solo bajo demanda con `--align-worker`.
+- Archivos tocados:
+  - `package.json`
+  - `scripts/local/mentoria-local-bootstrap.mjs`
+  - `scripts/local/mentoria-local-smoke.mjs`
+  - `scripts/local/mentoria-local-qa.mjs`
+  - `docs/knowledge-pack/11_current_state.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Inspeccion de `wrangler.jsonc` y `workers/mentorias/wrangler.workers.toml`.
+  - Confirmacion de migraciones locales 0001/0002/0003 bajo `workers/mentorias/migrations`.
+- Resultado:
+  - Queda definido un unico entrypoint operativo para bootstrap + QA local de Mentoria.
+- Riesgo residual:
+  - Persisten dos estados fisicos de D1 local; el riesgo queda mitigado por script y runbook, no eliminado estructuralmente.
+- Siguiente accion:
+  - Ejecutar `pnpm mentoria:local:qa` en una maquina limpia para validar reproducibilidad completa sin intervencion manual.
+- Relacion con issues:
+  - `ISSUE-006`, `ISSUE-009`
+
+## [2026-05-03 13:10 UTC+02:00] SOCIALFLOW-P6-OPERATOR-OBSERVABILITY-CONTRACT
+- Contexto:
+  - Campamento Base necesitaba consultar salud operativa de SocialFlow sin importar scheduler, live publishing ni motores internos del producto.
+- Cambio realizado:
+  - Se crea `src/lib/socialflow/contracts/observability.ts` como contrato operator para health, scheduler, posts por estado, publicaciones recientes, fallos, `PUBLISHING` atascados, conexiones LinkedIn, metricas 7/30 dias y eventos/incidentes.
+  - `src/lib/campobase/socialflow-service.ts` expone `getCampoBaseSocialFlowObservability()` delegando solo al contrato.
+  - `/api/operator/socialflow` y el compat `/api/campobase/socialflow` devuelven `observability` cuando la consulta incluye `tenantId` y `saasId`.
+  - Se agregan tests de contrato y frontera para impedir imports directos a motores internos.
+- Archivos tocados:
+  - `src/lib/socialflow/contracts/observability.ts`
+  - `src/lib/campobase/socialflow-service.ts`
+  - `src/app/api/operator/socialflow/route.ts`
+  - `tests/lib/socialflow-operator-observability.test.ts`
+  - `tests/architecture/socialflow-vertical-boundaries.test.ts`
+  - `tests/api/campobase-socialflow-route.test.ts`
+  - `docs/knowledge-pack/08_socialflow_saas_automatizacion_social.md`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - `pnpm exec vitest run tests/lib/socialflow-operator-observability.test.ts tests/architecture/socialflow-vertical-boundaries.test.ts tests/api/campobase-socialflow-route.test.ts`
+  - `pnpm typecheck`
+- Resultado:
+  - Campamento Base observa SocialFlow por contrato publico y mantiene bloqueados los imports a `repository`, `live-publishing`, `scheduler` y `linkedin/publishing`.
+- Riesgo residual:
+  - La UI operator aun puede decidir cuanto de `observability` mostrar; el contrato backend ya queda disponible.
+- Siguiente accion:
+  - Añadir visualizacion operator de la salud SocialFlow si producto lo requiere, sin importar motores internos.
+
+## [2026-04-12 16:05 UTC+02:00] MENTORIA-WHATSAPP-ENTRYPOINT-HONEST
+- Contexto:
+  - Integracion inicial real de WhatsApp para Mentoria usando el resolver `platform_type`.
+- Cambio realizado:
+  - Creacion de `src/lib/mentoria/whatsapp-entry.ts` con validaciones reales (DB Mentoria, actor y pertenencia `tenantId/saasId`).
+  - El handler `mentoria-whatsapp-handler.ts` se convierte en adapter fino al entrypoint.
+  - Se registra Mentoria en `bootstrapHandlers()` y se crea el test `tests/mentoria-whatsapp.integration.test.ts`.
+- Archivos tocados:
+  - `src/lib/mentoria/whatsapp-entry.ts`
+  - `src/lib/conversation-router/handlers/mentoria-whatsapp-handler.ts`
+  - `src/app/api/conversation-router/route.ts`
+  - `tests/mentoria-whatsapp.integration.test.ts`
+  - `docs/knowledge-pack/11_current_state.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - `npm run typecheck`
+  - `npm test`
+  - `npm run build`
+- Resultado:
+  - WhatsApp enruta via handler de Mentoria, valida actor real y devuelve `MENTORIA_WHATSAPP_NOT_READY` hasta completar automatizacion.
+- Riesgo residual:
+  - Falta automatizacion de respuestas Mentoria sobre WhatsApp; QA manual por definir (`ISSUE-006`).
+- Siguiente accion:
+  - Diseñar el flujo real de automatizacion Mentoria WhatsApp y checklist QA antes de habilitar respuestas.
+- Relacion con issues:
+  - `ISSUE-006`
+
+## [2026-04-12 17:12 UTC+02:00] MENTORIA-WHATSAPP-INTEGRATION-STUB-READY
+- Contexto:
+  - El test de integracion de Mentoria WhatsApp seguia fallando con `MENTORIA_SAAS_CONTEXT_MISMATCH` debido al mock global de `@/lib/cf` que anulaba los bindings configurados en el test.
+- Cambio realizado:
+  - Se reescribio el test `tests/mentoria-whatsapp.integration.test.ts` para importar el modulo real de Cloudflare (`env/setGlobalEnv`), configurar un stub D1 en memoria compatible con `queryOne` y reusar el handler real del router.
+  - Se elimino el `console.log` residual de `MentoriaFamilyRepository`.
+- Archivos tocados:
+  - `tests/mentoria-whatsapp.integration.test.ts`
+  - `src/lib/mentoria/family-repository.ts`
+- Verificacion ejecutada:
+  - `npm test -- --run tests/mentoria-whatsapp.integration.test.ts`
+  - `npm run typecheck`
+  - `npm run build`
+- Resultado:
+  - El router enruta la plataforma Mentoria correcta en el test, valida actor real y devuelve `MENTORIA_WHATSAPP_NOT_READY` como se espera.
+- Riesgo residual:
+  - El flujo Mentoria sigue marcado como "not ready" hasta implementar la automatizacion completa y checklist QA (`ISSUE-006`).
+- Siguiente accion:
+  - Diseñar la automatizacion WhatsApp y checklist QA para poder retirar el mensaje `MENTORIA_WHATSAPP_NOT_READY` cuando el flujo este operativo.
+- Relacion con issues:
+  - `ISSUE-006`
+
+## [2026-05-04 15:11 UTC+02:00] MENTORIA-P10-9-DB-PLAN
+- Contexto:
+  - P10.5 detecto que Mentoria sigue dependiendo fisicamente de `DRACO_DB`.
+- Cambio realizado:
+  - Se documento el plan de separacion fisica para `MENTORIA_DB` sin crear DB remota, migrar datos, tocar produccion ni cambiar runtime.
+  - Se registro `ISSUE-011` para mantener visible el riesgo residual hasta el cutover futuro.
+- Archivos tocados:
+  - `docs/audits/p10-9-mentoria-db-plan.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+  - Auditoria: `grep -R 'MENTORIA_DB\|MENTORIAS_AUTHS_DB\|DRACO_DB\|mentoria_' ...`, inspeccion de configs, rutas, migraciones, scripts locales y workflow de deploy.
+  - Final: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- Resultado:
+  - Plan listo sin crear DB ni migrar datos.
+- Riesgo residual:
+  - Mentoria sigue fisicamente dependiente de `DRACO_DB` hasta ejecutar fases futuras.
+- Siguiente accion:
+  - Anadir guardrails futuros para `MENTORIA_DB`.
+- Relacion con issues:
+  - `ISSUE-011`, `ISSUE-009`
+
+## [2026-05-07 12:00 UTC+02:00] SOCIALFLOW-P10-20-SAFE-DOMAIN-CONFIG-HOST-FENCING
+
+- Contexto:
+  - Cloudflare ya enruta `socialflow.drako.systems` a `saas-socialflows-prod`, pero el Worker estable lo rechaza por host fencing.
+  - El deploy manual de P10.19 perdió el custom domain singular por drift entre config local y remota (wrangler.workers.toml sólo declaraba un `[[routes]]`).
+- Cambio realizado:
+  - Se añadió segundo bloque `[[routes]]` con `pattern = "socialflow.drako.systems"` y `custom_domain = true` en `workers/socialflows/wrangler.workers.toml`.
+  - Se ampliaron tests de host fencing de 5 a 10 (spaces, protocol normalization, fallback, wildcard rejection, config file validation).
+- Archivos tocados:
+  - `workers/socialflows/wrangler.workers.toml`
+  - `tests/workers-socialflow-host-fencing.test.ts`
+  - `docs/runbooks/socialflow-canonical-domain-cloudflare-checklist.md`
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificación ejecutada:
+  - typecheck ✓, lint 0 errors ✓, 10/10 host fencing tests ✓, build ✓.
+- Resultado:
+  - Repo preparado para deploy seguro posterior. Config local ahora refleja la config remota de Cloudflare.
+- Riesgo residual:
+  - Falta desplegar nuevamente con config corregida y validar smoke real.
+  - `workers/socialflows` aún no está en `drako-factory-deploy.yml`.
+- Siguiente acción:
+  - Hacer commit/push, esperar workflow PASS y luego ejecutar deploy controlado de SocialFlow (P10.21).
+
+## [2026-05-07 15:08 UTC+02:00] SOCIALFLOW-P10-22-CANONICAL-SMOKE-ORIGIN-FIX
+
+- Contexto:
+  - P10.21 resolvió host fencing y preservó ambos custom domains.
+  - El smoke fallaba parcialmente por `403 Unauthorized origin` (Worker requiere `Origin` header).
+- Cambio realizado:
+  - Se actualizó `scripts/smoke/socialflow-canonical-domain-smoke.mjs` para enviar `Origin` header correcto.
+  - Canonical checks: `Origin: https://<SOCIALFLOW_CANONICAL_HOST>`.
+  - Compat check: `Origin: https://<SOCIALFLOW_COMPAT_HOST>`.
+- Archivos tocados:
+  - `scripts/smoke/socialflow-canonical-domain-smoke.mjs`
+  - `docs/runbooks/socialflow-canonical-domain-smoke.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificación ejecutada:
+  - typecheck ✓, lint 0 errors ✓, 861/861 tests ✓, build ✓.
+  - Smoke no-op ✓, smoke real ejecutado.
+- Resultado:
+  - Smoke preparado para validar dominio canónico sin relajar seguridad del Worker.
+- Riesgo residual:
+  - Falta integrar SocialFlow en workflow canónico (`drako-factory-deploy.yml`).
+- Siguiente acción:
+  - Ejecutar smoke real completo y preparar P10.23 para workflow canónico.
+
+## [2026-05-07 16:14 UTC+02:00] SOCIALFLOW-P10-23-INTEGRAR-EN-WORKFLOW-CANONICO
+
+- Contexto:
+  - P10.20/21/22 resolvieron host fencing, config drift y smoke.
+  - El workflow canónico `.github/workflows/drako-factory-deploy.yml` desplegaba scheduler, drakos, mentorias, bases — pero NO socialflows.
+  - Esto creaba drift: workflow verde no garantizaba SocialFlow actualizado.
+- Cambio realizado:
+  - Añadido guard pre-deploy que valida ambos custom domains en `workers/socialflows/wrangler.workers.toml`.
+  - Añadido deploy de `workers/socialflows` después de bases en orden estricto.
+  - Añadido smoke post-deploy que ejecuta `pnpm smoke:socialflow:canonical:manual` con env vars correctas.
+  - Smoke job ahora hace checkout + pnpm setup para ejecutar el script.
+- Archivos tocados:
+  - `.github/workflows/drako-factory-deploy.yml`
+  - `docs/runbooks/socialflow-canonical-domain-cloudflare-checklist.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificación ejecutada:
+  - typecheck ✓, lint 0 errors ✓, 861/861 tests ✓, build ✓.
+  - Workflow YAML válido (sintaxis).
+- Resultado:
+  - SocialFlow integrado en workflow canónico con guardrails.
+  - Deploy automático preserva ambos custom domains.
+  - Smoke post-deploy valida canonical + compat.
+- Riesgo residual:
+  - Falta ejecutar workflow real en CI para confirmar que guard + deploy + smoke pasan.
+- Siguiente acción:
+  - Commit/push → esperar workflow PASS en CI con SocialFlow integrado.
+
+## [2026-05-07 16:24 UTC+02:00] SOCIALFLOW-P10-24-CANONICAL-DOMAIN-PHASE-GATE-ACTIVE
+
+- Contexto:
+  - P10.20/21/22/23 completaron config, deploy, smoke y workflow integration.
+  - `socialflow.drako.systems` está conectado, desplegado por workflow canónico y validado con smoke real.
+- Cambio realizado:
+  - Activado `phaseGates.socialflowCanonicalDomain.active` en `docs/config/production-audits-expected-state.json`.
+  - Actualizado fixture de production-audits para incluir ambos dominios SocialFlow.
+- Archivos tocados:
+  - `docs/config/production-audits-expected-state.json`
+  - `tests/fixtures/production-audits/pass/domains.json`
+  - `docs/audits/p10-13-socialflow-domain-implementation-plan.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificación ejecutada:
+  - typecheck ✓, lint 0 errors ✓, 861/861 tests ✓, build ✓.
+  - Readiness con fixtures ✓ (solo warnings de Mentoría transitional debt).
+- Resultado:
+  - El dominio canónico `socialflow.drako.systems` es ahora requisito de production readiness.
+  - Missing hostname → **BLOCKER** (antes WARN).
+  - Worker ownership incorrecto → **BLOCKER**.
+  - Smoke evidence ausente → **BLOCKER**.
+- Riesgo residual:
+  - `socialflows.drako.systems` sigue como compat hasta definir redirect/deprecación.
+  - `WORKERS_ONLY_MODE=true` mantiene navegación directa con 403 esperado.
+- Siguiente acción:
+  - Definir estrategia de UX pública/landing o mantener worker-only según roadmap.
+
+## [2026-05-07 19:30 UTC+02:00] SOCIALFLOW-P10-25-PUBLIC-PRODUCT-EXPERIENCE
+
+- Contexto:
+  - SocialFlow ya tiene dominio canónico, workflow, smoke y readiness.
+  - El navegador directo devolvía `{"error":"Unauthorized origin"}` por `WORKERS_ONLY_MODE=true`.
+  - El worker requería `Origin` header para todas las rutas, bloqueando navegación directa.
+- Cambio realizado:
+  - Se añadió experiencia pública mínima segura para `socialflow.drako.systems`.
+  - Modificado `packages/shared/workers-handlers/index.ts` para permitir GET sin Origin solo en rutas públicas específicas: `/`, `/socialflow`, `/socialflow/auth`.
+  - Añadida función `isPublicRouteForWorker` que valida worker + método + pathname.
+  - Añadida función `generateSocialFlowPublicHTML` que sirve landing page inline sin dependencias externas.
+  - Modificado `handleSocialflowsRequest` para servir HTML en rutas públicas y mantener APIs protegidas.
+- Archivos tocados:
+  - `packages/shared/workers-handlers/index.ts`
+  - `tests/workers-socialflow-public-routes.test.ts` (nuevo, 15 tests)
+  - `tests/workers-socialflow-host-fencing.test.ts` (actualizado path de test)
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificación ejecutada:
+  - typecheck ✓, lint 0 errors ✓, 876/876 tests ✓ (15 nuevos), build ✓.
+  - Tests validan: GET público sin Origin devuelve 200 HTML, APIs siguen protegidas, host fencing activo, POST sin body devuelve 400, wildcard rechazado.
+- Resultado:
+  - El dominio canónico ya presenta una experiencia de producto controlada sin relajar APIs.
+  - `GET https://socialflow.drako.systems/` devuelve landing page HTML premium.
+  - `GET https://socialflow.drako.systems/socialflow` devuelve landing page HTML.
+  - `GET https://socialflow.drako.systems/socialflow/auth` devuelve landing page con "Acceso cliente: próximamente".
+  - APIs `/api/*` siguen requiriendo Origin header.
+  - Host desconocido sigue devolviendo `HOSTS_FENCING_REJECTED`.
+  - No se exponen datos, no se accede a DB, no se toca OAuth.
+- Riesgo residual:
+  - Falta decidir onboarding completo, login cliente y venta/piloto.
+  - Landing page es HTML inline en worker, no usa Next.js.
+  - `WORKERS_ONLY_MODE=true` se mantiene.
+- Siguiente acción:
+  - Definir SocialFlow MVP comercial y panel cliente real.
+  - Considerar si landing page debe migrar a Next.js en drako.systems o mantenerse en worker.
+
+## [2026-05-07 20:25 UTC+02:00] SOCIALFLOW-P10-26-MVP-COMERCIAL
+
+- Contexto:
+  - P10.25 dejo una landing publica minima en el Worker `saas-socialflows-prod`.
+  - SocialFlow necesitaba una primera presentacion comercial seria sin prometer capacidades no verificadas.
+- Cambio realizado:
+  - Se amplio `generateSocialFlowPublicHTML` con navegacion, hero comercial, panel operativo, segmentos objetivo, capacidades, estado real del piloto, limites explicitos, confianza operativa y pasos de solicitud.
+  - Se mantuvieron las unicas rutas publicas: `/`, `/socialflow`, `/socialflow/auth`.
+  - Se mantuvieron host fencing, `isValidOrigin`, APIs protegidas, `WORKERS_ONLY_MODE=true` y ausencia de JS externo/cookies/trackers.
+- Archivos tocados:
+  - `packages/shared/workers-handlers/index.ts`
+  - `tests/workers-socialflow-public-routes.test.ts`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: git limpio, typecheck, lint 0 errors, 876/876 tests, build.
+  - Focalizada: `npx vitest run tests/workers-socialflow-public-routes.test.ts tests/workers-socialflow-host-fencing.test.ts` -> 25/25 tests.
+- Resultado:
+  - SocialFlow queda presentado como SaaS piloto comercial con valor, casos de uso, alcance, limites y CTA de piloto.
+  - No se abrieron APIs ni se tocaron DB/OAuth/Mentoria/Cloudflare/workflows.
+- Riesgo residual:
+  - Falta onboarding self-serve, panel cliente definitivo y decision de dominio compat redirect/bridge.
+- Siguiente accion:
+  - Definir paquete piloto comercial, flujo de intake y criterio para migrar landing a runtime Next.js si se necesita CMS/iteracion frecuente.
+
+## [2026-05-07 21:10 UTC+02:00] SOCIALFLOW-P10-27-PREMIUM-SAAS-LANDING
+
+- Contexto:
+  - P10.26 dejo una landing comercial piloto funcional, pero el objetivo evoluciono a una presentacion mas premium, visual y SaaS-like.
+  - La restriccion se mantiene: no abrir APIs, no cambiar host fencing, no tocar DB/OAuth/Cloudflare/workflows.
+- Cambio realizado:
+  - Se redisenó `generateSocialFlowPublicHTML` hacia tema claro premium con gradientes suaves, nav glass, hero comercial, CTAs y mensajes orientados a empresas, marcas, agencias y emprendedores.
+  - Se agregaron mockups visuales CSS inline de `SocialFlow Workspace` y `SocialFlow Control Room` con calendario editorial, borradores asistidos, revision humana, canales y operacion trazable.
+  - Se reestructuro la pagina en secciones de problema, como funciona, para quien es, plataforma, capacidades, piloto y CTA final.
+  - Se mantuvo HTML inline sin JS externo, cookies, trackers ni dependencias.
+- Archivos tocados:
+  - `packages/shared/workers-handlers/index.ts`
+  - `tests/workers-socialflow-public-routes.test.ts`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Baseline previo: git limpio, typecheck, lint 0 errors/208 warnings, 876/876 tests, build.
+  - Focalizada: `pnpm exec vitest run tests/workers-socialflow-public-routes.test.ts tests/workers-socialflow-host-fencing.test.ts` -> 25/25 tests.
+  - Final: typecheck OK, lint 0 errors/208 warnings, 876/876 tests, build OK.
+- Resultado:
+  - SocialFlow queda presentado como plataforma SaaS piloto de automatizacion social asistida por IA con presencia visual de producto y copy comercial mas claro.
+  - Las rutas publicas siguen limitadas a `GET /`, `GET /socialflow` y `GET /socialflow/auth`.
+  - APIs, rutas internas, host fencing y Origin validation siguen protegidos.
+- Riesgo residual:
+  - Landing sigue inline en Worker; para iteracion comercial frecuente podria convenir migrarla a UI versionada o CMS controlado en una fase futura.
+  - Falta onboarding self-serve, panel cliente definitivo y decision final de redirect/bridge para `socialflows.drako.systems`.
+- Siguiente accion:
+  - Definir el flujo de intake/piloto comercial y criterios para abrir acceso cliente real sin relajar seguridad.
+
+## [2026-05-08 10:32 UTC+02:00] SOCIALFLOW-P10-28-LANDING-FINAL-PRODUCT-POLISH
+
+- Contexto:
+  - SocialFlow ya tenia landing publica premium servida por `saas-socialflows-prod` en `/`, `/socialflow` y `/socialflow/auth`.
+  - El objetivo fue elevar claridad comercial y percepcion SaaS sin tocar arquitectura sensible.
+- Cambio realizado:
+  - Se pulio solo el HTML/CSS inline de `generateSocialFlowPublicHTML`.
+  - Hero reescrito alrededor de "Convierte tu operacion social en un sistema asistido por IA".
+  - Mockup CSS-only reforzado con IA central, canales genericos LinkedIn/Instagram/X, calendario editorial, estados `Idea/Borrador/Revision/Programado` y aprobacion humana.
+  - Se agrego antes/despues explicito, flujo de 4 pasos, targets comerciales, capacidades realistas y limites honestos del piloto.
+  - Tests publicos actualizados para validar copy nuevo, ausencia de JS/tracking y proteccion de `/api/*`, Origin validation y host fencing.
+- Archivos tocados:
+  - `packages/shared/workers-handlers/index.ts`
+  - `tests/workers-socialflow-public-routes.test.ts`
+  - `docs/knowledge-pack/10_matriz_global_de_rutas_y_entrypoints.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Baseline previo: git limpio, typecheck OK, lint 0 errors/208 warnings, test OK, build OK.
+  - Focalizada: `pnpm exec vitest run tests/workers-socialflow-public-routes.test.ts tests/workers-socialflow-host-fencing.test.ts` -> 26/26 tests OK.
+  - Final: typecheck OK, lint 0 errors/208 warnings, test OK, build OK.
+  - Nota: un primer `pnpm test` en paralelo con `pnpm build` provoco timeout en `tests/components/mentoria-onboarding-wizard.test.tsx`; el test aislado y el rerun completo de `pnpm test` pasaron.
+- Resultado:
+  - Landing mas directa, luminosa y vendible como SaaS piloto serio.
+  - No se abrieron rutas nuevas, no se tocaron Cloudflare/workflows/DB/OAuth/Mentoria/Campamento Base/middleware ni `WORKERS_ONLY_MODE`.
+- Riesgo residual:
+  - Sigue siendo HTML inline en Worker; para iteracion comercial frecuente convendra valorar una superficie versionada dedicada.
+  - Falta onboarding self-serve, panel cliente definitivo e intake comercial formal.
+- Siguiente accion:
+  - Validar visualmente en navegador cuando exista entorno local/preview del Worker y cerrar flujo de intake del piloto.
+
+## [2026-05-08 11:35 UTC+02:00] SOCIALFLOW-P10-29-PRODUCTION-SAAS-READINESS-AUDIT
+
+- Contexto:
+  - SocialFlow ya tiene dominio canonico, landing premium, APIs protegidas, auth aislado parcial, SOCIAL_DB, LinkedIn/OAuth/publishing parcial, IA/orquestador y observabilidad/operator contracts.
+  - El objetivo cambio de "solicitar piloto" a evaluar si SocialFlow puede venderse como SaaS comercial independiente con Stripe, onboarding, workspace real y conexion gobernada con Campamento Base.
+- Cambio realizado:
+  - Se ejecuto auditoria read-only de readiness comercial y tecnica.
+  - Se documento el estado real en `docs/audits/p10-29-socialflow-production-saas-readiness-audit.md`.
+  - Se registro `ISSUE-016` como bloqueo P0 para SocialFlow self-serve production-ready.
+  - No se implemento Stripe, no se crearon tablas, no se tocaron DB/OAuth/Cloudflare/workflows/middleware/APIs ni se abrieron rutas.
+- Hallazgo principal:
+  - SocialFlow esta listo para piloto controlado/beta privada, pero no para SaaS self-serve production-ready.
+  - Faltan planes Stripe SocialFlow, onboarding product-native, entitlements, workspace cliente real, RBAC/team invites, migraciones canonicas de `SOCIAL_DB`, UX completa de cuentas sociales, metricas productivas y contrato estable con Campamento Base.
+  - Riesgos P0: publicacion en vivo desde contrato simplificado sin revision humana explicita, query by-id de posts sin `saas_id`, registro con `tenantId` desde body, endpoint test scheduler en arbol Next y billing generico de workspace presentado en SocialFlow.
+- Archivos tocados:
+  - `docs/audits/p10-29-socialflow-production-saas-readiness-audit.md`
+  - `docs/knowledge-pack/12_open_issues.md`
+  - `docs/knowledge-pack/13_progress_log.md`
+- Verificacion ejecutada:
+  - Previa: `git status --short` limpio, `pnpm typecheck` OK, `pnpm lint` OK con 0 errores/208 warnings, `pnpm test` OK, `pnpm build` OK.
+  - Final tras documentacion: `git diff --check` OK, `pnpm typecheck` OK, `pnpm lint` OK con 0 errores/208 warnings, `pnpm test` OK, `pnpm build` OK.
+  - Focalizada SocialFlow Worker: `pnpm exec vitest run tests/workers-socialflow-public-routes.test.ts tests/workers-socialflow-host-fencing.test.ts` -> 26/26 tests OK.
+- Resultado:
+  - Queda una hoja de ruta P0/P1 para convertir SocialFlow de piloto avanzado a SaaS comercial production-ready sin inventar capacidades como si ya existieran.
+- Siguiente accion:
+  - Atacar `ISSUE-016` fase A: contrato comercial/entitlements, cerrar publish sin revision, cerrar isolation by `saas_id`, cerrar endpoint test y definir tenant provisioning seguro.
+
+## Checklist al cerrar cada sesion
+- [ ] Actualizar `11_current_state.md` si cambio el baseline tecnico.
+- [ ] Actualizar el estado de issues en `12_open_issues.md`.
+- [ ] Agregar entrada nueva con timestamp real.
+- [ ] Validar al menos un flujo critico en `:8787` si hubo cambios de middleware/auth/DB.
+- [ ] Dejar siguiente accion explicita para el proximo chat.

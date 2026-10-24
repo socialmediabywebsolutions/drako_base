@@ -1,0 +1,32 @@
+name = "saas-automations-prod"
+main = "src/workers.ts"
+compatibility_date = "2024-11-01"
+workers_dev = false
+
+[[routes]]
+pattern = "automations.drako.systems"
+custom_domain = true
+
+# Recommended strategy: one D1 per SaaS worker.
+[[d1_databases]]
+binding = "SAASES_DB"
+database_name = "saas_automations_prod_db"
+database_id = "518707ec-2367-4986-b01f-1f9350fc3e10"
+
+[[kv_namespaces]]
+binding = "SAASES_CACHE"
+id = "88b03f2f25354c2f9def76ea4572951f"
+
+[[r2_buckets]]
+binding = "SAASES_STORAGE"
+bucket_name = "saas-automations-prod-storage"
+
+[[queues.producers]]
+binding = "SAASES_EVENTS"
+queue = "saas-automations-prod-events"
+
+[vars]
+SAASES_SLUG = "automations"
+SAASES_DOMAIN = "automations.drako.systems"
+AUTHS_SECRETS_NAME = "AUTOMATIONS_AUTHS_SECRET"
+WORKERS_ONLY_MODE = "true"

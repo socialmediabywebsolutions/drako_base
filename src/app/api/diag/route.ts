@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import {
   ensureDatabase,
@@ -7,10 +9,9 @@ import {
 } from "@/lib/db";
 import { ensureCampamentoBase, getCampamentoCoreAgentsCatalog, getCampamentoCoreDepartmentsCatalog } from "@/lib/campamento-base";
 import { getPagesBuildStamp } from "@/lib/pages/build-stamp";
-// export const runtime = "edge"; // OpenNext Migration
 
 
-const REQUIRED_TABLES = ["saas", "saas_domains", "saas_projects", "owners", "clients", "campamento_events"];
+const REQUIRED_TABLES = ["saas", "saas_domains", "saas_instances", "owners", "clients", "campamento_events"];
 const SEED_CHECKS = [
   { table: "saas", slug: "drako-systems" },
   { table: "saas_domains", domain: "drako.systems" },
@@ -80,10 +81,10 @@ export async function GET(request: Request) {
     const bindingDetails =
       error instanceof DatabaseUnavailableError && error.reason === "binding-missing"
         ? {
-            bindingName: "DRACO_DB",
-            action:
-              "Configure D1 binding in Cloudflare Pages: Project -> Settings -> Functions -> D1 bindings.",
-          }
+          bindingName: "DRACO_DB",
+          action:
+            "Configure D1 binding in Cloudflare Pages: Project -> Settings -> Functions -> D1 bindings.",
+        }
         : {};
     console.error("DIAG_DB_UNAVAILABLE", { correlationId, reason });
     return NextResponse.json(

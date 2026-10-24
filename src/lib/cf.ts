@@ -1,16 +1,35 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContextSafeSync, isBuildPhase } from "@/lib/cloudflare/runtime";
 
 /**
  * Drako Knowledge System - Global Environment Type
  */
 export type DracoEnv = {
   DRACO_DB: D1Database;
+  DB?: D1Database;
+  SOCIAL_DB?: D1Database;
+  MENTORIA_DB?: D1Database;
+  DRAKOS_AUTHS_DB?: D1Database;
+  MENTORIAS_AUTHS_DB?: D1Database;
+  SOCIALFLOW_AUTHS_DB?: D1Database;
+  SOCIALFLOW_TOKEN_ENCRYPTION_SECRET?: string;
+  SOCIALFLOW_TOKEN_ENCRYPTION_SECRET_NEXT?: string;
+  META_APP_ID?: string;
+  META_APP_SECRET?: string;
+  INSTAGRAM_APP_ID?: string;
+  INSTAGRAM_APP_SECRET?: string;
+  GOOGLE_MAPS_API_KEY?: string;
+  YOUTUBE_API_KEY?: string;
+  SOCIALFLOW_PRIVATE_PILOT_MODE?: string;
+  SOCIALFLOW_PUBLISH_SCHEDULER_OWNER?: string;
+  SOCIALFLOW_PRIVATE_PILOT_TENANT_ALLOWLIST?: string;
+  BASES_AUTHS_DB?: D1Database;
   SESSION_SECRET: string;
+  SOCIALFLOW_WEBHOOK_VERIFY_TOKEN?: string;
+  SOCIALFLOW_ADMIN_KEY?: string;
   DEFAULT_TENANT_ID?: string;
   ADMIN_EMAIL?: string;
   ADMIN_PASSWORD?: string;
   USER_PASSWORD?: string;
-  FIREWORKS_API_KEY?: string;
   ORCHESTRATOR_MODEL?: string;
   STRIPE_PUBLISHABLE_KEY?: string;
   STRIPE_SECRET_KEY?: string;
@@ -36,7 +55,6 @@ export type DracoEnv = {
   DRACO_AI_CB_COOLDOWN_SECONDS?: string;
   DRACO_AI_CB_HALF_OPEN_TRIALS?: string;
   CF_API_TOKEN?: string;
-  CF_ACCOUNT_ID?: string;
   CF_ZONE_ID?: string;
   CF_PAGES_ENVIRONMENT?: string;
   CF_PAGES_BRANCH?: string;
@@ -48,38 +66,98 @@ export type DracoEnv = {
   CLOUDFLARE_ZONE_ID?: string;
   CLOUDFLARE_PROVISIONING_MODE?: string;
   AI_GATEWAY_ID?: string;
-  AI_GATEWAY_COMPAT_TOKEN?: string;
+  ANTHROPIC_API_KEY?: string;
+  CRON_SECRET?: string;
   AI?: { run: (model: string, inputs: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown> };
+  // DashScope (Alibaba) API key — llamada directa vía fetch() para generación de vídeo IA
+  // (bytedance/seedance-2.0-fast y hh1-i2v fallaban con AiGatewayError 2021 "Invalid User
+  // Credentials" a través de env.AI.run(), confirmado en ambos modelos de terceros).
+  DASHSCOPE_API_KEY?: string;
+  // Apiframe (apiframe.ai) — proveedor SECUNDARIO de vídeo IA (Kling 2.6) desde que PiAPI
+  // pasó a ser el primario (Apiframe exige suscripción mínima de $19/mes para comprar
+  // créditos pay-as-you-go). Llamado vía fetch() directo igual que DASHSCOPE_API_KEY
+  // (mismo motivo: modelos de vídeo de terceros fallan a través de env.AI.run()/AI Gateway).
+  APIFRAME_API_KEY?: string;
+  // PiAPI (piapi.ai) — proveedor PRIMARIO de vídeo IA (Kling 2.6): créditos gratis al
+  // registro sin suscripción mínima, y pay-as-you-go más barato que Apiframe.
+  PIAPI_API_KEY?: string;
+  SAAS_FACTORY_QUEUE?: { send: (msg: any) => Promise<void> };
+  SOCIALFLOW_AI_QUEUE?: { send: (msg: any) => Promise<void> }; // Cloudflare Queue Producer for async AI campaign generation
+  SCHEDULER?: Fetcher; // Service Binding to drako-scheduler
+  PROVISIONING_QUEUE?: { send: (msg: any) => Promise<void> }; // Cloudflare Queue Producer
+  SOCIAL_MEDIA_BUCKET?: R2Bucket;
+  SOCIAL_MEDIA_R2_PUBLIC_URL?: string;
+  MENTORIA_BUCKET?: R2Bucket;
+  INTERNAL_API_SECRET?: string; // Phase 3.1 Hardening
+  PROVISIONING_FAULT_AT?:
+    | "STRIPE_AFTER_CREATE"
+    | "CLOUDFLARE_AFTER_CREATE"
+    | "BOOTSTRAP_PARTIAL_READY"
+    | "BOOTSTRAP_CONSISTENCY_BREAK"
+    | "CUSTOM_DOMAIN_CONSISTENCY_BREAK";
+  ENVIRONMENT?: string;
+  AUTHS_REQUIRE_CONTEXT_DB?: string;
+  ALLOW_LEGACY_AUTH_DB_FALLBACK?: string;
+  DRAKO_LEGACY_COMPAT_SAMPLE_RATE?: string;
 };
 
+
+let globalEnv: DracoEnv | null = null;
+
+export function setGlobalEnv(e: DracoEnv) {
+  globalEnv = e;
+}
+
+function canUseProcessEnvFallback(): boolean {
+  if (typeof process === "undefined" || !process.env) {
+    return false;
+  }
+
+  return Boolean(
+    process.env.DRACO_DB ||
+    process.env.MENTORIA_DB ||
+    process.env.MENTORIAS_AUTHS_DB ||
+    process.env.SOCIALFLOW_AUTHS_DB ||
+    process.env.AI ||
+    process.env.SESSION_SECRET,
+  );
+}
+
 /**
- * REGLA DURA (Hard Rule): 
- * env() solo puede resolverse dentro de una request.
- * Si se llama fuera de un handler, lanza un error claro.
+ * OLIMPO RULE: 
+ * env() NEVER throws. Returns null when Cloudflare context is unavailable.
+ * This allows graceful degradation on Vercel and prevents middleware crashes.
  */
-export function env(): DracoEnv {
+export function env(): DracoEnv | null {
+  if (globalEnv) return globalEnv;
+
+  if (isBuildPhase()) {
+    return canUseProcessEnvFallback() ? (process.env as unknown as DracoEnv) : null;
+  }
+
   try {
     // 1. Try OpenNext Cloudflare context (Workers Runtime)
-    const ctx = getCloudflareContext();
+    const ctx = getCloudflareContextSafeSync() as { env?: unknown } | null;
     if (ctx && ctx.env && typeof ctx.env === "object") {
       return ctx.env as unknown as DracoEnv;
     }
   } catch {
-    // In local development, we might not have the context yet
-    // but the users wants a HARD FAIL if called outside request.
+    // Cloudflare context not available - this is expected on Vercel
   }
 
-  // 2. Fallback to process.env ONLY if we are in Development and NOT in a Worker
-  const isDev = process.env.NODE_ENV === "development";
-  if (isDev && typeof process !== "undefined" && process.env) {
-    // Simple filter to ensure we act like we have bindings
-    if (process.env.DRACO_DB || process.env.AI || process.env.SESSION_SECRET) {
+  // 2. Fallback to process.env in Development
+  const isDev = typeof process !== "undefined" && process.env.NODE_ENV === "development";
+  if ((isDev || isBuildPhase()) && typeof process !== "undefined" && process.env) {
+    // If we have key env vars, treat process.env as DracoEnv for local dev
+    if (canUseProcessEnvFallback()) {
       return process.env as unknown as DracoEnv;
     }
   }
 
-  // 3. ACTUAL HARD FAIL
-  const errorMsg = "CF_CONTEXT_ERROR: env() called outside request scope. Environment bindings (D1/AI) are only available within a request context.";
-  console.error(errorMsg);
-  throw new Error(errorMsg);
+  // 3. FAIL-SAFE: Return null instead of throwing
+  // This allows the app to continue without Cloudflare bindings (e.g., on Vercel)
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+    console.warn("CF_CONTEXT_UNAVAILABLE: Cloudflare bindings not available. Some features will be disabled.");
+  }
+  return null;
 }

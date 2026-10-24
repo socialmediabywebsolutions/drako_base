@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-05-18T08:29:09.427Z",
+  "mode": "real",
+  "sourceOfTruthPath": "docs/config/workers-hostnames-expected-state.json",
+  "fixturesDir": null,
+  "summary": {
+    "domainsTotal": 0,
+    "routesTotal": 0,
+    "checksTotal": 1,
+    "checksPass": 0,
+    "checksFail": 1,
+    "checksNa": 0,
+    "violationsTotal": 1,
+    "blockersTotal": 1,
+    "warningsTotal": 0
+  },
+  "checks": [
+    {
+      "checkCode": "hostnameMismatch",
+      "severity": "BLOCKER",
+      "targetType": "hostname",
+      "targetName": "global",
+      "status": "FAIL",
+      "expected": "successful hostnames drift execution",
+      "actual": "Missing required env: CLOUDFLARE_API_TOKEN",
+      "details": "Fatal error in checker execution."
+    }
+  ],
+  "violations": [
+    {
+      "checkCode": "hostnameMismatch",
+      "severity": "BLOCKER",
+      "targetType": "hostname",
+      "targetName": "global",
+      "expected": "successful hostnames drift execution",
+      "actual": "Missing required env: CLOUDFLARE_API_TOKEN",
+      "details": "Fatal error in checker execution."
+    }
+  ],
+  "snapshots": {
+    "domains": [],
+    "routes": []
+  }
+}

@@ -1,0 +1,33 @@
+name: Deployable SocialFlow Standalone Regression
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify SocialFlow standalone prepared artifact (inactive)
+        run: |
+          test -f .open-next/socialflows-standalone/worker.js
+          test -d .open-next/socialflows-standalone/assets
+          test -d .open-next/socialflows-standalone/server-functions
+          grep -q '"artifactMode": "standalone-prepared"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"artifactState": "prepared"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"activationState": "inactive"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"deployMode": "not-deployed"' .open-next/socialflows-standalone/artifact-manifest.json
+          grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/socialflows-standalone/artifact-manifest.json
+          echo SOCIALFLOW_STANDALONE_PREPARED_IS_WRAPPER
+          echo SOCIALFLOW_STANDALONE_PREPARED_FAKE
+          echo SOCIALFLOW_STANDALONE_PREMATURE_ACTIVATION
+          grep -q 'main = "../../.open-next/socialflows/worker.js"' workers/socialflows/wrangler.workers.toml
+          grep -q 'directory = "../../.open-next/socialflows/assets"' workers/socialflows/wrangler.workers.toml
+
+      - name: Verify SocialFlow standalone remains inactive
+        run: echo inactive
+
+      - name: Download SocialFlow standalone prepared artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: open-next-socialflows-standalone-build
+          path: .
+
+      - name: Deploy SocialFlow standalone
+        run: wrangler deploy --config workers/socialflows/wrangler.workers.toml

@@ -1,0 +1,55 @@
+  async getOnboardingState(actor: MentoriaSessionActor): Promise<MentoriaOnboardingState> {
+    await this.repository.seedSubjects(actor.tenantId);
+    const primaryGuardian = actor.email
+      ? await this.familyRepository.getGuardianByFamilyAndEmail(actor.tenantId, actor.email)
+      : null;
+    const student = await this.resolveStudentForActor(actor);
+    const familyStudents = await this.repository.listStudentsForTenant(actor.tenantId);
+    const subjects = await this.repository.listSubjects(actor.tenantId);
+    const canonical = student ? await this.getCanonicalFamilyContract(actor, student) : {
+      family: await this.familyRepository.getFamilyById(actor.tenantId),
+      primaryGuardian,
+      secondaryGuardians: primaryGuardian ? [] : await this.familyRepository.listGuardiansByFamily(actor.tenantId).then((guardians) => guardians.filter((guardian) => guardian.systemRole !== "primary_guardian")),
+      guardianStudentAccess: [] as MentoriaGuardianStudentAccess[],
+    };
+    if (!student) {
+      return {
+        sessionEmail: actor.email ?? null,
+        primaryGuardian: primaryGuardian
+          ? {
+              fullName: primaryGuardian.name ?? "",
+              relation: primaryGuardian.familyRelation,
+            }
+          : null,
+        student: null,
+        profile: null,
+        familyStudents,
+        subjects,
+        studentSubjects: [],
+        family: canonical.family,
+        secondaryGuardians: canonical.secondaryGuardians,
+        guardianStudentAccess: canonical.guardianStudentAccess,
+        sessionContext: this.buildSessionContext(actor, null, canonical),
+      };
+    }
+    const studentSubjects = await this.repository.listStudentSubjects(actor.tenantId, student.id);
+    return {
+      sessionEmail: actor.email ?? null,
+      primaryGuardian: primaryGuardian
+        ? {
+            fullName: primaryGuardian.name ?? "",
+            relation: primaryGuardian.familyRelation,
+          }
+        : null,
+      student,
+      profile: student,
+      familyStudents,
+      subjects,
+      studentSubjects,
+      family: canonical.family,
+      secondaryGuardians: canonical.secondaryGuardians,
+      guardianStudentAccess: canonical.guardianStudentAccess,
+      sessionContext: this.buildSessionContext(actor, student, canonical),
+    };
+  }
+

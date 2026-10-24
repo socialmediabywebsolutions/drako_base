@@ -1,0 +1,14 @@
+{
+  "name": "saas-mentorias-prod",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "migrations:local": "node ../../scripts/local/mentoria-worker-local-migrate.mjs all",
+    "migrations:local:product": "node ../../scripts/local/mentoria-worker-local-migrate.mjs product",
+    "migrations:local:auth": "node ../../scripts/local/mentoria-worker-local-migrate.mjs auth",
+    "deploys": "wrangler deploy --config wrangler.workers.toml",
+    "tails": "wrangler tail saas-mentorias-prod",
+    "checks": "wrangler deploy --config wrangler.workers.toml --dry-run"
+  }
+}

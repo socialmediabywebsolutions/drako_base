@@ -1,3 +1,4 @@
+import React from "react";
 import type { InputHTMLAttributes, PropsWithChildren, ReactNode, TextareaHTMLAttributes } from "react";
 
 export function Label({ children }: PropsWithChildren) {

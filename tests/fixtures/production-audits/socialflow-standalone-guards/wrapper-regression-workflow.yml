@@ -1,0 +1,10 @@
+name: wrapper-regression
+
+jobs:
+  deploy:
+    steps:
+      - name: Verify SocialFlow dedicated artifact
+        run: |
+          test -f .open-next/socialflows/worker.js
+          grep -q 'export { default } from "../worker.js";' .open-next/socialflows/worker.js
+          grep -q '"generatedFrom": ".open-next/worker.js"' .open-next/socialflows/artifact-manifest.json

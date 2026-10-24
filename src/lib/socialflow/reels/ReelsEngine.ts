@@ -1,0 +1,196 @@
+// Capa 1 — contrato abstracto del Reels Engine. No sabe ni le importa cómo se
+// renderiza el vídeo (Canvas+WebCodecs en el navegador hoy — ver CanvasRenderer.ts —,
+// un servicio headless mañana): solo valida el ReelsConfig y delega en el ReelsRenderer
+// inyectado. Capa 3 (ReelsAgent) es quien decide el contenido de ese ReelsConfig.
+
+export type ReelsTemplate = "fitness" | "lifestyle" | "motivation" | "education" | "marketing";
+
+export type ReelsEffectKind =
+  | "zoom-in"
+  | "zoom-out"
+  // @deprecated Sin case en computeTransformAtTime (CanvasRenderer.ts) desde la auditoría
+  // de movimiento lateral — translateX puro, ya no se selecciona. El literal se mantiene
+  // solo porque resolveEffectKind (ReelsAgent.ts) todavía lo devuelve como resultado
+  // posible del marcador de pool "pan", que a su vez no aparece en ningún
+  // TEMPLATE_EFFECT_PROFILE.pool — quitarlo rompería el tipado de esa función sin ganar
+  // nada, ya que esa rama tampoco es alcanzable en la práctica.
+  | "pan-left"
+  // @deprecated Ver nota de "pan-left".
+  | "pan-right"
+  | "parallax"
+  | "rotate"
+  | "blur"
+  | "ken-burns"
+  | "drift"
+  | "pulse"
+  | "tilt"
+  // Sin componente horizontal — añadidos tras la auditoría de movimiento lateral que
+  // quitó el pan de parallax/ken-burns/tilt y convirtió drift a vertical (ver
+  // computeTransformAtTime en CanvasRenderer.ts).
+  | "zoom-pulse"
+  | "zoom-breathe"
+  | "vertical-drift"
+  // "flash" y "wipe" son transiciones de cierre (ver OUTRO_TRANSITION_POOL en
+  // ReelsAgent.ts) — nunca aparecen en los pools normales de efectos por plantilla.
+  | "flash"
+  | "wipe";
+
+export type ReelsEffect = {
+  kind: ReelsEffectKind;
+  /** Segundos desde el inicio del clip en los que el efecto empieza a aplicarse. */
+  startAt: number;
+  /** Segundos desde el inicio del clip en los que el efecto termina de aplicarse. */
+  endAt: number;
+  /** 0-1. Significado específico por efecto (cantidad de zoom, distancia de pan, px de blur, grados de rotación). */
+  intensity?: number;
+};
+
+export type ReelsTextAnimationKind = "fade-in" | "slide-up" | "slide-down" | "zoom" | "word-by-word" | "typewriter";
+
+export type ReelsTextRole = "title" | "subtitle" | "cta";
+
+export type ReelsTextOverlay = {
+  text: string;
+  animation: ReelsTextAnimationKind;
+  startAt: number;
+  durationSec: number;
+  /** "top-center"/"upper-center" solo se usan hoy para el título (ver pickTitlePosition en ReelsAgent.ts). */
+  position?: "top" | "top-center" | "upper-center" | "center" | "bottom";
+  /** Jerarquía visual (ver TEXT_ROLE_STYLE en CanvasRenderer.ts). Opcional — si se omite, se usa el tamaño fijo por plantilla y `position` tal cual, como antes. */
+  role?: ReelsTextRole;
+  /** Tamaño en px. Opcional — si se omite, se usa el tamaño fijo por rol/plantilla (TEXT_ROLE_STYLE). ReelsAgent lo fija con ±10% de variación seeded por imagen. */
+  fontSize?: number;
+};
+
+/** Rango de tiempo del clip cubierto por una imagen, cuando el Reel usa varias (ver ReelsConfig.imageUrls). */
+export type ReelsImageSegment = {
+  imageUrl: string;
+  startAt: number;
+  endAt: number;
+};
+
+/**
+ * Filtro de color aplicado a todo el clip (ver drawImageCover/drawVignetteOverlay en
+ * CanvasRenderer.ts). "none" es el default — bw/sepia se dibujan como ctx.filter,
+ * vignette como overlay de gradiente radial (no existe filtro CSS de viñeta).
+ */
+export type ReelsColorGrade = "none" | "bw" | "sepia" | "vignette";
+
+/**
+ * Fondo animado superpuesto sobre la imagen (overlay aditivo/blend, no un fondo
+ * detrás — ver drawAnimatedBackground en CanvasRenderer.ts, drawImageCover siempre
+ * cubre el 100% del canvas). "none" es el default — sin valor se comporta igual.
+ */
+export type AnimatedBackgroundType =
+  | "particles"
+  | "bokeh"
+  | "gradient-wave"
+  | "geometric-lines"
+  | "stars"
+  | "water-waves"
+  | "smoke"
+  | "confetti"
+  | "pulse-waves"
+  | "glitch"
+  | "aurora"
+  | "sparks"
+  | "none";
+
+export type ReelsConfig = {
+  /** URL pública HTTPS de la imagen origen (misma que ya sube CampaignPhotoUpload/UploadToPost a R2). */
+  imageUrl: string;
+  /** Opcional — 2+ imágenes para un Reel multi-foto. Si se omite o tiene <2 entradas, se usa imageUrl como hoy. */
+  imageUrls?: string[];
+  /** Derivado por ReelsAgent a partir de imageUrls — qué imagen se dibuja en qué tramo del clip. Solo presente si imageUrls tiene 2+ entradas. */
+  imageSegments?: ReelsImageSegment[];
+  template: ReelsTemplate;
+  /** Decidido por seed en ReelsAgent (mismo patrón que OUTRO_TRANSITION_POOL), fijo para todo el clip. Opcional — sin valor se comporta como "none" (sin cambios, comportamiento idéntico al de antes de este campo). */
+  colorGrade?: ReelsColorGrade;
+  /** Ruido de grano superpuesto en todo el clip (ver drawFilmGrainOverlay en CanvasRenderer.ts). Decidido por seed en ReelsAgent, ortogonal a colorGrade (se pueden combinar, ej. sepia+grano = look vintage). Opcional — sin valor equivale a false. */
+  filmGrain?: boolean;
+  /** Destello de luz cálido que "entra y se va" una vez a lo largo del clip (ver drawLightLeakOverlay/lightLeakEnvelope en CanvasRenderer.ts). Decidido por seed en ReelsAgent, ortogonal a colorGrade/filmGrain. Opcional — sin valor equivale a false. */
+  lightLeak?: boolean;
+  /** Fondo animado superpuesto sobre la imagen (ver AnimatedBackgroundType / drawAnimatedBackground en CanvasRenderer.ts). Decidido por seed en ReelsAgent, ortogonal a colorGrade/filmGrain/lightLeak. Opcional — sin valor o "none" equivale a sin fondo animado. */
+  animatedBackground?: AnimatedBackgroundType;
+  effects: ReelsEffect[];
+  textOverlays: ReelsTextOverlay[];
+  durationSec: number;
+  fps: number;
+  width: number;
+  height: number;
+  /** URL pública HTTPS de la pista de música de fondo (ver music-selector.ts). Sin audio si se omite. */
+  musicTrackUrl?: string;
+  /** URL pública HTTPS de la narración de voz IA (ver generateNarrationTrackUrl en ReelsAgent.ts, @cf/deepgram/aura-2-es). Opcional — cualquier fallo en su generación deja este campo undefined, el Reel se genera con música solamente, igual que si nunca hubiera existido este campo. */
+  narrationTrackUrl?: string;
+  /** "@usuario" de Instagram del cliente (BrandProfile.channelHandle) — mismo patrón que StaticSlideRenderer.ts en Carruseles. Sin marca si se omite. */
+  handle?: string;
+};
+
+// Formato exigido por Instagram Reels: 9:16, H.264, 15-30fps, 3-90s (acotamos a 15-30s
+// para que el Reels Engine siempre produzca clips "cortos" independientemente del nicho).
+export const REELS_DEFAULTS = {
+  width: 1080,
+  height: 1920,
+  fps: 30,
+  minDurationSec: 15,
+  maxDurationSec: 30,
+  minFps: 15,
+  maxFps: 30,
+} as const;
+
+export class ReelsConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ReelsConfigError";
+  }
+}
+
+function validateReelsConfig(config: ReelsConfig): void {
+  if (!config.imageUrl.startsWith("http")) {
+    throw new ReelsConfigError("imageUrl must be a public HTTPS URL.");
+  }
+  if (config.durationSec < REELS_DEFAULTS.minDurationSec || config.durationSec > REELS_DEFAULTS.maxDurationSec) {
+    throw new ReelsConfigError(
+      `durationSec must be between ${REELS_DEFAULTS.minDurationSec} and ${REELS_DEFAULTS.maxDurationSec}, got ${config.durationSec}.`,
+    );
+  }
+  if (config.fps < REELS_DEFAULTS.minFps || config.fps > REELS_DEFAULTS.maxFps) {
+    throw new ReelsConfigError(`fps must be between ${REELS_DEFAULTS.minFps} and ${REELS_DEFAULTS.maxFps}, got ${config.fps}.`);
+  }
+  if (config.width <= 0 || config.height <= 0) {
+    throw new ReelsConfigError("width and height must be positive.");
+  }
+  if (config.effects.some((e) => e.endAt < e.startAt)) {
+    throw new ReelsConfigError("Every effect's endAt must be >= startAt.");
+  }
+  if (config.textOverlays.some((t) => t.durationSec <= 0)) {
+    throw new ReelsConfigError("Every textOverlay's durationSec must be > 0.");
+  }
+  if (config.musicTrackUrl !== undefined && !config.musicTrackUrl.startsWith("http")) {
+    throw new ReelsConfigError("musicTrackUrl must be a public HTTPS URL when provided.");
+  }
+  if (config.narrationTrackUrl !== undefined && !config.narrationTrackUrl.startsWith("http")) {
+    throw new ReelsConfigError("narrationTrackUrl must be a public HTTPS URL when provided.");
+  }
+  if (config.imageUrls?.some((url) => !url.startsWith("http"))) {
+    throw new ReelsConfigError("Every entry in imageUrls must be a public HTTPS URL.");
+  }
+  if (config.imageSegments?.some((s) => !s.imageUrl.startsWith("http") || s.endAt < s.startAt)) {
+    throw new ReelsConfigError("Every imageSegments entry must have a public HTTPS imageUrl and endAt >= startAt.");
+  }
+}
+
+export type ReelsProgressCallback = (progress: number) => void;
+
+export interface ReelsRenderer {
+  render(config: ReelsConfig, onProgress?: ReelsProgressCallback): Promise<Blob>;
+}
+
+export class ReelsEngine {
+  constructor(private readonly renderer: ReelsRenderer) {}
+
+  async generate(config: ReelsConfig, onProgress?: ReelsProgressCallback): Promise<Blob> {
+    validateReelsConfig(config);
+    return this.renderer.render(config, onProgress);
+  }
+}

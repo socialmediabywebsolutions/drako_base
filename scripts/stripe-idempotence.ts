@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { ensureStripeProductForSaas, type StripeMappingStore } from "@/lib/campamento-base/provisioning/stripe-factory";
 import type { StripePriceMeta } from "@/lib/billing/stripe-mapping-repository";
-import type { SaasBlueprintDraft } from "@/lib/campamento-base/saas-factory-types";
+import type { SaasBlueprintDraft } from "@/lib/factory/contracts/blueprints";
 
 type MockStripeProduct = { id: string; metadata: Record<string, string> };
 type MockStripePrice = { id: string; product: string; unit_amount: number; currency: string; interval: "month" | "year" };

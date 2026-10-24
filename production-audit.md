@@ -12,7 +12,7 @@ Date: 2026-01-06
 
 ## Changes applied
 - D1 access resolves bindings from next-on-pages request context.
-- Build output packaged to `.vercel/output/static` with `_worker.js`.
+- Build output packaged to `.open-next/dist` with `_worker.js`.
 - Middleware now processes `/api` requests to inject `x-drako-*` headers and correlation id; incoming spoofed headers are overwritten.
 - Public/private routing:
   - `drako.systems` and `*.pages.dev` treated as public.
@@ -22,17 +22,17 @@ Date: 2026-01-06
 
 ## Build evidence (Pages / next-on-pages)
 - `npm run pages:build` ✅
-  - `.vercel/output/static/_worker.js` generated for Pages deployment.
+  - `.open-next/dist/_worker.js` generated for Pages deployment.
 
 ## Cloudflare Pages build settings (required)
 - Build command: `npm run pages:build`
-- Output directory: `.vercel/output/static`
+- Output directory: `.open-next/dist`
 ## Binding clarification
 - Binding name (code): `DRACO_DB`
 - D1 database name (Cloudflare): `drako_db_prod`
 
 ## Output clarification
-- The `.vercel/output/static` directory includes `_worker.js`, so it is not a static-only deployment.
+- The `.open-next/dist` directory includes `_worker.js`, so it is not a static-only deployment.
 
 ## Provisioning status
 - Live provisioning implemented, but **not executed** (requires tokens).
@@ -87,3 +87,5 @@ Date: 2026-01-06
    - `/api/debug/bindings` (hasDracoDb true, dbPing ok)
    - `drako.systems` public UI
    - `base.drako.systems/admin` private admin
+
+

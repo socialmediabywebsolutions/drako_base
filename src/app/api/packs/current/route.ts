@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { getDemoSaasPackForSaas } from "@/lib/admin/demo-data";
@@ -5,7 +7,6 @@ import { resolveBlueprintsContext, getSaasBlueprint } from "@/lib/blueprints/rep
 import { resolveFeaturesContext, listSaasFeatures } from "@/lib/features/repository";
 import { resolveEconomyContext, listSaasServices } from "@/lib/economy/repository";
 import { guessPackForSaas } from "@/lib/packs/repository";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function GET(request: Request) {

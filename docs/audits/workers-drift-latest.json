@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-05-02T09:34:13.785Z",
+  "mode": "real",
+  "sourceOfTruthPath": "docs/config/workers-expected-state.json",
+  "fixturesDir": null,
+  "autoRemediation": {
+    "enabled": false,
+    "attempted": false,
+    "actions": [],
+    "reranAfterRemediation": false
+  },
+  "summary": {
+    "workersTotal": 0,
+    "workersWithFailures": 0,
+    "checksTotal": 0,
+    "checksFailed": 0,
+    "violationsTotal": 0,
+    "blockersTotal": 1,
+    "warningsTotal": 0
+  },
+  "workers": [],
+  "violations": [
+    {
+      "workerName": "global",
+      "workerStatus": "ARCHIVED",
+      "severity": "BLOCKER",
+      "checkName": "execution",
+      "expected": "successful drift evaluation",
+      "actual": "Missing required env: CLOUDFLARE_API_TOKEN"
+    }
+  ]
+}

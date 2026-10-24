@@ -1,0 +1,17 @@
+name = "test-mentoria-db-preview-collision"
+
+[env.production]
+name = "test-mentoria-db-prod"
+
+[[env.production.d1_databases]]
+binding = "MENTORIA_DB"
+database_name = "mentoria_db_prod"
+database_id = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+
+[env.preview]
+name = "test-mentoria-db-preview"
+
+[[env.preview.d1_databases]]
+binding = "MENTORIA_DB"
+database_name = "mentoria_db_preview"
+database_id = "dddddddd-dddd-dddd-dddd-dddddddddddd"

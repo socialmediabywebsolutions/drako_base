@@ -1,0 +1,12 @@
+{
+  "name": "@drako/socialflow-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:scaffold": "node ../../scripts/build-socialflow-runtime-scaffold.mjs"
+  }
+}

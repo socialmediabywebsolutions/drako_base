@@ -1,0 +1,32 @@
+name = "saas-invoices-prod"
+main = "src/workers.ts"
+compatibility_date = "2024-11-01"
+workers_dev = false
+
+[[routes]]
+pattern = "invoices.drako.systems"
+custom_domain = true
+
+# Recommended strategy: one D1 per SaaS worker.
+[[d1_databases]]
+binding = "SAASES_DB"
+database_name = "saas_invoices_prod_db"
+database_id = "8536db95-fe1b-4a1a-a76b-3bd016609013"
+
+[[kv_namespaces]]
+binding = "SAASES_CACHE"
+id = "3e3ee55e5c6e497b8b6f4ec27394173a"
+
+[[r2_buckets]]
+binding = "SAASES_STORAGE"
+bucket_name = "saas-invoices-prod-storage"
+
+[[queues.producers]]
+binding = "SAASES_EVENTS"
+queue = "saas-invoices-prod-events"
+
+[vars]
+SAASES_SLUG = "invoices"
+SAASES_DOMAIN = "invoices.drako.systems"
+AUTHS_SECRETS_NAME = "INVOICES_AUTHS_SECRET"
+WORKERS_ONLY_MODE = "true"

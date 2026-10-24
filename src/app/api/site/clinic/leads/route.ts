@@ -1,10 +1,11 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { resolveClinicContext, NoActiveClinicSubscriptionError } from "@/lib/clinic/context";
 import { saveClinicLead } from "@/lib/clinic/repository";
 import { findSaasBySlug } from "@/lib/site/clinic";
 import { enforcePublicEndpointPolicy } from "@/lib/security/public-endpoints";
 import { registerPublicIngestFailure, verifyPublicIngestAccess } from "@/lib/security/public-ingest";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function POST(request: Request) {

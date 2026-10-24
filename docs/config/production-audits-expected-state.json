@@ -1,0 +1,322 @@
+{
+  "meta": {
+    "updatedAt": "2026-05-07T14:24:00Z",
+    "owner": "holding",
+    "notes": "P0 production readiness audits source of truth; includes phase-gated SocialFlow canonical domain expected-state"
+  },
+  "phaseGates": {
+    "socialflowCanonicalDomain": {
+      "active": true,
+      "canonicalHostname": "socialflow.drako.systems",
+      "expectedWorker": "saas-socialflows-prod",
+      "compatibilityHostname": "socialflows.drako.systems",
+      "smokeEvidencePaths": [
+        "scripts/smoke/socialflow-canonical-domain-smoke.mjs",
+        "docs/runbooks/socialflow-canonical-domain-smoke.md"
+      ],
+      "smokeEvidenceTokens": [
+        "socialflow.drako.systems",
+        "/socialflow",
+        "/socialflow/auth",
+        "/api/socialflow/profile",
+        "/api/social/posts",
+        "/api/social/linkedin/publish",
+        "/api/socialflow/linkedin/connect",
+        "socialflows.drako.systems"
+      ]
+    }
+  },
+  "criticalWorkers": [
+    {
+      "workerName": "drako-core-worker",
+      "expectedStatus": "ACTIVE",
+      "expectedSubdomain": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "expectedSchedulesCount": 0
+    },
+    {
+      "workerName": "drako-billing-worker",
+      "expectedStatus": "ACTIVE",
+      "expectedSubdomain": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "expectedSchedulesCount": 0
+    },
+    {
+      "workerName": "drako-observability-worker",
+      "expectedStatus": "ACTIVE",
+      "expectedSubdomain": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "expectedSchedulesCount": 0
+    },
+    {
+      "workerName": "drako-ai-orchestrator-worker",
+      "expectedStatus": "ACTIVE",
+      "expectedSubdomain": {
+        "enabled": true,
+        "previewsEnabled": true
+      },
+      "expectedSchedulesCount": 0
+    },
+    {
+      "workerName": "drako-base-3",
+      "expectedStatus": "ARCHIVED",
+      "expectedSubdomain": {
+        "enabled": false,
+        "previewsEnabled": false
+      },
+      "expectedSchedulesCount": 0,
+      "expectedDomainsCount": 0,
+      "expectedRoutesCount": 0
+    }
+  ],
+  "criticalHostnames": [
+    {
+      "hostname": "drako.systems",
+      "expectedService": "saas-drakos-prod"
+    },
+    {
+      "hostname": "drakos.drako.systems",
+      "expectedService": "saas-drakos-prod"
+    },
+    {
+      "hostname": "base.drako.systems",
+      "expectedService": "saas-bases-prod"
+    },
+    {
+      "hostname": "bases.drako.systems",
+      "expectedService": "saas-bases-prod"
+    },
+    {
+      "hostname": "mentoria.drako.systems",
+      "expectedService": "saas-mentorias-prod"
+    },
+    {
+      "hostname": "mentorias.drako.systems",
+      "expectedService": "saas-mentorias-prod"
+    }
+  ],
+  "criticalRoutes": [
+    {
+      "pattern": "drako.systems/*",
+      "expectedScript": "saas-drakos-prod"
+    }
+  ],
+  "blockedMappings": {
+    "services": [
+      "drako-base-3"
+    ],
+    "scripts": [
+      "drako-base-3"
+    ]
+  },
+  "criticalDatastores": {
+    "d1DatabaseNames": [
+      "drako_holding_db",
+      "drako_billing_db",
+      "drako_observability_db",
+      "drako_ai_orchestrator_db",
+      "drako_db_prod"
+    ],
+    "r2BucketNames": [
+      "saas-drakos-prod-storage",
+      "saas-bases-prod-storage",
+      "saas-mentorias-prod-storage"
+    ],
+    "kvNamespaceNames": [
+      "DRKO_GLOBAL_CONFIG",
+      "saas_drakos_prod_cache"
+    ],
+    "queueNames": [
+      "drako-global-events",
+      "drako-billing-queue"
+    ],
+    "durableObjectClassNames": []
+  },
+  "criticalTables": [
+    {
+      "databaseName": "drako_holding_db",
+      "tables": [
+        {
+          "tableName": "saases_registry",
+          "requiredColumns": [
+            "saas_id",
+            "saas_slug"
+          ]
+        },
+        {
+          "tableName": "agents_registry",
+          "requiredColumns": [
+            "agent_id",
+            "role_name"
+          ]
+        },
+        {
+          "tableName": "governance_events",
+          "requiredColumns": [
+            "event_id",
+            "event_type",
+            "schema_version"
+          ]
+        },
+        {
+          "tableName": "audit_logs",
+          "requiredColumns": [
+            "action",
+            "created_at"
+          ]
+        },
+        {
+          "tableName": "analyze_optimize_scale_runs",
+          "requiredColumns": [
+            "run_id",
+            "status_name"
+          ]
+        },
+        {
+          "tableName": "holding_saases",
+          "requiredColumns": [
+            "id",
+            "saas_slug",
+            "worker_name",
+            "domain",
+            "status_name"
+          ]
+        },
+        {
+          "tableName": "holding_billing_rollups",
+          "requiredColumns": [
+            "saas_slug",
+            "mrr",
+            "churn",
+            "refunds"
+          ]
+        },
+        {
+          "tableName": "holding_ops_tickets",
+          "requiredColumns": [
+            "id",
+            "saas_slug",
+            "severity",
+            "status_name"
+          ]
+        },
+        {
+          "tableName": "holding_event_logs",
+          "requiredColumns": [
+            "id",
+            "source",
+            "type",
+            "payload_json"
+          ]
+        }
+      ]
+    },
+    {
+      "databaseName": "drako_db_prod",
+      "tables": [
+        {
+          "tableName": "tenants",
+          "requiredColumns": [
+            "id",
+            "owner_user_id",
+            "saas_slug",
+            "status",
+            "created_at"
+          ]
+        },
+        {
+          "tableName": "tenant_profiles",
+          "requiredColumns": [
+            "tenant_id",
+            "business_name",
+            "industry",
+            "locale",
+            "timezone"
+          ]
+        },
+        {
+          "tableName": "tenant_domains",
+          "requiredColumns": [
+            "tenant_id",
+            "requested_domain",
+            "status_name",
+            "cf_zone_id",
+            "created_at"
+          ]
+        },
+        {
+          "tableName": "tenant_integrations",
+          "requiredColumns": [
+            "tenant_id",
+            "provider",
+            "status_name",
+            "metadata_json"
+          ]
+        },
+        {
+          "tableName": "tenant_stripe_connect",
+          "requiredColumns": [
+            "tenant_id",
+            "connect_account_id",
+            "onboarding_status",
+            "fees_config"
+          ]
+        },
+        {
+          "tableName": "tenant_knowledge_bases",
+          "requiredColumns": [
+            "tenant_id",
+            "kb_id",
+            "status_name"
+          ]
+        },
+        {
+          "tableName": "tenant_jobs",
+          "requiredColumns": [
+            "tenant_id",
+            "type_name",
+            "status_name",
+            "payload_json",
+            "created_at"
+          ]
+        },
+        {
+          "tableName": "tenant_audit_logs",
+          "requiredColumns": [
+            "tenant_id",
+            "action",
+            "actor",
+            "metadata_json",
+            "created_at"
+          ]
+        }
+      ]
+    }
+  ],
+  "severities": {
+    "criticalWorkerMissing": "BLOCKER",
+    "criticalWorkerArchivedMismatch": "BLOCKER",
+    "criticalWorkerSubdomainMismatch": "WARN",
+    "criticalWorkerSchedulesMismatch": "WARN",
+    "criticalHostnameMissing": "BLOCKER",
+    "criticalHostnameMismatch": "BLOCKER",
+    "criticalRouteMissing": "WARN",
+    "criticalRouteMismatch": "BLOCKER",
+    "blockedServiceHit": "BLOCKER",
+    "blockedScriptHit": "BLOCKER",
+    "criticalD1Missing": "BLOCKER",
+    "criticalR2Missing": "WARN",
+    "criticalKvMissing": "BLOCKER",
+    "criticalQueueMissing": "WARN",
+    "criticalDurableObjectMissing": "WARN",
+    "criticalTableMissing": "BLOCKER",
+    "criticalColumnMissing": "BLOCKER",
+    "onboardingColumnsMismatch": "BLOCKER"
+  }
+}

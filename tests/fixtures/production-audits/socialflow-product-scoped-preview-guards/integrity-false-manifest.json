@@ -1,0 +1,20 @@
+{
+  "productKey": "socialflows",
+  "artifactMode": "product-scoped-preview",
+  "artifactState": "inactive-preview",
+  "derivedFrom": "socialflows-standalone",
+  "sourceArtifactPath": ".open-next/socialflows-standalone",
+  "workerPath": ".open-next/socialflows-product-scoped-preview/worker.js",
+  "assetsPath": ".open-next/socialflows-product-scoped-preview/assets",
+  "filterVersion": 1,
+  "filterGeneratedAt": "2026-05-12T00:00:00.000Z",
+  "runtimeIntegrity": false,
+  "unresolvedDependencyCount": 1,
+  "removedCount": 2,
+  "remainingCount": 2,
+  "scopeMode": "product-scoped-preview",
+  "foreignRouteCount": 0,
+  "scopeAuditVersion": 1,
+  "scopeAuditGeneratedAt": "2026-05-12T00:00:00.000Z",
+  "scopedReady": true
+}

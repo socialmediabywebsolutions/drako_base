@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import { respondDatabaseError } from "@/lib/http/errors";
 import { listCompanies } from "@/lib/companies/companies";
 
-// export const runtime = "edge"; // OpenNext Migration
 
 
 function authErrorResponse(error: unknown) {

@@ -1,0 +1,7 @@
+{
+  "success": true,
+  "result": [
+    { "pattern": "drako.systems/*", "script": "saas-drakos-prod" },
+    { "pattern": "analytics.drako.systems/*", "script": "saas-analytics-prod" }
+  ]
+}

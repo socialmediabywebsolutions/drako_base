@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireTenantAccess, UnauthorizedError } from "@/lib/auth/session";
 import {
@@ -12,7 +13,7 @@ import {
   getEmployeeRealtimeSuggestions,
 } from "@/lib/agents/employee-partner";
 import { EmployeesContextError } from "@/lib/employees/context";
-// export const runtime = "edge"; // OpenNext: disabled for bundling
+
 
 
 type RouteContext = {

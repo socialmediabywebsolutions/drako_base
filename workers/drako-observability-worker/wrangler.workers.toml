@@ -1,0 +1,24 @@
+name = "drako-observability-worker"
+main = "src/workers.ts"
+compatibility_date = "2024-11-01"
+workers_dev = true
+
+# Dedicated D1 for observability domain.
+[[d1_databases]]
+binding = "DRKO_OBSERVABILITY_DB"
+database_name = "drako_observability_db"
+database_id = "98ae48e9-c254-4f0a-b757-5d41b7a3be1d"
+migrations_table = "drko_observability_migrations"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "DRKO_GLOBAL_CONFIG"
+id = "2a333512ad9c4c25a166496c1c121781"
+
+[[queues.producers]]
+binding = "DRKO_GLOBAL_EVENTS"
+queue = "drako-global-events"
+
+[vars]
+DRKO_OBSERVABILITY_CONTEXT = "holding"
+WORKERS_ONLY_MODE = "true"

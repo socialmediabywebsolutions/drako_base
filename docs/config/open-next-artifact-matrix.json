@@ -1,0 +1,186 @@
+{
+  "state": "partial-split",
+  "deployMode": "global-open-next-plus-drakos-bases-mentorias-dedicated-and-socialflows-standalone",
+  "activeArtifact": {
+    "workerPath": ".open-next/worker.js",
+    "assetsPath": ".open-next/assets",
+    "artifactName": "open-next-build"
+  },
+  "dedicatedArtifacts": [
+    {
+      "key": "drakos",
+      "artifactName": "open-next-drakos-build",
+      "workerPath": ".open-next/drakos/worker.js",
+      "assetsPath": ".open-next/drakos/assets"
+    },
+    {
+      "key": "bases",
+      "artifactName": "open-next-bases-build",
+      "workerPath": ".open-next/bases/worker.js",
+      "assetsPath": ".open-next/bases/assets"
+    },
+    {
+      "key": "mentorias",
+      "artifactName": "open-next-mentorias-build",
+      "workerPath": ".open-next/mentorias/worker.js",
+      "assetsPath": ".open-next/mentorias/assets"
+    }
+  ],
+  "preparedArtifacts": [],
+  "standaloneArtifacts": [
+    {
+      "key": "socialflows",
+      "artifactName": "open-next-socialflows-standalone-build",
+      "artifactMode": "standalone",
+      "artifactState": "active",
+      "workerPath": ".open-next/socialflows-standalone/worker.js",
+      "assetsPath": ".open-next/socialflows-standalone/assets",
+      "sourceArtifactName": "open-next-build",
+      "sourceRuntime": "open-next-runtime-copy",
+      "scopeMode": "standalone-runtime-copy",
+      "scopeAudit": {
+        "allowedRoutePrefixes": [
+          "socialflow",
+          "socialflows",
+          "api/socialflow",
+          "api/socialflows",
+          "api/social",
+          "auth/linkedin"
+        ],
+        "suspiciousRoutePrefixes": [
+          "operator",
+          "owner",
+          "bases",
+          "mentoria",
+          "mentorias",
+          "campobase",
+          "campamento-base",
+          "site/panel",
+          "api/operator",
+          "api/owner",
+          "api/bases",
+          "api/mentoria",
+          "api/mentorias",
+          "api/campobase",
+          "api/campamento-base"
+        ]
+      }
+    }
+  ],
+  "productScopedPreviews": [
+    {
+      "key": "socialflows",
+      "artifactName": "open-next-socialflows-product-scoped-preview",
+      "artifactMode": "product-scoped-preview",
+      "artifactState": "inactive-preview",
+      "workerPath": ".open-next/socialflows-product-scoped-preview/worker.js",
+      "assetsPath": ".open-next/socialflows-product-scoped-preview/assets",
+      "derivedFrom": "socialflows-standalone",
+      "deployable": false,
+      "sourceRuntime": "product-scoped-preview-copy",
+      "filter": {
+        "removedRoutePrefixes": [
+          "auth",
+          "billing",
+          "clinic",
+          "clients",
+          "employees",
+          "tasks",
+          "projects",
+          "operator",
+          "owner",
+          "bases",
+          "mentoria",
+          "mentorias",
+          "campobase",
+          "campamento-base",
+          "site/panel",
+          "(dashboard)/campobase",
+          "(dashboard)/campamento-base",
+          "(dashboard)/operator",
+          "(dashboard)",
+          "dashboard",
+          "parent",
+          "drakos/auths",
+          "site/mentoria",
+          "site/mentoria-ar",
+          "site/mentoria-cl",
+          "site/mentoria-co",
+          "site/mentoria-es",
+          "site/mentoria-mx",
+          "api/auth",
+          "api/billing",
+          "api/clinic",
+          "api/clients",
+          "api/employees",
+          "api/tasks",
+          "api/projects",
+          "api/operator",
+          "api/owner",
+          "api/bases",
+          "api/mentoria",
+          "api/mentorias",
+          "api/campobase",
+          "api/campamento-base",
+          "api/parent",
+          "api/drakos/auths"
+        ]
+      }
+    }
+  ],
+  "products": [
+    {
+      "key": "drakos",
+      "workerName": "saas-drakos-prod",
+      "artifactMode": "dedicated-wrapper",
+      "wranglerConfigPath": "workers/drakos/wrangler.workers.toml",
+      "currentWranglerMain": "../../.open-next/drakos/worker.js",
+      "currentWranglerAssetsDirectory": "../../.open-next/drakos/assets",
+      "plannedWorkerPath": ".open-next/drakos/worker.js",
+      "plannedAssetsPath": ".open-next/drakos/assets",
+      "dedicatedArtifactName": "open-next-drakos-build"
+    },
+    {
+      "key": "bases",
+      "workerName": "saas-bases-prod",
+      "artifactMode": "dedicated-wrapper",
+      "wranglerConfigPath": "workers/bases/wrangler.workers.toml",
+      "currentWranglerMain": "../../.open-next/bases/worker.js",
+      "currentWranglerAssetsDirectory": "../../.open-next/bases/assets",
+      "plannedWorkerPath": ".open-next/bases/worker.js",
+      "plannedAssetsPath": ".open-next/bases/assets",
+      "dedicatedArtifactName": "open-next-bases-build"
+    },
+    {
+      "key": "mentorias",
+      "workerName": "saas-mentorias-prod",
+      "artifactMode": "dedicated-wrapper",
+      "wranglerConfigPath": "workers/mentorias/wrangler.workers.toml",
+      "currentWranglerMain": "../../.open-next/mentorias/worker.js",
+      "currentWranglerAssetsDirectory": "../../.open-next/mentorias/assets",
+      "plannedWorkerPath": ".open-next/mentorias/worker.js",
+      "plannedAssetsPath": ".open-next/mentorias/assets",
+      "dedicatedArtifactName": "open-next-mentorias-build"
+    },
+    {
+      "key": "socialflows",
+      "workerName": "saas-socialflows-prod",
+      "artifactMode": "standalone-runtime",
+      "artifactState": "active",
+      "wranglerConfigPath": "workers/socialflows/wrangler.workers.toml",
+      "currentWranglerMain": "../../.open-next/socialflows-standalone/worker.js",
+      "currentWranglerAssetsDirectory": "../../.open-next/socialflows-standalone/assets",
+      "plannedWorkerPath": ".open-next/socialflows-standalone/worker.js",
+      "plannedAssetsPath": ".open-next/socialflows-standalone/assets",
+      "dedicatedArtifactName": "open-next-socialflows-standalone-build",
+      "standaloneArtifactName": "open-next-socialflows-standalone-build"
+    }
+  ],
+  "notes": [
+    "Drako, Mentoria and Bases run on dedicated wrapper artifacts; SocialFlow runs on a standalone runtime artifact.",
+    "Drako is activated on .open-next/drakos/worker.js and .open-next/drakos/assets; do not regress workers/drakos/wrangler.workers.toml back to the shared .open-next runtime.",
+    "Bases is activated on .open-next/bases/worker.js and .open-next/bases/assets; do not regress workers/bases/wrangler.workers.toml back to the shared .open-next runtime.",
+    "SocialFlow standalone is active at .open-next/socialflows-standalone/worker.js and .open-next/socialflows-standalone/assets; do not regress workers/socialflows/wrangler.workers.toml back to .open-next/socialflows/worker.js or .open-next/worker.js.",
+    "The global OpenNext artifact .open-next/worker.js remains the generation source for transparent per-product wrappers."
+  ]
+}

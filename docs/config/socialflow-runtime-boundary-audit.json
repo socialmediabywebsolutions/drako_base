@@ -1,0 +1,271 @@
+{
+  "auditId": "P1.8A-socialflow-runtime-boundary-audit",
+  "generatedAt": "2026-06-02T00:00:00.000Z",
+  "mode": "audit-only",
+  "branch": "main",
+  "pathsScanned": [
+    "src/lib/socialflow",
+    "src/app/socialflow",
+    "src/app/api/socialflow",
+    "apps/socialflow-runtime",
+    "workers/socialflows",
+    "workers/socialflows-runtime-canary"
+  ],
+  "repoState": {
+    "inheritedChanges": [
+      {
+        "path": "apps/socialflow-runtime/runtime-boundaries.json",
+        "classification": "REVIEW_REQUIRED",
+        "reason": "Pre-existing modified file outside this audit turn; diff adds '@/lib/factory/*' to FORBIDDEN_SHARED."
+      }
+    ]
+  },
+  "imports": {
+    "readOnlyQueries": [
+      "@/lib/campamento-base",
+      "lib/campamento-base",
+      "@/lib/campobase",
+      "@/lib/operator",
+      "@/lib/factory",
+      "@/lib/mentoria"
+    ],
+    "crossImportsDetected": [],
+    "controlPlaneContracts": [
+      {
+        "path": "src/lib/socialflow/contracts/campobase.ts",
+        "classification": "ALLOWED_CONTRACT",
+        "reason": "Thin Campamento Base adapter that re-exports SocialFlow public contracts without importing Campamento Base internals."
+      },
+      {
+        "path": "src/lib/socialflow/contracts/owner-dashboard.ts",
+        "classification": "ALLOWED_CONTRACT",
+        "reason": "Owner-facing dashboard contract reads SocialFlow-owned repository data without importing owner internals."
+      }
+    ],
+    "guardReferences": [
+      {
+        "path": "apps/socialflow-runtime/runtime-boundaries.json",
+        "classification": "ALLOWED_ADAPTER",
+        "reason": "Boundary guard inventory listing forbidden shared/control-plane surfaces; not a runtime import."
+      }
+    ]
+  },
+  "bindings": {
+    "DRACO_DB": {
+      "detected": true,
+      "classification": "BLOCKER_SHARED_DB",
+      "configPaths": [
+        "apps/socialflow-runtime/wrangler.toml",
+        "apps/socialflow-runtime/wrangler.production.toml",
+        "workers/socialflows-runtime-canary/wrangler.workers.toml"
+      ],
+      "codePaths": [
+        "apps/socialflow-runtime/src/lib/db/runtime-db.ts",
+        "apps/socialflow-runtime/src/lib/runtime-env.ts",
+        "apps/socialflow-runtime/src/lib/socialflow/contracts/runtime-seed-contract.ts",
+        "src/lib/socialflow/contracts/export-core-read.ts",
+        "src/lib/socialflow/contracts/legacy-actions-core.ts",
+        "src/lib/socialflow/contracts/repository-core-context.ts"
+      ],
+      "reason": "Still part of the runtime boundary through legacy core projections, runtime seed fallback, export fallback and explicit runtime DB helpers."
+    },
+    "SAASES_DB": {
+      "detected": true,
+      "classification": "UNKNOWN_REVIEW",
+      "configPaths": [
+        "apps/socialflow-runtime/wrangler.toml",
+        "apps/socialflow-runtime/wrangler.production.toml",
+        "workers/socialflows/wrangler.workers.toml",
+        "workers/socialflows-runtime-canary/wrangler.workers.toml"
+      ],
+      "codePaths": [],
+      "reason": "Declared in runtime/worker configs but no active reads or writes were found in the audited SocialFlow runtime/source paths."
+    },
+    "SOCIAL_DB": {
+      "detected": true,
+      "classification": "SOCIALFLOW_OWNED_BINDING",
+      "configPaths": [
+        "apps/socialflow-runtime/wrangler.toml",
+        "apps/socialflow-runtime/wrangler.production.toml",
+        "workers/socialflows/wrangler.workers.toml",
+        "workers/socialflows-runtime-canary/wrangler.workers.toml"
+      ],
+      "codePaths": [
+        "apps/socialflow-runtime/src/lib/db/runtime-db.ts",
+        "apps/socialflow-runtime/src/lib/runtime-env.ts",
+        "apps/socialflow-runtime/src/lib/socialflow/contracts/runtime-seed-contract.ts",
+        "apps/socialflow-runtime/src/lib/socialflow/exports-service.ts",
+        "apps/socialflow-runtime/src/lib/socialflow/linkedin/oauth.ts",
+        "src/lib/socialflow/repository.ts",
+        "src/lib/socialflow/scheduler.ts",
+        "src/lib/socialflow/linkedin/repository.ts",
+        "src/lib/socialflow/contracts/legacy-actions-core.ts",
+        "src/lib/socialflow/contracts/repository-core-context.ts"
+      ],
+      "reason": "Primary SocialFlow persistence binding for workspace data, read models and runtime-owned functionality."
+    }
+  },
+  "controlPlaneReferences": {
+    "campamentoBase": [
+      {
+        "path": "src/lib/socialflow/contracts/campobase.ts",
+        "classification": "CONTROL_PLANE_REFERENCE_ALLOWED",
+        "reason": "Public adapter surface for Campamento Base."
+      },
+      {
+        "path": "src/lib/socialflow/contracts/linkedin-oauth-runtime.ts",
+        "classification": "NEEDS_ADAPTER",
+        "reason": "Comments and fallback path still expect a future Campamento Base contract for OAuth/integration events."
+      },
+      {
+        "path": "apps/socialflow-runtime/src/lib/socialflow/contracts/runtime-seed-contract.ts",
+        "classification": "NEEDS_ADAPTER",
+        "reason": "Fallback comment points to Campamento Base internal API as one migration target."
+      },
+      {
+        "path": "src/lib/socialflow/contracts/export-core-read.ts",
+        "classification": "NEEDS_ADAPTER",
+        "reason": "Fallback comment points to Campamento Base internal API as one migration target."
+      },
+      {
+        "path": "src/lib/socialflow/contracts/repository-core-context.ts",
+        "classification": "NEEDS_ADAPTER",
+        "reason": "Core projection comment points to Campamento Base internal API as one migration target."
+      }
+    ],
+    "owner": [
+      {
+        "path": "src/lib/socialflow/contracts/owner-dashboard.ts",
+        "classification": "CONTROL_PLANE_REFERENCE_ALLOWED",
+        "reason": "Owner-facing read contract built on top of SocialFlow-owned repository data."
+      }
+    ],
+    "operator": [
+      {
+        "path": "src/lib/socialflow/contracts/automation.ts",
+        "classification": "CONTROL_PLANE_REFERENCE_ALLOWED",
+        "reason": "Product-owned automation contract explicitly intended for operator callers."
+      },
+      {
+        "path": "src/lib/socialflow/contracts/operator-actions.ts",
+        "classification": "CONTROL_PLANE_REFERENCE_ALLOWED",
+        "reason": "Public operator action contract over SocialFlow product APIs."
+      },
+      {
+        "path": "src/lib/socialflow/contracts/observability.ts",
+        "classification": "CONTROL_PLANE_REFERENCE_ALLOWED",
+        "reason": "Public observability contract consumed by operator/campobase surfaces."
+      }
+    ],
+    "factory": [],
+    "mentoria": [],
+    "drako": [
+      {
+        "path": "apps/socialflow-runtime/src/middleware.ts",
+        "classification": "LEGACY_COMPAT",
+        "reason": "Uses x-drako-* headers for tenant isolation context propagation."
+      },
+      {
+        "path": "src/app/api/socialflow/auths/registrations/route.ts",
+        "classification": "LEGACY_COMPAT",
+        "reason": "Uses x-drako-correlation-id request header."
+      }
+    ]
+  },
+  "blockers": [
+    {
+      "id": "shared-draco-binding-still-required",
+      "classification": "BLOCKER_SHARED_DB",
+      "files": [
+        "apps/socialflow-runtime/wrangler.toml",
+        "apps/socialflow-runtime/wrangler.production.toml",
+        "workers/socialflows-runtime-canary/wrangler.workers.toml",
+        "apps/socialflow-runtime/src/lib/db/runtime-db.ts"
+      ],
+      "reason": "The isolated runtime still exposes and validates a DRACO_DB binding."
+    },
+    {
+      "id": "legacy-core-projection-context",
+      "classification": "BLOCKER_CROSS_RUNTIME",
+      "files": [
+        "src/lib/socialflow/contracts/repository-core-context.ts",
+        "src/lib/socialflow/contracts/legacy-actions-core.ts"
+      ],
+      "reason": "Repository and legacy actions still project through core-backed context/fallback paths tied to DRACO_DB."
+    },
+    {
+      "id": "runtime-seed-core-fallback",
+      "classification": "BLOCKER_CROSS_RUNTIME",
+      "files": [
+        "apps/socialflow-runtime/src/lib/socialflow/contracts/runtime-seed-contract.ts"
+      ],
+      "reason": "Runtime seed contract still falls back to the core saas table via DRACO_DB when SOCIAL_DB read models are unavailable."
+    },
+    {
+      "id": "export-core-read-fallback",
+      "classification": "BLOCKER_CROSS_RUNTIME",
+      "files": [
+        "src/lib/socialflow/contracts/export-core-read.ts"
+      ],
+      "reason": "Export generation still depends on core tables such as saas, tenant_strategic_dossiers, agent_work_logs, orchestrator_messages, economic_events and saas_domains."
+    },
+    {
+      "id": "linkedin-oauth-core-projection",
+      "classification": "BLOCKER_CROSS_RUNTIME",
+      "files": [
+        "src/lib/socialflow/contracts/linkedin-oauth-runtime.ts",
+        "src/lib/socialflow/linkedin/repository.ts"
+      ],
+      "reason": "LinkedIn OAuth persistence/validation still projects through integration-core until the SOCIAL_DB-owned path becomes the only runtime path."
+    }
+  ],
+  "warnings": [
+    {
+      "id": "saases-db-boundary-still-attached",
+      "classification": "UNKNOWN_REVIEW",
+      "files": [
+        "apps/socialflow-runtime/wrangler.toml",
+        "apps/socialflow-runtime/wrangler.production.toml",
+        "workers/socialflows/wrangler.workers.toml",
+        "workers/socialflows-runtime-canary/wrangler.workers.toml"
+      ],
+      "reason": "SAASES_DB is still part of the deployment boundary even though no active usage was found in the audited runtime/source paths."
+    },
+    {
+      "id": "preexisting-runtime-boundaries-diff",
+      "classification": "REVIEW_REQUIRED",
+      "files": [
+        "apps/socialflow-runtime/runtime-boundaries.json"
+      ],
+      "reason": "Dirty inherited file was left untouched and should be reviewed separately before any manual commit."
+    }
+  ],
+  "recommendationsP18B": [
+    {
+      "priority": 1,
+      "action": "Remove DRACO_DB from the SocialFlow isolated runtime only after runtime seed, legacy context, exports and OAuth no longer require core-backed fallbacks."
+    },
+    {
+      "priority": 2,
+      "action": "Convert runtime-seed, export and legacy repository contracts from fallback adapters into SOCIAL_DB-owned implementations with explicit migration-complete evidence."
+    },
+    {
+      "priority": 3,
+      "action": "Finish LinkedIn OAuth cutover so SOCIAL_DB becomes the single source of truth and integration-core projection becomes optional telemetry or is deleted."
+    },
+    {
+      "priority": 4,
+      "action": "Review whether SAASES_DB must stay bound; if unused by the isolated runtime, remove it from runtime contracts/config once deployment dependencies confirm safe removal."
+    }
+  ],
+  "finalAssessment": {
+    "coupledToDrako": true,
+    "coupledToCampamentoBase": true,
+    "coupledToFactory": false,
+    "coupledToOwner": true,
+    "coupledToOperator": true,
+    "coupledToDRACO_DB": true,
+    "coupledToSAASES_DB": true,
+    "coupledToSOCIAL_DB": true
+  }
+}

@@ -1,3 +1,4 @@
+import React from "react";
 import type { PropsWithChildren, ReactNode } from "react";
 
 export default function EmptyState({ icon, title, subtitle, children }: PropsWithChildren<{ icon?: ReactNode; title: string; subtitle?: string }>) {

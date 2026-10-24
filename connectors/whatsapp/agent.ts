@@ -33,39 +33,45 @@ function logToWhatsAppAgent(level: 'INFO' | 'ERROR', message: string) {
     console.log(`[WhatsAppAgent] ${level}: ${message}`);
 }
 
-/**
- * Sends a WhatsApp alert using the Cloud API.
- * @param summary The message content to send.
- */
-export async function sendWhatsAppAlert(summary: string): Promise<void> {
-    const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-    const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    const RECIPIENT_PHONE = process.env.RECIPIENT_PHONE;
+export type WhatsAppSendResult = {
+    success: boolean;
+    messageId?: string;
+    error?: string;
+    retryCount: number;
+};
 
-    // Dry-run mode detection
-    const isDryRun = !WHATSAPP_TOKEN || !WHATSAPP_PHONE_NUMBER_ID || !RECIPIENT_PHONE;
+const MAX_RETRIES = 3;
+const INITIAL_BACKOFF_MS = 1000;
 
-    if (isDryRun) {
-        logToWhatsAppAgent('INFO', `DRY-RUN MODE: Missing environment variables. Alert summary: "${summary}"`);
-        return;
+function validateWhatsAppConfig(): { token: string; phoneNumberId: string; recipientPhone: string } {
+    const token = process.env.WHATSAPP_TOKEN?.trim();
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
+    const recipientPhone = process.env.RECIPIENT_PHONE?.trim();
+
+    if (!token) {
+        throw new Error('WHATSAPP_TOKEN environment variable is required');
+    }
+    if (!phoneNumberId) {
+        throw new Error('WHATSAPP_PHONE_NUMBER_ID environment variable is required');
+    }
+    if (!recipientPhone) {
+        throw new Error('RECIPIENT_PHONE environment variable is required');
     }
 
-    const url = `https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
+    return { token, phoneNumberId, recipientPhone };
+}
 
-    const payload = {
-        messaging_product: 'whatsapp',
-        to: RECIPIENT_PHONE,
-        type: 'text',
-        text: {
-            body: summary,
-        },
-    };
-
+async function sendWhatsAppWithRetry(
+    url: string,
+    payload: Record<string, unknown>,
+    token: string,
+    retryCount: number = 0,
+): Promise<WhatsAppSendResult> {
     try {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(payload),
@@ -75,13 +81,60 @@ export async function sendWhatsAppAlert(summary: string): Promise<void> {
 
         if (!response.ok) {
             const errorMessage = data.error?.message || response.statusText;
-            throw new Error(`WhatsApp API Error: ${errorMessage}`);
+            const error = new Error(`WhatsApp API Error: ${errorMessage}`);
+
+            if (retryCount < MAX_RETRIES && (response.status === 429 || response.status >= 500)) {
+                const backoffMs = INITIAL_BACKOFF_MS * Math.pow(2, retryCount);
+                logToWhatsAppAgent('INFO', `RETRYING (attempt ${retryCount + 1}/${MAX_RETRIES}) after ${backoffMs}ms: ${errorMessage}`);
+                await new Promise(resolve => setTimeout(resolve, backoffMs));
+                return sendWhatsAppWithRetry(url, payload, token, retryCount + 1);
+            }
+
+            logToWhatsAppAgent('ERROR', `Failed to send alert after ${retryCount} retries: ${errorMessage}`);
+            throw error;
         }
 
-        logToWhatsAppAgent('INFO', `Alert sent successfully to ${RECIPIENT_PHONE}. Message ID: ${data.messages?.[0]?.id}`);
+        const messageId = data.messages?.[0]?.id;
+        logToWhatsAppAgent('INFO', `Alert sent successfully. Message ID: ${messageId}`);
+        return {
+            success: true,
+            messageId,
+            retryCount,
+        };
     } catch (error: any) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        logToWhatsAppAgent('ERROR', `Failed to send alert: ${errorMessage}`);
+
+        if (retryCount < MAX_RETRIES) {
+            const backoffMs = INITIAL_BACKOFF_MS * Math.pow(2, retryCount);
+            logToWhatsAppAgent('INFO', `RETRYING (attempt ${retryCount + 1}/${MAX_RETRIES}) after ${backoffMs}ms: ${errorMessage}`);
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+            return sendWhatsAppWithRetry(url, payload, token, retryCount + 1);
+        }
+
+        logToWhatsAppAgent('ERROR', `Failed to send alert after ${retryCount} retries: ${errorMessage}`);
         throw error;
     }
+}
+
+/**
+ * Sends a WhatsApp alert using the Cloud API with retry logic.
+ * @param summary The message content to send.
+ * @returns Result object with success status and message ID
+ * @throws Error if all retry attempts fail or config is missing
+ */
+export async function sendWhatsAppAlert(summary: string): Promise<WhatsAppSendResult> {
+    const { token, phoneNumberId, recipientPhone } = validateWhatsAppConfig();
+
+    const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+
+    const payload = {
+        messaging_product: 'whatsapp',
+        to: recipientPhone,
+        type: 'text',
+        text: {
+            body: summary,
+        },
+    };
+
+    return sendWhatsAppWithRetry(url, payload, token);
 }

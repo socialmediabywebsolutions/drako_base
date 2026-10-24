@@ -29,7 +29,7 @@ export function EliteContract({ contractId, projectName, content, onSigned }: El
         setError(null);
 
         try {
-            const res = await fetch("/api/campamento-base/contracts", {
+            const res = await fetch("/api/factory/contracts", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

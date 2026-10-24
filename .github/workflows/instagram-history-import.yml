@@ -1,0 +1,26 @@
+name: 📥 Instagram — Importar histórico de posts
+
+# Solo manual. Llama a POST /api/socialflow/admin/import-instagram-posts, que importa a
+# saas_social_posts (creation_mode IMPORTED) los últimos 6 meses de posts de todas las
+# cuentas de Instagram CONNECTED_REAL. Es idempotente (índice único tenant_id +
+# external_post_id), se puede relanzar sin duplicar. Workflow aparte del DKS Cron Runbook
+# porque lanzar ese a mano dispara también todos sus jobs de cron.
+on:
+  workflow_dispatch:
+
+jobs:
+  import:
+    name: Importar histórico (6 meses)
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔗 Llamar al endpoint de importación
+        run: |
+          STATUS=$(curl -s -o /tmp/import_response.json -w "%{http_code}" --max-time 600 \
+            -X POST "https://socialflows.drako.systems/api/socialflow/admin/import-instagram-posts" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP status: $STATUS"
+          cat /tmp/import_response.json
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Import failed with status $STATUS"
+            exit 1
+          fi

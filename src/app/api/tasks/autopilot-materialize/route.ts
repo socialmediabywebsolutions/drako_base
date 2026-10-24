@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireTenantAccess } from "@/lib/auth/session";
 import { handleTasksApiError } from "@/lib/tasks/api-helpers";
 import { materializeAutopilotActionsAsTasks } from "@/lib/tasks/autopilot-bridge";
 import { buildOwnerControlSnapshot } from "@/lib/owner/control-dashboard";
-// export const runtime = "edge"; // OpenNext Migration
 
 
 export async function POST(request: Request) {

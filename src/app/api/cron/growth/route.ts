@@ -1,20 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runWeeklyGrowthAnalysis } from "@/lib/saas/growth/analyzer";
 import { getDb } from "@/lib/db";
+import { CronAuthError, verifyCronAuth } from "@/lib/security/cron-auth";
 
 // This endpoint should be secured via CRON_SECRET or Internal Token
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-    // 1. Security Check (Basic for V1)
-    const authHeader = req.headers.get("Authorization");
-    const cronSecret = process.env.CRON_SECRET || "simulate-secret"; // Fallback for dev
-    if (authHeader !== `Bearer ${cronSecret}` && process.env.NODE_ENV === 'production') {
+    try {
+        verifyCronAuth(req);
+    } catch (error) {
+        if (error instanceof CronAuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // 2. Resolve Tenants
     const d1 = getDb();
+    if (!d1) {
+        return NextResponse.json(
+            { ok: false, error: "Database unavailable", timestamp: new Date().toISOString() },
+            { status: 503 }
+        );
+    }
+
     const { results: tenants } = await d1.prepare("SELECT id FROM tenants").all<{ id: string }>();
 
     const results = [];

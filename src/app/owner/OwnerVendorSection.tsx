@@ -32,7 +32,7 @@ export default function OwnerVendorSection() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/owner/vendor/snapshot", { cache: "no-store" });
+      const res = await fetch("/api/operator/vendor/snapshot", { cache: "no-store" });
       const data = (await res.json().catch(() => null)) as { snapshot?: DrakoVendorAccountingSnapshot } | null;
       setSnapshot(data?.snapshot ?? null);
     } catch (err) {
@@ -67,7 +67,7 @@ export default function OwnerVendorSection() {
   return (
     <Card
       tone="glass"
-      title="Drako Vendor (Campamento Base)"
+      title="Drako Vendor (operator)"
       subtitle="Gastos de infra, IA, marketing y equipo con margen aproximado por vertical."
     >
       {loading ? (

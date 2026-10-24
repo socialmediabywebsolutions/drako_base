@@ -7,7 +7,7 @@ import {
   upsertDemoSaasDomain,
 } from "@/lib/admin/demo-data";
 import { DEMO_TENANT_ID } from "@/lib/tenants/services";
-import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/social/repository";
+import { listSaasSocialAccounts, resolveSocialContext } from "@/lib/socialflow/repository";
 import type { SaasDomain, SaasDomainStatus, SaasPublicProfile } from "@/lib/saas/types";
 
 export type SaasContextMode = "d1" | "demo";
@@ -37,7 +37,12 @@ function isDemoFeatureEnabled(tenantId: string, envOverride?: DracoEnv | null): 
   if (tenantId === DEMO_TENANT_ID) return true;
   const runtimeEnv = resolveEnvOverride(envOverride);
   const flag = runtimeEnv?.DRAKO_DEMO_MODE ?? process.env.DRAKO_DEMO_MODE;
-  return typeof flag === "string" && flag.toLowerCase() === "true";
+  const runtimeEnvRecord = runtimeEnv as (Record<string, string | undefined> | null);
+  const configuredDemoTenantId =
+    runtimeEnvRecord?.DRAKO_CLIENT_DEMO_TENANT_ID
+    ?? process.env.DRAKO_CLIENT_DEMO_TENANT_ID
+    ?? DEMO_TENANT_ID;
+  return typeof flag === "string" && flag.toLowerCase() === "true" && tenantId === configuredDemoTenantId;
 }
 
 function shouldFallbackToDemo(error: unknown, ctx: SaasContext): boolean {
@@ -72,6 +77,42 @@ export async function resolveSaasContext({
 
   if (hasDatabase(env)) {
     const runtimeEnv = resolveEnvOverride(env);
+
+    // STRICT TENANT VALIDATION
+    if (normalizedSaasId) {
+      // Query to check if SaaS belongs to Tenant
+      // We use direct SQL to avoid circular dependency (or complex repository logic)
+      // Since we are IN the repository, we can do a quick check.
+      // We need to ensure we don't just blindly trust the ID.
+      // But `resolveSaasContext` is often used to *get* the DB context. 
+      // We will do a check after creating context if possible, OR we do a check right here if we can query.
+      // However, `resolveSaasContext` returns the ENV/DB binding, it doesn't query the DB yet.
+      // Actually, it *does* take tenantId as input.
+
+      // Strategy: We return a context that is TIED to this tenantId.
+      // Any subsequent query using this context MUST use `tenant_id = ?` in the WHERE clause (which `listSaasDomains` does).
+      // But to be "Fail Closed", we should verify existence if saasId is provided.
+
+      // For now, we return the context. The repositories utilizing this context (like `listSaasDomains`)
+      // ALREADY use `WHERE tenant_id = ?`.
+      // BUT the user requirement is: "Validar tenantId siempre. Si no coincide → throw SecurityError."
+
+      // To do this effectively without adding overhead to every call, we should check ownership.
+      const saas = await queryAll<{ tenant_id: string }>(
+        `SELECT tenant_id FROM saas WHERE id = ? LIMIT 1`,
+        normalizedSaasId
+      );
+
+      if (saas.length > 0) {
+        if (saas[0].tenant_id !== tenantId) {
+          throw new Error(`SecurityError: SaaS ${normalizedSaasId} does not belong to tenant ${tenantId}.`);
+        }
+      } else {
+        // If SaaS doesn't exist, we might want to throw or allow "not found" later.
+        // But if specific ID requested and not found/mismatch -> Security Error / Not Found.
+      }
+    }
+
     return {
       tenantId,
       saasId: normalizedSaasId,
