@@ -25,7 +25,7 @@ pattern = "socialflow.drako.systems"
 custom_domain = true
 
 [[routes]]
-pattern = "socialcors.com"
+pattern = "drako.systems"
 custom_domain = true
 
 [[d1_databases]]
@@ -81,10 +81,10 @@ crons = ["*/5 * * * *", "*/20 * * * *", "0 */4 * * *", "0 3 * * *", "0 3 * * 1",
 
 [vars]
 SAASES_SLUG = "socialflows"
-SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems,socialcors.com"
+SAASES_DOMAIN = "socialflows.drako.systems,socialflow.drako.systems,drako.systems"
 WORKERS_ONLY_MODE = "true"
 INSTAGRAM_APP_ID = "1534853271675778"
-APP_URL = "https://socialflows.drako.systems"
+APP_URL = "https://drako.systems"
 # P4: el Worker IA publica los posts programados; este Worker solo recoge los que lleven
 # >10 min vencidos (red de seguridad). Valores: ai | web | both (ver publish-scheduler-owner.ts).
 SOCIALFLOW_PUBLISH_SCHEDULER_OWNER = "ai"

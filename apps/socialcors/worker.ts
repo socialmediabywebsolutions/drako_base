@@ -14,6 +14,23 @@
  * HTTP legible en lugar de un 500 opaco. Facilita la diagnosis en CI.
  */
 
+// ── Patch: middleware-manifest.json dynamic require ──────────────────────────
+// Next.js loadMiddleware() calls require() directly (not via loadManifest).
+// Cloudflare Workers nodejs_compat require() cannot load filesystem paths.
+// We intercept globalThis.require before OpenNext loads to short-circuit it.
+{
+  const _mwr = (globalThis as any).require as ((id: string) => unknown) | undefined;
+  if (typeof _mwr === "function") {
+    (globalThis as any).require = function(id: string) {
+      if (typeof id === "string" && id.endsWith("middleware-manifest.json")) {
+        return {"version":3,"middleware":{"/":{"files":["server/edge-runtime-webpack.js","server/src/middleware.js"],"name":"src/middleware","page":"/","matchers":[{"regexp":"^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/((?!_next\\/static|_next\\/image|favicon.ico).*))(\\.json)?[\\/#\\?]?$","originalSource":"/((?!_next/static|_next/image|favicon.ico).*)"}],"wasm":[],"assets":[],"env":{"__NEXT_BUILD_ID":"IsCWWyof14YUliO5K-6Tj","NEXT_SERVER_ACTIONS_ENCRYPTION_KEY":"G6FK9yyyqPTo8wnwBc6zztPVhYQYgfvjnFWZxeXDR9c=","__NEXT_PREVIEW_MODE_ID":"4ea679f4c2e4b39c5e2f8c37e9cbce51","__NEXT_PREVIEW_MODE_SIGNING_KEY":"1bc420e1ef0d31579100cc1952291e749d6aefe705efea5ae4a580ef48b2ae20","__NEXT_PREVIEW_MODE_ENCRYPTION_KEY":"c8dc09940f2e15aee1b43bf4d682629f718805614f21ce0b6860dd31fb9ca9a6"}}},"functions":{},"sortedMiddleware":["/"]};
+      }
+      return (_mwr as Function).apply(this, arguments as unknown as [string]);
+    };
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // @ts-ignore -- generado por `opennextjs-cloudflare build`
 type OpenNextWorker = { fetch: (req: Request, env: unknown, ctx: ExecutionContext) => Promise<Response> };
 let _worker: OpenNextWorker | null = null;
